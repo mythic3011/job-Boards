@@ -11,16 +11,13 @@
 
 <div>
     @if($label)
-        <label for="{{ $name }}" class="block text-sm font-medium text-gray-700 mb-1">
+        <x-ui.form-label :for="$name" :required="$required" class="mb-1">
             {{ $label }}
-            @if($required)
-                <span class="text-red-500">*</span>
-            @endif
-        </label>
+        </x-ui.form-label>
     @endif
 
     @if($help)
-        <p class="text-sm text-gray-500 mb-2">{{ $help }}</p>
+        <x-ui.form-help class="mb-2">{{ $help }}</x-ui.form-help>
     @endif
 
     <div class="mt-1 flex items-center gap-4">
@@ -68,11 +65,5 @@
         @endif
     </div>
 
-    @if($error)
-        <p class="mt-1 text-sm text-red-600">{{ $error }}</p>
-    @endif
-
-    @error($name)
-        <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-    @enderror
+    <x-ui.form-error :name="$name" :message="$error" />
 </div>

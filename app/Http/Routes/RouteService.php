@@ -3,6 +3,7 @@
 namespace App\Http\Routes;
 
 use App\Http\Controllers\ApplicationController;
+use App\Http\Controllers\InstallController;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -35,174 +36,23 @@ class RouteService
      */
     private static function registerInstallRoutes(): void
     {
-        // Security: Comprehensive protection for install routes
         Route::middleware([
             \App\Http\Middleware\EnsureSetupNotCompleted::class,
-            'throttle:10,1'
+            'throttle:10,1',
         ])->group(function () {
+            Route::get('/install/status', [InstallController::class, 'status'])
+                ->name('install.status');
 
-            // Security: Pre-flight check for installation
-            Route::get('/install/status', function (\Illuminate\Http\Request $request) {
-                $installService = app(\App\Services\InstallService::class);
-                $status = $installService->isInstallationAllowed($request);
+            Route::get('/install', [InstallController::class, 'index'])
+                ->name('install.index');
 
-                return response()->json([
-                    'allowed' => $status['allowed'],
-                    'issues' => $status['issues'],
-                    'timestamp' => now()->timestamp
-                ])->header('X-Content-Type-Options', 'nosniff')
-                  ->header('X-Frame-Options', 'DENY')
-                  ->header('X-XSS-Protection', '1; mode=block');
-            })->name('install.status');
-            Route::get('/install', function () {
-                return view('install.index');
-            })->name('install.index');
+            Route::post('/install/checks', [InstallController::class, 'checks'])
+                ->middleware('throttle:5,1')
+                ->name('install.checks');
 
-            // Security: API routes for JavaScript install wizard with enhanced security
-            Route::post('/install/checks', function (\Illuminate\Http\Request $request) {
-                // Security: Additional validation
-                $request->validate([
-                    'timestamp' => 'required|integer',
-                    'session' => 'required|string|max:100'
-                ]);
-
-                // Security: Check request age (prevent replay attacks)
-                $requestAge = now()->timestamp - $request->timestamp;
-                if ($requestAge > 300 || $requestAge < -60) { // 5 minutes max, 1 minute tolerance
-                    return response()->json(['error' => 'Request expired'], 400);
-                }
-
-                try {
-                    $installService = app(\App\Services\InstallService::class);
-
-                    // Security: Log the check attempt
-                    app(\App\Services\AuditLogger::class)->logBusinessEvent(
-                        eventType: 'install.checks_attempt',
-                        request: $request,
-                        targetType: 'system',
-                        targetIdcode: null,
-                        meta: [
-                            'session' => $request->session,
-                            'ip' => $request->ip(),
-                            'user_agent' => $request->userAgent()
-                        ]
-                    );
-
-                    $checks = $installService->runSystemChecks();
-
-                    return response()->json([
-                        'checks' => $checks,
-                        'session' => $request->session
-                    ])->header('X-Content-Type-Options', 'nosniff')
-                      ->header('X-Frame-Options', 'DENY')
-                      ->header('X-XSS-Protection', '1; mode=block');
-
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('Install checks failed', [
-                        'error' => $e->getMessage(),
-                        'session' => $request->session,
-                        'ip' => $request->ip()
-                    ]);
-
-                    return response()->json([
-                        'checks' => [
-                            'database' => false,
-                            'storage' => false,
-                            'cache' => false,
-                            'error' => 'System check failed'
-                        ]
-                    ], 500);
-                }
-            })->name('install.checks')->middleware('throttle:5,1');
-
-            Route::post('/install/complete', function (\Illuminate\Http\Request $request) {
-                // Security: Comprehensive validation
-                $request->validate([
-                    'admin_name' => 'required|string|max:255|regex:/^[a-zA-Z\s\-_\.]+$/',
-                    'admin_email' => 'required|email:rfc,dns|unique:users,email|max:255',
-                    'admin_password' => 'required|string|min:12|max:255|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/',
-                    'admin_password_confirmation' => 'required|string|same:admin_password',
-                    'two_factor_secret' => 'required|string|regex:/^[A-Z2-7]{16,}$/i',
-                    'install_demo_data' => 'boolean',
-                    'timestamp' => 'required|integer',
-                    'session' => 'required|string|max:100'
-                ]);
-
-                // Security: Check request age (prevent replay attacks)
-                $requestAge = now()->timestamp - $request->timestamp;
-                if ($requestAge > 600 || $requestAge < -60) { // 10 minutes max, 1 minute tolerance
-                    return response()->json(['error' => 'Request expired'], 400);
-                }
-
-                // Security: Check for suspicious patterns
-                if (app(\App\Http\Middleware\HandleSuspiciousUserAgent::class)->isSuspicious($request)) {
-                    \Illuminate\Support\Facades\Log::warning('Suspicious install attempt blocked', [
-                        'ip' => $request->ip(),
-                        'user_agent' => $request->userAgent(),
-                        'session' => $request->session
-                    ]);
-
-                    return response()->json(['error' => 'Access denied'], 403);
-                }
-
-                // Security: Rate limit installation attempts
-                $key = 'install_attempts_' . $request->ip();
-                $attempts = \Illuminate\Support\Facades\Cache::get($key, 0);
-                if ($attempts >= 3) {
-                    return response()->json(['error' => 'Too many attempts. Try again later.'], 429);
-                }
-                \Illuminate\Support\Facades\Cache::put($key, $attempts + 1, now()->addMinutes(30));
-
-                try {
-                    $installService = app(\App\Services\InstallService::class);
-
-                    // Security: Log the installation attempt
-                    app(\App\Services\AuditLogger::class)->logBusinessEvent(
-                        eventType: 'install.complete_attempt',
-                        request: $request,
-                        targetType: 'system',
-                        targetIdcode: null,
-                        meta: [
-                            'session' => $request->session,
-                            'ip' => $request->ip(),
-                            'user_agent' => $request->userAgent(),
-                            'demo_data' => $request->boolean('install_demo_data')
-                        ]
-                    );
-
-                    $installService->completeInstallation([
-                        'admin_name' => $request->admin_name,
-                        'admin_email' => $request->admin_email,
-                        'admin_password' => $request->admin_password,
-                        'two_factor_secret' => $request->input('two_factor_secret'),
-                        'install_demo_data' => $request->boolean('install_demo_data'),
-                    ]);
-
-                    // Security: Clear rate limit on success
-                    \Illuminate\Support\Facades\Cache::forget($key);
-
-                    return response()->json([
-                        'success' => true,
-                        'message' => 'Installation completed successfully!',
-                        'redirect' => route('login')
-                    ])->header('X-Content-Type-Options', 'nosniff')
-                      ->header('X-Frame-Options', 'DENY')
-                      ->header('X-XSS-Protection', '1; mode=block');
-
-                } catch (\Exception $e) {
-                    \Illuminate\Support\Facades\Log::error('Installation failed', [
-                        'error' => $e->getMessage(),
-                        'session' => $request->session,
-                        'ip' => $request->ip(),
-                        'trace' => $e->getTraceAsString()
-                    ]);
-
-                    return response()->json([
-                        'success' => false,
-                        'message' => 'Installation failed. Please try again.'
-                    ], 500);
-                }
-            })->name('install.complete')->middleware('throttle:2,10'); // Max 2 attempts per 10 minutes
+            Route::post('/install/complete', [InstallController::class, 'complete'])
+                ->middleware('throttle:2,10')
+                ->name('install.complete');
         });
     }
 

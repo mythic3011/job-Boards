@@ -6,8 +6,8 @@
 
 @php
     // Convert string "false" to boolean false - Blade passes props as strings
-    $showHeader = ($showHeader === 'false' || $showHeader === false || $showHeader === 0 || $showHeader === '0') ? false : true;
-    $showNavigation = ($showNavigation === 'false' || $showNavigation === false || $showNavigation === 0 || $showNavigation === '0') ? false : true;
+    $showHeader = filter_var($showHeader, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
+    $showNavigation = filter_var($showNavigation, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
 @endphp
 
 <!DOCTYPE html>
@@ -28,7 +28,7 @@
         <x-layouts.header :show-navigation="$showNavigation" />
     @endif
 
-    <main class="{{ $showHeader ? 'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8' : '' }}">
+    <main class="{{ $showHeader ? 'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8' : '' }}" role="main">
         @if($showHeader)
             <x-layouts.flash-messages />
         @endif
