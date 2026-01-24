@@ -38,8 +38,9 @@ class RouteService
     {
         Route::middleware([
             \App\Http\Middleware\EnsureSetupNotCompleted::class,
-            'throttle:10,1',
         ])->group(function () {
+            // Rate limiting removed from install routes - handled internally by InstallController
+            // This prevents "Request expired" errors during the installation process
             Route::get('/install/status', [InstallController::class, 'status'])
                 ->name('install.status');
 
@@ -47,11 +48,9 @@ class RouteService
                 ->name('install.index');
 
             Route::post('/install/checks', [InstallController::class, 'checks'])
-                ->middleware('throttle:5,1')
                 ->name('install.checks');
 
             Route::post('/install/complete', [InstallController::class, 'complete'])
-                ->middleware('throttle:2,10')
                 ->name('install.complete');
         });
     }

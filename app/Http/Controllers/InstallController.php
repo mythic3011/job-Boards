@@ -12,12 +12,14 @@ use Illuminate\Validation\ValidationException;
 
 class InstallController extends Controller
 {
-    // Request timeout constants (in seconds)
-    private const REQUEST_MAX_AGE_CHECKS = 300; // 5 minutes
-    private const REQUEST_MAX_AGE_COMPLETE = 600; // 10 minutes
-    private const REQUEST_TOLERANCE = 60; // 1 minute
-    private const MAX_INSTALL_ATTEMPTS = 3;
-    private const INSTALL_ATTEMPT_CACHE_TTL = 30; // minutes
+    private const REQUEST_MAX_AGE_CHECKS = 300;
+    private const REQUEST_MAX_AGE_COMPLETE = 1800;
+    private const REQUEST_TOLERANCE = 60;
+    private const MAX_INSTALL_ATTEMPTS = 5;
+    private const INSTALL_ATTEMPT_CACHE_TTL = 10;
+    private const INSTALL_SESSION_KEY = 'IP_INSTALL_SESSION';
+    private const INSTALL_SESSION_TIMEOUT = 3600;
+    private const INSTALL_MAX_ATTEMPTS_DURING_SESSION = 20;
 
     public function __construct(
         private readonly InstallService $installService,
@@ -41,8 +43,10 @@ class InstallController extends Controller
     /**
      * Display installation index page.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $this->setInstallSession($request);
+        
         return view('install.index');
     }
 
@@ -52,7 +56,14 @@ class InstallController extends Controller
     public function checks(Request $request): JsonResponse
     {
         $this->validateChecksRequest($request);
-        $this->validateRequestAge($request, self::REQUEST_MAX_AGE_CHECKS);
+        
+        $this->setInstallSession($request);
+        
+        if (!$this->isInstallSessionValid($request)) {
+            $this->validateRequestAge($request, self::REQUEST_MAX_AGE_CHECKS);
+        } else {
+            $this->validateRequestAge($request, self::REQUEST_MAX_AGE_CHECKS * 6);
+        }
 
         try {
             $this->logCheckAttempt($request);
@@ -87,9 +98,27 @@ class InstallController extends Controller
     public function complete(Request $request): JsonResponse
     {
         $this->validateCompleteRequest($request);
-        $this->validateRequestAge($request, self::REQUEST_MAX_AGE_COMPLETE);
+        
+        $isActiveSession = $this->isInstallSessionValid($request);
+        
+        if ($isActiveSession) {
+            $requestAge = now()->timestamp - $request->timestamp;
+            if ($requestAge > self::REQUEST_MAX_AGE_COMPLETE) {
+                throw ValidationException::withMessages([
+                    'timestamp' => 'Request expired',
+                ]);
+            }
+        } else {
+            $this->validateRequestAge($request, self::REQUEST_MAX_AGE_COMPLETE);
+        }
+        
         $this->checkSuspiciousActivity($request);
-        $this->checkRateLimit($request);
+        
+        if ($isActiveSession) {
+            $this->checkRateLimitDuringInstall($request);
+        } else {
+            $this->checkRateLimit($request);
+        }
 
         try {
             $this->logInstallAttempt($request);
@@ -103,6 +132,7 @@ class InstallController extends Controller
             ]);
 
             $this->clearRateLimit($request);
+            $this->clearInstallSession($request);
 
             return $this->secureJsonResponse([
                 'success' => true,
@@ -183,6 +213,7 @@ class InstallController extends Controller
 
     /**
      * Check rate limit for installation attempts.
+     * Standard rate limiting for new sessions.
      */
     private function checkRateLimit(Request $request): void
     {
@@ -194,6 +225,27 @@ class InstallController extends Controller
         }
 
         Cache::put($key, $attempts + 1, now()->addMinutes(self::INSTALL_ATTEMPT_CACHE_TTL));
+    }
+
+    /**
+     * Check rate limit during active installation session.
+     * More lenient but still provides protection against abuse.
+     */
+    private function checkRateLimitDuringInstall(Request $request): void
+    {
+        $key = $this->getRateLimitKey($request) . '_install';
+        $attempts = Cache::get($key, 0);
+
+        if ($attempts >= self::INSTALL_MAX_ATTEMPTS_DURING_SESSION) {
+            Log::warning('Install rate limit exceeded during active session', [
+                'ip' => $request->ip(),
+                'session' => $request->session()->getId(),
+                'attempts' => $attempts,
+            ]);
+            abort(429, 'Too many attempts during installation. Please wait a moment.');
+        }
+
+        Cache::put($key, $attempts + 1, now()->addMinutes(5));
     }
 
     /**
@@ -247,6 +299,57 @@ class InstallController extends Controller
                 'demo_data' => $request->boolean('install_demo_data'),
             ]
         );
+    }
+
+    /**
+     * Set installation session with IP binding and timestamp.
+     */
+    private function setInstallSession(Request $request): void
+    {
+        $request->session()->put(self::INSTALL_SESSION_KEY, [
+            'ip' => $request->ip(),
+            'started_at' => now()->timestamp,
+        ]);
+    }
+
+    /**
+     * Check if installation session is valid (exists, not expired, same IP).
+     */
+    private function isInstallSessionValid(Request $request): bool
+    {
+        $sessionData = $request->session()->get(self::INSTALL_SESSION_KEY);
+        
+        if (!$sessionData || !is_array($sessionData)) {
+            return false;
+        }
+
+        // Check if session expired (1 hour timeout)
+        $startedAt = $sessionData['started_at'] ?? 0;
+        if (now()->timestamp - $startedAt > self::INSTALL_SESSION_TIMEOUT) {
+            $this->clearInstallSession($request);
+            return false;
+        }
+
+        // Verify IP matches (prevent session hijacking)
+        if (($sessionData['ip'] ?? '') !== $request->ip()) {
+            Log::warning('Install session IP mismatch detected', [
+                'session_ip' => $sessionData['ip'] ?? 'unknown',
+                'request_ip' => $request->ip(),
+                'session_id' => $request->session()->getId(),
+            ]);
+            $this->clearInstallSession($request);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Clear installation session.
+     */
+    private function clearInstallSession(Request $request): void
+    {
+        $request->session()->forget(self::INSTALL_SESSION_KEY);
     }
 
     /**

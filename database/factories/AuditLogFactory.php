@@ -55,7 +55,7 @@ class AuditLogFactory extends Factory
     public function forUser(User $user): static
     {
         return $this->state(fn (array $attributes) => [
-            'actor_user_id' => $user->id,
+            'actor_user_id' => $user->getKey(),
             'actor_type' => 'user',
         ]);
     }

@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import {authenticator} from 'otplib';
+import { TOTP, generateSecret, generateURI, verify } from 'otplib';
 
 (function() {
     'use strict';
@@ -144,6 +144,7 @@ import {authenticator} from 'otplib';
                 confirm: '',
                 setup2fa: true,
                 twoFactorSecret: '',
+                recoveryCodes: [],
                 app_name: '',
                 app_url: '',
                 timezone: 'Asia/Hong_Kong',
@@ -159,13 +160,33 @@ import {authenticator} from 'otplib';
             }
 
             try {
-                const secret = authenticator.generateSecret(); // Base32 for Authy/Google Authenticator
+                const secret = generateSecret();
                 this.data.twoFactorSecret = secret;
                 return secret;
             } catch (e) {
                 console.error('generateSecret failed', e);
                 return '';
             }
+        }
+
+        generateRecoveryCodes(count = 10) {
+            if (this.data.recoveryCodes && this.data.recoveryCodes.length > 0) {
+                return this.data.recoveryCodes;
+            }
+
+            const codes = [];
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+            for (let i = 0; i < count; i++) {
+                let code = '';
+                for (let j = 0; j < 8; j++) {
+                    code += chars.charAt(Math.floor(Math.random() * chars.length));
+                }
+                codes.push(code);
+            }
+
+            this.data.recoveryCodes = codes;
+            return codes;
         }
 
         async generateQRCode(secret, email, appName) {
@@ -182,7 +203,11 @@ import {authenticator} from 'otplib';
             this.data.email = resolvedEmail;
             this.data.app_name = resolvedAppName;
 
-            const otpauth = authenticator.keyuri(resolvedEmail, resolvedAppName, safeSecret);
+            const otpauth = generateURI({
+                issuer: resolvedAppName,
+                label: resolvedEmail,
+                secret: safeSecret
+            });
 
             try {
                 return await QRCode.toDataURL(otpauth, {
@@ -228,6 +253,10 @@ import {authenticator} from 'otplib';
                 return;
             }
 
+            if (!this.data.recoveryCodes || this.data.recoveryCodes.length === 0) {
+                this.generateRecoveryCodes();
+            }
+
             const email = this.data.email || 'admin@example.com';
             const appName = this.data.app_name || 'Jobs Board';
 
@@ -237,6 +266,10 @@ import {authenticator} from 'otplib';
                 $('#2fa-qr-code').attr('src', qrCodeDataUrl);
                 const formattedSecret = (this.data.twoFactorSecret || '').replace(/\s+/g, '').match(/.{1,4}/g)?.join(' ') || this.data.twoFactorSecret;
                 $('#2fa-secret-key').text(formattedSecret);
+                
+                const recoveryCodes = this.generateRecoveryCodes();
+                this.renderRecoveryCodes(recoveryCodes);
+                
                 $qrSection.slideDown(300);
             }
         }
@@ -289,6 +322,11 @@ import {authenticator} from 'otplib';
                     })
                     .html(this.getWizardHTML());
 
+                if (window.toast) {
+                    window.toast.container = null;
+                    window.toast.init();
+                }
+
                 this.renderStep();
             } catch (error) {
                 console.error('Wizard render failed:', error);
@@ -336,6 +374,7 @@ import {authenticator} from 'otplib';
                     setTimeout(() => {
                         void this.ensure2FADisplay();
                         this.bindCopySecretHandler();
+                        this.bindRecoveryCodeHandlers();
                         this.bindStep2FormHandler();
                         this.bindQrRefreshHandlers();
                         this.bindOtpTestHandler();
@@ -439,9 +478,28 @@ import {authenticator} from 'otplib';
                                         <p id="test-otp-result" class="text-xs"></p>
                                     </div>
 
+                                    <div class="pt-4 border-t space-y-2">
+                                        <h4 class="text-sm font-semibold text-gray-800">Recovery Codes</h4>
+                                        <p class="text-xs text-gray-600">Save these recovery codes in a secure location. You can use them to access your account if you lose access to your authenticator device.</p>
+                                        <div id="recovery-codes-container" class="bg-gray-100 rounded-lg p-4 space-y-2 hidden">
+                                            <div id="recovery-codes-list" class="grid grid-cols-2 gap-2 font-mono text-sm"></div>
+                                            <div class="flex gap-2 pt-2">
+                                                <button type="button" id="copy-recovery-codes"
+                                                        class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                                                    Copy All Codes
+                                                </button>
+                                                <span class="text-gray-400">|</span>
+                                                <button type="button" id="download-recovery-codes"
+                                                        class="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+                                                    Download as Text
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                                         <p class="text-xs text-yellow-800">
-                                            <strong>Important:</strong> Save this secret key in a secure location. You'll need it to set up 2FA on your authenticator app. The QR code will be available again after installation.
+                                            <strong>Important:</strong> Save this secret key and recovery codes in a secure location. You'll need them to set up 2FA on your authenticator app and to recover your account if you lose access to your device. The QR code will be available again after installation.
                                         </p>
                                     </div>
                                 </div>
@@ -610,6 +668,22 @@ import {authenticator} from 'otplib';
             }
         }
 
+        renderRecoveryCodes(codes) {
+            const $container = $('#recovery-codes-container');
+            const $list = $('#recovery-codes-list');
+            
+            if (!$container.length || !$list.length || !codes || codes.length === 0) {
+                return;
+            }
+
+            $list.empty();
+            codes.forEach((code, index) => {
+                $list.append(`<div class="text-gray-900">${index + 1}. ${code}</div>`);
+            });
+            
+            $container.removeClass('hidden');
+        }
+
         bindCopySecretHandler() {
             const $button = $('#copy-2fa-secret');
             $button.off('click').on('click', () => {
@@ -625,6 +699,65 @@ import {authenticator} from 'otplib';
                 } else {
                     window.toast.error('Clipboard not available in this browser.');
                 }
+            });
+        }
+
+        bindRecoveryCodeHandlers() {
+            const $copyBtn = $('#copy-recovery-codes');
+            const $downloadBtn = $('#download-recovery-codes');
+
+            $copyBtn.off('click').on('click', () => {
+                const codes = this.data.recoveryCodes || [];
+                if (codes.length === 0) {
+                    window.toast.error('No recovery codes available.');
+                    return;
+                }
+
+                const codesText = codes.join('\n');
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(codesText)
+                        .then(() => window.toast.success('Recovery codes copied to clipboard!'))
+                        .catch(() => window.toast.error('Failed to copy recovery codes.'));
+                } else {
+                    window.toast.error('Clipboard not available in this browser.');
+                }
+            });
+
+            $downloadBtn.off('click').on('click', () => {
+                const codes = this.data.recoveryCodes || [];
+                if (codes.length === 0) {
+                    window.toast.error('No recovery codes available.');
+                    return;
+                }
+
+                const appName = this.data.app_name || 'Jobs Board';
+                const email = this.data.email || 'admin@example.com';
+                const content = [
+                    `${appName} - Recovery Codes`,
+                    `Generated for: ${email}`,
+                    `Generated on: ${new Date().toLocaleString()}`,
+                    '',
+                    'IMPORTANT: Store these codes in a secure location.',
+                    'Each code can only be used once.',
+                    '',
+                    'Recovery Codes:',
+                    ...codes.map((code, index) => `${index + 1}. ${code}`),
+                    '',
+                    'If you lose access to your authenticator device, use one of these codes to log in.',
+                    'After using a code, it will be invalidated and cannot be used again.'
+                ].join('\n');
+
+                const blob = new Blob([content], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${appName.replace(/\s+/g, '_')}_recovery_codes_${Date.now()}.txt`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                window.toast.success('Recovery codes downloaded!');
             });
         }
 
@@ -658,15 +791,13 @@ import {authenticator} from 'otplib';
                 return;
             }
 
-            authenticator.options = {window: 1};
-
             const setResult = (message, success) => {
                 $result.text(message)
                     .removeClass('text-red-600 text-green-600')
                     .addClass(success ? 'text-green-600' : 'text-red-600');
             };
 
-            $btn.off('click.otp').on('click.otp', () => {
+            $btn.off('click.otp').on('click.otp', async () => {
                 const code = ($input.val() || '').toString().trim();
                 if (!/^\d{6}$/.test(code)) {
                     setResult('Enter the 6-digit code from your authenticator app.', false);
@@ -674,12 +805,22 @@ import {authenticator} from 'otplib';
                 }
 
                 const secret = (this.data.twoFactorSecret || this.getOrCreateSecret() || '').toString().trim();
-                const isValid = authenticator.verify({token: code, secret});
-                 if (isValid) {
-                     setResult('Code is valid. 2FA setup looks good!', true);
-                 } else {
-                     setResult('Invalid code. Please double-check your authenticator app.', false);
-                 }
+                if (!secret) {
+                    setResult('2FA secret is missing. Please refresh the page.', false);
+                    return;
+                }
+
+                try {
+                    const result = await verify({ token: code, secret });
+                    if (result && result.valid === true) {
+                        setResult('Code is valid. 2FA setup looks good!', true);
+                    } else {
+                        setResult('Invalid code. Please double-check your authenticator app.', false);
+                    }
+                } catch (error) {
+                    console.error('Error verifying OTP:', error);
+                    setResult('Invalid code. Please double-check your authenticator app.', false);
+                }
              });
         }
 
@@ -698,6 +839,11 @@ import {authenticator} from 'otplib';
 
                 utils.setupAjax(this.csrf);
 
+                // Ensure recovery codes are generated
+                if (!this.data.recoveryCodes || this.data.recoveryCodes.length === 0) {
+                    this.generateRecoveryCodes();
+                }
+
                 const payload = {
                     ...this.data,
                     admin_name: this.data.name,
@@ -705,6 +851,7 @@ import {authenticator} from 'otplib';
                     admin_password: this.data.password,
                     admin_password_confirmation: this.data.confirm,
                     two_factor_secret: this.data.twoFactorSecret,
+                    recovery_codes: this.data.recoveryCodes || [],
                     timestamp: Date.now(),
                     session: this.session
                 };
