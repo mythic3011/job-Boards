@@ -1,6 +1,5 @@
 import QRCode from 'qrcode';
-import { generateSecret, generateURI } from 'otplib';
-import Toast from './components/toast';
+import {authenticator} from 'otplib';
 
 (function() {
     'use strict';
@@ -28,7 +27,6 @@ import Toast from './components/toast';
         EMAIL: '#email',
         PASSWORD: '#password',
         CONFIRM: '#confirm',
-        SETUP_2FA: '#setup2fa',
         DEMO: '#demo',
         APP_NAME: '#app_name',
         APP_URL: '#app_url',
@@ -40,8 +38,11 @@ import Toast from './components/toast';
     };
 
     const utils = {
-        generateSessionId: () => {
-            return `install_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        generateId: () => {
+            if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+                return crypto.randomUUID();
+            }
+            return `install_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
         },
 
         getCSRFToken: () => {
@@ -149,53 +150,93 @@ import Toast from './components/toast';
                 demo: false
             };
             this.csrf = utils.getCSRFToken();
-            this.session = utils.generateSessionId();
+            this.session = utils.generateId();
         }
 
-        generate2FASecret() {
-            return generateSecret();
-        }
+        getOrCreateSecret() {
+            if (this.data.twoFactorSecret) {
+                return this.data.twoFactorSecret.toString().trim();
+            }
 
-        async generateQRCode(secret, email, appName) {
-            const issuer = appName || 'Jobs Board';
-            const account = email || 'admin@example.com';
-            const otpAuthUrl = generateURI(secret, account, issuer);
-            
             try {
-                const qrCodeDataUrl = await QRCode.toDataURL(otpAuthUrl, {
-                    width: 256,
-                    margin: 2,
-                    color: {
-                        dark: '#000000',
-                        light: '#FFFFFF'
-                    }
-                });
-                return qrCodeDataUrl;
-            } catch (error) {
-                console.error('Error generating QR code:', error);
-                return null;
+                const secret = authenticator.generateSecret(); // Base32 for Authy/Google Authenticator
+                this.data.twoFactorSecret = secret;
+                return secret;
+            } catch (e) {
+                console.error('generateSecret failed', e);
+                return '';
             }
         }
 
-        async toggle2FADisplay(show) {
+        async generateQRCode(secret, email, appName) {
+            const safeSecret = (secret || this.getOrCreateSecret() || '').toString();
+            if (!safeSecret) {
+                console.error('2FA secret is missing; cannot generate QR code');
+                return null;
+            }
+
+            this.data.twoFactorSecret = safeSecret;
+
+            const resolvedEmail = email || this.data.email || 'admin@example.com';
+            const resolvedAppName = appName || this.data.app_name || 'Jobs Board';
+            this.data.email = resolvedEmail;
+            this.data.app_name = resolvedAppName;
+
+            const otpauth = authenticator.keyuri(resolvedEmail, resolvedAppName, safeSecret);
+
+            try {
+                return await QRCode.toDataURL(otpauth, {
+                    width: 256,
+                    margin: 2
+                });
+             } catch (error) {
+                 console.error('Error generating QR code:', error);
+                 return null;
+             }
+        }
+
+        isAdminInfoComplete(formData) {
+            if (!formData.username || formData.username.length < 3) return false;
+            if (!formData.name || formData.name.length < CONFIG.NAME_MIN_LENGTH) return false;
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(formData.email || '')) return false;
+            if (!formData.password || formData.password.length < CONFIG.PASSWORD_MIN_LENGTH) return false;
+            if (formData.password !== formData.confirm) return false;
+            return true;
+        }
+
+        async ensure2FADisplay() {
             const $qrSection = $('#2fa-qr-section');
-            if (!show) {
-                $qrSection.slideUp(300);
+            if ($qrSection.length === 0) {
+                return;
+            }
+
+            const formData = this.collectFormData();
+            this.data = { ...this.data, ...formData };
+
+            if (!this.isAdminInfoComplete(formData)) {
+                $qrSection.slideUp(200);
                 return;
             }
 
             if (!this.data.twoFactorSecret) {
-                this.data.twoFactorSecret = this.generate2FASecret();
+                this.data.twoFactorSecret = this.getOrCreateSecret();
             }
 
-            const email = $(SELECTORS.EMAIL).val() || this.data.email || 'admin@example.com';
-            const appName = $(SELECTORS.APP_NAME).val() || this.data.app_name || 'Jobs Board';
+            if (!this.data.twoFactorSecret) {
+                console.error('2FA secret could not be generated');
+                return;
+            }
+
+            const email = this.data.email || 'admin@example.com';
+            const appName = this.data.app_name || 'Jobs Board';
 
             const qrCodeDataUrl = await this.generateQRCode(this.data.twoFactorSecret, email, appName);
-            
+
             if (qrCodeDataUrl) {
                 $('#2fa-qr-code').attr('src', qrCodeDataUrl);
-                $('#2fa-secret-key').text(this.data.twoFactorSecret.match(/.{4}/g).join(' '));
+                const formattedSecret = (this.data.twoFactorSecret || '').replace(/\s+/g, '').match(/.{1,4}/g)?.join(' ') || this.data.twoFactorSecret;
+                $('#2fa-secret-key').text(formattedSecret);
                 $qrSection.slideDown(300);
             }
         }
@@ -232,21 +273,10 @@ import Toast from './components/toast';
         renderWizard() {
             try {
                 const $body = $('body');
-                if ($body.length === 0 && document.body) {
-                    document.body.innerHTML = '';
-                    document.body.className = 'min-h-screen bg-gray-50';
-                    document.body.style.cssText = 'display: block !important; visibility: visible !important; opacity: 1 !important;';
-                    document.body.innerHTML = this.getWizardHTML();
-                    this.renderStep();
-                    return;
-                }
-
                 if ($body.length === 0) {
                     console.error('Body element not found');
                     return;
                 }
-
-                console.log('Replacing body content with wizard UI');
 
                 $body
                     .empty()
@@ -267,13 +297,13 @@ import Toast from './components/toast';
 
         getWizardHTML() {
             const stepsHTML = [2, 3].map(stepNum => this.getStepIndicatorHTML(stepNum)).join('');
-            
+
             return `
                 <div class="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
                     <div class="max-w-3xl w-full space-y-8">
                         <div class="text-center">
                             <h1 class="text-4xl font-bold text-gray-900">Installation Wizard</h1>
-                            <p class="mt-2 text-gray-600">Setup your Jobs Board</p>
+                            <p class="mt-2 text-gray-600">Set up your Jobs Board</p>
                         </div>
                         <div class="flex justify-center space-x-4 mb-8">
                             ${stepsHTML}
@@ -304,10 +334,11 @@ import Toast from './components/toast';
                 2: () => {
                     $(SELECTORS.CONTENT).html(this.renderStep2());
                     setTimeout(() => {
-                        this.setup2FAEventListener();
-                        if (this.data.setup2fa) {
-                            this.toggle2FADisplay(true);
-                        }
+                        void this.ensure2FADisplay();
+                        this.bindCopySecretHandler();
+                        this.bindStep2FormHandler();
+                        this.bindQrRefreshHandlers();
+                        this.bindOtpTestHandler();
                     }, 100);
                 },
                 3: () => {
@@ -321,26 +352,6 @@ import Toast from './components/toast';
             }
         }
 
-        setup2FAEventListener() {
-            $(SELECTORS.SETUP_2FA).off('change');
-            $(SELECTORS.SETUP_2FA).on('change', async (e) => {
-                const isChecked = $(e.target).is(':checked');
-                this.data.setup2fa = isChecked;
-                await this.toggle2FADisplay(isChecked);
-            });
-
-            $(SELECTORS.EMAIL).on('input', () => {
-                if (this.data.setup2fa && $(SELECTORS.SETUP_2FA).is(':checked')) {
-                    this.toggle2FADisplay(true);
-                }
-            });
-            $(SELECTORS.APP_NAME).on('input', () => {
-                if (this.data.setup2fa && $(SELECTORS.SETUP_2FA).is(':checked')) {
-                    this.toggle2FADisplay(true);
-                }
-            });
-        }
-
         renderStep2() {
             return `
                 <div class="space-y-8">
@@ -349,40 +360,40 @@ import Toast from './components/toast';
                         <p class="text-gray-600 text-sm">Create your administrator account to manage the system</p>
                     </div>
 
-                    <form onsubmit="event.preventDefault(); window.installWizard.next()" class="space-y-8">
+                    <form id="install-step2-form" class="space-y-8">
                         <div class="bg-gray-50 rounded-lg p-6 space-y-4">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Account Information</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Username <span class="text-red-500">*</span></label>
-                                    <input id="username" type="text" placeholder="admin" required 
-                                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" 
+                                    <input id="username" type="text" placeholder="admin" required
+                                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                                            value="${this.data.username || ''}">
                                     <p class="text-xs text-gray-500 mt-1">3+ characters, letters, numbers, and underscores only</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Full Name <span class="text-red-500">*</span></label>
-                                    <input id="name" type="text" placeholder="Alvin Wong" required 
-                                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" 
+                                    <input id="name" type="text" placeholder="Alvin Wong" required
+                                           class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                                            value="${this.data.name || ''}">
                                 </div>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Email Address <span class="text-red-500">*</span></label>
-                                <input id="email" type="email" placeholder="admin@example.com" required 
-                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" 
+                                <input id="email" type="email" placeholder="admin@example.com" required
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                                        value="${this.data.email || ''}">
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Password <span class="text-red-500">*</span></label>
-                                    <input id="password" type="password" placeholder="Minimum 12 characters" required 
+                                    <input id="password" type="password" placeholder="Minimum 12 characters" required
                                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
                                     <p class="text-xs text-gray-500 mt-1">Must be at least 12 characters long</p>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-2">Confirm Password <span class="text-red-500">*</span></label>
-                                    <input id="confirm" type="password" placeholder="Re-enter password" required 
+                                    <input id="confirm" type="password" placeholder="Re-enter password" required
                                            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
                                 </div>
                             </div>
@@ -390,15 +401,9 @@ import Toast from './components/toast';
 
                         <div class="bg-blue-50 rounded-lg p-6">
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">Security Settings</h3>
-                            <label class="flex items-start cursor-pointer group">
-                                <input id="setup2fa" type="checkbox" class="mt-1 mr-3 w-5 h-5 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer" ${this.data.setup2fa ? 'checked' : ''}>
-                                <div class="flex-1">
-                                    <span class="block font-medium text-gray-900">Two-Factor Authentication (2FA)</span>
-                                    <span class="block text-sm text-gray-600 mt-1">Enable 2FA to add an extra layer of security to your admin account. Recommended for enhanced protection.</span>
-                                </div>
-                            </label>
-                            
-                            <div id="2fa-qr-section" class="mt-6 pt-6 border-t border-blue-200" style="display: none;">
+                            <p class="text-sm text-gray-700">Two-Factor Authentication (2FA) is required for the admin account.</p>
+
+                            <div id="2fa-qr-section" class="mt-6 pt-6 border-t border-blue-200">
                                 <div class="bg-white rounded-lg p-6 space-y-4">
                                     <div>
                                         <h4 class="text-sm font-semibold text-gray-800 mb-2">Scan QR Code</h4>
@@ -407,19 +412,33 @@ import Toast from './components/toast';
                                             <img id="2fa-qr-code" src="" alt="2FA QR Code" class="w-48 h-48">
                                         </div>
                                     </div>
-                                    
+
                                     <div class="pt-4 border-t">
                                         <h4 class="text-sm font-semibold text-gray-800 mb-2">Manual Entry Key</h4>
                                         <p class="text-xs text-gray-600 mb-3">If you can't scan the QR code, enter this key manually:</p>
                                         <div class="bg-gray-100 rounded-lg p-4">
                                             <code id="2fa-secret-key" class="text-sm font-mono text-gray-900 break-all select-all"></code>
                                         </div>
-                                        <button type="button" onclick="navigator.clipboard.writeText(document.getElementById('2fa-secret-key').textContent.replace(/\\s/g, '')); window.toast.success('Secret key copied to clipboard!');" 
+                                        <button type="button" id="copy-2fa-secret"
                                                 class="mt-2 text-xs text-indigo-600 hover:text-indigo-800 font-medium">
                                             Copy Secret Key
                                         </button>
                                     </div>
-                                    
+
+                                    <div class="pt-4 border-t space-y-2">
+                                        <h4 class="text-sm font-semibold text-gray-800">Test Your 2FA Code</h4>
+                                        <p class="text-xs text-gray-600">Enter the 6-digit code from your authenticator app to verify setup.</p>
+                                        <div class="flex gap-2 items-center">
+                                            <input id="test-otp" type="text" inputmode="numeric" maxlength="6" placeholder="123456"
+                                                   class="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" />
+                                            <button type="button" id="test-otp-btn"
+                                                    class="px-4 py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors">
+                                                Verify Code
+                                            </button>
+                                        </div>
+                                        <p id="test-otp-result" class="text-xs"></p>
+                                    </div>
+
                                     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                                         <p class="text-xs text-yellow-800">
                                             <strong>Important:</strong> Save this secret key in a secure location. You'll need it to set up 2FA on your authenticator app. The QR code will be available again after installation.
@@ -433,15 +452,15 @@ import Toast from './components/toast';
                             <h3 class="text-lg font-semibold text-gray-800 mb-4">System Configuration</h3>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Application Name</label>
-                                <input id="app_name" type="text" placeholder="Jobs Board" 
-                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" 
+                                <input id="app_name" type="text" placeholder="Jobs Board"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                                        value="${this.data.app_name || 'Jobs Board'}">
                                 <p class="text-xs text-gray-500 mt-1">The name displayed throughout the application</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">Application URL</label>
-                                <input id="app_url" type="url" placeholder="https://example.com" 
-                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" 
+                                <input id="app_url" type="url" placeholder="https://example.com"
+                                       class="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                                        value="${this.data.app_url || window.location.origin}">
                                 <p class="text-xs text-gray-500 mt-1">The base URL of your application</p>
                             </div>
@@ -463,11 +482,11 @@ import Toast from './components/toast';
                         </div>
 
                         <div class="flex gap-4 pt-4 border-t">
-                            <button type="button" onclick="window.installWizard.prev()" 
+                            <button type="button" onclick="window.installWizard.prev()"
                                     class="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors">
                                 Back
                             </button>
-                            <button type="submit" 
+                            <button type="submit"
                                     class="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm">
                                 Continue to Review
                             </button>
@@ -514,8 +533,8 @@ import Toast from './components/toast';
                                 <div class="md:col-span-2">
                                     <span class="text-sm font-medium text-gray-500">Two-Factor Authentication</span>
                                     <p class="mt-1">
-                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${this.data.setup2fa ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
-                                            ${this.data.setup2fa ? '✓ Enabled' : '✗ Disabled'}
+                                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                            ✓ Enabled (required)
                                         </span>
                                     </p>
                                 </div>
@@ -542,11 +561,11 @@ import Toast from './components/toast';
                     </div>
 
                     <div class="flex gap-4 pt-4 border-t">
-                        <button onclick="window.installWizard.prev()" 
+                        <button onclick="window.installWizard.prev()"
                                 class="flex-1 px-6 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition-colors">
                             Back to Edit
                         </button>
-                        <button onclick="window.installWizard.complete()" 
+                        <button onclick="window.installWizard.complete()"
                                 class="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm">
                             Complete Installation
                         </button>
@@ -562,7 +581,7 @@ import Toast from './components/toast';
                 email: $(SELECTORS.EMAIL).val().trim(),
                 password: $(SELECTORS.PASSWORD).val(),
                 confirm: $(SELECTORS.CONFIRM).val(),
-                setup2fa: $(SELECTORS.SETUP_2FA).is(':checked'),
+                setup2fa: true,
                 twoFactorSecret: this.data.twoFactorSecret || '',
                 app_name: $(SELECTORS.APP_NAME).val().trim() || 'Jobs Board',
                 app_url: $(SELECTORS.APP_URL).val().trim() || window.location.origin,
@@ -591,10 +610,83 @@ import Toast from './components/toast';
             }
         }
 
+        bindCopySecretHandler() {
+            const $button = $('#copy-2fa-secret');
+            $button.off('click').on('click', () => {
+                const secret = $('#2fa-secret-key').text().replace(/\s/g, '');
+                if (!secret) {
+                    window.toast.error('Nothing to copy.');
+                    return;
+                }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(secret)
+                        .then(() => window.toast.success('Secret key copied to clipboard!'))
+                        .catch(() => window.toast.error('Failed to copy secret key.'));
+                } else {
+                    window.toast.error('Clipboard not available in this browser.');
+                }
+            });
+        }
+
+        bindStep2FormHandler() {
+            const $form = $('#install-step2-form');
+            $form.off('submit').on('submit', (e) => {
+                e.preventDefault();
+                this.next();
+            });
+        }
+
+        bindQrRefreshHandlers() {
+            const refresh = () => {
+                void this.ensure2FADisplay();
+            };
+
+            $(SELECTORS.USERNAME).off('input.qr').on('input.qr', refresh);
+            $(SELECTORS.NAME).off('input.qr').on('input.qr', refresh);
+            $(SELECTORS.EMAIL).off('input.qr').on('input.qr', refresh);
+            $(SELECTORS.PASSWORD).off('input.qr').on('input.qr', refresh);
+            $(SELECTORS.CONFIRM).off('input.qr').on('input.qr', refresh);
+            $(SELECTORS.APP_NAME).off('input.qr').on('input.qr', refresh);
+        }
+
+        bindOtpTestHandler() {
+            const $btn = $('#test-otp-btn');
+            const $input = $('#test-otp');
+            const $result = $('#test-otp-result');
+
+            if (!$btn.length || !$input.length) {
+                return;
+            }
+
+            authenticator.options = {window: 1};
+
+            const setResult = (message, success) => {
+                $result.text(message)
+                    .removeClass('text-red-600 text-green-600')
+                    .addClass(success ? 'text-green-600' : 'text-red-600');
+            };
+
+            $btn.off('click.otp').on('click.otp', () => {
+                const code = ($input.val() || '').toString().trim();
+                if (!/^\d{6}$/.test(code)) {
+                    setResult('Enter the 6-digit code from your authenticator app.', false);
+                    return;
+                }
+
+                const secret = (this.data.twoFactorSecret || this.getOrCreateSecret() || '').toString().trim();
+                const isValid = authenticator.verify({token: code, secret});
+                 if (isValid) {
+                     setResult('Code is valid. 2FA setup looks good!', true);
+                 } else {
+                     setResult('Invalid code. Please double-check your authenticator app.', false);
+                 }
+             });
+        }
+
         complete() {
             try {
                 this.data.demo = $(SELECTORS.DEMO).is(':checked');
-                
+
                 if (!validator.validateAll(this.data)) {
                     return;
                 }
@@ -606,16 +698,22 @@ import Toast from './components/toast';
 
                 utils.setupAjax(this.csrf);
 
-                $.post(ENDPOINTS.COMPLETE, {
+                const payload = {
                     ...this.data,
+                    admin_name: this.data.name,
+                    admin_email: this.data.email,
+                    admin_password: this.data.password,
+                    admin_password_confirmation: this.data.confirm,
+                    two_factor_secret: this.data.twoFactorSecret,
                     timestamp: Date.now(),
                     session: this.session
-                })
+                };
+
+                $.post(ENDPOINTS.COMPLETE, payload)
                 .done(data => {
-                    const redirectUrl = (data && data.success && data.redirect) 
-                        ? data.redirect 
+                    window.location.href = (data && data.success && data.redirect)
+                        ? data.redirect
                         : '/login';
-                    window.location.href = redirectUrl;
                 })
                 .fail((xhr, status, error) => {
                     console.error('Installation failed:', error);
@@ -644,7 +742,7 @@ import Toast from './components/toast';
         console.log('Install page confirmed, initializing...');
         const wizard = new InstallWizard();
         window.installWizard = wizard;
-        
+
         console.log('Starting wizard with delay...');
         setTimeout(() => wizard.init(), CONFIG.DELAYS.INIT);
     };

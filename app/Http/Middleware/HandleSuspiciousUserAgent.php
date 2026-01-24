@@ -44,7 +44,7 @@ class HandleSuspiciousUserAgent
 
     /**
      * Handle an incoming request.
-     * 
+     *
      * OWASP A09: Defense-in-depth approach - log, rate limit, challenge
      * instead of blocking (which can be bypassed by UA spoofing).
      */
@@ -84,10 +84,10 @@ class HandleSuspiciousUserAgent
     /**
      * Check if user agent matches suspicious patterns.
      */
-    protected function isSuspicious(string $userAgent): bool
+    public function isSuspicious(string $userAgent): bool
     {
         $userAgentLower = strtolower($userAgent);
-        
+
         foreach ($this->suspiciousPatterns as $pattern) {
             if (stripos($userAgentLower, $pattern) !== false) {
                 return true;
@@ -103,7 +103,7 @@ class HandleSuspiciousUserAgent
     protected function getMatchedPattern(string $userAgent): ?string
     {
         $userAgentLower = strtolower($userAgent);
-        
+
         foreach ($this->suspiciousPatterns as $pattern) {
             if (stripos($userAgentLower, $pattern) !== false) {
                 return $pattern;

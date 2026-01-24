@@ -20,7 +20,7 @@ class RouteService
     {
         // Install routes MUST be first - before any other routes
         self::registerInstallRoutes();
-        
+
         // Then register all other routes
         self::registerHomeRoute();
         self::registerJobRoutes();
@@ -57,7 +57,7 @@ class RouteService
             Route::get('/install', function () {
                 return view('install.index');
             })->name('install.index');
-            
+
             // Security: API routes for JavaScript install wizard with enhanced security
             Route::post('/install/checks', function (\Illuminate\Http\Request $request) {
                 // Security: Additional validation
@@ -122,6 +122,7 @@ class RouteService
                     'admin_email' => 'required|email:rfc,dns|unique:users,email|max:255',
                     'admin_password' => 'required|string|min:12|max:255|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/',
                     'admin_password_confirmation' => 'required|string|same:admin_password',
+                    'two_factor_secret' => 'required|string|regex:/^[A-Z2-7]{16,}$/i',
                     'install_demo_data' => 'boolean',
                     'timestamp' => 'required|integer',
                     'session' => 'required|string|max:100'
@@ -173,6 +174,7 @@ class RouteService
                         'admin_name' => $request->admin_name,
                         'admin_email' => $request->admin_email,
                         'admin_password' => $request->admin_password,
+                        'two_factor_secret' => $request->input('two_factor_secret'),
                         'install_demo_data' => $request->boolean('install_demo_data'),
                     ]);
 

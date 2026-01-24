@@ -12,15 +12,32 @@ use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
 
+/**
+ * @property string $idcode
+ * @property string $login_id
+ * @property string $nickname
+ * @property string $email
+ * @property string $password
+ * @property string $user_type
+ * @property string|null $profile_image_path
+ * @property \Illuminate\Support\Carbon|null $locked_until
+ * @property string|null $two_factor_secret
+ * @property array<int,string>|null $two_factor_recovery_codes
+ * @property \Illuminate\Support\Carbon|null $two_factor_confirmed_at
+ *
+ * @method static self create(array $attributes = [])
+ */
 class User extends Authenticatable
 {
     use HasFactory, Notifiable, HasUuids, HasRoles, TwoFactorAuthenticatable;
+
+    public const AUTH_IDENTIFIER = 'login_id';
 
     protected static function boot(): void
     {
         parent::boot();
 
-        static::creating(function ($user) {
+        static::creating(static function (self $user) {
             if (empty($user->idcode)) {
                 $user->idcode = 'user_' . Str::uuid()->toString();
             }
@@ -45,6 +62,22 @@ class User extends Authenticatable
         'two_factor_recovery_codes',
         'two_factor_confirmed_at',
     ];
+
+    /**
+     * Expose a name attribute that proxies to nickname for UI compatibility.
+     */
+    public function getNameAttribute(): string
+    {
+        return $this->nickname ?? '';
+    }
+
+    /**
+     * Allow setting name to populate nickname field.
+     */
+    public function setNameAttribute(string $value): void
+    {
+        $this->attributes['nickname'] = $value;
+    }
 
     /**
      * The attributes that should be hidden for serialization.
@@ -76,15 +109,7 @@ class User extends Authenticatable
      */
     public function getAuthIdentifierName(): string
     {
-        return 'login_id';
-    }
-
-    /**
-     * Scope a query to only include users by login_id.
-     */
-    public function scopeByLoginId(Builder $query, string $loginId): Builder
-    {
-        return $query->where('login_id', $loginId);
+        return self::AUTH_IDENTIFIER;
     }
 
     /**

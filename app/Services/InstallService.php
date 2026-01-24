@@ -5,19 +5,25 @@ namespace App\Services;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\AuditLogger;
+use Exception;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Laravel\Fortify\Events\TwoFactorAuthenticationEnabled;
+use Laravel\Fortify\Fortify;
+use Laravel\Fortify\RecoveryCode;
 use Spatie\Permission\Models\Role;
 
 class InstallService
 {
     public function __construct(
-        private readonly AuditLogger $auditLogger
+        private readonly AuditLogger $auditLogger,
     ) {}
 
     /**
@@ -31,7 +37,7 @@ class InstallService
             }
 
             return Setting::isSetupCompleted();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::debug('Error checking installation status', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -43,7 +49,7 @@ class InstallService
     /**
      * Security: Check if installation is allowed from current context
      */
-    public function isInstallationAllowed(\Illuminate\Http\Request $request): array
+    public function isInstallationAllowed(Request $request): array
     {
         $issues = [];
 
@@ -67,7 +73,7 @@ class InstallService
 
         // Check rate limiting
         $key = 'install_attempts_' . $request->ip();
-        $attempts = \Illuminate\Support\Facades\Cache::get($key, 0);
+        $attempts = Cache::get($key, 0);
         if ($attempts >= 5) {
             $issues[] = 'Too many installation attempts';
         }
@@ -98,7 +104,7 @@ class InstallService
         try {
             DB::connection()->getPdo();
             return true;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::debug('Database check failed', ['error' => $e->getMessage()]);
             return false;
         }
@@ -110,9 +116,9 @@ class InstallService
     protected function checkStorage(): bool
     {
         try {
-            return Storage::disk('local')->put('test.txt', 'test') 
+            return Storage::disk('local')->put('test.txt', 'test')
                 && Storage::disk('local')->delete('test.txt');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::debug('Storage check failed', ['error' => $e->getMessage()]);
             return false;
         }
@@ -128,7 +134,7 @@ class InstallService
             $result = cache()->get('test') === 'test';
             cache()->forget('test');
             return $result;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::debug('Cache check failed', ['error' => $e->getMessage()]);
             return false;
         }
@@ -147,6 +153,7 @@ class InstallService
 
             // Create admin user
             $admin = $this->createAdminUser($data);
+            $this->enableTwoFactor($admin, $data['two_factor_secret'] ?? null);
 
             // Install demo data if requested
             if ($data['install_demo_data'] ?? false) {
@@ -161,7 +168,6 @@ class InstallService
                 eventType: 'setup.completed',
                 request: request(),
                 targetType: 'system',
-                targetIdcode: null,
                 meta: [
                     'admin_email' => $data['admin_email'],
                     'demo_data_installed' => $data['install_demo_data'] ?? false,
@@ -170,7 +176,7 @@ class InstallService
             );
 
             DB::commit();
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             Log::error('Installation failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             throw $e;
@@ -183,9 +189,9 @@ class InstallService
     protected function createAdminUser(array $data): User
     {
         $adminRole = Role::where('name', 'admin')->first();
-        
+
         if (!$adminRole) {
-            throw new \Exception('Admin role not found. Please run RolePermissionSeeder first.');
+            throw new Exception('Admin role not found. Please run RolePermissionSeeder first.');
         }
 
         $admin = User::create([
@@ -203,18 +209,43 @@ class InstallService
     }
 
     /**
+     * Enable 2FA for the admin created during install using provided Base32 secret.
+     */
+    protected function enableTwoFactor(User $user, ?string $base32Secret): void
+    {
+        if (!$base32Secret) {
+            return;
+        }
+
+        $secret = trim($base32Secret);
+        $secretLength = (int) config('fortify-options.two-factor-authentication.secret-length', 16);
+        if (strlen($secret) < $secretLength) {
+            // basic guard against malformed secret
+            return;
+        }
+
+        $recoveryCodes = collect(range(1, 8))->map(fn () => RecoveryCode::generate())->all();
+
+        $user->forceFill([
+            'two_factor_secret' => Fortify::currentEncrypter()->encrypt($secret),
+            'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt(json_encode($recoveryCodes)),
+        ])->save();
+
+        TwoFactorAuthenticationEnabled::dispatch($user);
+    }
+
+    /**
      * Install demo data.
      */
     protected function installDemoData(): void
     {
         Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\DemoDataSeeder']);
         Setting::set('demo_seeded_at', now()->toDateTimeString());
-        
+
         $this->auditLogger->logBusinessEvent(
             eventType: 'setup.demo_data_seeded',
             request: request(),
             targetType: 'system',
-            targetIdcode: null,
             meta: [
                 'seeded_at' => now()->toDateTimeString(),
             ]
