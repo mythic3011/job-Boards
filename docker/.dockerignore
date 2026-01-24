@@ -1,0 +1,10 @@
+# Ignored files for Docker build context
+node_modules
+vendor
+.git
+.env
+npm-debug.log
+Dockerfile*
+.dockerignore
+docker-compose.override.yml
+**/.git

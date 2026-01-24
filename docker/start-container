@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -e
+
+PHP_BIN=${PHP_BIN:-$(command -v php || true)}
+if [ -z "$PHP_BIN" ] || [ ! -x "$PHP_BIN" ]; then
+    echo "Error: PHP binary not found. Set PHP_BIN to a valid php executable." >&2
+    exit 1
+fi
+export PHP_BIN
+
+# Start supervisord which will manage processes (php artisan serve, etc.)
+exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
