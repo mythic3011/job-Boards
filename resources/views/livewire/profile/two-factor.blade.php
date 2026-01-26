@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Auth;
+use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 
@@ -9,16 +10,15 @@ use function Livewire\Volt\{layout, title};
 layout('layouts.app');
 title('Two-Factor Authentication');
 
-new class extends Component
-{
+new class extends Component {
     public string $code = '';
 
     public function enableTwoFactor()
     {
         $user = Auth::user();
-        
+
         if (!$user->two_factor_secret) {
-            app(\Laravel\Fortify\Actions\EnableTwoFactorAuthentication::class)($user);
+            app(EnableTwoFactorAuthentication::class)($user);
         }
     }
 
@@ -29,7 +29,7 @@ new class extends Component
         ]);
 
         $user = Auth::user();
-        
+
         if (!app(\Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider::class)->verify(
             decrypt($user->two_factor_secret),
             $this->code
@@ -67,7 +67,7 @@ new class extends Component
     public function with(): array
     {
         $user = Auth::user();
-        
+
         return [
             'enabled' => $user->two_factor_confirmed_at !== null,
             'showingQrCode' => $user->two_factor_secret !== null && $user->two_factor_confirmed_at === null,
@@ -95,7 +95,8 @@ new class extends Component
                             Your account is protected with two-factor authentication.
                         </p>
                     </div>
-                    <span class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
+                    <span
+                        class="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800">
                         Enabled
                     </span>
                 </div>
@@ -105,7 +106,8 @@ new class extends Component
                 <div class="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
                     <h3 class="text-sm font-medium text-yellow-800 mb-2">Recovery Codes</h3>
                     <p class="text-sm text-yellow-700 mb-3">
-                        Save these recovery codes in a safe place. You can use them to access your account if you lose your device.
+                        Save these recovery codes in a safe place. You can use them to access your account if you lose
+                        your device.
                     </p>
                     <div class="grid grid-cols-2 gap-2 font-mono text-sm">
                         @foreach($recoveryCodes as $code)
@@ -115,7 +117,8 @@ new class extends Component
                 </div>
             @endif
 
-            <x-ui.button wire:click="disableTwoFactor" wire:confirm="Are you sure you want to disable two-factor authentication?" variant="danger">
+            <x-ui.button wire:click="disableTwoFactor"
+                         wire:confirm="Are you sure you want to disable two-factor authentication?" variant="danger">
                 Disable Two-Factor Authentication
             </x-ui.button>
         @elseif($showingQrCode)
@@ -124,7 +127,7 @@ new class extends Component
                 <p class="text-sm text-gray-600 mb-4">
                     Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
                 </p>
-                
+
                 <div class="mb-4 flex justify-center">
                     {!! Auth::user()->twoFactorQrCodeSvg() !!}
                 </div>

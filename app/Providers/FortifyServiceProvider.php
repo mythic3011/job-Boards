@@ -41,6 +41,11 @@ class FortifyServiceProvider extends ServiceProvider
             return view('components.auth.register');
         });
 
+        // Register custom 2FA challenge view
+        Fortify::twoFactorChallengeView(function () {
+            return view('components.auth.two-factor-challenge');
+        });
+
         Fortify::createUsersUsing(CreateNewUser::class);
         Fortify::updateUserProfileInformationUsing(UpdateUserProfileInformation::class);
         Fortify::updateUserPasswordsUsing(UpdateUserPassword::class);

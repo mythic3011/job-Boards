@@ -1,6 +1,8 @@
 <?php
 
-use App\Http\Routes\RouteService;
+use App\Models\Setting;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 
 /*
 |--------------------------------------------------------------------------
@@ -16,4 +18,30 @@ use App\Http\Routes\RouteService;
 |
 */
 
-RouteService::register();
+/*
+|--------------------------------------------------------------------------
+| Installation Routes (Must be first)
+|--------------------------------------------------------------------------
+*/
+require __DIR__.'/install.php';
+
+/*
+|--------------------------------------------------------------------------
+| Home Route
+|--------------------------------------------------------------------------
+*/
+Route::get('/', function () {
+    if (!Schema::hasTable('settings') || !Setting::isSetupCompleted()) {
+        return redirect()->route('install.index');
+    }
+    return view('welcome');
+})->name('home');
+
+/*
+|--------------------------------------------------------------------------
+| Feature-Specific Route Groups
+|--------------------------------------------------------------------------
+*/
+require __DIR__.'/jobs.php';
+require __DIR__.'/profile.php';
+require __DIR__.'/admin.php';

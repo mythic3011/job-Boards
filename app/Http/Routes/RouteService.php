@@ -2,162 +2,32 @@
 
 namespace App\Http\Routes;
 
-use App\Http\Controllers\ApplicationController;
-use App\Http\Controllers\InstallController;
-use App\Http\Middleware\EnsureSetupNotCompleted;
-use App\Models\JobPosting;
-use App\Models\Setting;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schema;
-use Livewire\Volt\Volt;
-
 /**
- * Service class to organize route definitions.
- * This provides better structure and makes routes easier to maintain.
+ * Legacy RouteService class for backward compatibility.
+ * 
+ * Routes are now organized in separate files:
+ * - routes/install.php - Installation wizard routes
+ * - routes/jobs.php - Job and application routes
+ * - routes/profile.php - User profile routes
+ * - routes/admin.php - Admin panel routes
+ * - routes/web.php - Main entry point that includes all route files
+ * 
+ * This service is kept for compatibility but no longer actively used.
+ * All route registration now happens through route file includes in web.php.
+ * 
+ * @deprecated Use organized route files instead
  */
 class RouteService
 {
     /**
      * Register all application routes.
-     * Install routes must be registered FIRST to avoid conflicts.
+     * 
+     * @deprecated Routes are now registered via route file includes in routes/web.php
      */
     public static function register(): void
     {
-        self::registerInstallRoutes();
-//
-        self::registerHomeRoute();
-        self::registerJobRoutes();
-        self::registerApplicationRoutes();
-        self::registerProfileRoutes();
-        self::registerAdminRoutes();
-    }
-
-    /**
-     * Register installation wizard routes.
-     * These routes are isolated and must be registered first.
-     */
-    private static function registerInstallRoutes(): void
-    {
-        Route::middleware([
-            EnsureSetupNotCompleted::class,
-        ])->group(function () {
-            Route::get('/install/status', [InstallController::class, 'status'])
-                ->name('install.status');
-
-            Route::get('/install', [InstallController::class, 'index'])
-                ->name('install.index');
-
-            Route::post('/install/checks', [InstallController::class, 'checks'])
-                ->name('install.checks');
-
-            Route::post('/install/complete', [InstallController::class, 'complete'])
-                ->name('install.complete');
-        });
-    }
-
-    /**
-     * Register home route.
-     */
-    private static function registerHomeRoute(): void
-    {
-        Route::get('/', function () {
-            if (!Schema::hasTable('settings') ||
-                !Setting::isSetupCompleted()) {
-                return redirect()->route('install.index');
-            }
-
-            return view('welcome');
-        })->name('home');
-    }
-
-    /**
-     * Register job-related routes.
-     */
-    private static function registerJobRoutes(): void
-    {
-        Route::middleware(\App\Http\Middleware\EnsureSetupCompleted::class)->group(function () {
-            Route::get('/jobs', function () {
-                $jobs = JobPosting::latest()->paginate(10);
-                return view('livewire.jobs.index', compact('jobs'));
-            })->name('jobs.index');
-
-            Volt::route('/jobs/{idcode}', 'jobs.show')
-                ->name('jobs.show');
-
-            Volt::route('/jobs/create', 'jobs.create')
-                ->middleware(['auth', 'throttle:10,1'])
-                ->name('jobs.create');
-        });
-    }
-
-    /**
-     * Register application-related routes.
-     */
-    private static function registerApplicationRoutes(): void
-    {
-        Route::middleware([
-            'auth',
-//            \App\Http\Middleware\EnsureSetupCompleted::class
-        ])->group(function () {
-            Volt::route('/applications', 'applications.index')
-                ->middleware('throttle:30,1')
-                ->name('applications.index');
-
-            Volt::route('/jobs/{jobIdcode}/apply', 'applications.create')
-                ->middleware('throttle:3,1')
-                ->name('applications.create');
-
-            Route::get('/applications/{idcode}/download-cv', [ApplicationController::class, 'downloadCv'])
-                ->middleware('throttle:20,1')
-                ->name('applications.download-cv');
-        });
-    }
-
-    /**
-     * Register profile-related routes.
-     */
-    private static function registerProfileRoutes(): void
-    {
-        Volt::route('/profile/two-factor', 'profile.two-factor')
-            ->middleware([
-                'auth',
-//                \App\Http\Middleware\EnsureSetupCompleted::class
-            ])
-            ->name('profile.two-factor');
-    }
-
-    /**
-     * Register admin routes with multi-layer protection.
-     */
-    private static function registerAdminRoutes(): void
-    {
-        Route::middleware([
-            'web',
-            'auth',
-//            \App\Http\Middleware\EnsureSetupCompleted::class,
-            'throttle:30,1',// rate limits (30 req/mins)
-//            \App\Http\Middleware\HideAdminRoutes::class,
-//            \App\Http\Middleware\RequireAdminTwoFactor::class,
-        ])->prefix('admin')->name('admin.')->group(function () {
-            Volt::route('/', 'admin.dashboard')
-                ->middleware('permission:admin.system.view')
-                ->name('dashboard');
-
-            Volt::route('/users', 'admin.users.index')
-                ->middleware('permission:admin.users.view')
-                ->name('users.index');
-
-            Volt::route('/jobs', 'admin.jobs.index')
-                ->middleware('permission:admin.jobs.view')
-                ->name('jobs.index');
-
-            Volt::route('/applications', 'admin.applications.index')
-                ->middleware('permission:admin.applications.view')
-                ->name('applications.index');
-
-            Volt::route('/settings', 'admin.settings.index')
-                ->middleware('permission:admin.settings.view')
-                ->name('settings.index');
-        });
+        // Routes are now handled by individual route files
+        // This method is kept for backward compatibility only
+        // See routes/web.php for the new structure
     }
 }

@@ -153,7 +153,10 @@ class InstallService
 
             // Create admin user
             $admin = $this->createAdminUser($data);
-            $this->enableTwoFactor($admin, $data['two_factor_secret'] ?? null);
+            $this->enableTwoFactor($admin, $data['two_factor_secret'] ?? null, $data['recovery_codes'] ?? []);
+
+            // Store system configuration
+            $this->storeSystemConfig($data);
 
             // Install demo data if requested
             if ($data['install_demo_data'] ?? false) {
@@ -170,6 +173,7 @@ class InstallService
                 targetType: 'system',
                 meta: [
                     'admin_email' => $data['admin_email'],
+                    'app_name' => $data['app_name'] ?? null,
                     'demo_data_installed' => $data['install_demo_data'] ?? false,
                     'completed_at' => now()->toDateTimeString(),
                 ]
@@ -180,6 +184,24 @@ class InstallService
             DB::rollBack();
             Log::error('Installation failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             throw $e;
+        }
+    }
+
+    /**
+     * Store system configuration settings.
+     */
+    protected function storeSystemConfig(array $data): void
+    {
+        if (isset($data['app_name'])) {
+            Setting::set('app_name', $data['app_name']);
+        }
+
+        if (isset($data['app_url'])) {
+            Setting::set('app_url', $data['app_url']);
+        }
+
+        if (isset($data['timezone'])) {
+            Setting::set('timezone', $data['timezone']);
         }
     }
 
@@ -211,7 +233,7 @@ class InstallService
     /**
      * Enable 2FA for the admin created during install using provided Base32 secret.
      */
-    protected function enableTwoFactor(User $user, ?string $base32Secret): void
+    protected function enableTwoFactor(User $user, ?string $base32Secret, array $recoveryCodes = []): void
     {
         if (!$base32Secret) {
             return;
@@ -224,7 +246,10 @@ class InstallService
             return;
         }
 
-        $recoveryCodes = collect(range(1, 8))->map(fn () => RecoveryCode::generate())->all();
+        // Use provided recovery codes or generate new ones
+        if (empty($recoveryCodes)) {
+            $recoveryCodes = collect(range(1, 8))->map(fn () => RecoveryCode::generate())->all();
+        }
 
         $user->forceFill([
             'two_factor_secret' => Fortify::currentEncrypter()->encrypt($secret),

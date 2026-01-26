@@ -6,6 +6,12 @@
 <div class="max-w-md mx-auto">
     <h1 class="text-3xl font-bold mb-6 text-center">Login</h1>
 
+    @if(session('warning'))
+        <x-ui.alert type="warning" class="mb-6">
+            {{ session('warning') }}
+        </x-ui.alert>
+    @endif
+
     <x-ui.card>
         <form method="POST" action="{{ route('login') }}" class="space-y-6">
             @csrf

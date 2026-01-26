@@ -38,8 +38,20 @@ class AuthenticateUser
         // Check if account is locked (prevent user enumeration)
         if ($user && $user->isLocked()) {
             $this->handleLockedAccount($user, $request, $username);
+            
+            $lockedUntil = $user->locked_until;
+            $minutesRemaining = max(1, $lockedUntil->diffInMinutes(now()));
+            $unlockTime = $lockedUntil->format('g:i A');
+            
+            $lockoutMessage = sprintf(
+                'Your account has been temporarily locked due to multiple failed login attempts. Please try again in %d %s (at %s).',
+                $minutesRemaining,
+                $minutesRemaining === 1 ? 'minute' : 'minutes',
+                $unlockTime
+            );
+            
             throw ValidationException::withMessages([
-                Fortify::username() => [__('Your account has been temporarily locked. Please try again later.')],
+                Fortify::username() => [$lockoutMessage],
             ]);
         }
 
@@ -96,6 +108,12 @@ class AuthenticateUser
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
+        
+        // Store lockout info in session for display on login page
+        if ($user->locked_until) {
+            session()->flash('lockout_until', $user->locked_until->toDateTimeString());
+            session()->flash('lockout_minutes', $user->locked_until->diffInMinutes(now()));
+        }
     }
 
     /**
@@ -136,15 +154,16 @@ class AuthenticateUser
         // Get failed attempts count from cache (per username/email + IP)
         $key = 'login_attempts:' . ($user->login_id ?? $user->email) . ':' . $request->ip();
         $attempts = cache()->get($key, 0) + 1;
+        $maxAttempts = 5;
+        $remaining = $maxAttempts - $attempts;
 
         // Store attempts for 30 minutes
         cache()->put($key, $attempts, now()->addMinutes(30));
 
         // Lock account after 5 failed attempts
-        if ($attempts >= 5) {
-            $user->update([
-                'locked_until' => now()->addMinutes(30),
-            ]);
+        if ($attempts >= $maxAttempts) {
+            $lockedUntil = now()->addMinutes(30);
+            $user->update(['locked_until' => $lockedUntil]);
 
             // Refresh to get updated locked_until
             $user->refresh();
@@ -170,6 +189,13 @@ class AuthenticateUser
                 'ip' => $request->ip(),
                 'locked_until' => $user->locked_until,
             ]);
+        } elseif ($attempts >= 2) {
+            // Show progressive warning after 2 failed attempts
+            $warningMessage = $remaining === 1
+                ? 'Incorrect credentials. This is your last attempt before temporary lockout.'
+                : sprintf('Incorrect credentials. You have %d attempts remaining before temporary lockout.', $remaining);
+            
+            session()->flash('warning', $warningMessage);
         }
     }
 }

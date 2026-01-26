@@ -2,13 +2,14 @@
 
 namespace App\Http\Middleware;
 
-use App\Models\Setting;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureSetupCompleted
+/**
+ * Middleware to ensure application setup is completed before accessing routes.
+ */
+class EnsureSetupCompleted extends BaseSetupMiddleware
 {
     /**
      * Handle an incoming request.
@@ -17,18 +18,13 @@ class EnsureSetupCompleted
     public function handle(Request $request, Closure $next): Response
     {
         // Check if settings table exists
-        if (!Schema::hasTable('settings')) {
-            return $this->redirectToInstall($request);
+        if (!$this->hasSettingsTable()) {
+            return $this->redirectToInstall($request, 'Settings table not found');
         }
 
         // Check if setup is completed
-        try {
-            if (!Setting::isSetupCompleted()) {
-                return $this->redirectToInstall($request);
-            }
-        } catch (\Exception $e) {
-            // Error checking, redirect to install
-            return $this->redirectToInstall($request);
+        if (!$this->isSetupCompleted()) {
+            return $this->redirectToInstall($request, 'Setup not completed');
         }
 
         return $next($request);
@@ -37,8 +33,14 @@ class EnsureSetupCompleted
     /**
      * Redirect to installation wizard with error message.
      */
-    private function redirectToInstall(Request $request): Response
+    private function redirectToInstall(Request $request, string $reason): Response
     {
+        $this->logSecurityEvent('Setup incomplete, redirecting to install', [
+            'reason' => $reason,
+            'ip' => $request->ip(),
+            'path' => $request->path(),
+        ]);
+
         return redirect()->route('install.index')
             ->with('error', 'Please complete the installation wizard first.');
     }

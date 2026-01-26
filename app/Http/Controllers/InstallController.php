@@ -94,30 +94,48 @@ class InstallController extends Controller
 
     /**
      * Complete the installation process.
+     * Supports both JavaScript and Livewire installers.
      */
     public function complete(Request $request): JsonResponse
     {
-        $this->validateCompleteRequest($request);
+        // Check if this is a Livewire request (no timestamp/session validation needed)
+        $isLivewireRequest = !$request->has('timestamp') || !$request->has('session');
 
-        $isActiveSession = $this->isInstallSessionValid($request);
+        if (!$isLivewireRequest) {
+            // JavaScript installer - validate timestamp
+            $this->validateCompleteRequest($request);
+            
+            $isActiveSession = $this->isInstallSessionValid($request);
 
-        if ($isActiveSession) {
-            $requestAge = now()->timestamp - $request->timestamp;
-            if ($requestAge > self::REQUEST_MAX_AGE_COMPLETE) {
-                throw ValidationException::withMessages([
-                    'timestamp' => 'Request expired',
-                ]);
+            if ($isActiveSession) {
+                $requestAge = now()->timestamp - $request->timestamp;
+                if ($requestAge > self::REQUEST_MAX_AGE_COMPLETE) {
+                    throw ValidationException::withMessages([
+                        'timestamp' => 'Request expired',
+                    ]);
+                }
+            } else {
+                $this->validateRequestAge($request, self::REQUEST_MAX_AGE_COMPLETE);
             }
         } else {
-            $this->validateRequestAge($request, self::REQUEST_MAX_AGE_COMPLETE);
+            // Livewire installer - basic validation only
+            $request->validate([
+                'admin_name' => 'required|string|max:255',
+                'admin_email' => 'required|email|unique:users,email|max:255',
+                'admin_password' => 'required|string|min:12|max:255',
+                'two_factor_secret' => 'required|string|min:16',
+            ]);
         }
 
         $this->checkSuspiciousActivity($request);
 
-        if ($isActiveSession) {
-            $this->checkRateLimitDuringInstall($request);
-        } else {
-            $this->checkRateLimit($request);
+        if (!$isLivewireRequest) {
+            $isActiveSession = $this->isInstallSessionValid($request);
+            if ($isActiveSession) {
+                $this->checkRateLimitDuringInstall($request);
+            } else {
+                $this->checkRateLimit($request);
+            }
         }
 
         try {
@@ -126,10 +144,14 @@ class InstallController extends Controller
             $installDemo = $request->boolean('install_demo_data') || $request->boolean('demo');
 
             $this->installService->completeInstallation([
-                'admin_name' => $request->admin_name,
-                'admin_email' => $request->admin_email,
-                'admin_password' => $request->admin_password,
-                'two_factor_secret' => $request->input('two_factor_secret'),
+                'admin_name' => $request->admin_name ?? $request->name,
+                'admin_email' => $request->admin_email ?? $request->email,
+                'admin_password' => $request->admin_password ?? $request->password,
+                'two_factor_secret' => $request->input('two_factor_secret') ?? $request->input('twoFactorSecret'),
+                'recovery_codes' => $request->input('recovery_codes') ?? $request->input('recoveryCodes') ?? [],
+                'app_name' => $request->input('app_name'),
+                'app_url' => $request->input('app_url'),
+                'timezone' => $request->input('timezone'),
                 'install_demo_data' => $installDemo,
             ]);
 
@@ -138,14 +160,17 @@ class InstallController extends Controller
                 request: request(),
                 targetType: 'system',
                 meta: [
-                    'admin_email' => $request->admin_email,
+                    'admin_email' => $request->admin_email ?? $request->email,
                     'demo_data_installed' => $installDemo,
+                    'installer_type' => $isLivewireRequest ? 'livewire' : 'javascript',
                     'completed_at' => now()->toDateTimeString(),
                 ]
             );
 
-            $this->clearRateLimit($request);
-            $this->clearInstallSession($request);
+            if (!$isLivewireRequest) {
+                $this->clearRateLimit($request);
+                $this->clearInstallSession($request);
+            }
 
             return $this->secureJsonResponse([
                 'success' => true,
