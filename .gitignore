@@ -22,4 +22,5 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
-/supervisord.pid
+supervisord.pid
+composer.phar

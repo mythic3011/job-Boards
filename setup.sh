@@ -17,13 +17,36 @@ echo -e "${BLUE}   Jobs Board - Quick Setup${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-# Check if .env exists
-if [ ! -f .env ]; then
-    echo -e "${YELLOW}Creating .env file from .env.example...${NC}"
-    cp .env.example .env
-    docker compose exec laravel.test php artisan key:generate
-    echo -e "${GREEN}✓ Environment file created${NC}"
-fi
+# Initialize environment file
+echo -e "${YELLOW}Initializing environment file...${NC}"
+[ ! -f .env ] && ([ -f .env.example ] && cp .env.example .env || touch .env)
+[ -z "$(grep '^APP_KEY=base64:' .env 2>/dev/null)" ] && docker compose exec laravel.test php artisan key:generate --force 2>/dev/null || true
+[ -z "$(grep '^DB_PASSWORD=' .env 2>/dev/null | cut -d'=' -f2)" ] && (DB_PWD="${DB_PASSWORD:-$(openssl rand -base64 32 | tr -d "=+/" | cut -c1-25)}" && grep -q '^DB_PASSWORD=' .env && ([[ "$OSTYPE" == "darwin"* ]] && sed -i '' "s|^DB_PASSWORD=.*|DB_PASSWORD=$DB_PWD|" .env || sed -i "s|^DB_PASSWORD=.*|DB_PASSWORD=$DB_PWD|" .env) || echo "DB_PASSWORD=$DB_PWD" >> .env) || true
+echo -e "${GREEN}✓ Environment initialized${NC}"
+
+# Clear caches and optimize
+echo -e "${YELLOW}Clearing caches...${NC}"
+docker compose exec laravel.test php artisan optimize:clear
+docker compose exec laravel.test php artisan config:clear
+docker compose exec laravel.test php artisan route:clear
+echo -e "${GREEN}✓ Caches cleared${NC}"
+
+# Install dependencies
+echo -e "${YELLOW}Installing dependencies...${NC}"
+docker compose exec laravel.test composer install
+docker compose exec laravel.test npm install
+echo -e "${GREEN}✓ Dependencies installed${NC}"
+
+# Build frontend assets
+echo -e "${YELLOW}Building frontend assets...${NC}"
+docker compose exec laravel.test npm run build
+echo -e "${GREEN}✓ Frontend built${NC}"
+
+# Restart container
+echo -e "${YELLOW}Restarting container...${NC}"
+docker compose restart laravel.test
+sleep 3
+echo -e "${GREEN}✓ Container restarted${NC}"
 
 # Run migrations (includes sessions table)
 echo -e "${YELLOW}Running database migrations...${NC}"
@@ -99,6 +122,13 @@ echo "Setup marked as completed\n";
 EOF
 
 echo -e "${GREEN}✓ Setup completed${NC}"
+
+# Final cache clear and optimization
+echo -e "${YELLOW}Clearing caches...${NC}"
+docker compose exec laravel.test php artisan optimize:clear
+docker compose exec laravel.test php artisan config:clear
+docker compose exec laravel.test php artisan route:clear
+echo -e "${GREEN}✓ Caches cleared${NC}"
 
 # Generate QR code URL for 2FA
 APP_NAME=$(grep "^APP_NAME=" .env | cut -d '=' -f2- | tr -d '"' || echo "Jobs Board")
