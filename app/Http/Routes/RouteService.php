@@ -4,6 +4,7 @@ namespace App\Http\Routes;
 
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\InstallController;
+use App\Http\Middleware\EnsureSetupNotCompleted;
 use App\Models\JobPosting;
 use App\Models\Setting;
 use Illuminate\Support\Facades\Route;
@@ -24,7 +25,7 @@ class RouteService
     {
         self::registerInstallRoutes();
 //
-//        self::registerHomeRoute();
+        self::registerHomeRoute();
         self::registerJobRoutes();
         self::registerApplicationRoutes();
         self::registerProfileRoutes();
@@ -38,10 +39,8 @@ class RouteService
     private static function registerInstallRoutes(): void
     {
         Route::middleware([
-            \App\Http\Middleware\EnsureSetupNotCompleted::class,
+            EnsureSetupNotCompleted::class,
         ])->group(function () {
-            // Rate limiting removed from install routes - handled internally by InstallController
-            // This prevents "Request expired" errors during the installation process
             Route::get('/install/status', [InstallController::class, 'status'])
                 ->name('install.status');
 

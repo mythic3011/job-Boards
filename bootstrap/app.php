@@ -19,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\SecurityHeaders::class,
             \App\Http\Middleware\HandleSuspiciousUserAgent::class, // Replaced BlockBadUserAgent
+            \App\Http\Middleware\LogHttpResponse::class, // Log all HTTP responses
         ]);
 
         // Register middleware aliases
