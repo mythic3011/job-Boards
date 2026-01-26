@@ -8,10 +8,11 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
+use Symfony\Component\Console\Command\Command as CommandAlias;
 
 class CreateAdminUser extends Command
 {
-    protected $signature = 'admin:create 
+    protected $signature = 'admin:create
                             {--email= : Admin email address}
                             {--password= : Admin password}
                             {--name= : Admin name}';
@@ -38,7 +39,7 @@ class CreateAdminUser extends Command
             foreach ($validator->errors()->all() as $error) {
                 $this->error($error);
             }
-            return Command::FAILURE;
+            return CommandAlias::FAILURE;
         }
 
         // Get or create admin role
@@ -63,6 +64,6 @@ class CreateAdminUser extends Command
         $this->info("Login ID: {$loginId}");
         $this->warn("Please enable 2FA for this admin account!");
 
-        return Command::SUCCESS;
+        return CommandAlias::SUCCESS;
     }
 }

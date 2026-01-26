@@ -47,7 +47,7 @@ class JobPosting extends Model
     /**
      * Scope a query to only include job postings owned by a company.
      */
-    public function scopeByCompany(Builder $query, int $companyUserId): Builder
+    public function scopeByCompany(Builder $query, string $companyUserId): Builder
     {
         return $query->where('company_user_id', $companyUserId);
     }

@@ -46,7 +46,7 @@ class InstallController extends Controller
     public function index(Request $request)
     {
         $this->setInstallSession($request);
-        
+
         return view('install.index');
     }
 
@@ -56,9 +56,9 @@ class InstallController extends Controller
     public function checks(Request $request): JsonResponse
     {
         $this->validateChecksRequest($request);
-        
+
         $this->setInstallSession($request);
-        
+
         if (!$this->isInstallSessionValid($request)) {
             $this->validateRequestAge($request, self::REQUEST_MAX_AGE_CHECKS);
         } else {
@@ -98,9 +98,9 @@ class InstallController extends Controller
     public function complete(Request $request): JsonResponse
     {
         $this->validateCompleteRequest($request);
-        
+
         $isActiveSession = $this->isInstallSessionValid($request);
-        
+
         if ($isActiveSession) {
             $requestAge = now()->timestamp - $request->timestamp;
             if ($requestAge > self::REQUEST_MAX_AGE_COMPLETE) {
@@ -111,9 +111,9 @@ class InstallController extends Controller
         } else {
             $this->validateRequestAge($request, self::REQUEST_MAX_AGE_COMPLETE);
         }
-        
+
         $this->checkSuspiciousActivity($request);
-        
+
         if ($isActiveSession) {
             $this->checkRateLimitDuringInstall($request);
         } else {
@@ -123,13 +123,26 @@ class InstallController extends Controller
         try {
             $this->logInstallAttempt($request);
 
+            $installDemo = $request->boolean('install_demo_data') || $request->boolean('demo');
+
             $this->installService->completeInstallation([
                 'admin_name' => $request->admin_name,
                 'admin_email' => $request->admin_email,
                 'admin_password' => $request->admin_password,
                 'two_factor_secret' => $request->input('two_factor_secret'),
-                'install_demo_data' => $request->boolean('install_demo_data'),
+                'install_demo_data' => $installDemo,
             ]);
+
+            $this->auditLogger->logBusinessEvent(
+                eventType: 'setup.completed',
+                request: request(),
+                targetType: 'system',
+                meta: [
+                    'admin_email' => $request->admin_email,
+                    'demo_data_installed' => $installDemo,
+                    'completed_at' => now()->toDateTimeString(),
+                ]
+            );
 
             $this->clearRateLimit($request);
             $this->clearInstallSession($request);
@@ -177,6 +190,7 @@ class InstallController extends Controller
             'admin_password_confirmation' => 'required|string|same:admin_password',
             'two_factor_secret' => 'required|string|regex:/^[A-Z2-7]{16,}$/i',
             'install_demo_data' => 'boolean',
+            'demo' => 'boolean',
             'timestamp' => 'required|integer',
             'session' => 'required|string|max:100',
         ]);
@@ -287,6 +301,8 @@ class InstallController extends Controller
      */
     private function logInstallAttempt(Request $request): void
     {
+        $installDemo = $request->boolean('install_demo_data') || $request->boolean('demo');
+
         $this->auditLogger->logBusinessEvent(
             eventType: 'install.complete_attempt',
             request: $request,
@@ -296,7 +312,7 @@ class InstallController extends Controller
                 'session' => $request->session()->getId(),
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
-                'demo_data' => $request->boolean('install_demo_data'),
+                'demo_data' => $installDemo,
             ]
         );
     }
@@ -318,7 +334,7 @@ class InstallController extends Controller
     private function isInstallSessionValid(Request $request): bool
     {
         $sessionData = $request->session()->get(self::INSTALL_SESSION_KEY);
-        
+
         if (!$sessionData || !is_array($sessionData)) {
             return false;
         }

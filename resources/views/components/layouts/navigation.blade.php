@@ -3,10 +3,10 @@
 ])
 
 @php
-    $activeRoute = $activeRoute ?? request()->route()->getName();
+    $activeRoute = $activeRoute ?? (request()->route() ? request()->route()->getName() : null);
     
     $isActive = function($routeName) use ($activeRoute) {
-        return $activeRoute === $routeName || str_starts_with($activeRoute, $routeName . '.');
+        return $activeRoute === $routeName || ($activeRoute && str_starts_with($activeRoute, $routeName . '.'));
     };
     
     $linkClasses = function($routeName) use ($isActive) {

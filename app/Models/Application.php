@@ -47,7 +47,7 @@ class Application extends Model
     /**
      * Scope a query to only include applications for a specific job.
      */
-    public function scopeForJob(Builder $query, int $jobId): Builder
+    public function scopeForJob(Builder $query, string $jobId): Builder
     {
         return $query->where('job_id', $jobId);
     }
@@ -55,7 +55,7 @@ class Application extends Model
     /**
      * Scope a query to only include applications by a specific applicant.
      */
-    public function scopeByApplicant(Builder $query, int $applicantUserId): Builder
+    public function scopeByApplicant(Builder $query, string $applicantUserId): Builder
     {
         return $query->where('applicant_user_id', $applicantUserId);
     }
@@ -63,7 +63,7 @@ class Application extends Model
     /**
      * Scope a query to only include applications for jobs owned by a company.
      */
-    public function scopeForCompanyJobs(Builder $query, int $companyUserId): Builder
+    public function scopeForCompanyJobs(Builder $query, string $companyUserId): Builder
     {
         return $query->whereHas('jobPosting', function ($q) use ($companyUserId) {
             $q->where('company_user_id', $companyUserId);

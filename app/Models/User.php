@@ -113,6 +113,16 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the unique identifier for the user (UUID id for database storage).
+     * This is used when storing the user in sessions, while getAuthIdentifierName()
+     * is used for authentication lookup by login_id.
+     */
+    public function getAuthIdentifier(): mixed
+    {
+        return $this->getKey();
+    }
+
+    /**
      * Check if user is locked.
      */
     public function isLocked(): bool

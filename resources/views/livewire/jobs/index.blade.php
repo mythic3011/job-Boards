@@ -52,7 +52,33 @@ new class extends Component
                 </div>
             </x-ui.card>
         @empty
-            <x-ui.empty-state message="No job listings yet." />
+            <x-ui.empty-state
+                title="No job listings yet"
+                message="Check back soon or, if you're hiring, post the first opportunity."
+            >
+                <x-slot:action>
+                    <div class="flex flex-wrap items-center justify-center gap-3">
+                        @auth
+                            @if(auth()->user()->isCompany())
+                                <x-ui.button href="{{ route('jobs.create') }}" variant="primary">
+                                    Create a job
+                                </x-ui.button>
+                            @else
+                                <x-ui.button href="{{ route('register') }}" variant="primary">
+                                    Switch to a company account
+                                </x-ui.button>
+                            @endif
+                        @else
+                            <x-ui.button href="{{ route('register') }}" variant="primary">
+                                Sign up to post jobs
+                            </x-ui.button>
+                            <x-ui.button href="{{ route('login') }}" variant="outline">
+                                Log in
+                            </x-ui.button>
+                        @endauth
+                    </div>
+                </x-slot:action>
+            </x-ui.empty-state>
         @endforelse
     </div>
 

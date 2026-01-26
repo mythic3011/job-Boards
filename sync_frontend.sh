@@ -9,6 +9,7 @@ echo "initializing environment file"
 # fuck OnL9 not sync
 echo "resyncing frontend"
 docker compose exec laravel.test php artisan optimize:clear
+docker compose exec laravel.test php artisan config:clear
 docker compose exec laravel.test npm install
 docker compose exec laravel.test npm run build
 docker compose restart laravel.test
@@ -16,3 +17,11 @@ docker compose restart laravel.test
 echo "sync packages"
 docker compose exec laravel.test composer install
 docker compose restart laravel.test
+
+docker compose exec laravel.test php artisan migrate
+docker compose exec laravel.test php artisan tinker --execute="App\Models\Setting::markSetupCompleted();"
+
+docker compose exec laravel.test php artisan route:list --path='/'
+docker compose exec laravel.test php artisan route:list --path=home
+docker compose exec laravel.test php artisan route:clear
+docker compose exec laravel.test php artisan config:clear

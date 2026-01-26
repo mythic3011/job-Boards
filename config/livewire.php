@@ -1,7 +1,6 @@
 <?php
 
 return [
-
     /*
     |---------------------------------------------------------------------------
     | Component Locations
@@ -44,7 +43,7 @@ return [
     |
     */
 
-    'component_layout' => null, // Disable default layout to allow component-specific layouts
+    'component_layout' => 'layouts.app', // Default page layout for Livewire page components
 
     /*
     |---------------------------------------------------------------------------
