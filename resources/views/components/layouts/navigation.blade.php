@@ -34,9 +34,9 @@
     </a>
     @auth
         <a 
-            href="{{ route('applications.index') }}" 
-            class="{{ $linkClasses('applications.index') }}"
-            aria-current="{{ $isActive('applications.index') || $isActive('applications.create') ? 'page' : null }}"
+            href="{{ route('my.applications.index') }}" 
+            class="{{ $linkClasses('my.applications.index') }}"
+            aria-current="{{ $isActive('my.applications.index') || $isActive('applications.create') ? 'page' : null }}"
         >
             Applications
         </a>
@@ -49,12 +49,5 @@
                 Admin
             </a>
         @endcan
-        <a 
-            href="{{ route('profile.two-factor') }}" 
-            class="{{ $linkClasses('profile.two-factor') }}"
-            aria-current="{{ $isActive('profile.') ? 'page' : null }}"
-        >
-            2FA
-        </a>
     @endauth
 </nav>

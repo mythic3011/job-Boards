@@ -5,7 +5,6 @@
 ])
 
 @php
-    // Convert string "false" to boolean false - Blade passes props as strings
     $showHeader = filter_var($showHeader, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
     $showNavigation = filter_var($showNavigation, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? true;
 @endphp
@@ -17,8 +16,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? config('app.name', 'Jobs Board') }}</title>
-    
-    <x-layouts.assets />
     
     @livewireStyles
     @livewireScriptConfig
@@ -36,6 +33,8 @@
         {{ $slot }}
     </main>
 
+    <script src="{{ asset('vendor/livewire/livewire.js') }}"></script>
     @livewireScripts
+    <x-layouts.assets />
 </body>
 </html>

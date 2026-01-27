@@ -5,4 +5,5 @@
     - Production mode (when assets are built)
     - Proper asset paths and integrity hashes
 --}}
+
 @vite(['resources/css/app.css', 'resources/js/app.js'])

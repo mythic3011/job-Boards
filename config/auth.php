@@ -61,7 +61,7 @@ return [
 
     'providers' => [
         'users' => [
-            'driver' => 'eloquent',
+            'driver' => 'custom_eloquent',
             'model' => env('AUTH_MODEL', App\Models\User::class),
         ],
 
@@ -98,6 +98,18 @@ return [
             'throttle' => 60,
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Authentication Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for authentication security features like account lockout.
+    |
+    */
+
+    'max_login_attempts' => env('AUTH_MAX_LOGIN_ATTEMPTS', 5),
+    'lockout_minutes' => env('AUTH_LOCKOUT_MINUTES', 30),
 
     /*
     |--------------------------------------------------------------------------

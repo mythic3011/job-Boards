@@ -10,7 +10,6 @@
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
 
-/* Tailwind v4: Custom utilities for line-clamp (v4 supports it natively, but ensuring compatibility) */
 @utility line-clamp-1 {
     overflow: hidden;
     display: -webkit-box;

@@ -99,7 +99,7 @@ new class extends Component
             <span>Manage Jobs</span>
         </x-ui.button>
 
-        <x-ui.button href="{{ route('admin.applications.index') }}" variant="outline" class="h-24 flex-col">
+        <x-ui.button href="{{ route('applications.index') }}" variant="outline" class="h-24 flex-col">
             <x-heroicon-o-document-text class="h-8 w-8 mb-2" />
             <span>View Applications</span>
         </x-ui.button>

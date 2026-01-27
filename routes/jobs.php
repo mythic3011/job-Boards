@@ -15,10 +15,8 @@ use Livewire\Volt\Volt;
 
 Route::middleware(\App\Http\Middleware\EnsureSetupCompleted::class)->group(function () {
     // Job listing
-    Route::get('/jobs', function () {
-        $jobs = \App\Models\JobPosting::latest()->paginate(10);
-        return view('livewire.jobs.index', compact('jobs'));
-    })->name('jobs.index');
+    Volt::route('/jobs', 'jobs.index')
+        ->name('jobs.index');
 
     // View specific job
     Volt::route('/jobs/{idcode}', 'jobs.show')
@@ -41,9 +39,9 @@ Route::middleware(\App\Http\Middleware\EnsureSetupCompleted::class)->group(funct
 
 Route::middleware(['auth'])->group(function () {
     // List user's applications
-    Volt::route('/applications', 'applications.index')
+    Volt::route('/my-applications', 'applications.index')
         ->middleware('throttle:30,1')
-        ->name('applications.index');
+        ->name('my.applications.index');
 
     // Apply to a job
     Volt::route('/jobs/{jobIdcode}/apply', 'applications.create')

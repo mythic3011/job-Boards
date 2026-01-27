@@ -1,60 +1,7 @@
-<?php
-
-use App\Actions\Fortify\CreateNewUser;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
-use Livewire\Attributes\Validate;
-use Livewire\Volt\Component;
-
-new class extends Component
-{
-    #[Validate('required|string|max:255|unique:users,login_id')]
-    public string $login_id = '';
-
-    #[Validate('required|string|max:255')]
-    public string $nickname = '';
-
-    #[Validate('required|email|max:255|unique:users,email')]
-    public string $email = '';
-
-    #[Validate('required|in:company,individual')]
-    public string $user_type = 'individual';
-
-    #[Validate('required|string', as: 'password')]
-    public string $password = '';
-
-    #[Validate('required|string|same:password', as: 'password confirmation')]
-    public string $password_confirmation = '';
-
-    #[Validate('nullable|image|max:2048')]
-    public $profile_image = null;
-
-    public function register()
-    {
-        $this->validate([
-            'password' => ['required', 'string', Password::defaults()],
-        ]);
-
-        $createUser = new CreateNewUser();
-        $user = $createUser->create([
-            'login_id' => $this->login_id,
-            'nickname' => $this->nickname,
-            'email' => $this->email,
-            'user_type' => $this->user_type,
-            'password' => $this->password,
-            'password_confirmation' => $this->password_confirmation,
-            'profile_image' => $this->profile_image,
-        ]);
-
-        auth()->login($user);
-
-        return redirect()->intended('/');
-    }
-}; ?>
-
 <x-layouts.base :title="'Register'" :show-header="false">
     <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8">
+            <x-layouts.flash-messages />
             <div>
                 <div class="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-indigo-100">
                     <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -73,7 +20,9 @@ new class extends Component
             </div>
 
             <div class="bg-white shadow-md rounded-lg p-8">
-                <form wire:submit="register" class="space-y-6">
+                <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+                    @csrf
+                    
                     <div>
                         <label for="login_id" class="block text-sm font-medium text-gray-700">
                             Username
@@ -83,7 +32,7 @@ new class extends Component
                                 id="login_id"
                                 name="login_id"
                                 type="text"
-                                wire:model="login_id"
+                                value="{{ old('login_id') }}"
                                 required
                                 class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('login_id') border-red-300 @enderror"
                                 placeholder="Choose a unique username"
@@ -103,7 +52,7 @@ new class extends Component
                                 id="nickname"
                                 name="nickname"
                                 type="text"
-                                wire:model="nickname"
+                                value="{{ old('nickname') }}"
                                 required
                                 class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('nickname') border-red-300 @enderror"
                                 placeholder="Your display name"
@@ -123,7 +72,7 @@ new class extends Component
                                 id="email"
                                 name="email"
                                 type="email"
-                                wire:model="email"
+                                value="{{ old('email') }}"
                                 autocomplete="email"
                                 required
                                 class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('email') border-red-300 @enderror"
@@ -142,12 +91,11 @@ new class extends Component
                         <select
                             id="user_type"
                             name="user_type"
-                            wire:model="user_type"
                             required
                             class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('user_type') border-red-300 @enderror"
                         >
-                            <option value="individual">Individual (Job Seeker)</option>
-                            <option value="company">Company (Employer)</option>
+                            <option value="individual" {{ old('user_type') == 'individual' ? 'selected' : '' }}>Individual (Job Seeker)</option>
+                            <option value="company" {{ old('user_type') == 'company' ? 'selected' : '' }}>Company (Employer)</option>
                         </select>
                         <p class="mt-1 text-xs text-gray-500">
                             Choose Individual if you're looking for jobs, or Company if you're hiring.
@@ -166,14 +114,13 @@ new class extends Component
                                 id="password"
                                 name="password"
                                 type="password"
-                                wire:model="password"
                                 autocomplete="new-password"
                                 required
                                 class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('password') border-red-300 @enderror"
                             >
                         </div>
                         <p class="mt-1 text-xs text-gray-500">
-                            Must be at least 8 characters with mixed case and numbers.
+                            Must be at least 12 characters with mixed case, letters, numbers, and symbols.
                         </p>
                         @error('password')
                             <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
@@ -189,7 +136,6 @@ new class extends Component
                                 id="password_confirmation"
                                 name="password_confirmation"
                                 type="password"
-                                wire:model="password_confirmation"
                                 autocomplete="new-password"
                                 required
                                 class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('password_confirmation') border-red-300 @enderror"
@@ -201,15 +147,22 @@ new class extends Component
                     </div>
 
                     <div>
-                        <x-ui.image-upload
-                            label="Profile Image (Optional)"
-                            name="profile_image"
-                            wire:model="profile_image"
-                            accept="image/*"
-                            maxSize="2MB"
-                            help="JPG, PNG, GIF up to 2MB"
-                            :preview="true"
-                        />
+                        <label for="profile_image" class="block text-sm font-medium text-gray-700">
+                            Profile Image (Optional)
+                        </label>
+                        <div class="mt-1">
+                            <input
+                                id="profile_image"
+                                name="profile_image"
+                                type="file"
+                                accept="image/*"
+                                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                            >
+                        </div>
+                        <p class="mt-1 text-xs text-gray-500">JPG, PNG, GIF up to 2MB</p>
+                        @error('profile_image')
+                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                        @enderror
                     </div>
 
                     <div>

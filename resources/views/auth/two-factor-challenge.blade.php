@@ -108,7 +108,7 @@
             <!-- Cancel -->
             <div class="mt-4 text-center">
                 <a href="{{ route('logout') }}" 
-                   onclick="event.preventDefault(); document.getElementById('logout-form').submit();"
+                   onclick="event.preventDefault(); $('#logout-form').submit();"
                    class="text-sm text-gray-600 hover:text-gray-800">
                     Cancel and log out
                 </a>

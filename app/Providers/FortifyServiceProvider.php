@@ -24,6 +24,7 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // Re-enable custom LoginResponse with a fix
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
     }
 
