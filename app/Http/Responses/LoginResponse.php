@@ -2,48 +2,36 @@
 
 namespace App\Http\Responses;
 
+use App\Services\AuthenticationService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Log;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 
 class LoginResponse implements LoginResponseContract
 {
+    public function __construct(
+        private readonly AuthenticationService $authService
+    ) {
+    }
+
     public function toResponse($request): RedirectResponse
     {
         $user = $request->user();
 
-        // If there's an intended URL, redirect there first
-        if ($request->session()->has('url.intended')) {
-            return redirect()->intended($this->getDefaultRedirect($user));
+        if (!$user) {
+            Log::error('LoginResponse called without authenticated user');
+            return redirect()->route('login')->withErrors(['error' => 'Authentication failed']);
         }
 
-        // Otherwise, redirect based on user role/type
-        return redirect()->to($this->getDefaultRedirect($user));
-    }
+        Log::info('User login redirect', [
+            'user_id' => $user->id,
+            'user_type' => $user->user_type,
+            'auth_check' => auth()->check(),
+            'auth_id' => auth()->id(),
+        ]);
 
-    /**
-     * Get the default redirect path based on user role and type.
-     */
-    private function getDefaultRedirect($user): string
-    {
-        // Check if user has admin permissions
-        if ($user->hasAnyPermission([
-            'admin.system.view',
-            'admin.users.view',
-            'admin.jobs.view',
-            'admin.applications.view',
-            'admin.settings.view',
-        ])) {
-            return route('admin.dashboard');
-        }
+        $redirectPath = $this->authService->getPostLoginRedirect($user);
 
-        if ($user->isCompany()) {
-            return route('jobs.index');
-        }
-
-        if ($user->isIndividual()) {
-            return route('applications.index');
-        }
-
-        return route('home');
+        return redirect($redirectPath)->with('success', 'Welcome back, ' . $user->nickname . '!');
     }
 }

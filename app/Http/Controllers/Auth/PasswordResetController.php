@@ -4,15 +4,28 @@ namespace App\Http\Controllers\Auth;
 
 use App\Actions\Fortify\SendPasswordResetLinkWithTwoFactor;
 use App\Http\Controllers\Controller;
+use App\Models\User;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 use Illuminate\Validation\ValidationException;
+use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
 
 class PasswordResetController extends Controller
 {
+    public function __construct(
+        private readonly AuditLogger $auditLogger
+    ) {
+    }
+
     /**
      * Send a password reset link with 2FA verification.
      */
-    public function sendResetLink(Request $request, SendPasswordResetLinkWithTwoFactor $action)
+    public function sendResetLink(Request $request, SendPasswordResetLinkWithTwoFactor $action): RedirectResponse
     {
         $request->validate([
             'email' => ['required', 'email'],
@@ -29,5 +42,75 @@ class PasswordResetController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'An error occurred. Please try again.');
         }
+    }
+
+    /**
+     * Reset password with enhanced security.
+     */
+    public function resetPassword(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'token' => ['required'],
+            'email' => ['required', 'email'],
+            'password' => [
+                'required',
+                'confirmed',
+                PasswordRule::min(12)
+                    ->letters()
+                    ->mixedCase()
+                    ->numbers()
+                    ->symbols()
+                    ->uncompromised(3),
+            ],
+        ]);
+
+        $user = User::where('email', $request->email)->first();
+
+        // If user has 2FA enabled, require 2FA code for password reset
+        if ($user && $user->two_factor_confirmed_at) {
+            $request->validate([
+                'two_factor_code' => ['required', 'string', 'size:6'],
+            ]);
+
+            // Verify 2FA code
+            $provider = app(TwoFactorAuthenticationProvider::class);
+            if (!$provider->verify(decrypt($user->two_factor_secret), $request->two_factor_code)) {
+                return back()->withErrors([
+                    'two_factor_code' => 'The provided two-factor authentication code is invalid.',
+                ]);
+            }
+        }
+
+        // Reset password
+        $status = Password::reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function (User $user, string $password) use ($request) {
+                $user->forceFill([
+                    'password' => Hash::make($password),
+                ])->save();
+
+                // Log password reset completion
+                $this->auditLogger->logBusinessEvent(
+                    eventType: 'password_reset_completed',
+                    request: $request,
+                    targetType: 'user',
+                    targetIdcode: $user->idcode,
+                    meta: [
+                        'email' => $user->email,
+                        'two_factor_verified' => $user->two_factor_confirmed_at !== null,
+                    ]
+                );
+
+                Log::info('Password reset completed', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'ip' => $request->ip(),
+                ]);
+            }
+        );
+
+        return $status === Password::PASSWORD_RESET
+            ? redirect()->route('login')->with('status', __($status))
+            : back()->withErrors(['email' => [__($status)]]);
     }
 }

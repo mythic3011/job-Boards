@@ -17,6 +17,7 @@
     "dependencies": {
         "@heroicons/react": "^2.2.0",
         "@heroicons/vue": "^2.2.0",
+        "alpinejs": "^3.15.5",
         "jquery": "^4.0.0",
         "otplib": "^13.1.1",
         "qrcode": "^1.5.4"
