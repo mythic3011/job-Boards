@@ -2,12 +2,8 @@
 
 namespace App\Livewire\Profile;
 
+use App\Services\TwoFactorService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
-use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
-use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
-use Laravel\Fortify\Actions\DisableTwoFactorAuthentication;
-use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
 use Livewire\Component;
 
 class TwoFactor extends Component
@@ -24,72 +20,57 @@ class TwoFactor extends Component
         'verificationCode.regex' => 'The verification code must contain only numbers.',
     ];
 
-    public function enable2FA()
+    public function __construct()
     {
-        $user = Auth::user();
-        
-        if (!$user->two_factor_secret) {
-            app(EnableTwoFactorAuthentication::class)($user);
-            $this->dispatch('2fa-enabled');
-        }
+        parent::__construct();
     }
 
-    public function confirm2FA()
+    public function enable2FA(TwoFactorService $twoFactorService)
+    {
+        $user = Auth::user();
+        $twoFactorService->enable($user);
+        $this->dispatch('2fa-enabled');
+    }
+
+    public function confirm2FA(TwoFactorService $twoFactorService)
     {
         $this->validate();
 
         $user = Auth::user();
-        
-        if (!app(TwoFactorAuthenticationProvider::class)->verify(
-            decrypt($user->two_factor_secret),
-            $this->verificationCode
-        )) {
+
+        if (!$twoFactorService->confirm($user, $this->verificationCode)) {
             $this->addError('verificationCode', 'The verification code is incorrect. Please try again.');
             return;
         }
 
-        app(ConfirmTwoFactorAuthentication::class)($user);
-        
         session()->flash('success', '🎉 Two-factor authentication is now active! Your account is more secure.');
         $this->verificationCode = '';
     }
 
-    public function disable2FA()
+    public function disable2FA(TwoFactorService $twoFactorService)
     {
-        app(DisableTwoFactorAuthentication::class)(Auth::user());
+        $twoFactorService->disable(Auth::user());
         session()->flash('success', 'Two-factor authentication has been disabled.');
     }
 
-    public function cancel2FA()
+    public function cancel2FA(TwoFactorService $twoFactorService)
     {
-        $user = Auth::user();
-        if ($user->two_factor_secret && !$user->two_factor_confirmed_at) {
-            $user->forceFill([
-                'two_factor_secret' => null,
-                'two_factor_recovery_codes' => null,
-            ])->save();
-        }
+        $twoFactorService->cancelSetup(Auth::user());
         $this->verificationCode = '';
     }
 
-    public function regenerateRecoveryCodes()
+    public function regenerateRecoveryCodes(TwoFactorService $twoFactorService)
     {
-        $user = Auth::user();
-        $user->forceFill([
-            'two_factor_recovery_codes' => encrypt(json_encode(
-                collect(range(1, 8))->map(fn() => strtoupper(Str::random(5) . '-' . Str::random(5)))->toArray()
-            )),
-        ])->save();
-        
+        $twoFactorService->regenerateRecoveryCodes(Auth::user());
         session()->flash('success', 'New recovery codes have been generated.');
     }
 
-    public function render()
+    public function render(TwoFactorService $twoFactorService)
     {
         $user = Auth::user();
-        $is2FAEnabled = $user->two_factor_confirmed_at !== null;
-        $isSettingUp2FA = $user->two_factor_secret !== null && !$is2FAEnabled;
-        $recoveryCodes = $is2FAEnabled ? json_decode(decrypt($user->two_factor_recovery_codes ?? '[]'), true) ?? [] : [];
+        $is2FAEnabled = $twoFactorService->isEnabled($user);
+        $isSettingUp2FA = $twoFactorService->isSetupInProgress($user);
+        $recoveryCodes = $twoFactorService->getRecoveryCodes($user);
 
         return view('livewire.profile.two-factor', [
             'user' => $user,

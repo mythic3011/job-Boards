@@ -45,7 +45,7 @@
             <div class="text-center">
                 <div class="inline-block bg-white p-4 rounded-xl shadow-sm">
                     @if($qrCodeDataUrl)
-                        <img src="{{ $qrCodeDataUrl }}" alt="2FA QR Code" class="w-48 h-48">
+                        {!! $qrCodeDataUrl !!}
                     @else
                         <div class="w-48 h-48 flex items-center justify-center text-gray-400">
                             <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">

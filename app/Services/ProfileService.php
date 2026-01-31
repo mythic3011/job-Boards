@@ -10,12 +10,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
-use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
 
 class ProfileService
 {
     public function __construct(
         private readonly ProfileImageService $profileImageService,
+        private readonly TwoFactorService $twoFactorService,
         private readonly AuditLogger $auditLogger
     ) {
     }
@@ -66,8 +66,8 @@ class ProfileService
         }
 
         // Verify 2FA if enabled
-        if ($user->two_factor_confirmed_at) {
-            $this->verifyTwoFactorCode($user, $data['two_factor_code'] ?? '');
+        if ($this->twoFactorService->isEnabled($user)) {
+            $this->twoFactorService->verifyCodeOrFail($user, $data['two_factor_code'] ?? '');
         }
 
         // Update password
@@ -112,7 +112,7 @@ class ProfileService
                 'id', 'idcode', 'login_id', 'nickname', 'email', 
                 'user_type', 'profile_image_path', 'created_at'
             ]),
-            'two_factor_enabled' => $user->two_factor_confirmed_at !== null,
+            'two_factor_enabled' => $this->twoFactorService->isEnabled($user),
             'has_profile_image' => !empty($user->profile_image_path),
             'profile_image_url' => $user->profile_image_path 
                 ? $this->profileImageService->getImageUrl($user->profile_image_path)
@@ -185,7 +185,7 @@ class ProfileService
         ];
 
         // Require 2FA code if 2FA is enabled
-        if ($user->two_factor_confirmed_at) {
+        if ($this->twoFactorService->isEnabled($user)) {
             $rules['two_factor_code'] = ['required', 'string', 'size:6'];
         }
 
@@ -214,26 +214,6 @@ class ProfileService
             // Re-throw validation errors from ProfileImageService
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'profile_image' => [$e->getMessage()],
-            ]);
-        }
-    }
-
-    /**
-     * Verify two-factor authentication code.
-     */
-    private function verifyTwoFactorCode(User $user, string $code): void
-    {
-        if (empty($code)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'two_factor_code' => ['Two-factor authentication code is required.'],
-            ]);
-        }
-
-        $provider = app(TwoFactorAuthenticationProvider::class);
-        
-        if (!$provider->verify(decrypt($user->two_factor_secret), $code)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'two_factor_code' => ['The provided two-factor authentication code is invalid.'],
             ]);
         }
     }
@@ -287,13 +267,13 @@ class ProfileService
             targetIdcode: $user->idcode,
             meta: [
                 'user_id' => $user->id,
-                'two_factor_verified' => $user->two_factor_confirmed_at !== null,
+                'two_factor_verified' => $this->twoFactorService->isEnabled($user),
             ]
         );
 
         Log::info('User password updated', [
             'user_id' => $user->id,
-            'two_factor_verified' => $user->two_factor_confirmed_at !== null,
+            'two_factor_verified' => $this->twoFactorService->isEnabled($user),
             'ip' => $request->ip(),
         ]);
     }

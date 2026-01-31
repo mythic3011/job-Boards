@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\ProfileService;
+use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
@@ -11,7 +12,8 @@ use Illuminate\Support\Facades\Auth;
 class ProfileController extends Controller
 {
     public function __construct(
-        private readonly ProfileService $profileService
+        private readonly ProfileService $profileService,
+        private readonly TwoFactorService $twoFactorService
     ) {
     }
 
@@ -91,7 +93,7 @@ class ProfileController extends Controller
         
         return view('profile.password', [
             'user' => $user,
-            'two_factor_enabled' => $user->two_factor_confirmed_at !== null,
+            'two_factor_enabled' => $this->twoFactorService->isEnabled($user),
         ]);
     }
 
