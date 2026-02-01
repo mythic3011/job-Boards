@@ -88,7 +88,7 @@ class TwoFactorService
             return false;
         }
 
-        ($this->confirmAction)($user);
+        ($this->confirmAction)($user, $code);
 
         $this->auditLogger->logBusinessEvent(
             eventType: '2fa.confirmed',
