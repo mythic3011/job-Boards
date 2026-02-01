@@ -10,7 +10,18 @@ $(() => {
     // Start Alpine.js
     window.Alpine = Alpine;
     Alpine.start();
-    
+
+    // UX: clear server-side validation styling as user edits (login/register/auth forms)
+    $(document).on('input change', 'input.border-red-300, textarea.border-red-300, select.border-red-300', function () {
+        const $field = $(this);
+        $field.removeClass('border-red-300');
+        const $wrapper = $field.closest('div');
+        const $error = $wrapper.nextAll('p.text-red-600').first();
+        if ($error.length) {
+            $error.fadeOut(150);
+        }
+    });
+
     // Livewire initialization handler
     $(document).on('livewire:init', () => {
         console.log('Livewire initialized!', window.Livewire.all().length, 'components');

@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Spatie\Permission\Models\Role;
 
 class UserRegistrationService
 {
@@ -112,37 +113,62 @@ class UserRegistrationService
 
     /**
      * Assign appropriate role to the user.
+     * Best-effort only: registration must not fail if the role is missing or assignment fails.
      */
     private function assignUserRole(User $user, string $userType): void
     {
-        $user->assignRole($userType);
+        try {
+            $role = Role::where('name', $userType)->where('guard_name', 'web')->first();
+            if ($role) {
+                $user->assignRole($role);
+            } else {
+                Log::warning('Registration: role not found, skipping assignment', [
+                    'user_id' => $user->id,
+                    'user_type' => $userType,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::error('Registration: failed to assign role', [
+                'user_id' => $user->id,
+                'user_type' => $userType,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
      * Log the registration event.
+     * Best-effort only: registration must not fail if logging fails.
      */
     private function logRegistration(User $user, Request $request): void
     {
-        Log::info('User registered successfully', [
-            'user_id' => $user->id,
-            'username' => $user->login_id,
-            'email' => $user->email,
-            'user_type' => $user->user_type,
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-        ]);
-
-        $this->auditLogger->logBusinessEvent(
-            eventType: 'user_registered',
-            request: $request,
-            targetType: 'user',
-            targetIdcode: $user->idcode,
-            meta: [
+        try {
+            Log::info('User registered successfully', [
+                'user_id' => $user->id,
                 'username' => $user->login_id,
                 'email' => $user->email,
                 'user_type' => $user->user_type,
-            ]
-        );
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]);
+
+            $this->auditLogger->logBusinessEvent(
+                eventType: 'user_registered',
+                request: $request,
+                targetType: 'user',
+                targetIdcode: $user->idcode,
+                meta: [
+                    'username' => $user->login_id,
+                    'email' => $user->email,
+                    'user_type' => $user->user_type,
+                ]
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Registration: audit logging failed', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

@@ -44,7 +44,7 @@ new class extends Component
 
         session()->flash('message', 'Job posting created successfully!');
 
-        return redirect()->route('jobs.show', $job->idcode);
+        return redirect()->route('jobs.index');
     }
 }; ?>
 
@@ -52,7 +52,13 @@ new class extends Component
     <h1 class="text-3xl font-bold mb-6">Create Job</h1>
 
     <x-ui.card padding="p-8">
-        <form wire:submit="create" class="space-y-6">
+        <form
+            method="POST"
+            action="{{ route('jobs.store') }}"
+            wire:submit.prevent="create"
+            class="space-y-6"
+        >
+            @csrf
             <x-ui.input
                 label="Job Title"
                 name="title"

@@ -15,11 +15,18 @@
     $classes = 'rounded-md border px-4 py-3 text-sm ' . ($typeClasses[$type] ?? $typeClasses['info']);
     
     $ariaLive = in_array($type, ['success', 'error']) ? 'polite' : 'off';
+    $autoDismiss = in_array($type, ['success', 'error']);
 @endphp
 
-<div 
-    {{ $attributes->merge(['class' => $classes]) }} 
-    role="alert" 
+<div
+    x-data="{ show: true }"
+    x-show="show"
+    x-transition:leave.opacity.duration.300ms
+    @if($autoDismiss)
+        x-init="setTimeout(() => { show = false }, 3000)"
+    @endif
+    {{ $attributes->merge(['class' => $classes]) }}
+    role="alert"
     aria-live="{{ $ariaLive }}"
     aria-atomic="true"
 >
@@ -33,10 +40,10 @@
             <div class="flex-1">{{ $slot }}</div>
         </div>
         @if($dismissible)
-            <button 
-                type="button" 
-                class="flex-shrink-0 text-current opacity-50 hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded" 
-                onclick="this.closest('[role=alert]').remove()"
+            <button
+                type="button"
+                class="flex-shrink-0 text-current opacity-50 hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded"
+                @click="show = false"
                 aria-label="Dismiss alert"
             >
                 <span class="sr-only">Dismiss</span>

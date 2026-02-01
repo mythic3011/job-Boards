@@ -44,9 +44,10 @@ function initDropdowns() {
             e.stopPropagation();
         });
         
-        // Close on outside click
+        // Close on outside click (don't close when clicking inside dropdown, including logout form)
         $(document).on('click', (e) => {
-            if (isOpen && !$dropdown.is(e.target) && !$dropdown.has(e.target).length) {
+            const insideDropdown = $dropdown.is(e.target) || $dropdown.has(e.target).length > 0;
+            if (isOpen && !insideDropdown) {
                 isOpen = false;
                 $button.attr('aria-expanded', 'false');
                 $menu.removeClass('opacity-100 scale-100').addClass('opacity-0 scale-95 pointer-events-none');

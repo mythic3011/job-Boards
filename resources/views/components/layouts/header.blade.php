@@ -2,7 +2,7 @@
     'showNavigation' => true,
 ])
 
-<header class="border-b bg-white" role="banner">
+<header class="relative z-50 border-b bg-white" role="banner">
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
             <div class="flex items-center gap-6">
@@ -19,9 +19,9 @@
             </div>
             <div class="flex items-center gap-3">
                 @auth
-                    <!-- Profile Dropdown -->
-                    <div class="relative" id="profile-dropdown">
-                        <button class="hidden sm:flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 transition-colors">
+                    <!-- Profile Dropdown (uses data-dropdown so resources/js/components/dropdown.js handles it) -->
+                    <div class="relative z-10" id="profile-dropdown" data-dropdown>
+                        <button type="button" class="hidden sm:flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 transition-colors" data-dropdown-button aria-expanded="false" aria-haspopup="true">
                             <x-ui.avatar 
                                 :src="auth()->user()->profile_image_path ? route('images.profile', ['path' => base64_encode(auth()->user()->profile_image_path)]) : null"
                                 :name="auth()->user()->nickname"
@@ -30,20 +30,20 @@
                             />
                             <span class="font-medium">{{ auth()->user()->nickname }}</span>
                             <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">{{ auth()->user()->user_type }}</span>
-                            <svg class="ml-1 h-4 w-4 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg class="ml-1 h-4 w-4 transition-transform duration-200" data-dropdown-arrow fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
                         </button>
                         
-                        <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border border-gray-200 hidden">
+                        <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-[100] border border-gray-200 opacity-0 scale-95 pointer-events-none transition-all duration-100" data-dropdown-menu id="profile-dropdown-menu">
                             <a href="{{ route('profile.show') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">View Profile</a>
                             <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit Profile</a>
                             <a href="{{ route('profile.password') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Change Password</a>
                             <a href="{{ route('profile.two-factor') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Security Settings</a>
                             <div class="border-t border-gray-100 my-1"></div>
-                            <form method="POST" action="{{ route('logout') }}" class="block">
+                            <form method="POST" action="{{ route('logout') }}" class="block" id="header-logout-form">
                                 @csrf
-                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Sign Out</button>
+                                <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-inset">Sign Out</button>
                             </form>
                         </div>
                     </div>
@@ -59,71 +59,4 @@
         </div>
     </div>
     
-    @auth
-    <script>
-    // Wait for jQuery to be available before initializing dropdown
-    function initProfileDropdown() {
-        if (typeof $ === 'undefined' || !$.fn) {
-            // jQuery not ready yet, try again in 50ms
-            setTimeout(initProfileDropdown, 50);
-            return;
-        }
-        
-        // Initialize profile dropdown with jQuery - fixed double-click issue
-        const $dropdown = $('#profile-dropdown');
-        if ($dropdown.length) {
-            const $button = $dropdown.find('button'), $menu = $dropdown.find('div'), $arrow = $button.find('svg');
-            let isOpen = false;
-            
-            // Prevent double-click issues by tracking state properly
-            $button.off('click dblclick').on('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                
-                if (isOpen) {
-                    // Close dropdown
-                    isOpen = false;
-                    $menu.fadeOut(150, function() { $(this).addClass('hidden'); });
-                    $arrow.css('transform', 'rotate(0deg)');
-                } else {
-                    // Open dropdown
-                    isOpen = true;
-                    $menu.removeClass('hidden').hide().fadeIn(150);
-                    $arrow.css('transform', 'rotate(180deg)');
-                }
-            }).on('dblclick', (e) => {
-                // Prevent double-click from interfering
-                e.preventDefault();
-                e.stopPropagation();
-            });
-            
-            $(document).off('click.profileDropdown').on('click.profileDropdown', (e) => {
-                if (isOpen && !$dropdown.is(e.target) && !$dropdown.has(e.target).length) {
-                    isOpen = false;
-                    $menu.fadeOut(150, function() { $(this).addClass('hidden'); });
-                    $arrow.css('transform', 'rotate(0deg)');
-                }
-            });
-            
-            $(document).off('keydown.profileDropdown').on('keydown.profileDropdown', (e) => {
-                if (e.key === 'Escape' && isOpen) {
-                    isOpen = false;
-                    $menu.fadeOut(150, function() { $(this).addClass('hidden'); });
-                    $arrow.css('transform', 'rotate(0deg)');
-                    $button.focus();
-                }
-            });
-            
-            console.log('Profile dropdown initialized with double-click protection');
-        }
-    }
-    
-    // Start trying to initialize when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initProfileDropdown);
-    } else {
-        initProfileDropdown();
-    }
-    </script>
-    @endauth
 </header>

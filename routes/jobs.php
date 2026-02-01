@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ApplicationController;
+use App\Http\Controllers\JobController;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -18,14 +19,20 @@ Route::middleware(\App\Http\Middleware\EnsureSetupCompleted::class)->group(funct
     Volt::route('/jobs', 'jobs.index')
         ->name('jobs.index');
 
-    // View specific job
-    Volt::route('/jobs/{idcode}', 'jobs.show')
-        ->name('jobs.show');
-
     // Create new job (authenticated users only)
+    // IMPORTANT: must be defined BEFORE /jobs/{idcode} so "create" is not matched as idcode
     Volt::route('/jobs/create', 'jobs.create')
         ->middleware(['auth', 'throttle:10,1'])
         ->name('jobs.create');
+
+    // Create job (POST). Handles form POST when Livewire is not used or as fallback.
+    Route::post('/jobs', [JobController::class, 'store'])
+        ->middleware(['auth', 'throttle:10,1'])
+        ->name('jobs.store');
+
+    // View specific job
+    Volt::route('/jobs/{idcode}', 'jobs.show')
+        ->name('jobs.show');
 });
 
 /*

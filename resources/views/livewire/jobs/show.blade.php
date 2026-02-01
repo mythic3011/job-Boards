@@ -64,7 +64,7 @@ new class extends Component
                 @endif
 
                 @if($isOwner)
-                    <x-ui.button href="{{ route('applications.index', $job->idcode) }}" variant="secondary" size="lg">
+                    <x-ui.button href="{{ route('my.applications.index', ['jobIdcode' => $job->idcode]) }}" variant="secondary" size="lg">
                         View Applications
                     </x-ui.button>
                 @endif

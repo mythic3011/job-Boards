@@ -1,6 +1,6 @@
-@if (session('status') || session('message'))
+@if (session('status') || session('message') || session('success'))
     <x-ui.alert type="success" class="mb-6" dismissible>
-        {{ session('status') ?? session('message') }}
+        {{ session('status') ?? session('message') ?? session('success') }}
     </x-ui.alert>
 @endif
 

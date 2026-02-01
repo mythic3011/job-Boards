@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -13,6 +14,14 @@ use Illuminate\Support\Facades\Route;
 | default authentication functionality.
 |
 */
+
+// Explicit logout: redirect to login with success message (handles sign out from web.php test-nav and header)
+Route::post('/logout', function (Request $request) {
+    auth()->logout();
+    $request->session()->invalidate();
+    $request->session()->regenerateToken();
+    return redirect()->route('login')->with('success', 'You have been successfully logged out.');
+})->name('logout')->middleware('auth');
 
 // Custom registration route (bypasses Fortify for now)
 Route::post('/register', [RegisterController::class, 'store'])

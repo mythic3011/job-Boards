@@ -16,7 +16,7 @@ new class extends Component
 
     public function mount(?string $jobIdcode = null): void
     {
-        $this->jobIdcode = $jobIdcode;
+        $this->jobIdcode = $jobIdcode ?? request()->query('jobIdcode');
     }
 
     public function with(ApplicationQueryService $applicationQueryService): array
