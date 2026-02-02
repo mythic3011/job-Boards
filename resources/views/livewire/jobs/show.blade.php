@@ -37,9 +37,9 @@ new class extends Component
     @if(isset($job))
         <x-ui.card padding="p-8">
             <h1 class="text-3xl font-bold mb-4">{{ $job->title }}</h1>
-            
+
             @if($job->salary)
-                <p class="text-emerald-700 font-medium text-lg mb-4">Salary: {{ $job->salary }}</p>
+                <p class="text-emerald-700 font-medium text-lg mb-4">Salary: HK$ {{ $job->salary }}</p>
             @endif
 
             <div class="mb-6">

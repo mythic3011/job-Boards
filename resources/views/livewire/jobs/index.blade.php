@@ -47,7 +47,7 @@ new class extends Component
                 <div class="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-gray-600">
                     <span>Posted {{ $job->created_at->diffForHumans() }}</span>
                     @if($job->salary)
-                        <span class="font-medium text-emerald-700">Salary: {{ $job->salary }}</span>
+                        <span class="font-medium text-emerald-700">Salary: HK$ {{ $job->salary }}</span>
                     @endif
                 </div>
             </x-ui.card>

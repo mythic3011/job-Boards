@@ -21,7 +21,7 @@ new class extends Component
     #[Validate('required|string')]
     public string $duty = '';
 
-    #[Validate('nullable|string|max:255')]
+    #[Validate('nullable|string|max:255|regex:/^[0-9\s\-]+$/')]
     public ?string $salary = null;
 
     public function mount(): void
@@ -83,10 +83,14 @@ new class extends Component
             />
 
             <x-ui.input
-                label="Salary (Optional)"
+                label="Salary (Optional, HK$)"
                 name="salary"
                 wire:model="salary"
-                placeholder="e.g., $50,000 - $70,000"
+                placeholder="e.g., 50000 - 70000"
+                inputmode="numeric"
+                pattern="[0-9\s\-]*"
+                title="Please enter only numbers, spaces, and hyphens"
+                oninput="if (/[^0-9\s\-]/.test(this.value)) { alert('Only numbers, spaces, and hyphens are allowed'); this.value = this.value.replace(/[^0-9\s\-]/g, ''); }"
             />
 
             <div class="flex gap-4">
