@@ -55,6 +55,10 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('throttle:3,1')
         ->name('applications.create');
 
+    // View application details
+    Volt::route('/applications/{idcode}', 'applications.show')
+        ->name('applications.show');
+
     // Download CV from application
     Route::get('/applications/{idcode}/download-cv', [ApplicationController::class, 'downloadCv'])
         ->middleware('throttle:20,1')

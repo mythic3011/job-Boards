@@ -71,38 +71,39 @@ new class extends Component
         }
     }
 }; ?>
+<div>
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">Apply for Job</h1>
 
-<div class="max-w-4xl mx-auto">
-    <h1 class="text-3xl font-bold mb-6">Apply for Job</h1>
+        <x-ui.card padding="p-8">
+            <form wire:submit="submit" class="space-y-6">
+                <x-ui.textarea
+                    label="Cover Message (Optional)"
+                    name="message"
+                    wire:model="message"
+                    rows="6"
+                    placeholder="Tell the employer why you're a good fit for this position..."
+                />
 
-    <x-ui.card padding="p-8">
-        <form wire:submit="submit" class="space-y-6">
-            <x-ui.textarea
-                label="Cover Message (Optional)"
-                name="message"
-                wire:model="message"
-                rows="6"
-                placeholder="Tell the employer why you're a good fit for this position..."
-            />
+                <x-ui.file-input
+                    label="CV/Resume"
+                    name="cv_file"
+                    wire:model="cv_file"
+                    accept=".pdf,.doc,.docx"
+                    help="Accepted formats: PDF, DOC, DOCX"
+                    maxSize="5MB"
+                    required
+                />
 
-            <x-ui.file-input
-                label="CV/Resume"
-                name="cv_file"
-                wire:model="cv_file"
-                accept=".pdf,.doc,.docx"
-                help="Accepted formats: PDF, DOC, DOCX"
-                maxSize="5MB"
-                required
-            />
-
-            <div class="flex gap-4">
-                <x-ui.button type="submit" variant="primary" size="lg">
-                    Submit Application
-                </x-ui.button>
-                <x-ui.button href="{{ route('jobs.show', $jobIdcode) }}" variant="outline" size="lg">
-                    Cancel
-                </x-ui.button>
-            </div>
-        </form>
-    </x-ui.card>
+                <div class="flex gap-4">
+                    <x-ui.button type="submit" variant="primary" size="lg">
+                        Submit Application
+                    </x-ui.button>
+                    <x-ui.button href="{{ route('jobs.show', $jobIdcode) }}" variant="outline" size="lg">
+                        Cancel
+                    </x-ui.button>
+                </div>
+            </form>
+        </x-ui.card>
+    </div>
 </div>

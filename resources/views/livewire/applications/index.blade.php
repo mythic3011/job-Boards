@@ -79,7 +79,10 @@ new class extends Component
                         </div>
                     </div>
 
-                    <div class="ml-4">
+                    <div class="ml-4 flex flex-col space-y-2">
+                        <x-ui.button href="{{ route('applications.show', $application->idcode) }}" variant="secondary">
+                            View Details
+                        </x-ui.button>
                         <x-ui.button href="{{ route('applications.download-cv', $application->idcode) }}" variant="primary">
                             Download CV
                         </x-ui.button>
