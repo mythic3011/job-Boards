@@ -29,7 +29,7 @@ use Spatie\Permission\Traits\HasRoles;
  */
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable, HasRoles, TwoFactorAuthenticatable;
+    use HasFactory, Notifiable, HasRoles, TwoFactorAuthenticatable, HasUuids;
 
     public const AUTH_IDENTIFIER = 'login_id';
 

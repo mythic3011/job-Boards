@@ -43,7 +43,7 @@ class ProfileImageService
     {
         // Validate file before storing
         $this->validateImageFile($file);
-        
+
         $extension = strtolower($file->getClientOriginalExtension());
         $filename = Str::uuid()->toString() . '.' . $extension;
 
@@ -61,28 +61,28 @@ class ProfileImageService
         if (!in_array($file->getMimeType(), self::ALLOWED_MIME_TYPES)) {
             throw new \InvalidArgumentException('We couldn\'t use this file. It may not be a valid image or could contain unsafe content. Try another JPG, PNG, WebP or GIF under 2MB.');
         }
-        
+
         // Check file size
         if ($file->getSize() > self::MAX_FILE_SIZE) {
             throw new \InvalidArgumentException('We couldn\'t use this file. It may not be a valid image or could contain unsafe content. Try another JPG, PNG, WebP or GIF under 2MB.');
         }
-        
+
         // Validate image using getimagesize for additional security
         $imageInfo = @getimagesize($file->getPathname());
         if ($imageInfo === false) {
             throw new \InvalidArgumentException('We couldn\'t use this file. It may not be a valid image or could contain unsafe content. Try another JPG, PNG, WebP or GIF under 2MB.');
         }
-        
+
         // Validate image dimensions (reasonable limits)
         [$width, $height] = $imageInfo;
         if ($width > 4000 || $height > 4000) {
             throw new \InvalidArgumentException('We couldn\'t use this file. It may not be a valid image or could contain unsafe content. Try another JPG, PNG, WebP or GIF under 2MB.');
         }
-        
+
         if ($width < 10 || $height < 10) {
             throw new \InvalidArgumentException('We couldn\'t use this file. It may not be a valid image or could contain unsafe content. Try another JPG, PNG, WebP or GIF under 2MB.');
         }
-        
+
         // Validate MIME type matches actual image type
         $allowedImageTypes = [
             IMAGETYPE_JPEG => 'image/jpeg',
@@ -90,20 +90,20 @@ class ProfileImageService
             IMAGETYPE_WEBP => 'image/webp',
             IMAGETYPE_GIF => 'image/gif',
         ];
-        
+
         if (!isset($allowedImageTypes[$imageInfo[2]])) {
             throw new \InvalidArgumentException('We couldn\'t use this file. It may not be a valid image or could contain unsafe content. Try another JPG, PNG, WebP or GIF under 2MB.');
         }
-        
+
         $detectedMimeType = $allowedImageTypes[$imageInfo[2]];
         if ($file->getMimeType() !== $detectedMimeType) {
             throw new \InvalidArgumentException('We couldn\'t use this file. It may not be a valid image or could contain unsafe content. Try another JPG, PNG, WebP or GIF under 2MB.');
         }
-        
+
         // Additional security: Check for embedded PHP code or suspicious content
         $this->scanForMaliciousContent($file);
     }
-    
+
     /**
      * Scan file for potentially malicious content.
      *
@@ -112,7 +112,7 @@ class ProfileImageService
     private function scanForMaliciousContent(UploadedFile $file): void
     {
         $content = file_get_contents($file->getPathname());
-        
+
         // Only check for obvious PHP execution tags (be less strict)
         $phpPatterns = [
             '/<\?php/i',
@@ -122,7 +122,7 @@ class ProfileImageService
             '/system\s*\(/i',
             '/shell_exec\s*\(/i',
         ];
-        
+
         foreach ($phpPatterns as $pattern) {
             if (preg_match($pattern, $content)) {
                 throw new \InvalidArgumentException('We couldn\'t use this file. It may not be a valid image or could contain unsafe content. Try another JPG, PNG, WebP or GIF under 2MB.');
@@ -146,6 +146,28 @@ class ProfileImageService
     public function getImageUrl(string $path): string
     {
         // For private storage, we use a dedicated image controller route
-        return route('images.profile', ['path' => base64_encode($path)]);
+        return route('images.profile', ['path' => self::encodePath($path)]);
+    }
+
+    /**
+     * Encode a storage path for URL-safe transport.
+     */
+    public static function encodePath(string $path): string
+    {
+        return rtrim(strtr(base64_encode($path), '+/', '-_'), '=');
+    }
+
+    /**
+     * Decode a URL-safe encoded storage path.
+     */
+    public static function decodePath(string $encodedPath): string
+    {
+        $base64 = strtr($encodedPath, '-_', '+/');
+        $padding = strlen($base64) % 4;
+        if ($padding > 0) {
+            $base64 .= str_repeat('=', 4 - $padding);
+        }
+
+        return base64_decode($base64, true) ?: '';
     }
 }

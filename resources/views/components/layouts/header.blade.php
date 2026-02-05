@@ -6,8 +6,8 @@
     <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div class="flex h-16 items-center justify-between">
             <div class="flex items-center gap-6">
-                <a 
-                    href="{{ route('home') }}" 
+                <a
+                    href="{{ route('home') }}"
                     class="font-semibold tracking-tight hover:text-indigo-600 transition-colors"
                     aria-label="{{ config('app.name', 'Jobs Board') }} - Home"
                 >
@@ -22,8 +22,8 @@
                     <!-- Profile Dropdown (uses data-dropdown so resources/js/components/dropdown.js handles it) -->
                     <div class="relative z-10" id="profile-dropdown" data-dropdown>
                         <button type="button" class="hidden sm:flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 transition-colors" data-dropdown-button aria-expanded="false" aria-haspopup="true">
-                            <x-ui.avatar 
-                                :src="auth()->user()->profile_image_path ? route('images.profile', ['path' => base64_encode(auth()->user()->profile_image_path)]) : null"
+                            <x-ui.avatar
+                                :src="auth()->user()->profile_image_path ? app(\App\Services\ProfileImageService::class)->getImageUrl(auth()->user()->profile_image_path) : null"
                                 :name="auth()->user()->nickname"
                                 size="sm"
                                 class="border border-gray-200"
@@ -34,7 +34,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
                         </button>
-                        
+
                         <div class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-[100] border border-gray-200 opacity-0 scale-95 pointer-events-none transition-all duration-100" data-dropdown-menu id="profile-dropdown-menu">
                             <a href="{{ route('profile.show') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">View Profile</a>
                             <a href="{{ route('profile.edit') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Edit Profile</a>
@@ -58,5 +58,5 @@
             </div>
         </div>
     </div>
-    
+
 </header>

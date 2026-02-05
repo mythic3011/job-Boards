@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -24,6 +25,13 @@ class UserRegistrationService
      */
     public function register(array $data, Request $request): User
     {
+        if (
+            (!isset($data['profile_image']) || !$data['profile_image'] instanceof UploadedFile)
+            && $request->hasFile('profile_image')
+        ) {
+            $data['profile_image'] = $request->file('profile_image');
+        }
+
         $this->validateRegistrationData($data);
 
         $user = $this->createUser($data);
@@ -105,7 +113,11 @@ class UserRegistrationService
      */
     private function handleProfileImage(User $user, array $data): void
     {
-        if (isset($data['profile_image']) && $data['profile_image']->isValid()) {
+        if (
+            isset($data['profile_image'])
+            && $data['profile_image'] instanceof UploadedFile
+            && $data['profile_image']->isValid()
+        ) {
             $path = $this->profileImageService->storeImage($data['profile_image']);
             $user->update(['profile_image_path' => $path]);
         }

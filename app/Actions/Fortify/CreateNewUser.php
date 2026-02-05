@@ -4,6 +4,7 @@ namespace App\Actions\Fortify;
 
 use App\Models\User;
 use App\Services\UserRegistrationService;
+use Illuminate\Http\UploadedFile;
 use Laravel\Fortify\Contracts\CreatesNewUsers;
 
 class CreateNewUser implements CreatesNewUsers
@@ -20,8 +21,11 @@ class CreateNewUser implements CreatesNewUsers
      */
     public function create(array $input): User
     {
-        // Convert uploaded file to proper format for service
-        if (isset($input['profile_image'])) {
+        // Ensure profile image is an UploadedFile (supports Livewire temp uploads and classic forms)
+        if (
+            !isset($input['profile_image'])
+            || !$input['profile_image'] instanceof UploadedFile
+        ) {
             $input['profile_image'] = request()->file('profile_image');
         }
 
