@@ -21,7 +21,7 @@ new class extends Component
     #[Validate('required|string')]
     public string $duty = '';
 
-    #[Validate('nullable|string|max:255|regex:/^[0-9\s\-]+$/')]
+    #[Validate('nullable|string|max:255|regex:/^(?!\s+$)[0-9\s\-]*$/')]
     public ?string $salary = null;
 
     public function mount(): void
@@ -39,7 +39,7 @@ new class extends Component
             'title' => $this->title,
             'requirement' => $this->requirement,
             'duty' => $this->duty,
-            'salary' => $this->salary,
+            'salary' => $this->salary ? trim($this->salary) : null,
         ]);
 
         session()->flash('message', 'Job posting created successfully!');
