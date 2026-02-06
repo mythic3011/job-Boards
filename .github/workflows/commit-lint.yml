@@ -1,0 +1,29 @@
+name: Commit Message Lint
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, develop]
+jobs:
+  commit-lint:
+    name: Validate Commit Messages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate commit messages
+        run: |
+          VALID_TYPES="feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert"; [ "${{ github.event_name }}" = "pull_request" ] && COMMIT_RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}" || { [ "${{ github.event.before }}" = "0000000000000000000000000000000000000000" ] && COMMIT_RANGE="HEAD~1..HEAD" || COMMIT_RANGE="${{ github.event.before }}..${{ github.event.after }}"; }; COMMITS=$(git log --format="%H %s" $COMMIT_RANGE); [ -z "$COMMITS" ] && { echo "No commits to check"; exit 0; }; FAILED=0; while IFS= read -r line; do COMMIT_SHA=$(echo "$line" | awk '{print $1}'); COMMIT_MSG=$(echo "$line" | cut -d' ' -f2-); echo "$COMMIT_MSG" | grep -qE "^Merge (branch|pull request|remote-tracking branch)" && { echo "Skipping merge commit: $COMMIT_SHA"; continue; }; echo "$COMMIT_MSG" | grep -qE "^($VALID_TYPES)(\\(.+\\))?: .+" && echo "Valid: $COMMIT_MSG" || { echo "Invalid: $COMMIT_MSG"; echo "Commit: $COMMIT_SHA"; FAILED=1; }; done <<< "$COMMITS"; [ $FAILED -eq 1 ] && { echo ""; echo "Some commit messages do not follow the conventional commits format!"; echo "Expected format: type(scope): description or type: description"; echo "Valid types: feat, fix, docs, style, refactor, test, chore, perf, ci, build, revert"; echo "Examples: feat(auth): add two-factor authentication | fix(api): resolve null pointer exception"; exit 1; }; echo "All commit messages are valid!"
+  security-check:
+    name: Check for Security Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check for sensitive files
+        run: |
+          SENSITIVE_PATTERNS=("\\.env$" "\\.env\\.local$" "\\.env\\.production$" "\\.env\\.staging$" "\\.env\\.development$" "credentials\\.json$" "secrets\\.json$" "\\.pem$" "\\.key$" "\\.p12$" "\\.pfx$" "id_rsa$" "id_dsa$" "config\\.php$" "database\\.php$"); EXCEPTIONS=("\\.env\\.example$" "\\.env\\.sample$" "\\.env\\.template$"); FOUND_SENSITIVE=0; ALL_FILES=$(git ls-files); for file in $ALL_FILES; do for pattern in "${SENSITIVE_PATTERNS[@]}"; do echo "$file" | grep -qE "$pattern" && { IS_EXCEPTION=0; for exception in "${EXCEPTIONS[@]}"; do echo "$file" | grep -qE "$exception" && { IS_EXCEPTION=1; break; }; done; [ $IS_EXCEPTION -eq 0 ] && { echo "Found sensitive file: $file"; FOUND_SENSITIVE=1; }; break; }; done; done; [ $FOUND_SENSITIVE -eq 1 ] && { echo ""; echo "Sensitive files detected in the repository!"; echo "These files should NOT be committed as they may contain API keys, secrets, database credentials, or private keys"; echo "To fix: 1. Remove files: git rm --cached <file> 2. Add to .gitignore 3. Use .env.example for templates"; exit 1; }; echo "No sensitive files detected!"
