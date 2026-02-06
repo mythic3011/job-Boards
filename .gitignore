@@ -26,3 +26,4 @@ supervisord.pid
 composer.phar
 cookies.txt
 public/vendor
+!./.claude/
