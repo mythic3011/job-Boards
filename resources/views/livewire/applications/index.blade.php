@@ -76,6 +76,7 @@ new class extends Component
                                 <p>Size: {{ number_format($application->cv_size_bytes / 1024, 2) }} KB</p>
                             @endif
                             <p>Submitted: {{ $application->created_at->diffForHumans() }}</p>
+                            <p>Status: Applied, pending approval</p>
                         </div>
                     </div>
 

@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
+use App\Models\JobPosting;
+use App\Services\ApplicationService;
 use App\Services\AuditLogger;
+use App\Services\ProfileImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -154,5 +157,59 @@ class ApplicationController extends Controller
         $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
 
         return substr($filename, 0, 255);
+    }
+
+    /**
+     * Store a new application (POST fallback for non-Livewire submissions).
+     */
+    public function store(
+        Request $request,
+        string $jobIdcode,
+        ApplicationService $applicationService,
+        ProfileImageService $profileImageService
+    ) {
+        $user = $request->user();
+
+        if (!$user || !$user->isIndividual()) {
+            abort(403, 'Only individual users can submit applications.');
+        }
+
+        $validated = $request->validate([
+            'message' => ['nullable', 'string'],
+            'profile_image' => ['nullable', 'image', 'max:2048', 'mimetypes:image/jpeg,image/png,image/webp,image/gif'],
+            'cv_file' => ['required', 'file', 'max:5120', 'mimes:pdf,doc,docx', 'mimetypes:application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        ]);
+
+        $job = JobPosting::byIdcode($jobIdcode)->firstOrFail();
+
+        if ($applicationService->hasExistingApplication($job, $user->id)) {
+            return back()->withErrors(['cv_file' => 'You have already applied for this job.']);
+        }
+
+        if (!empty($validated['profile_image'])) {
+            try {
+                if ($user->profile_image_path) {
+                    $profileImageService->deleteImage($user->profile_image_path);
+                }
+
+                $path = $profileImageService->storeImage($validated['profile_image']);
+                $user->update(['profile_image_path' => $path]);
+            } catch (\InvalidArgumentException $e) {
+                return back()->withErrors(['profile_image' => $e->getMessage()]);
+            }
+        }
+
+        try {
+            $applicationService->createApplication($job, [
+                'message' => $validated['message'] ?? null,
+                'cv_file' => $validated['cv_file'],
+            ]);
+
+            return redirect()
+                ->route('jobs.show', $jobIdcode)
+                ->with('message', 'Application submitted successfully!');
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['cv_file' => $e->getMessage()]);
+        }
     }
 }
