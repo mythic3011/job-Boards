@@ -55,6 +55,11 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('throttle:3,1')
         ->name('applications.create');
 
+    // Apply to a job (POST fallback)
+    Route::post('/jobs/{jobIdcode}/apply', [ApplicationController::class, 'store'])
+        ->middleware(['throttle:3,1'])
+        ->name('applications.store');
+
     // View application details
     Volt::route('/applications/{idcode}', 'applications.show')
         ->name('applications.show');

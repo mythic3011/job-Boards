@@ -20,7 +20,7 @@ class ApplicationService
     /**
      * Check if user has already applied for a job.
      */
-    public function hasExistingApplication(JobPosting $job, ?int $userId = null): bool
+    public function hasExistingApplication(JobPosting $job, ?string $userId = null): bool
     {
         $userId = $userId ?? $this->auth->id();
 

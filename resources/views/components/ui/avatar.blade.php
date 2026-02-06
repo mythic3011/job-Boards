@@ -14,21 +14,19 @@
         'xl' => 'w-24 h-24 text-2xl',
         '2xl' => 'w-32 h-32 text-4xl',
     ];
-    
+
     $sizeClasses = $sizes[$size] ?? $sizes['md'];
     $initial = $name ? strtoupper(substr($name, 0, 1)) : '?';
 @endphp
 
-<div class="relative {{ $sizeClasses }} rounded-full overflow-hidden {{ $class }}">
+<div class="relative {{ $sizeClasses }} rounded-full overflow-hidden {{ $class }}" data-avatar>
+    <div class="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+        <span class="font-bold text-white">{{ $initial }}</span>
+    </div>
     @if($src)
-        <!-- Profile Image -->
-        <img src="{{ $src }}" 
-             alt="{{ $name ? $name . '\'s avatar' : 'Avatar' }}" 
-             class="w-full h-full object-cover">
-    @else
-        <!-- Default Avatar with Initial -->
-        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
-            <span class="font-bold text-white">{{ $initial }}</span>
-        </div>
+        <img src="{{ $src }}"
+             alt="{{ $name ? $name . '\'s avatar' : 'Avatar' }}"
+             class="relative w-full h-full object-cover"
+             onerror="this.remove();">
     @endif
 </div>
