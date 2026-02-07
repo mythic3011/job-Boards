@@ -64,12 +64,14 @@ new class extends Component
         $this->validate();
 
         $oldProfileImagePath = null;
+        $profileImageUpdated = false;
         if ($this->profile_image) {
             try {
                 $user = Auth::user();
                 $oldProfileImagePath = $user->profile_image_path;
                 $path = $profileImageService->storeImage($this->profile_image);
                 $user->update(['profile_image_path' => $path]);
+                $profileImageUpdated = true;
             } catch (\InvalidArgumentException $e) {
                 $this->addError('profile_image', $e->getMessage());
                 return null;
@@ -101,7 +103,7 @@ new class extends Component
             return redirect()->route('jobs.show', $this->jobIdcode);
         } catch (\InvalidArgumentException $e) {
             // Rollback profile image update if application creation fails
-            if ($this->profile_image && $oldProfileImagePath) {
+            if ($profileImageUpdated) {
                 $user = Auth::user();
                 $profileImageService->deleteImage($user->profile_image_path);
                 $user->update(['profile_image_path' => $oldProfileImagePath]);

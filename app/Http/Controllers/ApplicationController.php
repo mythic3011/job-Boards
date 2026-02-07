@@ -189,11 +189,13 @@ class ApplicationController extends Controller
         }
 
         $oldProfileImagePath = null;
+        $profileImageUpdated = false;
         if (!empty($validated['profile_image'])) {
             try {
                 $oldProfileImagePath = $user->profile_image_path;
                 $path = $profileImageService->storeImage($validated['profile_image']);
                 $user->update(['profile_image_path' => $path]);
+                $profileImageUpdated = true;
             } catch (\InvalidArgumentException $e) {
                 return back()->withErrors(['profile_image' => $e->getMessage()]);
             }
@@ -215,7 +217,7 @@ class ApplicationController extends Controller
                 ->with('message', 'Application submitted successfully!');
         } catch (\InvalidArgumentException $e) {
             // Rollback profile image update if application creation fails
-            if (!empty($validated['profile_image']) && $oldProfileImagePath) {
+            if ($profileImageUpdated) {
                 $profileImageService->deleteImage($user->profile_image_path);
                 $user->update(['profile_image_path' => $oldProfileImagePath]);
             }
