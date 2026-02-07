@@ -63,15 +63,15 @@ new class extends Component
     {
         $this->validate();
 
+        // Store the new profile image first (if provided), but don't delete old one yet
+        $newProfileImagePath = null;
+        $oldProfileImagePath = null;
+
         if ($this->profile_image) {
             try {
                 $user = Auth::user();
-                if ($user->profile_image_path) {
-                    $profileImageService->deleteImage($user->profile_image_path);
-                }
-
-                $path = $profileImageService->storeImage($this->profile_image);
-                $user->update(['profile_image_path' => $path]);
+                $oldProfileImagePath = $user->profile_image_path;
+                $newProfileImagePath = $profileImageService->storeImage($this->profile_image);
             } catch (\InvalidArgumentException $e) {
                 $this->addError('profile_image', $e->getMessage());
                 return null;
@@ -83,6 +83,10 @@ new class extends Component
 
         // OWASP A01: Scope to current user
         if ($applicationService->hasExistingApplication($job)) {
+            // Clean up the new profile image if it was uploaded
+            if ($newProfileImagePath) {
+                $profileImageService->deleteImage($newProfileImagePath);
+            }
             $this->addError('cv_file', 'You have already applied for this job.');
             return null;
         }
@@ -93,10 +97,23 @@ new class extends Component
                 'cv_file' => $this->cv_file,
             ]);
 
+            // Application created successfully, now update profile image and delete old one
+            if ($newProfileImagePath) {
+                $user = Auth::user();
+                $user->update(['profile_image_path' => $newProfileImagePath]);
+                if ($oldProfileImagePath) {
+                    $profileImageService->deleteImage($oldProfileImagePath);
+                }
+            }
+
             session()->flash('message', 'Application submitted successfully!');
 
             return redirect()->route('jobs.show', $this->jobIdcode);
         } catch (\InvalidArgumentException $e) {
+            // Application creation failed, clean up the new profile image if it was uploaded
+            if ($newProfileImagePath) {
+                $profileImageService->deleteImage($newProfileImagePath);
+            }
             $this->addError('cv_file', $e->getMessage());
             return null;
         }

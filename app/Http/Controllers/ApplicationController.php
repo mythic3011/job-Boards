@@ -174,6 +174,8 @@ class ApplicationController extends Controller
             abort(403, 'Only individual users can submit applications.');
         }
 
+        $this->authorize('create', Application::class);
+
         $validated = $request->validate([
             'message' => ['nullable', 'string'],
             'profile_image' => ['nullable', 'image', 'max:2048', 'mimetypes:image/jpeg,image/png,image/webp,image/gif'],
@@ -186,14 +188,13 @@ class ApplicationController extends Controller
             return back()->withErrors(['cv_file' => 'You have already applied for this job.']);
         }
 
+        // Store the new profile image first (if provided), but don't delete old one yet
+        $newProfileImagePath = null;
+        $oldProfileImagePath = $user->profile_image_path;
+
         if (!empty($validated['profile_image'])) {
             try {
-                if ($user->profile_image_path) {
-                    $profileImageService->deleteImage($user->profile_image_path);
-                }
-
-                $path = $profileImageService->storeImage($validated['profile_image']);
-                $user->update(['profile_image_path' => $path]);
+                $newProfileImagePath = $profileImageService->storeImage($validated['profile_image']);
             } catch (\InvalidArgumentException $e) {
                 return back()->withErrors(['profile_image' => $e->getMessage()]);
             }
@@ -205,10 +206,22 @@ class ApplicationController extends Controller
                 'cv_file' => $validated['cv_file'],
             ]);
 
+            // Application created successfully, now update profile image and delete old one
+            if ($newProfileImagePath) {
+                $user->update(['profile_image_path' => $newProfileImagePath]);
+                if ($oldProfileImagePath) {
+                    $profileImageService->deleteImage($oldProfileImagePath);
+                }
+            }
+
             return redirect()
                 ->route('jobs.show', $jobIdcode)
                 ->with('message', 'Application submitted successfully!');
         } catch (\InvalidArgumentException $e) {
+            // Application creation failed, clean up the new profile image if it was uploaded
+            if ($newProfileImagePath) {
+                $profileImageService->deleteImage($newProfileImagePath);
+            }
             return back()->withErrors(['cv_file' => $e->getMessage()]);
         }
     }

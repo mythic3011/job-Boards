@@ -64,7 +64,7 @@ new class extends Component
                 <h3 class="text-lg font-medium text-gray-900 mb-3">Applicant</h3>
                 <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
                     @if($application->applicantUser->profile_image_path)
-                         <img src="{{ route('images.profile', ['path' => str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($application->applicantUser->profile_image_path))]) }}"
+                         <img src="{{ route('images.profile', ['path' => \App\Services\ProfileImageService::encodePath($application->applicantUser->profile_image_path)]) }}"
                               alt="{{ $application->applicantUser->nickname }}"
                               class="w-16 h-16 rounded-full object-cover border-2 border-gray-200 bg-white">
                     @else
