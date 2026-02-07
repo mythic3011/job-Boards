@@ -101,7 +101,7 @@ new class extends Component
             return redirect()->route('jobs.show', $this->jobIdcode);
         } catch (\InvalidArgumentException $e) {
             // Rollback profile image update if application creation fails
-            if ($this->profile_image && $oldProfileImagePath !== null) {
+            if ($this->profile_image && $oldProfileImagePath) {
                 $user = Auth::user();
                 $profileImageService->deleteImage($user->profile_image_path);
                 $user->update(['profile_image_path' => $oldProfileImagePath]);

@@ -215,7 +215,7 @@ class ApplicationController extends Controller
                 ->with('message', 'Application submitted successfully!');
         } catch (\InvalidArgumentException $e) {
             // Rollback profile image update if application creation fails
-            if (!empty($validated['profile_image']) && $oldProfileImagePath !== null) {
+            if (!empty($validated['profile_image']) && $oldProfileImagePath) {
                 $profileImageService->deleteImage($user->profile_image_path);
                 $user->update(['profile_image_path' => $oldProfileImagePath]);
             }
