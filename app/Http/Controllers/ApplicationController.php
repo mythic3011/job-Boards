@@ -174,6 +174,8 @@ class ApplicationController extends Controller
             abort(403, 'Only individual users can submit applications.');
         }
 
+        $this->authorize('create', Application::class);
+
         $validated = $request->validate([
             'message' => ['nullable', 'string'],
             'profile_image' => ['nullable', 'image', 'max:2048', 'mimetypes:image/jpeg,image/png,image/webp,image/gif'],
@@ -186,12 +188,10 @@ class ApplicationController extends Controller
             return back()->withErrors(['cv_file' => 'You have already applied for this job.']);
         }
 
+        $oldProfileImagePath = null;
         if (!empty($validated['profile_image'])) {
             try {
-                if ($user->profile_image_path) {
-                    $profileImageService->deleteImage($user->profile_image_path);
-                }
-
+                $oldProfileImagePath = $user->profile_image_path;
                 $path = $profileImageService->storeImage($validated['profile_image']);
                 $user->update(['profile_image_path' => $path]);
             } catch (\InvalidArgumentException $e) {
@@ -205,10 +205,20 @@ class ApplicationController extends Controller
                 'cv_file' => $validated['cv_file'],
             ]);
 
+            // Delete old profile image only after successful application creation
+            if ($oldProfileImagePath) {
+                $profileImageService->deleteImage($oldProfileImagePath);
+            }
+
             return redirect()
                 ->route('jobs.show', $jobIdcode)
                 ->with('message', 'Application submitted successfully!');
         } catch (\InvalidArgumentException $e) {
+            // Rollback profile image update if application creation fails
+            if (!empty($validated['profile_image']) && $oldProfileImagePath !== null) {
+                $profileImageService->deleteImage($user->profile_image_path);
+                $user->update(['profile_image_path' => $oldProfileImagePath]);
+            }
             return back()->withErrors(['cv_file' => $e->getMessage()]);
         }
     }

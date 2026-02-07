@@ -63,13 +63,11 @@ new class extends Component
     {
         $this->validate();
 
+        $oldProfileImagePath = null;
         if ($this->profile_image) {
             try {
                 $user = Auth::user();
-                if ($user->profile_image_path) {
-                    $profileImageService->deleteImage($user->profile_image_path);
-                }
-
+                $oldProfileImagePath = $user->profile_image_path;
                 $path = $profileImageService->storeImage($this->profile_image);
                 $user->update(['profile_image_path' => $path]);
             } catch (\InvalidArgumentException $e) {
@@ -93,10 +91,21 @@ new class extends Component
                 'cv_file' => $this->cv_file,
             ]);
 
+            // Delete old profile image only after successful application creation
+            if ($oldProfileImagePath) {
+                $profileImageService->deleteImage($oldProfileImagePath);
+            }
+
             session()->flash('message', 'Application submitted successfully!');
 
             return redirect()->route('jobs.show', $this->jobIdcode);
         } catch (\InvalidArgumentException $e) {
+            // Rollback profile image update if application creation fails
+            if ($this->profile_image && $oldProfileImagePath !== null) {
+                $user = Auth::user();
+                $profileImageService->deleteImage($user->profile_image_path);
+                $user->update(['profile_image_path' => $oldProfileImagePath]);
+            }
             $this->addError('cv_file', $e->getMessage());
             return null;
         }

@@ -20,17 +20,20 @@ new class extends Component
     {
         $user = auth()->user();
 
-        $application = Application::byIdcode($this->idcode)
+        // Scope query to authorized applications before fetching
+        $query = Application::byIdcode($this->idcode)
             ->with(['jobPosting', 'applicantUser'])
-            ->firstOrFail();
+            ->where(function ($q) use ($user) {
+                // User must be the applicant OR the company owner of the job
+                $q->where('applicant_user_id', $user->id)
+                  ->orWhereHas('jobPosting', function ($jobQuery) use ($user) {
+                      $jobQuery->where('company_user_id', $user->id);
+                  });
+            });
 
-        // Authorization check: User must be the applicant OR the company owner of the job
-        $isApplicant = $user->id === $application->applicant_user_id;
+        $application = $query->firstOrFail();
+
         $isJobOwner = $application->jobPosting->company_user_id === $user->id;
-
-        if (!$isApplicant && !$isJobOwner) {
-            abort(403, 'Unauthorized access to application details.');
-        }
 
         title('Application for ' . $application->jobPosting->title);
 
@@ -64,7 +67,7 @@ new class extends Component
                 <h3 class="text-lg font-medium text-gray-900 mb-3">Applicant</h3>
                 <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
                     @if($application->applicantUser->profile_image_path)
-                         <img src="{{ route('images.profile', ['path' => str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($application->applicantUser->profile_image_path))]) }}"
+                         <img src="{{ route('images.profile', ['path' => \App\Services\ProfileImageService::encodePath($application->applicantUser->profile_image_path)]) }}"
                               alt="{{ $application->applicantUser->nickname }}"
                               class="w-16 h-16 rounded-full object-cover border-2 border-gray-200 bg-white">
                     @else
