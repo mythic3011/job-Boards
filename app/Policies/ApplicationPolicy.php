@@ -46,7 +46,8 @@ class ApplicationPolicy
      */
     public function create(User $user): bool
     {
-        return $user->isIndividual() && $user->hasPermissionTo('apply to jobs');
+        // Allow individual users to apply without requiring a permission record.
+        return $user->isIndividual();
     }
 
     /**
