@@ -76,7 +76,25 @@ new class extends Component
                                 <p>Size: {{ number_format($application->cv_size_bytes / 1024, 2) }} KB</p>
                             @endif
                             <p>Submitted: {{ $application->created_at->diffForHumans() }}</p>
-                            <p>Status: {{ $application->status ?? 'Applied, pending approval' }}</p>
+                            @php
+                                $statusLabel = $application->status === 'approved'
+                                    ? 'Approved'
+                                    : ($application->status === 'rejected'
+                                        ? 'Rejected'
+                                        : 'Applied, pending approval');
+                                $statusClasses = $application->status === 'approved'
+                                    ? 'bg-green-100 text-green-800 border-green-200'
+                                    : ($application->status === 'rejected'
+                                        ? 'bg-red-100 text-red-800 border-red-200'
+                                        : 'bg-yellow-100 text-yellow-800 border-yellow-200');
+                            @endphp
+                            <div class="flex items-center gap-2">
+                                <span>Status:</span>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border {{ $statusClasses }}">
+                                    <span class="w-1.5 h-1.5 rounded-full mr-1.5 {{ $application->status === 'approved' ? 'bg-green-600' : ($application->status === 'rejected' ? 'bg-red-600' : 'bg-yellow-600') }}"></span>
+                                    {{ $statusLabel }}
+                                </span>
+                            </div>
                         </div>
                     </div>
 

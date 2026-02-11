@@ -224,4 +224,54 @@ class ApplicationController extends Controller
             return back()->withErrors(['cv_file' => $e->getMessage()]);
         }
     }
+
+    /**
+     * Approve an application (company owner only).
+     */
+    public function approve(string $idcode)
+    {
+        $application = $this->findCompanyOwnedApplication($idcode);
+
+        $application->update(['status' => 'approved']);
+
+        return redirect()
+            ->route('my.applications.index')
+            ->with('success', 'Application approved successfully.');
+    }
+
+    /**
+     * Reject an application (company owner only).
+     */
+    public function reject(string $idcode)
+    {
+        $application = $this->findCompanyOwnedApplication($idcode);
+
+        $application->update(['status' => 'rejected']);
+
+        return redirect()
+            ->route('my.applications.index')
+            ->with('success', 'Application rejected successfully.');
+    }
+
+    /**
+     * Find application owned by the company user.
+     */
+    private function findCompanyOwnedApplication(string $idcode): Application
+    {
+        $user = auth()->user();
+
+        if (!$user || !$user->isCompany()) {
+            abort(403, 'Only company users can update applications.');
+        }
+
+        $application = Application::byIdcode($idcode)
+            ->with('jobPosting')
+            ->firstOrFail();
+
+        if ($application->jobPosting->company_user_id !== $user->id) {
+            abort(403, 'You are not authorized to update this application.');
+        }
+
+        return $application;
+    }
 }

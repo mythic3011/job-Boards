@@ -42,14 +42,31 @@ new class extends Component
             'isJobOwner' => $isJobOwner,
         ];
     }
+
 }; ?>
 
 <div class="max-w-4xl mx-auto">
     <div class="mb-6 flex items-center justify-between">
         <h1 class="text-3xl font-bold">Application Details</h1>
-        <x-ui.button href="{{ route('my.applications.index') }}" variant="secondary">
-            Back to List
-        </x-ui.button>
+        <div class="flex items-center gap-3">
+            @if($isJobOwner)
+                <form method="POST" action="{{ route('applications.approve', $application->idcode) }}">
+                    @csrf
+                    <x-ui.button type="submit" variant="primary">
+                        Accept
+                    </x-ui.button>
+                </form>
+                <form method="POST" action="{{ route('applications.reject', $application->idcode) }}">
+                    @csrf
+                    <x-ui.button type="submit" variant="danger">
+                        Reject
+                    </x-ui.button>
+                </form>
+            @endif
+            <x-ui.button href="{{ route('my.applications.index') }}" variant="secondary">
+                Back to List
+            </x-ui.button>
+        </div>
     </div>
 
     <x-ui.card padding="p-8">
@@ -57,9 +74,30 @@ new class extends Component
             <h2 class="text-2xl font-bold text-gray-900 mb-2">
                 {{ $application->jobPosting->title }}
             </h2>
-            <p class="text-gray-500">
-                Applied on {{ $application->created_at->format('F j, Y, g:i a') }}
-            </p>
+            @php
+                $statusLabel = $application->status === 'approved'
+                    ? 'Approved'
+                    : ($application->status === 'rejected'
+                        ? 'Rejected'
+                        : 'Applied, pending approval');
+                $statusClasses = $application->status === 'approved'
+                    ? 'bg-green-100 text-green-800 border-green-200'
+                    : ($application->status === 'rejected'
+                        ? 'bg-red-100 text-red-800 border-red-200'
+                        : 'bg-yellow-100 text-yellow-800 border-yellow-200');
+                $dotClass = $application->status === 'approved'
+                    ? 'bg-green-600'
+                    : ($application->status === 'rejected'
+                        ? 'bg-red-600'
+                        : 'bg-yellow-600');
+            @endphp
+            <div class="flex flex-wrap items-center gap-3 text-gray-500">
+                <p>Applied on {{ $application->created_at->format('F j, Y, g:i a') }}</p>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border {{ $statusClasses }}">
+                    <span class="w-1.5 h-1.5 rounded-full mr-1.5 {{ $dotClass }}"></span>
+                    {{ $statusLabel }}
+                </span>
+            </div>
         </div>
 
         <div class="space-y-6">

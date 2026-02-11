@@ -23,6 +23,7 @@ class Application extends Model
         'cv_mime',
         'cv_size_bytes',
         'cv_sha256',
+        'status',
     ];
 
     protected static function boot(): void

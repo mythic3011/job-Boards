@@ -56,6 +56,7 @@ class ApplicationService
             'cv_mime' => $metadata['mime'],
             'cv_size_bytes' => $metadata['size_bytes'],
             'cv_sha256' => $fileData['sha256'],
+            'status' => 'pending',
         ]);
 
         $this->logApplicationSubmission($application, $job);

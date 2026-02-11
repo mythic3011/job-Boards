@@ -68,4 +68,13 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/applications/{idcode}/download-cv', [ApplicationController::class, 'downloadCv'])
         ->middleware('throttle:20,1')
         ->name('applications.download-cv');
+
+    // Approve/Reject application (company only)
+    Route::post('/applications/{idcode}/approve', [ApplicationController::class, 'approve'])
+        ->middleware('throttle:10,1')
+        ->name('applications.approve');
+
+    Route::post('/applications/{idcode}/reject', [ApplicationController::class, 'reject'])
+        ->middleware('throttle:10,1')
+        ->name('applications.reject');
 });
