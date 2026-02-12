@@ -76,6 +76,16 @@ new class extends Component
                                 <p>Size: {{ number_format($application->cv_size_bytes / 1024, 2) }} KB</p>
                             @endif
                             <p>Submitted: {{ $application->created_at->diffForHumans() }}</p>
+                            @if(!$isCompany && \Illuminate\Support\Facades\Cache::has('application_new_message_' . $application->id))
+                                <p class="mt-1 mb-1">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                                        <svg class="mr-1.5 h-2 w-2 text-blue-400" fill="currentColor" viewBox="0 0 8 8">
+                                            <circle cx="4" cy="4" r="3" />
+                                        </svg>
+                                        New Message
+                                    </span>
+                                </p>
+                            @endif
                             @php
                                 $statusLabel = $application->status === 'approved'
                                     ? 'Approved'

@@ -29,6 +29,8 @@ new class extends Component
     #[Validate('required|file|max:5120|mimes:pdf,doc,docx|mimetypes:application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document')]
     public $cv_file = null;
 
+    public ?string $profileImageNotice = null;
+
     public function mount(string $jobIdcode, ApplicationService $applicationService): void
     {
         $this->jobIdcode = $jobIdcode;
@@ -59,8 +61,20 @@ new class extends Component
         ];
     }
 
+    public function updatedProfileImage(): void
+    {
+        $this->profileImageNotice = null;
+        $this->validateOnly('profile_image');
+        $this->profileImageNotice = '已成功上傳，會在apply job後 同時修改。';
+    }
+
     public function submit(ApplicationService $applicationService, ProfileImageService $profileImageService): mixed
     {
+        if (!$this->cv_file) {
+            $this->addError('cv_file', 'Please upload your CV/Resume before submitting.');
+            return null;
+        }
+
         $this->validate();
 
         $oldProfileImagePath = null;
@@ -98,7 +112,12 @@ new class extends Component
                 $profileImageService->deleteImage($oldProfileImagePath);
             }
 
-            session()->flash('message', 'Application submitted successfully!');
+            $successMessage = 'Application submitted successfully!';
+            if ($profileImageUpdated) {
+                $successMessage .= ' Profile photo updated successfully.';
+            }
+
+            session()->flash('message', $successMessage);
 
             return redirect()->route('jobs.show', $this->jobIdcode);
         } catch (\InvalidArgumentException $e) {
@@ -118,12 +137,6 @@ new class extends Component
         <h1 class="text-3xl font-bold mb-6">Apply for Job</h1>
 
         <x-ui.card padding="p-8">
-            @if($errors->any())
-                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                    Please fix the highlighted fields and try again.
-                </div>
-            @endif
-
             <form wire:submit.prevent="submit" method="POST" action="{{ route('applications.store', $jobIdcode) }}" enctype="multipart/form-data" class="space-y-6">
                 @csrf
                 <x-ui.textarea
@@ -157,6 +170,11 @@ new class extends Component
                                     class="sr-only"
                                 >
                                 <p class="text-xs text-gray-500">JPG, PNG, WebP or GIF, up to 2MB</p>
+                                @if($profileImageNotice)
+                                    <x-ui.alert type="info" class="mt-2">
+                                        {{ $profileImageNotice }}
+                                    </x-ui.alert>
+                                @endif
                                 <x-ui.form-error name="profile_image" />
                             </div>
                         </div>
@@ -172,6 +190,7 @@ new class extends Component
                             maxSize="5MB"
                             required
                         />
+                        <x-ui.form-error name="cv_file" />
                     </div>
                 </div>
 

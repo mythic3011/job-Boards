@@ -19,6 +19,13 @@
         <x-ui.form-help class="mb-2">{{ $help }}</x-ui.form-help>
     @endif
 
+    @php
+        $isLivewireUpload = $attributes->has('wire:model')
+            || $attributes->has('wire:model.live')
+            || $attributes->has('wire:model.defer')
+            || $attributes->has('wire:model.lazy');
+    @endphp
+
     <div class="mt-1 flex items-center gap-4" x-data="{ fileName: '' }">
         <label for="{{ $name }}" class="cursor-pointer flex-shrink-0 w-full">
             <div class="flex flex-col items-center justify-center px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors w-full">
@@ -46,7 +53,7 @@
                 id="{{ $name }}"
                 name="{{ $name }}"
                 accept="{{ $accept }}"
-                {{ $required ? 'required' : '' }}
+                {{ $required && !$isLivewireUpload ? 'required' : '' }}
                 class="hidden"
                 @change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
                 {{ $attributes }}
