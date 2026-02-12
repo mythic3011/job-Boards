@@ -18,7 +18,6 @@
     <title>{{ $title ?? config('app.name', 'Jobs Board') }}</title>
     
     @livewireStyles
-    @livewireScriptConfig
 </head>
 <body class="min-h-screen bg-gray-50 {{ $showHeader ? 'text-gray-900' : '' }}">
     @if($showHeader)
@@ -33,7 +32,6 @@
         {{ $slot }}
     </main>
 
-    <script src="{{ asset('vendor/livewire/livewire.js') }}"></script>
     @livewireScripts
     <x-layouts.assets />
 </body>
