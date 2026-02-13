@@ -9,12 +9,6 @@
         <p class="text-gray-600 mt-1">Manage your account settings and preferences</p>
     </div>
 
-    @if(session('success'))
-        <x-ui.alert type="success" class="mb-6">
-            {{ session('success') }}
-        </x-ui.alert>
-    @endif
-
     @if($errors->any())
         <x-ui.alert type="error" class="mb-6">
             <ul class="list-disc list-inside">
@@ -126,10 +120,20 @@
                        class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md">
                         Edit Profile Information
                     </a>
-                    <a href="{{ route('profile.password') }}" 
-                       class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md">
-                        Change Password
-                    </a>
+                    @if($two_factor_enabled)
+                        <a href="{{ route('profile.password') }}" 
+                           class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md">
+                            Change Password
+                        </a>
+                    @else
+                        <span
+                            class="block w-full text-left px-3 py-2 text-sm text-gray-400 rounded-md cursor-not-allowed"
+                            aria-disabled="true"
+                            title="Enable two-factor authentication to change your password."
+                        >
+                            Change Password
+                        </span>
+                    @endif
                     <a href="{{ route('profile.two-factor') }}" 
                        class="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md">
                         Security Settings

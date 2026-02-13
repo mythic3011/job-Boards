@@ -29,6 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'setup.completed' => \App\Http\Middleware\EnsureSetupCompleted::class,
             'hide.admin' => \App\Http\Middleware\HideAdminRoutes::class,
             'admin.2fa' => \App\Http\Middleware\RequireAdminTwoFactor::class,
+            '2fa.enabled' => \App\Http\Middleware\RequireTwoFactorEnabled::class,
         ]);
 
         // Register Spatie Permission middleware aliases

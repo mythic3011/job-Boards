@@ -9,6 +9,26 @@ use Illuminate\Support\Str;
 class AuditLogger
 {
     /**
+     * Log a security-related event.
+     */
+    public function logSecurityEvent(
+        string $eventType,
+        Request $request,
+        ?string $userId = null,
+        array $meta = [],
+        int $statusCode = 200
+    ): void {
+        $this->createAuditLog(
+            eventType: $eventType,
+            request: $request,
+            statusCode: $statusCode,
+            targetType: $userId ? 'user' : null,
+            targetIdcode: $userId,
+            meta: $meta
+        );
+    }
+
+    /**
      * Log a request event (for security/probe logging).
      */
     public function logRequestEvent(

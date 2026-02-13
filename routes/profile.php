@@ -20,8 +20,12 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/profile/image', [ProfileController::class, 'deleteProfileImage'])->name('profile.image.delete');
     
     // Password management
-    Route::get('/profile/password', [ProfileController::class, 'showPasswordForm'])->name('profile.password');
-    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password.update');
+    Route::get('/profile/password', [ProfileController::class, 'showPasswordForm'])
+        ->middleware(\App\Http\Middleware\RequireTwoFactorEnabled::class)
+        ->name('profile.password');
+    Route::put('/profile/password', [ProfileController::class, 'updatePassword'])
+        ->middleware(\App\Http\Middleware\RequireTwoFactorEnabled::class)
+        ->name('profile.password.update');
     
     // Two-Factor Authentication settings
     Route::get('/profile/two-factor', \App\Livewire\Profile\TwoFactor::class)->name('profile.two-factor');
