@@ -88,6 +88,7 @@
                 @if($ariaDescribedBy) aria-describedby="{{ $ariaDescribedBy }}" @endif
                 class="sr-only"
                 onchange="handleAvatarSelect(this, '{{ $previewId }}')"
+                data-has-current="{{ $currentImage ? '1' : '0' }}"
                 {{ $attributes->except(['class']) }}
             >
         </div>

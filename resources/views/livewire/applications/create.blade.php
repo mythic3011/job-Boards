@@ -65,7 +65,8 @@ new class extends Component
     {
         $this->profileImageNotice = null;
         $this->validateOnly('profile_image');
-        $this->profileImageNotice = '已成功上傳，會在apply job後 同時修改。';
+        $this->profileImageNotice = 'image successfully uploaded. Will be applied after application.';
+        $this->dispatch('profile-image-uploaded');
     }
 
     public function submit(ApplicationService $applicationService, ProfileImageService $profileImageService): mixed
@@ -132,7 +133,7 @@ new class extends Component
         }
     }
 }; ?>
-<div>
+<div x-on:profile-image-uploaded.window="window.toast ? window.toast.success('image successfully uploaded') : alert('image successfully uploaded')">
     <div class="max-w-4xl mx-auto">
         <h1 class="text-3xl font-bold mb-6">Apply for Job</h1>
 
