@@ -44,16 +44,16 @@ $(() => {
         username: (username) =>
             !username || username.length < 3
                 ? {
-                      valid: false,
-                      message: "Username must be at least 3 characters",
-                  }
+                    valid: false,
+                    message: "Username must be at least 3 characters",
+                }
                 : !/^[a-zA-Z0-9_]+$/.test(username)
-                  ? {
+                    ? {
                         valid: false,
                         message:
                             "Username can only contain letters, numbers, and underscores",
                     }
-                  : { valid: true },
+                    : { valid: true },
         name: (name) =>
             !name || name.length < CONFIG.NAME_MIN_LENGTH
                 ? { valid: false, message: "Name too short" }
@@ -65,12 +65,12 @@ $(() => {
         password: (password) =>
             password.length < CONFIG.PASSWORD_MIN_LENGTH
                 ? {
-                      valid: false,
-                      message: `Password must be ${CONFIG.PASSWORD_MIN_LENGTH}+ chars`,
-                  }
+                    valid: false,
+                    message: `Password must be ${CONFIG.PASSWORD_MIN_LENGTH}+ chars`,
+                }
                 : /^(password|123456|admin|user|test|p@ssw0rd)/i.test(password)
-                  ? { valid: false, message: "Weak password" }
-                  : { valid: true },
+                    ? { valid: false, message: "Weak password" }
+                    : { valid: true },
         passwordMatch: (password, confirm) =>
             password !== confirm
                 ? { valid: false, message: "Passwords don't match" }
@@ -254,7 +254,7 @@ $(() => {
                 classes = "bg-white text-gray-400 border-gray-300";
                 content = stepNum;
             }
-            return `<div class="flex flex-col items-center"><div class="w-10 h-10 rounded-full border-2 ${classes} flex items-center justify-center font-semibold text-sm transition-all duration-200">${content}</div><span class="text-xs mt-2 font-medium ${isActive ? "text-indigo-600" : isComplete ? "text-green-600" : "text-gray-400"}">${label}</span></div>`;
+            return `<div class="flex flex-col items-center step-indicator"><div class="step-circle w-10 h-10 rounded-full border-2 ${classes} flex items-center justify-center font-semibold text-sm transition-all duration-200">${content}</div><span class="step-label text-xs mt-2 font-medium ${isActive ? "text-indigo-600" : isComplete ? "text-green-600" : "text-gray-400"}">${label}</span></div>`;
         }
 
         renderStep() {
@@ -572,26 +572,26 @@ $(() => {
         }
 
         collectFormData() {
-            return {
-                username:
-                    $(SELECTORS.USERNAME)
-                        .val()
-                        ?.trim()
-                        .replace(/[<>'"&]/g, "") || "",
-                name:
-                    $(SELECTORS.NAME)
-                        .val()
-                        ?.trim()
-                        .replace(/[<>'"&]/g, "") || "",
-                email: $(SELECTORS.EMAIL).val()?.trim() || "",
-                password: $(SELECTORS.PASSWORD).val() || "",
-                confirm: $(SELECTORS.CONFIRM).val() || "",
-                app_name: $(SELECTORS.APP_NAME).val()?.trim() || "Jobs Board",
-                app_url:
-                    $(SELECTORS.APP_URL).val()?.trim() ||
-                    window.location.origin,
-                timezone: $(SELECTORS.TIMEZONE).val() || "Asia/Hong_Kong",
-            };
+            const result = {};
+            const $username = $(SELECTORS.USERNAME);
+            const $name = $(SELECTORS.NAME);
+            const $email = $(SELECTORS.EMAIL);
+            const $password = $(SELECTORS.PASSWORD);
+            const $confirm = $(SELECTORS.CONFIRM);
+            const $appName = $(SELECTORS.APP_NAME);
+            const $appUrl = $(SELECTORS.APP_URL);
+            const $timezone = $(SELECTORS.TIMEZONE);
+
+            if ($username.length) result.username = $username.val()?.trim().replace(/[<>'"&]/g, "") || "";
+            if ($name.length) result.name = $name.val()?.trim().replace(/[<>'"&]/g, "") || "";
+            if ($email.length) result.email = $email.val()?.trim() || "";
+            if ($password.length) result.password = $password.val() || "";
+            if ($confirm.length) result.confirm = $confirm.val() || "";
+            if ($appName.length) result.app_name = $appName.val()?.trim() || "Jobs Board";
+            if ($appUrl.length) result.app_url = $appUrl.val()?.trim() || window.location.origin;
+            if ($timezone.length) result.timezone = $timezone.val() || "Asia/Hong_Kong";
+
+            return result;
         }
 
         bindStep1FormHandler() {
@@ -628,14 +628,49 @@ $(() => {
         next() {
             if (this.step < 4) {
                 this.step++;
+                this.updateStepIndicators();
                 this.renderStep();
             }
         }
         prev() {
             if (this.step > 1) {
                 this.step--;
+                this.updateStepIndicators();
                 this.renderStep();
             }
+        }
+
+        updateStepIndicators() {
+            const $indicators = $(".step-indicator");
+            $indicators.each((index, el) => {
+                const stepNum = index + 1;
+                const $circle = $(el).find(".step-circle");
+                const $label = $(el).find(".step-label");
+
+                // Update circle
+                $circle.removeClass("bg-green-500 text-white border-green-500 bg-indigo-600 border-indigo-600 ring-4 ring-indigo-200 bg-white text-gray-400 border-gray-300");
+
+                if (this.step > stepNum) {
+                    $circle.addClass("bg-green-500 text-white border-green-500");
+                    $circle.html('<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>');
+                } else if (this.step === stepNum) {
+                    $circle.addClass("bg-indigo-600 text-white border-indigo-600 ring-4 ring-indigo-200");
+                    $circle.html(stepNum);
+                } else {
+                    $circle.addClass("bg-white text-gray-400 border-gray-300");
+                    $circle.html(stepNum);
+                }
+
+                // Update label
+                $label.removeClass("text-indigo-600 text-green-600 text-gray-400");
+                if (this.step === stepNum) {
+                    $label.addClass("text-indigo-600");
+                } else if (this.step > stepNum) {
+                    $label.addClass("text-green-600");
+                } else {
+                    $label.addClass("text-gray-400");
+                }
+            });
         }
 
         renderRecoveryCodes(codes) {
@@ -787,10 +822,10 @@ $(() => {
                         window.toast.success("Installation complete!");
                         setTimeout(
                             () =>
-                                (window.location.href =
-                                    data?.success && data.redirect
-                                        ? data.redirect
-                                        : "/login"),
+                            (window.location.href =
+                                data?.success && data.redirect
+                                    ? data.redirect
+                                    : "/login"),
                             1000,
                         );
                     })
