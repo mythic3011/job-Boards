@@ -20,7 +20,7 @@ class ApplicationService
     /**
      * Check if user has already applied for a job.
      */
-    public function hasExistingApplication(JobPosting $job, ?int $userId = null): bool
+    public function hasExistingApplication(JobPosting $job, ?string $userId = null): bool
     {
         $userId = $userId ?? $this->auth->id();
 
@@ -56,6 +56,7 @@ class ApplicationService
             'cv_mime' => $metadata['mime'],
             'cv_size_bytes' => $metadata['size_bytes'],
             'cv_sha256' => $fileData['sha256'],
+            'status' => 'pending',
         ]);
 
         $this->logApplicationSubmission($application, $job);

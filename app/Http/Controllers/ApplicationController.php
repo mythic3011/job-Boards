@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Application;
+use App\Models\JobPosting;
+use App\Services\ApplicationService;
 use App\Services\AuditLogger;
+use App\Services\ProfileImageService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -154,5 +157,131 @@ class ApplicationController extends Controller
         $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
 
         return substr($filename, 0, 255);
+    }
+
+    /**
+     * Store a new application (POST fallback for non-Livewire submissions).
+     */
+    public function store(
+        Request $request,
+        string $jobIdcode,
+        ApplicationService $applicationService,
+        ProfileImageService $profileImageService
+    ) {
+        $user = $request->user();
+
+        if (!$user || !$user->isIndividual()) {
+            abort(403, 'Only individual users can submit applications.');
+        }
+
+        $this->authorize('create', Application::class);
+
+        $validated = $request->validate([
+            'message' => ['nullable', 'string'],
+            'profile_image' => ['nullable', 'image', 'max:2048', 'mimetypes:image/jpeg,image/png,image/webp,image/gif'],
+            'cv_file' => ['required', 'file', 'max:5120', 'mimes:pdf,doc,docx', 'mimetypes:application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        ]);
+
+        $job = JobPosting::byIdcode($jobIdcode)->firstOrFail();
+
+        if ($applicationService->hasExistingApplication($job, $user->id)) {
+            return back()->withErrors(['cv_file' => 'You have already applied for this job.']);
+        }
+
+        try {
+            \DB::transaction(function () use ($user, $validated, $applicationService, $profileImageService, $job, $jobIdcode) {
+                $oldProfileImagePath = $user->profile_image_path;
+                $newImagePath = null;
+
+                // Store new profile image if provided
+                if (!empty($validated['profile_image'])) {
+                    $newImagePath = $profileImageService->storeImage($validated['profile_image']);
+                    $user->update(['profile_image_path' => $newImagePath]);
+                }
+
+                try {
+                    // Create application
+                    $applicationService->createApplication($job, [
+                        'message' => $validated['message'] ?? null,
+                        'cv_file' => $validated['cv_file'],
+                    ]);
+
+                    // Delete old profile image only after successful application creation
+                    if ($oldProfileImagePath && $newImagePath) {
+                        $profileImageService->deleteImage($oldProfileImagePath);
+                    }
+                } catch (\Exception $e) {
+                    // Clean up new image file if application creation fails
+                    if ($newImagePath) {
+                        $profileImageService->deleteImage($newImagePath);
+                    }
+                    throw $e;
+                }
+            });
+
+            return redirect()
+                ->route('jobs.show', $jobIdcode)
+                ->with('message', 'Application submitted successfully!');
+        } catch (\InvalidArgumentException $e) {
+            return back()->withErrors(['cv_file' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Approve an application (company owner only).
+     */
+    public function approve(string $idcode, AuditLogger $auditLogger)
+    {
+        $application = Application::byIdcode($idcode)
+            ->with(['jobPosting', 'applicantUser'])
+            ->firstOrFail();
+
+        $this->authorize('updateStatus', $application);
+
+        $oldStatus = $application->status->value;
+        $application->update(['status' => 'approved']);
+
+        $auditLogger->log('application.status_changed', [
+            'application_id' => $application->id,
+            'application_idcode' => $application->idcode,
+            'old_status' => $oldStatus,
+            'new_status' => 'approved',
+            'changed_by_user_id' => auth()->id(),
+            'job_id' => $application->job_id,
+            'applicant_user_id' => $application->applicant_user_id,
+        ]);
+
+        return redirect()
+            ->route('my.applications.index')
+            ->with('success', 'Application approved successfully.');
+    }
+
+    /**
+     * Reject an application (company owner only).
+     */
+    public function reject(string $idcode, AuditLogger $auditLogger)
+    {
+        $application = Application::byIdcode($idcode)
+            ->with(['jobPosting', 'applicantUser'])
+            ->firstOrFail();
+
+        $this->authorize('updateStatus', $application);
+
+        $oldStatus = $application->status->value;
+        $application->update(['status' => 'rejected']);
+
+        $auditLogger->log('application.status_changed', [
+            'application_id' => $application->id,
+            'application_idcode' => $application->idcode,
+            'old_status' => $oldStatus,
+            'new_status' => 'rejected',
+            'changed_by_user_id' => auth()->id(),
+            'job_id' => $application->job_id,
+            'applicant_user_id' => $application->applicant_user_id,
+        ]);
+
+        return redirect()
+            ->route('my.applications.index')
+            ->with('success', 'Application rejected successfully.');
     }
 }

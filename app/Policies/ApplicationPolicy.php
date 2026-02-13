@@ -60,7 +60,6 @@ class ApplicationPolicy
         }
 
         if ($user->isIndividual()) {
-            // Individuals can download their own CV without explicit permission
             return $this->isApplicationByApplicant($application, $user);
         }
 
@@ -74,6 +73,20 @@ class ApplicationPolicy
     public function update(User $user, Application $application): bool
     {
         return false;
+    }
+
+    /**
+     * Determine if the user can update the application status (approve/reject).
+     * Only company owners of the job can update application status.
+     */
+    public function updateStatus(User $user, Application $application): bool
+    {
+        if (!$user->isCompany()) {
+            return false;
+        }
+
+        return $user->hasPermissionTo('manage applications')
+            && $this->isApplicationForCompanyJob($application, $user);
     }
 
     /**
