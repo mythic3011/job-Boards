@@ -63,21 +63,6 @@ new class extends Component
     {
         $this->validate();
 
-        $oldProfileImagePath = null;
-        $profileImageUpdated = false;
-        if ($this->profile_image) {
-            try {
-                $user = Auth::user();
-                $oldProfileImagePath = $user->profile_image_path;
-                $path = $profileImageService->storeImage($this->profile_image);
-                $user->update(['profile_image_path' => $path]);
-                $profileImageUpdated = true;
-            } catch (\InvalidArgumentException $e) {
-                $this->addError('profile_image', $e->getMessage());
-                return null;
-            }
-        }
-
         // OWASP A01: Job lookup is public
         $job = JobPosting::byIdcode($this->jobIdcode)->firstOrFail();
 
@@ -88,26 +73,41 @@ new class extends Component
         }
 
         try {
-            $applicationService->createApplication($job, [
-                'message' => $this->message,
-                'cv_file' => $this->cv_file,
-            ]);
+            \DB::transaction(function () use ($applicationService, $profileImageService, $job) {
+                $user = Auth::user();
+                $oldProfileImagePath = $user->profile_image_path;
+                $newImagePath = null;
 
-            // Delete old profile image only after successful application creation
-            if ($oldProfileImagePath) {
-                $profileImageService->deleteImage($oldProfileImagePath);
-            }
+                // Store new profile image if provided
+                if ($this->profile_image) {
+                    $newImagePath = $profileImageService->storeImage($this->profile_image);
+                    $user->update(['profile_image_path' => $newImagePath]);
+                }
+
+                try {
+                    // Create application
+                    $applicationService->createApplication($job, [
+                        'message' => $this->message,
+                        'cv_file' => $this->cv_file,
+                    ]);
+
+                    // Delete old profile image only after successful application creation
+                    if ($oldProfileImagePath && $newImagePath) {
+                        $profileImageService->deleteImage($oldProfileImagePath);
+                    }
+                } catch (\Exception $e) {
+                    // Clean up new image file if application creation fails
+                    if ($newImagePath) {
+                        $profileImageService->deleteImage($newImagePath);
+                    }
+                    throw $e;
+                }
+            });
 
             session()->flash('message', 'Application submitted successfully!');
 
             return redirect()->route('jobs.show', $this->jobIdcode);
         } catch (\InvalidArgumentException $e) {
-            // Rollback profile image update if application creation fails
-            if ($profileImageUpdated) {
-                $user = Auth::user();
-                $profileImageService->deleteImage($user->profile_image_path);
-                $user->update(['profile_image_path' => $oldProfileImagePath]);
-            }
             $this->addError('cv_file', $e->getMessage());
             return null;
         }

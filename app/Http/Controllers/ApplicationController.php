@@ -188,39 +188,41 @@ class ApplicationController extends Controller
             return back()->withErrors(['cv_file' => 'You have already applied for this job.']);
         }
 
-        $oldProfileImagePath = null;
-        $profileImageUpdated = false;
-        if (!empty($validated['profile_image'])) {
-            try {
-                $oldProfileImagePath = $user->profile_image_path;
-                $path = $profileImageService->storeImage($validated['profile_image']);
-                $user->update(['profile_image_path' => $path]);
-                $profileImageUpdated = true;
-            } catch (\InvalidArgumentException $e) {
-                return back()->withErrors(['profile_image' => $e->getMessage()]);
-            }
-        }
-
         try {
-            $applicationService->createApplication($job, [
-                'message' => $validated['message'] ?? null,
-                'cv_file' => $validated['cv_file'],
-            ]);
+            \DB::transaction(function () use ($user, $validated, $applicationService, $profileImageService, $job, $jobIdcode) {
+                $oldProfileImagePath = $user->profile_image_path;
+                $newImagePath = null;
 
-            // Delete old profile image only after successful application creation
-            if ($oldProfileImagePath) {
-                $profileImageService->deleteImage($oldProfileImagePath);
-            }
+                // Store new profile image if provided
+                if (!empty($validated['profile_image'])) {
+                    $newImagePath = $profileImageService->storeImage($validated['profile_image']);
+                    $user->update(['profile_image_path' => $newImagePath]);
+                }
+
+                try {
+                    // Create application
+                    $applicationService->createApplication($job, [
+                        'message' => $validated['message'] ?? null,
+                        'cv_file' => $validated['cv_file'],
+                    ]);
+
+                    // Delete old profile image only after successful application creation
+                    if ($oldProfileImagePath && $newImagePath) {
+                        $profileImageService->deleteImage($oldProfileImagePath);
+                    }
+                } catch (\Exception $e) {
+                    // Clean up new image file if application creation fails
+                    if ($newImagePath) {
+                        $profileImageService->deleteImage($newImagePath);
+                    }
+                    throw $e;
+                }
+            });
 
             return redirect()
                 ->route('jobs.show', $jobIdcode)
                 ->with('message', 'Application submitted successfully!');
         } catch (\InvalidArgumentException $e) {
-            // Rollback profile image update if application creation fails
-            if ($profileImageUpdated) {
-                $profileImageService->deleteImage($user->profile_image_path);
-                $user->update(['profile_image_path' => $oldProfileImagePath]);
-            }
             return back()->withErrors(['cv_file' => $e->getMessage()]);
         }
     }
@@ -228,11 +230,26 @@ class ApplicationController extends Controller
     /**
      * Approve an application (company owner only).
      */
-    public function approve(string $idcode)
+    public function approve(string $idcode, AuditLogger $auditLogger)
     {
-        $application = $this->findCompanyOwnedApplication($idcode);
+        $application = Application::byIdcode($idcode)
+            ->with(['jobPosting', 'applicantUser'])
+            ->firstOrFail();
 
+        $this->authorize('updateStatus', $application);
+
+        $oldStatus = $application->status->value;
         $application->update(['status' => 'approved']);
+
+        $auditLogger->log('application.status_changed', [
+            'application_id' => $application->id,
+            'application_idcode' => $application->idcode,
+            'old_status' => $oldStatus,
+            'new_status' => 'approved',
+            'changed_by_user_id' => auth()->id(),
+            'job_id' => $application->job_id,
+            'applicant_user_id' => $application->applicant_user_id,
+        ]);
 
         return redirect()
             ->route('my.applications.index')
@@ -242,36 +259,29 @@ class ApplicationController extends Controller
     /**
      * Reject an application (company owner only).
      */
-    public function reject(string $idcode)
+    public function reject(string $idcode, AuditLogger $auditLogger)
     {
-        $application = $this->findCompanyOwnedApplication($idcode);
+        $application = Application::byIdcode($idcode)
+            ->with(['jobPosting', 'applicantUser'])
+            ->firstOrFail();
 
+        $this->authorize('updateStatus', $application);
+
+        $oldStatus = $application->status->value;
         $application->update(['status' => 'rejected']);
+
+        $auditLogger->log('application.status_changed', [
+            'application_id' => $application->id,
+            'application_idcode' => $application->idcode,
+            'old_status' => $oldStatus,
+            'new_status' => 'rejected',
+            'changed_by_user_id' => auth()->id(),
+            'job_id' => $application->job_id,
+            'applicant_user_id' => $application->applicant_user_id,
+        ]);
 
         return redirect()
             ->route('my.applications.index')
             ->with('success', 'Application rejected successfully.');
-    }
-
-    /**
-     * Find application owned by the company user.
-     */
-    private function findCompanyOwnedApplication(string $idcode): Application
-    {
-        $user = auth()->user();
-
-        if (!$user || !$user->isCompany()) {
-            abort(403, 'Only company users can update applications.');
-        }
-
-        $application = Application::byIdcode($idcode)
-            ->with('jobPosting')
-            ->firstOrFail();
-
-        if ($application->jobPosting->company_user_id !== $user->id) {
-            abort(403, 'You are not authorized to update this application.');
-        }
-
-        return $application;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ApplicationStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -85,5 +86,35 @@ class Application extends Model
     public function applicantUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'applicant_user_id');
+    }
+
+    /**
+     * Set the status attribute with validation.
+     */
+    public function setStatusAttribute($value): void
+    {
+        // Convert string to enum if needed
+        $status = $value instanceof ApplicationStatus ? $value : ApplicationStatus::from($value);
+
+        // Validate transition if status already exists
+        if (isset($this->attributes['status']) && !empty($this->attributes['status'])) {
+            $currentStatus = ApplicationStatus::from($this->attributes['status']);
+
+            if (!$currentStatus->canTransitionTo($status)) {
+                throw new \InvalidArgumentException(
+                    "Cannot transition application status from {$currentStatus->value} to {$status->value}"
+                );
+            }
+        }
+
+        $this->attributes['status'] = $status->value;
+    }
+
+    /**
+     * Get the status attribute as enum.
+     */
+    public function getStatusAttribute($value): ApplicationStatus
+    {
+        return ApplicationStatus::from($value);
     }
 }

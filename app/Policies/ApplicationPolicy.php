@@ -46,8 +46,7 @@ class ApplicationPolicy
      */
     public function create(User $user): bool
     {
-        // Allow individual users to apply without requiring a permission record.
-        return $user->isIndividual();
+        return $user->isIndividual() && $user->hasPermissionTo('apply to jobs');
     }
 
     /**
@@ -56,11 +55,11 @@ class ApplicationPolicy
     public function downloadCv(User $user, Application $application): bool
     {
         if ($user->isCompany()) {
-            return $this->isApplicationForCompanyJob($application, $user);
+            return $user->hasPermissionTo('download cv')
+                && $this->isApplicationForCompanyJob($application, $user);
         }
 
         if ($user->isIndividual()) {
-            // Individuals can download their own CV without explicit permission
             return $this->isApplicationByApplicant($application, $user);
         }
 
@@ -74,6 +73,20 @@ class ApplicationPolicy
     public function update(User $user, Application $application): bool
     {
         return false;
+    }
+
+    /**
+     * Determine if the user can update the application status (approve/reject).
+     * Only company owners of the job can update application status.
+     */
+    public function updateStatus(User $user, Application $application): bool
+    {
+        if (!$user->isCompany()) {
+            return false;
+        }
+
+        return $user->hasPermissionTo('manage applications')
+            && $this->isApplicationForCompanyJob($application, $user);
     }
 
     /**
