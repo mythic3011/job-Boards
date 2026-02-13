@@ -158,6 +158,7 @@
                                 accept="image/*"
                                 class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
                             >
+                            <img id="profile_image_preview" src="" alt="Profile Image Preview" class="mt-4 w-32 h-32 rounded-full object-cover" style="display: none;" />
                         </div>
                         <p class="mt-1 text-xs text-gray-500">JPG, PNG, GIF up to 2MB</p>
                         @error('profile_image')
@@ -204,3 +205,29 @@
         </div>
     </div>
 </x-layouts.base>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const fileInput = document.getElementById('profile_image');
+        const preview = document.getElementById('profile_image_preview');
+
+        fileInput.addEventListener('change', function(event) {
+            console.log('File input changed'); // Debugging log
+            const file = event.target.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+
+                reader.onload = function(e) {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+
+                reader.readAsDataURL(file);
+            } else {
+                preview.src = '';
+                preview.style.display = 'none';
+            }
+        });
+    });
+</script>

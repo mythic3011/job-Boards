@@ -21,6 +21,7 @@
     
     $ariaDescribedBy = collect([$helpId, $errorId])->filter()->implode(' ');
     $userInitial = $userName ? strtoupper(substr($userName, 0, 1)) : 'U';
+    $hasCurrentImage = !empty($currentImage);
 @endphp
 
 <div class="space-y-4">
@@ -32,22 +33,20 @@
 
     <div class="flex flex-col items-center space-y-4">
         <div class="relative group">
-            <div class="relative w-32 h-32 rounded-full overflow-hidden border-4 {{ $hasError ? 'border-red-300' : 'border-gray-200' }} bg-gradient-to-br from-blue-400 to-purple-500 shadow-lg">
-                @if($currentImage)
+            <div class="relative w-32 h-32 rounded-full overflow-hidden border-4 {{ $hasError ? 'border-red-300' : 'border-gray-200' }} bg-gradient-to-br from-blue-400 to-purple-500 shadow-lg"
+                 id="{{ $inputId }}-container">
+                @if($hasCurrentImage)
                     <img src="{{ $currentImage }}" 
                          alt="Profile Image" 
                          class="w-full h-full object-cover transition-all duration-300 group-hover:scale-110"
                          id="{{ $inputId }}-current-avatar">
                 @else
                     <!-- Default Avatar with Initial -->
-                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
+                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600"
+                         id="{{ $inputId }}-current-avatar">
                         <span class="text-4xl font-bold text-white">{{ $userInitial }}</span>
                     </div>
                 @endif
-                
-                <img class="w-full h-full object-cover absolute inset-0 opacity-0 transition-opacity duration-300" 
-                     alt="Preview" 
-                     id="{{ $inputId }}-preview-avatar">
             </div>
             
             <label for="{{ $inputId }}" 
@@ -147,46 +146,142 @@ let pendingChange = null;
 
 function handleAvatarSelect(input) {
     const file = input.files[0];
-    if (!file) return resetAvatarState(input);
-    
+    console.log('File selected:', file);
+
+    if (!file) {
+        console.log('No file selected.');
+        return;
+    }
+
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
-    if (!allowedTypes.includes(file.type.toLowerCase())) return showToast('Please select a valid image file (JPG, PNG, WebP, or GIF)', 'error'), input.value = '', void 0;
-    if (file.size > 2097152) return showToast('File size must be less than 2MB', 'error'), input.value = '', void 0;
-    
-    console.log('Avatar selected:', {name: file.name.replace(/[\/\\<>:"|?*]/g, '_').substring(0, 100), size: file.size, type: file.type});
+    if (!allowedTypes.includes(file.type.toLowerCase())) {
+        console.error('Invalid file type:', file.type);
+        showToast('Please select a valid image file (JPG, PNG, WebP, or GIF)', 'error');
+        input.value = '';
+        return;
+    }
+
+    if (file.size > 2097152) {
+        console.error('File size exceeds limit:', file.size);
+        showToast('File size must be less than 2MB', 'error');
+        input.value = '';
+        return;
+    }
+
+    console.log('Valid file selected:', file.name);
     showAvatarPreview(file, input);
 }
 
 function showAvatarPreview(file, input) {
     const reader = new FileReader();
     reader.onload = e => {
-        const $preview = $(`#${input.id}-preview-avatar`), $current = $(`#${input.id}-current-avatar`), $actions = $(`#${input.id}-actions`), $success = $(`#${input.id}-success-indicator`);
-        
-        $preview.one('load', () => {
+        console.log('File read successfully:', e.target.result);
+        const container = document.getElementById(`${input.id}-container`);
+        const $current = document.getElementById(`${input.id}-current-avatar`);
+        const $actions = document.getElementById(`${input.id}-actions`);
+
+        if (container && $current) {
+            // Create preview image if it doesn't exist
+            let $preview = document.getElementById(`${input.id}-preview-avatar`);
+            if (!$preview) {
+                $preview = document.createElement('img');
+                $preview.id = `${input.id}-preview-avatar`;
+                $preview.alt = 'Preview';
+                $preview.className = 'w-full h-full object-cover absolute inset-0 rounded-full';
+                container.appendChild($preview);
+            }
+            
+            $preview.src = e.target.result;
+            $preview.style.cssText = 'width: 100% !important; height: 100% !important; object-fit: cover !important; position: absolute !important; inset: 0 !important; opacity: 1 !important; visibility: visible !important; display: block !important; z-index: 10; border: none !important; border-radius: 50% !important;';
+            
+            // Hide the background gradient and border to show only the image
+            container.style.cssText = 'background: transparent !important; border: none !important; box-shadow: 0 0 0 2px #e5e7eb;';
+            
+            $current.style.opacity = '0.3';
+            if ($actions) {
+                $actions.classList.remove('opacity-0');
+                $actions.classList.add('opacity-100');
+            }
             pendingChange = {inputId: input.id, file, dataUrl: e.target.result};
-            $preview.css('opacity', 1), $current.css('opacity', 0.3), $actions.removeClass('opacity-0').addClass('opacity-100'), $success.addClass('hidden').removeClass('flex');
             showToast('Photo ready to save', 'info');
-        }).one('error', () => (showToast('Failed to load image preview. Please try a different image.', 'error'), input.value = '', resetAvatarState(input))).attr('src', e.target.result);
+        }
     };
-    reader.onerror = () => (showToast('Error reading file. Please try again.', 'error'), input.value = '', resetAvatarState(input));
+
+    reader.onerror = () => {
+        console.error('Error reading file.');
+        showToast('Error reading file. Please try again.', 'error');
+        input.value = '';
+    };
+
     reader.readAsDataURL(file);
 }
 
 function confirmAvatarChange(inputId) {
     if (!pendingChange || pendingChange.inputId !== inputId) return showToast('No changes to save', 'warning');
     
-    const $preview = $(`#${inputId}-preview-avatar`), $current = $(`#${inputId}-current-avatar`), $actions = $(`#${inputId}-actions`), $success = $(`#${inputId}-success-indicator`);
-    $current.attr('src', pendingChange.dataUrl).css('opacity', 1), $preview.css('opacity', 0), $actions.addClass('opacity-0').removeClass('opacity-100'), $success.removeClass('hidden').addClass('flex');
-    pendingChange = null, showToast('Profile photo updated! Remember to save your changes.', 'success');
+    const $preview = document.getElementById(`${inputId}-preview-avatar`);
+    const $current = document.getElementById(`${inputId}-current-avatar`);
+    const $actions = document.getElementById(`${inputId}-actions`);
+    const $success = document.getElementById(`${inputId}-success-indicator`);
+    
+    if ($preview && $current) {
+        // Keep the preview visible as the main display
+        $preview.style.zIndex = '20';
+        $current.style.opacity = '1';
+    }
+    
+    if ($actions) {
+        $actions.classList.add('opacity-0');
+        $actions.classList.remove('opacity-100');
+    }
+    
+    if ($success) {
+        $success.classList.remove('hidden');
+        $success.classList.add('flex');
+    }
+    
+    pendingChange = null;
+    showToast('Profile photo updated! Remember to save your changes.', 'success');
 }
 
 function cancelAvatarChange(inputId) {
-    $(`#${inputId}`).val(''), resetAvatarState($(`#${inputId}`)[0]), pendingChange = null, showToast('Changes cancelled', 'info');
+    const $input = document.getElementById(inputId);
+    const $preview = document.getElementById(`${inputId}-preview-avatar`);
+    const $current = document.getElementById(`${inputId}-current-avatar`);
+    const $actions = document.getElementById(`${inputId}-actions`);
+    
+    if ($input) $input.value = '';
+    if ($preview) {
+        $preview.remove();
+    }
+    if ($current) $current.style.opacity = '1';
+    if ($actions) {
+        $actions.classList.add('opacity-0');
+        $actions.classList.remove('opacity-100');
+    }
+    
+    pendingChange = null;
+    showToast('Changes cancelled', 'info');
 }
 
 function resetAvatarState(input) {
-    const $preview = $(`#${input.id}-preview-avatar`), $current = $(`#${input.id}-current-avatar`), $actions = $(`#${input.id}-actions`), $success = $(`#${input.id}-success-indicator`);
-    $preview.css('opacity', 0).attr('src', ''), $current.css('opacity', 1), $actions.addClass('opacity-0').removeClass('opacity-100'), $success.addClass('hidden').removeClass('flex');
+    const $preview = document.getElementById(`${input.id}-preview-avatar`);
+    const $current = document.getElementById(`${input.id}-current-avatar`);
+    const $actions = document.getElementById(`${input.id}-actions`);
+    const $success = document.getElementById(`${input.id}-success-indicator`);
+    
+    if ($preview) {
+        $preview.remove();
+    }
+    if ($current) $current.style.opacity = '1';
+    if ($actions) {
+        $actions.classList.add('opacity-0');
+        $actions.classList.remove('opacity-100');
+    }
+    if ($success) {
+        $success.classList.add('hidden');
+        $success.classList.remove('flex');
+    }
 }
 
 function removeCurrentAvatar(inputId) {
