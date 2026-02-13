@@ -16,7 +16,8 @@ class UserRegistrationService
 {
     public function __construct(
         private readonly ProfileImageService $profileImageService,
-        private readonly AuditLogger $auditLogger
+        private readonly AuditLogger $auditLogger,
+        private readonly TwoFactorService $twoFactorService
     ) {
     }
 
@@ -38,6 +39,12 @@ class UserRegistrationService
 
         $this->handleProfileImage($user, $data);
         $this->assignUserRole($user, $data['user_type']);
+        
+        // Enable 2FA if requested during registration
+        if (!empty($data['enable_2fa'])) {
+            $this->twoFactorService->enable($user);
+        }
+        
         $this->logRegistration($user, $request);
 
         return $user;
@@ -90,6 +97,10 @@ class UserRegistrationService
                 'image',
                 'max:2048', // 2MB max
                 'mimetypes:' . implode(',', ProfileImageService::ALLOWED_MIME_TYPES),
+            ],
+            'enable_2fa' => [
+                'nullable',
+                'boolean',
             ],
         ])->validate();
     }

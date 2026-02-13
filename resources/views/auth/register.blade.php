@@ -165,6 +165,25 @@
                         @enderror
                     </div>
 
+                    <div class="border-t pt-6">
+                        <div class="flex items-center">
+                            <input
+                                id="enable_2fa"
+                                name="enable_2fa"
+                                type="checkbox"
+                                value="1"
+                                class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            >
+                            <label for="enable_2fa" class="ml-3 block text-sm font-medium text-gray-700">
+                                Enable Two-Factor Authentication
+                            </label>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-600 ml-7">
+                            <strong>Recommended:</strong> Add an extra layer of security to your account with two-factor authentication. 
+                            <br><span class="text-yellow-600">Note: If you disable 2FA, you cannot change your password or reset it if forgotten.</span>
+                        </p>
+                    </div>
+
                     <div>
                         <button
                             type="submit"
