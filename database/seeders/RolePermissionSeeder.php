@@ -23,6 +23,7 @@ class RolePermissionSeeder extends Seeder
             'delete own jobs',
             'view own applications',
             'download cv',
+            'manage applications',
             'apply to jobs',
             'view own submitted applications',
         ];
@@ -64,6 +65,7 @@ class RolePermissionSeeder extends Seeder
             'delete own jobs',
             'view own applications',
             'download cv',
+            'manage applications',
         ]);
 
         $individualRole->givePermissionTo([
