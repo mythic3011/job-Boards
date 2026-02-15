@@ -46,6 +46,10 @@ new class extends Component
         $before = $user->locked_until?->toDateTimeString();
         
         $user->update(['locked_until' => now()->addDays(30)]);
+
+        app(\App\Services\DashboardService::class)->clearCache();
+
+        $this->dispatch('$refresh');
         
         app(\App\Services\AuditLogger::class)->logBusinessEvent(
             eventType: 'user.locked',
@@ -72,6 +76,10 @@ new class extends Component
         $before = $user->locked_until?->toDateTimeString();
         
         $user->update(['locked_until' => null]);
+
+        app(\App\Services\DashboardService::class)->clearCache();
+
+        $this->dispatch('$refresh');
         
         app(\App\Services\AuditLogger::class)->logBusinessEvent(
             eventType: 'user.unlocked',
@@ -87,6 +95,18 @@ new class extends Component
         );
 
         session()->flash('message', 'User unlocked successfully.');
+    }
+
+    public function toggleLock(string $userId): void
+    {
+        $user = User::findOrFail($userId);
+
+        if ($user->isLocked()) {
+            $this->unlockUser($userId);
+            return;
+        }
+
+        $this->lockUser($userId);
     }
 }; ?>
 
@@ -132,7 +152,7 @@ new class extends Component
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($users as $user)
-                        <tr>
+                        <tr wire:key="user-{{ $user->id }}">
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div>
                                     <div class="text-sm font-medium text-gray-900">{{ $user->nickname }}</div>
@@ -169,12 +189,38 @@ new class extends Component
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                 <div class="flex gap-2">
                                     @if($user->isLocked())
-                                        <x-ui.button wire:click="unlockUser('{{ $user->id }}')" variant="outline" size="sm">
-                                            Unlock
+                                        <x-ui.button
+                                            wire:click="toggleLock('{{ $user->id }}')"
+                                            wire:loading.attr="disabled"
+                                            wire:target="toggleLock('{{ $user->id }}')"
+                                            variant="outline"
+                                            size="sm"
+                                        >
+                                            <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Unlock</span>
+                                            <span wire:loading wire:target="toggleLock('{{ $user->id }}')" class="inline-flex items-center gap-2">
+                                                <svg class="h-4 w-4 animate-spin text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"></path>
+                                                </svg>
+                                                Processing
+                                            </span>
                                         </x-ui.button>
                                     @else
-                                        <x-ui.button wire:click="lockUser('{{ $user->id }}')" variant="danger" size="sm">
-                                            Lock
+                                        <x-ui.button
+                                            wire:click="toggleLock('{{ $user->id }}')"
+                                            wire:loading.attr="disabled"
+                                            wire:target="toggleLock('{{ $user->id }}')"
+                                            variant="danger"
+                                            size="sm"
+                                        >
+                                            <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Lock</span>
+                                            <span wire:loading wire:target="toggleLock('{{ $user->id }}')" class="inline-flex items-center gap-2">
+                                                <svg class="h-4 w-4 animate-spin text-red-200" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8v4a4 4 0 0 0-4 4H4z"></path>
+                                                </svg>
+                                                Processing
+                                            </span>
                                         </x-ui.button>
                                     @endif
                                 </div>

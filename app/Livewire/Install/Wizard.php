@@ -244,7 +244,7 @@ class Wizard extends Component
             $this->validateStep3();
 
             // Send data to controller endpoint via HTTP
-            $response = \Illuminate\Support\Facades\Http::post(route('install.complete'), [
+            $response = \Illuminate\Support\Facades\Http::asJson()->post(route('install.complete'), [
                 'admin_name' => $this->name,
                 'admin_email' => $this->email,
                 'admin_password' => $this->password,

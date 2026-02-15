@@ -98,6 +98,19 @@ class InstallController extends Controller
      */
     public function complete(Request $request): JsonResponse
     {
+        // Normalize demo flags to booleans (or null) for consistent validation
+        if ($request->has('demo')) {
+            $request->merge([
+                'demo' => filter_var($request->input('demo'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+            ]);
+        }
+
+        if ($request->has('install_demo_data')) {
+            $request->merge([
+                'install_demo_data' => filter_var($request->input('install_demo_data'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
+            ]);
+        }
+
         // Check if this is a Livewire request (no timestamp/session validation needed)
         $isLivewireRequest = !$request->has('timestamp') || !$request->has('session');
 
@@ -214,8 +227,8 @@ class InstallController extends Controller
             'admin_password' => 'required|string|min:12|max:255|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/',
             'admin_password_confirmation' => 'required|string|same:admin_password',
             'two_factor_secret' => 'required|string|regex:/^[A-Z2-7]{16,}$/i',
-            'install_demo_data' => 'boolean',
-            'demo' => 'boolean',
+            'install_demo_data' => 'nullable|boolean',
+            'demo' => 'nullable|boolean',
             'timestamp' => 'required|integer',
             'session' => 'required|string|max:100',
         ]);
