@@ -129,13 +129,43 @@ new class extends Component
 
     protected function clearDemoData(): void
     {
-        // Remove all non-admin users and their related demo data
-        \Illuminate\Support\Facades\DB::transaction(function () {
-            $nonAdminUsers = \App\Models\User::whereDoesntHave('roles', function ($query) {
-                $query->where('name', 'admin');
-            })->get();
+        $demoSeededAt = Setting::get('demo_seeded_at');
 
-            foreach ($nonAdminUsers as $user) {
+        if (!$demoSeededAt) {
+            \Log::warning('Attempted to clear demo data but no demo_seeded_at timestamp found');
+            session()->flash('error', 'No demo data to clear.');
+            return;
+        }
+
+        // Only delete users created AFTER demo seeding
+        \Illuminate\Support\Facades\DB::transaction(function () use ($demoSeededAt) {
+            $demoUsers = \App\Models\User::whereDoesntHave('roles', function ($query) {
+                $query->where('name', 'admin');
+            })
+            ->where('created_at', '>=', $demoSeededAt)
+            ->get();
+
+            $userCount = $demoUsers->count();
+
+            if ($userCount === 0) {
+                \Log::info('No demo users to delete');
+                return;
+            }
+
+            // Audit log BEFORE deletion
+            app(\App\Services\AuditLogger::class)->logBusinessEvent(
+                eventType: 'demo.data_cleared',
+                request: request(),
+                targetType: 'system',
+                targetIdcode: null,
+                meta: [
+                    'users_deleted' => $userCount,
+                    'demo_seeded_at' => $demoSeededAt,
+                    'user_ids' => $demoUsers->pluck('id')->toArray(),
+                ]
+            );
+
+            foreach ($demoUsers as $user) {
                 $user->delete();
             }
         });

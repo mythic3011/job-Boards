@@ -85,29 +85,19 @@ class TwoFactorService
     public function confirm(User $user, string $code): bool
     {
         if (!$this->verifyCode($user, $code)) {
-            \Log::info('TwoFactorService::confirm - verifyCode failed');
+            \Log::warning('2FA verification failed', [
+                'user_id' => $user->id,
+                'ip' => request()->ip(),
+            ]);
             return false;
         }
 
         try {
-            \Log::info('TwoFactorService::confirm - calling confirmAction');
             ($this->confirmAction)($user, $code);
-            \Log::info('TwoFactorService::confirm - confirmAction completed');
-        } catch (\Illuminate\Validation\ValidationException $e) {
-            // The confirmAction verifies the code again, which will fail due to replay protection
-            // But we already verified it above, so just manually set the confirmed_at timestamp
-            \Log::info('TwoFactorService::confirm - confirmAction threw ValidationException, manually confirming');
-            
-            $user->forceFill([
-                'two_factor_confirmed_at' => now(),
-            ])->save();
-            
-            // Dispatch the event manually
-            \Laravel\Fortify\Events\TwoFactorAuthenticationConfirmed::dispatch($user);
         } catch (\Exception $e) {
-            \Log::error('TwoFactorService::confirm - unexpected exception', [
+            \Log::error('2FA confirmation failed', [
+                'user_id' => $user->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
             ]);
             return false;
         }
@@ -120,10 +110,10 @@ class TwoFactorService
             meta: [
                 'user_id' => $user->id,
                 'confirmed_at' => now()->toDateTimeString(),
+                'ip' => request()->ip(),
             ]
         );
 
-        \Log::info('TwoFactorService::confirm - returning true');
         return true;
     }
 

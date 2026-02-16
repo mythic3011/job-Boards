@@ -77,6 +77,32 @@ class ApplicationPolicy
     }
 
     /**
+     * Determine if the user can approve the application.
+     * Only company owners can approve applications for their jobs.
+     */
+    public function approve(User $user, Application $application): bool
+    {
+        if (!$user->isCompany()) {
+            return false;
+        }
+
+        return $this->isApplicationForCompanyJob($application, $user);
+    }
+
+    /**
+     * Determine if the user can reject the application.
+     * Only company owners can reject applications for their jobs.
+     */
+    public function reject(User $user, Application $application): bool
+    {
+        if (!$user->isCompany()) {
+            return false;
+        }
+
+        return $this->isApplicationForCompanyJob($application, $user);
+    }
+
+    /**
      * Determine if the user can delete the application.
      */
     public function delete(User $user, Application $application): bool
