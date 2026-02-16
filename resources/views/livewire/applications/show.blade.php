@@ -35,8 +35,11 @@ new class extends Component
 
         $isJobOwner = $application->jobPosting->company_user_id === $user->id;
 
-        if ($application->applicant_user_id === $user->id) {
-            \Illuminate\Support\Facades\Cache::forget('application_new_message_' . $application->id);
+        // Mark decision message as read when applicant views it
+        if ($application->applicant_user_id === $user->id
+            && $application->decision_message
+            && !$application->decision_message_read_at) {
+            $application->update(['decision_message_read_at' => now()]);
         }
 
         title('Application for ' . $application->jobPosting->title);

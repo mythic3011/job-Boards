@@ -231,7 +231,8 @@ class ApplicationController extends Controller
      */
     public function approve(Request $request, string $idcode)
     {
-        $application = $this->findCompanyOwnedApplication($idcode);
+        $application = Application::byIdcode($idcode)->firstOrFail();
+        $this->authorize('approve', $application);
 
         if ($application->status === 'approved') {
             return back()->with('info', 'This application has already been approved.');
@@ -244,11 +245,8 @@ class ApplicationController extends Controller
         $application->update([
             'status' => 'approved',
             'decision_message' => $validated['decision_message'] ?? null,
+            'decision_message_read_at' => null, // Mark as unread
         ]);
-
-        if (!empty($validated['decision_message'])) {
-            Cache::forever('application_new_message_' . $application->id, true);
-        }
 
         return redirect()
             ->route('my.applications.index')
@@ -260,7 +258,8 @@ class ApplicationController extends Controller
      */
     public function reject(Request $request, string $idcode)
     {
-        $application = $this->findCompanyOwnedApplication($idcode);
+        $application = Application::byIdcode($idcode)->firstOrFail();
+        $this->authorize('reject', $application);
 
         $validated = $request->validate([
             'decision_message' => ['nullable', 'string', 'max:2000'],
@@ -269,36 +268,11 @@ class ApplicationController extends Controller
         $application->update([
             'status' => 'rejected',
             'decision_message' => $validated['decision_message'] ?? null,
+            'decision_message_read_at' => null, // Mark as unread
         ]);
-
-        if (!empty($validated['decision_message'])) {
-            Cache::forever('application_new_message_' . $application->id, true);
-        }
 
         return redirect()
             ->route('my.applications.index')
             ->with('success', 'Application rejected successfully.');
-    }
-
-    /**
-     * Find application owned by the company user.
-     */
-    private function findCompanyOwnedApplication(string $idcode): Application
-    {
-        $user = auth()->user();
-
-        if (!$user || !$user->isCompany()) {
-            abort(403, 'Only company users can update applications.');
-        }
-
-        $application = Application::byIdcode($idcode)
-            ->with('jobPosting')
-            ->firstOrFail();
-
-        if ($application->jobPosting->company_user_id !== $user->id) {
-            abort(403, 'You are not authorized to update this application.');
-        }
-
-        return $application;
     }
 }

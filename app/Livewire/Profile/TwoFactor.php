@@ -4,6 +4,7 @@ namespace App\Livewire\Profile;
 
 use App\Services\TwoFactorService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Component;
 
 class TwoFactor extends Component
@@ -69,6 +70,15 @@ class TwoFactor extends Component
             return;
         }
 
+        // Rate limiting: 5 attempts per minute
+        $key = '2fa-verify:' . Auth::id();
+
+        if (RateLimiter::tooManyAttempts($key, 5)) {
+            $seconds = RateLimiter::availableIn($key);
+            $this->addError('verificationCode', "Too many attempts. Try again in {$seconds} seconds.");
+            return;
+        }
+
         $this->autoVerifying = true;
 
         try {
@@ -78,50 +88,32 @@ class TwoFactor extends Component
             }
 
             $twoFactorService = app(TwoFactorService::class);
-            
-            \Log::info('2FA verification attempt', [
-                'user_id' => $user->id,
-                'code_length' => strlen($value),
-                'has_secret' => !empty($user->two_factor_secret),
-                'has_confirmed_at' => !empty($user->two_factor_confirmed_at),
-            ]);
-            
-            // Don't verify twice - just call confirm which does its own verification
-            try {
-                $confirmed = $twoFactorService->confirm($user, $value);
-                \Log::info('2FA confirm result', ['confirmed' => $confirmed]);
-                
-                if ($confirmed) {
-                    $this->codeIsValid = true;
-                    
-                    // Refresh user to get updated 2FA status
-                    $user->refresh();
-                    
-                    \Log::info('2FA user refreshed', [
-                        'confirmed_at' => $user->two_factor_confirmed_at?->toDateTimeString(),
-                    ]);
-                    
-                    // Verify 2FA is actually enabled
-                    if ($user->two_factor_confirmed_at) {
-                        // Flash success message
-                        session()->flash('success', '🎉 Two-factor authentication is now active! Your account is more secure.');
-                        
-                        // Use JS to redirect after a brief delay
-                        $this->js('setTimeout(() => window.location.href = "' . route('profile.show') . '", 800);');
-                    } else {
-                        $this->codeIsValid = false;
-                        $this->addError('verificationCode', 'Failed to confirm 2FA. Please try again.');
-                        \Log::error('2FA confirmation failed - no confirmed_at timestamp');
-                    }
+
+            // Hit rate limiter BEFORE verification
+            RateLimiter::hit($key, 60);
+
+            $confirmed = $twoFactorService->confirm($user, $value);
+
+            if ($confirmed) {
+                // Clear rate limiter on success
+                RateLimiter::clear($key);
+
+                $this->codeIsValid = true;
+
+                // Refresh user to get updated 2FA status
+                $user->refresh();
+
+                // Verify 2FA is actually enabled
+                if ($user->two_factor_confirmed_at) {
+                    session()->flash('success', '🎉 Two-factor authentication is now active! Your account is more secure.');
+                    $this->js('setTimeout(() => window.location.href = "' . route('profile.show') . '", 800);');
                 } else {
                     $this->codeIsValid = false;
-                    $this->addError('verificationCode', 'The verification code is incorrect. Please try again.');
-                    \Log::error('2FA confirm returned false');
+                    $this->addError('verificationCode', 'Failed to confirm 2FA. Please try again.');
                 }
-            } catch (\Illuminate\Validation\ValidationException $e) {
+            } else {
                 $this->codeIsValid = false;
                 $this->addError('verificationCode', 'The verification code is incorrect. Please try again.');
-                \Log::error('2FA validation exception', ['error' => $e->getMessage()]);
             }
         } catch (\Exception $e) {
             $this->codeIsValid = false;

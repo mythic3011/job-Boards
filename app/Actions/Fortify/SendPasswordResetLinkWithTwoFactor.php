@@ -102,10 +102,19 @@ class SendPasswordResetLinkWithTwoFactor
             ]);
         }
 
-        // 2FA verified, send password reset link (or generate token locally)
+        // 2FA verified, send password reset link (or log token locally for debugging)
         if (app()->environment('local')) {
             $token = Password::broker()->createToken($user);
             RateLimiter::clear($key);
+
+            // Log token for debugging ONLY - never expose in response
+            \Log::debug('Password reset token generated (LOCAL ONLY)', [
+                'email' => $user->email,
+                'reset_url' => route('password.reset', [
+                    'token' => $token,
+                    'email' => $user->email
+                ]),
+            ]);
 
             $this->auditLogger->logSecurityEvent(
                 eventType: 'password_reset.link_generated',
@@ -121,8 +130,6 @@ class SendPasswordResetLinkWithTwoFactor
 
             return [
                 'status' => Password::RESET_LINK_SENT,
-                'token' => $token,
-                'email' => $user->email,
                 'local' => true,
             ];
         }
