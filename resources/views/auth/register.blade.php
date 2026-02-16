@@ -1,3 +1,8 @@
+@php
+    use App\Models\Setting;
+    $registrationsOpen = Setting::getBool('registrations_open', true);
+@endphp
+
 <x-layouts.base :title="'Register'" :show-header="false">
     <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8">
@@ -20,8 +25,19 @@
             </div>
 
             <div class="bg-white shadow-md rounded-lg p-8">
-                <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
-                    @csrf
+                @if(!$registrationsOpen)
+                    <x-ui.alert type="warning" class="mb-6">
+                        Registrations are currently closed. Please try again later.
+                    </x-ui.alert>
+
+                    <div class="flex justify-center">
+                        <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">
+                            Back to Sign In
+                        </a>
+                    </div>
+                @else
+                    <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+                        @csrf
                     
                     <div>
                         <label for="login_id" class="block text-sm font-medium text-gray-700">
@@ -185,15 +201,16 @@
                         </p>
                     </div>
 
-                    <div>
-                        <button
-                            type="submit"
-                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                        >
-                            Create account
-                        </button>
-                    </div>
-                </form>
+                        <div>
+                            <button
+                                type="submit"
+                                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                            >
+                                Create account
+                            </button>
+                        </div>
+                    </form>
+                @endif
             </div>
 
             <div class="text-center text-sm text-gray-600">
