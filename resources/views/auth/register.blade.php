@@ -196,8 +196,8 @@
                             </label>
                         </div>
                         <p class="mt-2 text-xs text-gray-600 ml-7">
-                            <strong>Recommended:</strong> Add an extra layer of security to your account with two-factor authentication. 
-                            <br><span class="text-yellow-600">Note: If you disable 2FA, you cannot change your password or reset it if forgotten.</span>
+                            <strong>Recommended:</strong> Add an extra layer of security to your account with two-factor authentication.
+                            <br><span class="text-gray-600">You can enable or disable 2FA later in your security settings.</span>
                         </p>
                     </div>
 
@@ -222,29 +222,3 @@
         </div>
     </div>
 </x-layouts.base>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const fileInput = document.getElementById('profile_image');
-        const preview = document.getElementById('profile_image_preview');
-
-        fileInput.addEventListener('change', function(event) {
-            console.log('File input changed'); // Debugging log
-            const file = event.target.files[0];
-
-            if (file) {
-                const reader = new FileReader();
-
-                reader.onload = function(e) {
-                    preview.src = e.target.result;
-                    preview.style.display = 'block';
-                };
-
-                reader.readAsDataURL(file);
-            } else {
-                preview.src = '';
-                preview.style.display = 'none';
-            }
-        });
-    });
-</script>

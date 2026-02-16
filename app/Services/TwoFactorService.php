@@ -190,6 +190,7 @@ class TwoFactorService
 
     /**
      * Get recovery codes for the user.
+     * Recovery codes are stored as encrypted JSON strings.
      */
     public function getRecoveryCodes(User $user): array
     {
@@ -198,31 +199,15 @@ class TwoFactorService
         }
 
         try {
-            $codes = $user->two_factor_recovery_codes;
+            $decrypted = decrypt($user->two_factor_recovery_codes);
+            $decoded = json_decode($decrypted, true);
 
-            if (is_array($codes)) {
-                return $codes;
-            }
-
-            if (is_string($codes)) {
-                $decrypted = decrypt($codes);
-                $decoded = json_decode($decrypted, true);
-                return is_array($decoded) ? $decoded : [];
-            }
-
-            return [];
+            return is_array($decoded) ? $decoded : [];
         } catch (\Exception $e) {
             \Log::error('Failed to decrypt recovery codes', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
-
-            if (is_string($user->two_factor_recovery_codes)) {
-                $decoded = json_decode($user->two_factor_recovery_codes, true);
-                if (is_array($decoded)) {
-                    return $decoded;
-                }
-            }
 
             return [];
         }

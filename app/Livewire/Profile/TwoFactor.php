@@ -23,6 +23,14 @@ class TwoFactor extends Component
         'verificationCode.regex' => 'The verification code must contain only numbers.',
     ];
 
+    public function __construct()
+    {
+        parent::__construct();
+        $this->twoFactorService = app(TwoFactorService::class);
+    }
+
+    private TwoFactorService $twoFactorService;
+
     public function enable2FA(): void
     {
         $user = Auth::user();
@@ -30,8 +38,7 @@ class TwoFactor extends Component
             return;
         }
 
-        $twoFactorService = app(TwoFactorService::class);
-        $twoFactorService->enable($user);
+        $this->twoFactorService->enable($user);
         $user->refresh();
 
         $this->dispatch('2fa-enabled');
@@ -39,7 +46,6 @@ class TwoFactor extends Component
 
     public function confirm2FA(): void
     {
-        $twoFactorService = app(TwoFactorService::class);
         $this->validate();
 
         $user = Auth::user();
@@ -47,7 +53,7 @@ class TwoFactor extends Component
             return;
         }
 
-        if (!$twoFactorService->confirm($user, $this->verificationCode)) {
+        if (!$this->twoFactorService->confirm($user, $this->verificationCode)) {
             $this->addError('verificationCode', 'The verification code is incorrect. Please try again.');
             return;
         }
@@ -56,7 +62,7 @@ class TwoFactor extends Component
         $this->verificationCode = '';
     }
 
-    public function updatedVerificationCode(string $value)
+    public function updatedVerificationCode(string $value): void
     {
         $value = trim($value);
         $this->codeIsValid = false;
@@ -87,12 +93,10 @@ class TwoFactor extends Component
                 return;
             }
 
-            $twoFactorService = app(TwoFactorService::class);
-
             // Hit rate limiter BEFORE verification
             RateLimiter::hit($key, 60);
 
-            $confirmed = $twoFactorService->confirm($user, $value);
+            $confirmed = $this->twoFactorService->confirm($user, $value);
 
             if ($confirmed) {
                 // Clear rate limiter on success
@@ -131,8 +135,7 @@ class TwoFactor extends Component
             return;
         }
 
-        $twoFactorService = app(TwoFactorService::class);
-        $twoFactorService->disable($user);
+        $this->twoFactorService->disable($user);
         session()->flash('success', 'Two-factor authentication has been disabled.');
     }
 
@@ -143,8 +146,7 @@ class TwoFactor extends Component
             return;
         }
 
-        $twoFactorService = app(TwoFactorService::class);
-        $twoFactorService->cancelSetup($user);
+        $this->twoFactorService->cancelSetup($user);
         $this->verificationCode = '';
     }
 
@@ -155,14 +157,12 @@ class TwoFactor extends Component
             return;
         }
 
-        $twoFactorService = app(TwoFactorService::class);
-        $twoFactorService->regenerateRecoveryCodes($user);
+        $this->twoFactorService->regenerateRecoveryCodes($user);
         session()->flash('success', 'New recovery codes have been generated.');
     }
 
     public function render()
     {
-        $twoFactorService = app(TwoFactorService::class);
         $user = Auth::user()?->fresh();
 
         if (!$user) {
@@ -175,9 +175,9 @@ class TwoFactor extends Component
             ])->layout('layouts.app')->title('Security Settings');
         }
 
-        $is2FAEnabled = $twoFactorService->isEnabled($user);
-        $isSettingUp2FA = $twoFactorService->isSetupInProgress($user);
-        $recoveryCodes = $twoFactorService->getRecoveryCodes($user);
+        $is2FAEnabled = $this->twoFactorService->isEnabled($user);
+        $isSettingUp2FA = $this->twoFactorService->isSetupInProgress($user);
+        $recoveryCodes = $this->twoFactorService->getRecoveryCodes($user);
 
         return view('livewire.profile.two-factor', [
             'user' => $user,

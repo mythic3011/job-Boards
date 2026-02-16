@@ -3,6 +3,7 @@ import './bootstrap';
 import './components/toast';
 import './components/dropdown';
 import './install';
+import './register';
 import Alpine from 'alpinejs';
 
 // Initialize everything with jQuery
