@@ -10,7 +10,8 @@ use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 
-use function Livewire\Volt\{layout, title};
+use function Livewire\Volt\layout;
+use function Livewire\Volt\title;
 
 layout('layouts.app');
 title('Admin - Settings');
@@ -28,6 +29,8 @@ new class extends Component
     public bool $current_registrations_open = true;
 
     public bool $showConfirmModal = false;
+
+    public string $password = '';
 
     public function mount(): void
     {
@@ -57,20 +60,35 @@ new class extends Component
         $this->authorize('admin.settings.update');
         $this->validate();
 
-        // NEW: Rate limiting to prevent abuse
+        // Password confirmation for security
+        if (empty($this->password)) {
+            $this->addError('password', 'Password confirmation is required for security.');
+
+            return;
+        }
+
+        if (! \Illuminate\Support\Facades\Hash::check($this->password, auth()->user()->password)) {
+            $this->addError('password', 'The provided password is incorrect.');
+            $this->password = '';
+
+            return;
+        }
+
+        $this->password = '';
+
+        // Rate limiting to prevent abuse
         $rateLimitKey = 'settings-update:' . (auth()->id() ?? request()->ip());
-        
+
         if (RateLimiter::tooManyAttempts($rateLimitKey, 5)) {
             $seconds = RateLimiter::availableIn($rateLimitKey);
             $this->showConfirmModal = false;
             session()->flash('error', "Too many attempts. Please try again in {$seconds} seconds.");
             return;
         }
-        
-        // Execute hit
+
         RateLimiter::hit($rateLimitKey, 60);
 
-        // NEW: Verify changes again on server side
+        // Verify changes again on server side
         if (!$this->hasChanges()) {
             $this->showConfirmModal = false;
             session()->flash('info', 'No changes to save.');
@@ -139,9 +157,10 @@ new class extends Component
     {
         $demoSeededAt = Setting::get('demo_seeded_at');
 
-        if (!$demoSeededAt) {
+        if (! $demoSeededAt) {
             \Log::warning('Attempted to clear demo data but no demo_seeded_at timestamp found');
             session()->flash('error', 'No demo data to clear.');
+
             return;
         }
 
@@ -150,13 +169,14 @@ new class extends Component
             $demoUsers = \App\Models\User::whereDoesntHave('roles', function ($query) {
                 $query->where('name', 'admin');
             })
-            ->where('created_at', '>=', $demoSeededAt)
-            ->get();
+                ->where('created_at', '>=', $demoSeededAt)
+                ->get();
 
             $userCount = $demoUsers->count();
 
             if ($userCount === 0) {
                 \Log::info('No demo users to delete');
+
                 return;
             }
 
@@ -368,6 +388,22 @@ new class extends Component
                                 <h3 class="text-lg font-semibold text-gray-900">Confirm Changes</h3>
                                 <p class="text-sm text-gray-600">Review the impact before applying.</p>
                             </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label for="password-confirm" class="block text-sm font-medium text-gray-700">
+                                Confirm Password
+                            </label>
+                            <input
+                                type="password"
+                                id="password-confirm"
+                                wire:model="password"
+                                class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                placeholder="Enter your password to confirm"
+                                required
+                            >
+                            @error('password')
+                                <p class="text-sm text-red-600">{{ $message }}</p>
+                            @enderror
                         </div>
                     </div>
                     <div class="px-6 py-5 space-y-3">
