@@ -17,12 +17,18 @@ new class extends Component
     #[Validate('required|boolean')]
     public bool $registrations_open = true;
 
+    public bool $current_demo_mode = false;
+
+    public bool $current_registrations_open = true;
+
     public bool $can_save = false;
 
     public function mount(): void
     {
         $this->demo_mode = Setting::getBool('demo_mode', false);
         $this->registrations_open = Setting::getBool('registrations_open', true);
+        $this->current_demo_mode = $this->demo_mode;
+        $this->current_registrations_open = $this->registrations_open;
         $this->can_save = false;
     }
 
@@ -46,6 +52,9 @@ new class extends Component
 
         Setting::setBool('demo_mode', $this->demo_mode);
         Setting::setBool('registrations_open', $this->registrations_open);
+
+        $this->current_demo_mode = $this->demo_mode;
+        $this->current_registrations_open = $this->registrations_open;
 
         app(\App\Services\AuditLogger::class)->logBusinessEvent(
             eventType: 'settings.updated',
@@ -91,6 +100,8 @@ new class extends Component
 
         app(\App\Services\DashboardService::class)->clearCache();
 
+        $this->current_demo_mode = $this->demo_mode;
+        $this->current_registrations_open = $this->registrations_open;
         $this->can_save = true;
 
         app(\App\Services\AuditLogger::class)->logBusinessEvent(
@@ -148,7 +159,7 @@ new class extends Component
         <form
             wire:submit="save"
             class="space-y-6"
-            x-data="{ demoMode: @entangle('demo_mode'), registrationsOpen: @entangle('registrations_open'), showConfirm: false }"
+            x-data="{ demoMode: @entangle('demo_mode'), registrationsOpen: @entangle('registrations_open'), currentDemoMode: @entangle('current_demo_mode'), currentRegistrationsOpen: @entangle('current_registrations_open'), showConfirm: false }"
         >
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
@@ -181,8 +192,8 @@ new class extends Component
                         </label>
                         <span
                             class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                            :class="demoMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
-                            x-text="demoMode ? 'Enabled' : 'Disabled'"
+                            :class="currentDemoMode ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'"
+                            x-text="currentDemoMode ? 'Enabled' : 'Disabled'"
                         ></span>
                     </div>
                 </div>
@@ -204,8 +215,8 @@ new class extends Component
                         </label>
                         <span
                             class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold"
-                            :class="registrationsOpen ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'"
-                            x-text="registrationsOpen ? 'Open' : 'Closed'"
+                            :class="currentRegistrationsOpen ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'"
+                            x-text="currentRegistrationsOpen ? 'Open' : 'Closed'"
                         ></span>
                     </div>
                 </div>
