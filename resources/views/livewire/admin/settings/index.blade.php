@@ -45,13 +45,11 @@ new class extends Component
         $this->authorize('admin.settings.update');
         $this->validate();
 
-        // NEW: Server-side validation for changes
         if (!$this->hasChanges()) {
             session()->flash('info', 'No changes to save.');
             return;
         }
 
-        // Show confirmation modal if there are changes
         $this->showConfirmModal = true;
     }
 
@@ -76,7 +74,6 @@ new class extends Component
 
         $this->password = '';
 
-        // Rate limiting to prevent abuse
         $rateLimitKey = 'settings-update:' . (auth()->id() ?? request()->ip());
 
         if (RateLimiter::tooManyAttempts($rateLimitKey, 5)) {
@@ -88,7 +85,6 @@ new class extends Component
 
         RateLimiter::hit($rateLimitKey, 60);
 
-        // Verify changes again on server side
         if (!$this->hasChanges()) {
             $this->showConfirmModal = false;
             session()->flash('info', 'No changes to save.');
@@ -109,18 +105,15 @@ new class extends Component
             return;
         }
 
-        // Save settings
         Setting::setBool('demo_mode', $this->demo_mode);
         Setting::setBool('registrations_open', $this->registrations_open);
 
         if ($demoModeBefore === false && $this->demo_mode === true) {
-            // Enable demo mode: seed demo data
             Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\DemoDataSeeder']);
             Setting::set('demo_seeded_at', now()->toDateTimeString());
         }
 
         if ($demoModeBefore === true && $this->demo_mode === false) {
-            // Disable demo mode: remove demo data
             $this->clearDemoData();
         }
 
