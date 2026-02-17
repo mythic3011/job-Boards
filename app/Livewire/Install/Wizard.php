@@ -125,6 +125,13 @@ class Wizard extends Component
                 'twoFactorSecret' => '2FA setup is required for admin accounts.'
             ]);
         }
+
+        // Require successful OTP verification before proceeding
+        if (!$this->testSuccess) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'testCode' => 'You must verify your 2FA code before continuing. Please enter the 6-digit code from your authenticator app and click Verify.'
+            ]);
+        }
     }
 
     /**
@@ -196,6 +203,7 @@ class Wizard extends Component
             if ($valid) {
                 $this->testSuccess = true;
                 $this->testResult = 'Valid code! 2FA is working correctly.';
+                $this->dispatch('2fa-verified');
             } else {
                 $this->testResult = 'Invalid code. Please check your authenticator app.';
             }

@@ -26,14 +26,48 @@
 
             <div class="bg-white shadow-md rounded-lg p-8">
                 @if(!$registrationsOpen)
-                    <x-ui.alert type="warning" class="mb-6">
-                        Registrations are currently closed. Please try again later.
-                    </x-ui.alert>
+                    {{-- Enhanced Registration Closed Notice --}}
+                    <div class="text-center space-y-6">
+                        {{-- Icon Section --}}
+                        <div class="flex items-center justify-center">
+                            <div class="relative">                                
+                                 {{-- Main Icon --}}
+                                <div class="relative flex items-center justify-center w-24 h-24 rounded-full bg-gradient-to-br from-amber-50 to-orange-100 ring-4 ring-amber-100 shadow-lg">
+                                    <svg class="w-12 h-12 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                </div>
+                            </div>
+                        </div>
 
-                    <div class="flex justify-center">
-                        <a href="{{ route('login') }}" class="inline-flex items-center justify-center px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">
-                            Back to Sign In
-                        </a>
+                        {{-- Message Header --}}
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-900 mb-3 tracking-tight" style="text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
+                                Registrations Temporarily Closed
+                            </h3>
+                            <p class="text-gray-600 text-sm leading-relaxed max-w-sm mx-auto" style="text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);">
+                                We're currently not accepting new registrations. This is a temporary measure, and we'll be opening up again soon.
+                            </p>
+                        </div>
+
+                        {{-- Bottom Message --}}
+                        <div class="border-t border-gray-100 pt-8 mt-4">
+                            <div class="bg-gray-50 rounded-xl p-5 mx-auto max-w-xs border border-gray-100 shadow-sm">
+                                <p class="text-sm text-gray-500 font-medium mb-3">
+                                    Already have an account?
+                                </p>
+                                
+                                <a 
+                                    href="{{ route('login') }}" 
+                                    class="w-full inline-flex items-center justify-center px-6 py-3 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 active:bg-indigo-800 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                                >
+                                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                    </svg>
+                                    Sign In to Continue
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 @else
                     <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
@@ -213,12 +247,12 @@
                 @endif
             </div>
 
-            <div class="text-center text-sm text-gray-600">
+            <!-- <div class="text-center text-sm text-gray-600">
                 Already have an account?
                 <a href="{{ route('login') }}" class="font-medium text-indigo-600 hover:text-indigo-500">
                     Sign in now
                 </a>
-            </div>
+            </div> -->
         </div>
     </div>
 </x-layouts.base>

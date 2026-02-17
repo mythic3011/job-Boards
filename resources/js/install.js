@@ -95,6 +95,7 @@ $(() => {
     class InstallWizard {
         constructor() {
             this.step = 1;
+            this.otpVerified = false;
             this.data = {
                 username: "",
                 name: "",
@@ -457,13 +458,27 @@ $(() => {
                             </div>
                         </div>
 
+                        <div id="step3-warning" class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-yellow-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                            </svg>
+                            <p class="text-sm text-yellow-800">You must verify your 2FA code above before continuing to the next step.</p>
+                        </div>
+
+                        <div id="step3-success" class="hidden bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+                            <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                            </svg>
+                            <p class="text-sm text-green-800">✓ 2FA verified successfully! You can now continue.</p>
+                        </div>
+
                         <div class="flex gap-3 pt-4">
                             <button type="button" onclick="window.installWizard.prev()"
                                     class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors">
                                 ← Back
                             </button>
-                            <button type="submit"
-                                    class="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors shadow-sm">
+                            <button type="submit" disabled
+                                    class="flex-1 px-6 py-3 bg-gray-300 text-gray-500 cursor-not-allowed rounded-lg font-medium transition-colors shadow-sm">
                                 Continue →
                             </button>
                         </div>
@@ -621,6 +636,10 @@ $(() => {
                 .off("submit")
                 .on("submit", (e) => {
                     e.preventDefault();
+                    if (!this.otpVerified) {
+                        alert('⚠️ 2FA Verification Required\n\nPlease enter the 6-digit code from your authenticator app and click Verify before continuing to the next step.');
+                        return;
+                    }
                     this.next();
                 });
         }
@@ -780,12 +799,20 @@ $(() => {
                 }
                 try {
                     const result = await verify({ token: code, secret });
-                    setResult(
-                        result?.valid
-                            ? "✓ Valid code! 2FA is working."
-                            : "Invalid code. Check your app.",
-                        result?.valid,
-                    );
+                    if (result?.valid) {
+                        this.otpVerified = true;
+                        setResult("✓ Valid code! 2FA is working.", true);
+                        // Update Continue button to enabled state
+                        const $continueBtn = $("#step3-form button[type='submit']");
+                        $continueBtn.prop('disabled', false)
+                            .removeClass('bg-gray-300 text-gray-500 cursor-not-allowed')
+                            .addClass('bg-indigo-600 text-white hover:bg-indigo-700');
+                        // Swap warning banner for success banner
+                        $("#step3-warning").addClass('hidden');
+                        $("#step3-success").removeClass('hidden');
+                    } else {
+                        setResult("Invalid code. Check your app.", false);
+                    }
                 } catch (error) {
                     console.error("OTP verification error:", error);
                     setResult("Invalid code. Check your app.", false);

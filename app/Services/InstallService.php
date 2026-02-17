@@ -222,7 +222,7 @@ class InstallService
             'nickname' => $data['admin_name'],
             'email' => $data['admin_email'],
             'password' => Hash::make($data['admin_password']),
-            'user_type' => 'company',
+            'user_type' => 'admin',
         ]);
 
         $admin->assignRole($adminRole);
