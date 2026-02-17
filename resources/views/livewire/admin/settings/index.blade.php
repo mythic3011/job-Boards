@@ -24,9 +24,14 @@ new class extends Component
     #[Validate('required|boolean')]
     public bool $registrations_open = true;
 
+    #[Validate('required|boolean')]
+    public bool $maintenance_mode = false;
+
     public bool $current_demo_mode = false;
 
     public bool $current_registrations_open = true;
+
+    public bool $current_maintenance_mode = false;
 
     public bool $showConfirmModal = false;
 
@@ -36,8 +41,10 @@ new class extends Component
     {
         $this->demo_mode = Setting::getBool('demo_mode', false);
         $this->registrations_open = Setting::getBool('registrations_open', true);
+        $this->maintenance_mode = Setting::getBool('maintenance_mode', false);
         $this->current_demo_mode = $this->demo_mode;
         $this->current_registrations_open = $this->registrations_open;
+        $this->current_maintenance_mode = $this->maintenance_mode;
     }
 
     public function save(): void
@@ -94,12 +101,15 @@ new class extends Component
         // Get current database state
         $demoModeBefore = Setting::getBool('demo_mode', false);
         $registrationsOpenBefore = Setting::getBool('registrations_open', true);
+        $maintenanceModeBefore = Setting::getBool('maintenance_mode', false);
 
         // NEW: Double check against actual DB state
         if ($this->demo_mode === $demoModeBefore && 
-            $this->registrations_open === $registrationsOpenBefore) {
+            $this->registrations_open === $registrationsOpenBefore &&
+            $this->maintenance_mode === $maintenanceModeBefore) {
             $this->current_demo_mode = $demoModeBefore;
             $this->current_registrations_open = $registrationsOpenBefore;
+            $this->current_maintenance_mode = $maintenanceModeBefore;
             $this->showConfirmModal = false;
             session()->flash('info', 'Settings are already up to date.');
             return;
@@ -107,6 +117,7 @@ new class extends Component
 
         Setting::setBool('demo_mode', $this->demo_mode);
         Setting::setBool('registrations_open', $this->registrations_open);
+        Setting::setBool('maintenance_mode', $this->maintenance_mode);
 
         if ($demoModeBefore === false && $this->demo_mode === true) {
             Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\DemoDataSeeder']);
@@ -121,6 +132,7 @@ new class extends Component
 
         $this->current_demo_mode = $this->demo_mode;
         $this->current_registrations_open = $this->registrations_open;
+        $this->current_maintenance_mode = $this->maintenance_mode;
         $this->showConfirmModal = false;
 
         app(AuditLogger::class)->logBusinessEvent(
@@ -136,6 +148,10 @@ new class extends Component
                 'registrations_open' => [
                     'before' => $registrationsOpenBefore,
                     'after' => $this->registrations_open,
+                ],
+                'maintenance_mode' => [
+                    'before' => $maintenanceModeBefore,
+                    'after' => $this->maintenance_mode,
                 ],
             ]
         );
@@ -194,12 +210,12 @@ new class extends Component
         Setting::set('demo_seeded_at', null);
     }
 
-    // NEW: Server-side method to check for changes
     protected function hasChanges(): bool
     {
         // Use loose comparison to handle type juggling if needed, though boolean properties should be fine
         return $this->demo_mode !== $this->current_demo_mode || 
-               $this->registrations_open !== $this->current_registrations_open;
+               $this->registrations_open !== $this->current_registrations_open ||
+               $this->maintenance_mode !== $this->current_maintenance_mode;
     }
 }; ?>
 
@@ -229,16 +245,18 @@ new class extends Component
 
     <x-ui.card padding="p-8">
         <form
-            wire:submit="save"
+            wire:submit.prevent="save"
             class="space-y-6"
             x-data="{ 
                 demoMode: @entangle('demo_mode'), 
                 registrationsOpen: @entangle('registrations_open'), 
+                maintenanceMode: @entangle('maintenance_mode'),
                 currentDemoMode: @entangle('current_demo_mode'), 
                 currentRegistrationsOpen: @entangle('current_registrations_open'),
+                currentMaintenanceMode: @entangle('current_maintenance_mode'),
                 showConfirm: @entangle('showConfirmModal'),
                 get hasChanges() {
-                    return this.demoMode !== this.currentDemoMode || this.registrationsOpen !== this.currentRegistrationsOpen;
+                    return this.demoMode !== this.currentDemoMode || this.registrationsOpen !== this.currentRegistrationsOpen || this.maintenanceMode !== this.currentMaintenanceMode;
                 }
             }"
         >
@@ -331,43 +349,94 @@ new class extends Component
                         </div>
                     </div>
                 </div>
+
+                <!-- System Maintenance Mode Setting -->
+                <div class="relative rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-md">
+                    <div class="flex items-start justify-between gap-4">
+                        <label class="flex items-start cursor-pointer flex-1">
+                            <input
+                                type="checkbox"
+                                wire:model="maintenance_mode"
+                                class="mt-1 h-5 w-5 text-red-600 focus:ring-2 focus:ring-red-500 focus:ring-offset-2 border-gray-300 rounded transition"
+                            >
+                            <div class="ml-3 flex-1">
+                                <div class="flex items-center gap-2">
+                                    <strong class="text-gray-900">Enable System Maintenance Mode</strong>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                </div>
+                                <p class="text-sm text-gray-600 mt-1">
+                                    Block user access to the job board during system maintenance. Useful when making configuration changes or updates. Users will see a maintenance page when trying to access the job board.
+                                </p>
+                            </div>
+                        </label>
+                        <div class="flex flex-col items-end gap-2">
+                            <span
+                                class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm transition-all"
+                                :class="currentMaintenanceMode 
+                                    ? 'bg-gradient-to-r from-red-50 to-red-100 text-red-700 ring-1 ring-red-600/20' 
+                                    : 'bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 ring-1 ring-gray-300/50'"
+                            >
+                                <span class="h-2 w-2 rounded-full" :class="currentMaintenanceMode ? 'bg-red-500 animate-pulse' : 'bg-gray-400'"></span>
+                                <span x-text="currentMaintenanceMode ? 'Enabled' : 'Disabled'"></span>
+                            </span>
+                            <span
+                                x-show="maintenanceMode !== currentMaintenanceMode"
+                                x-transition
+                                class="text-xs font-medium text-amber-600"
+                            >
+                                Pending change
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div class="flex items-center justify-between pt-4 border-t">
-                <div x-show="hasChanges" x-transition class="flex items-center gap-2 text-sm text-amber-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                    </svg>
-                    <span class="font-medium">You have unsaved changes</span>
-                </div>
+            {{-- Fixed: Changed justify-between to justify-start and gap-4 to keep button on left --}}
+            <div class="flex items-center justify-start gap-4 pt-4 border-t">
                 <x-ui.button 
-                    type="submit" 
+                    type="button" 
                     variant="primary" 
+                    wire:click="save"
                     x-bind:disabled="!hasChanges"
                     wire:loading.attr="disabled"
-                    class="min-w-[140px] transition-opacity"
+                    class="min-w-[140px] transition-opacity order-1" 
                     x-bind:class="{ 'opacity-50 cursor-not-allowed': !hasChanges }"
                 >
                     <span wire:loading.remove wire:target="save">Save Changes</span>
                     <span wire:loading wire:target="save">Processing…</span>
                 </x-ui.button>
+
+                <div x-show="hasChanges" style="display: none;" x-transition class="flex items-center gap-2 text-sm text-amber-700 order-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    <span class="font-medium">You have unsaved changes</span>
+                </div>
             </div>
 
             <!-- Confirmation Modal -->
             <div
                 x-show="showConfirm"
-                x-cloak
+                style="display: none;"
                 class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm"
                 x-on:keydown.escape.window="showConfirm = false"
                 x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0"
                 x-transition:enter-end="opacity-100"
+                x-transition:leave="transition ease-in duration-200"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
             >
                 <div 
                     class="w-full max-w-lg rounded-xl bg-white shadow-2xl"
                     x-transition:enter="transition ease-out duration-200"
                     x-transition:enter-start="opacity-0 scale-95"
                     x-transition:enter-end="opacity-100 scale-100"
+                    x-transition:leave="transition ease-in duration-200"
+                    x-transition:leave-start="opacity-100 scale-100"
+                    x-transition:leave-end="opacity-0 scale-95"
                     @click.outside="showConfirm = false"
                 >
                     <div class="border-b px-6 py-4 bg-gradient-to-r from-indigo-50 to-blue-50">
@@ -427,6 +496,22 @@ new class extends Component
                                 <div>
                                     <p class="font-semibold" :class="registrationsOpen ? 'text-blue-900' : 'text-gray-900'">User Registrations</p>
                                     <p class="mt-1" :class="registrationsOpen ? 'text-blue-700' : 'text-gray-700'" x-text="registrationsOpen ? 'Will be opened — new users can create accounts.' : 'Will be closed — registration will be disabled.'"></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div 
+                            x-show="maintenanceMode !== currentMaintenanceMode"
+                            class="rounded-lg p-4 text-sm"
+                            :class="maintenanceMode ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'"
+                        >
+                            <div class="flex items-start gap-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5" :class="maintenanceMode ? 'text-red-600' : 'text-green-600'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                <div>
+                                    <p class="font-semibold" :class="maintenanceMode ? 'text-red-900' : 'text-green-900'">System Maintenance Mode</p>
+                                    <p class="mt-1" :class="maintenanceMode ? 'text-red-700' : 'text-green-700'" x-text="maintenanceMode ? 'Will be enabled — users will be blocked from accessing the job board.' : 'Will be disabled — users can access the job board normally.'"></p>
                                 </div>
                             </div>
                         </div>

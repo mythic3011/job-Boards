@@ -30,6 +30,11 @@ class FortifyServiceProvider extends ServiceProvider
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
         // Custom logout: redirect to login with success message
         $this->app->singleton(LogoutResponseContract::class, LogoutResponse::class);
+        // Use custom authenticated session controller to check maintenance mode
+        $this->app->bind(
+            \Laravel\Fortify\Http\Controllers\AuthenticatedSessionController::class,
+            \App\Http\Controllers\Auth\AuthenticatedSessionController::class
+        );
     }
 
     /**

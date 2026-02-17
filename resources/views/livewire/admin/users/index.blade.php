@@ -15,6 +15,7 @@ new class extends Component
 
     public string $search = '';
     public string $roleFilter = '';
+    public ?string $confirmingUserDeletion = null;
 
     public function with(): array
     {
@@ -107,6 +108,50 @@ new class extends Component
         }
 
         $this->lockUser($userId);
+    }
+
+    public function confirmUserDeletion(string $userId): void
+    {
+       $this->confirmingUserDeletion = $userId;
+    }
+
+    public function deleteUser(): void
+    {
+        // Add permission check
+        $this->authorize('admin.users.delete'); 
+        
+        if (! $this->confirmingUserDeletion) {
+             return;
+        }
+
+        $user = User::findOrFail($this->confirmingUserDeletion);
+
+        // Prevent deleting self
+        if ($user->id === auth()->id()) {
+             $this->addError('delete', 'You cannot delete your own account.');
+             $this->confirmingUserDeletion = null;
+             return;
+        }
+
+        app(\App\Services\AuditLogger::class)->logBusinessEvent(
+            eventType: 'user.deleted',
+            request: request(),
+            targetType: 'user',
+            targetIdcode: $user->idcode,
+            meta: [
+                'user_email' => $user->email,
+                'user_nickname' => $user->nickname,
+                'deleted_at' => now()->toDateTimeString(),
+            ]
+        );
+
+        $user->delete();
+
+        app(\App\Services\DashboardService::class)->clearCache();
+        $this->confirmingUserDeletion = null;
+        $this->dispatch('$refresh');
+        
+        session()->flash('message', 'User deleted successfully.');
     }
 }; ?>
 
@@ -210,7 +255,7 @@ new class extends Component
                                             wire:click="toggleLock('{{ $user->id }}')"
                                             wire:loading.attr="disabled"
                                             wire:target="toggleLock('{{ $user->id }}')"
-                                            variant="danger"
+                                            variant="warning"
                                             size="sm"
                                         >
                                             <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Lock</span>
@@ -223,6 +268,15 @@ new class extends Component
                                             </span>
                                         </x-ui.button>
                                     @endif
+
+                                    <x-ui.button
+                                        wire:click="confirmUserDeletion('{{ $user->id }}')"
+                                        variant="danger"
+                                        size="sm"
+                                        class="text-white"
+                                    >
+                                        Delete
+                                    </x-ui.button>
                                 </div>
                             </td>
                         </tr>
@@ -239,4 +293,56 @@ new class extends Component
             {{ $users->links() }}
         </div>
     </x-ui.card>
+
+    <!-- Delete Confirmation Modal -->
+    <div
+        x-data="{ show: @entangle('confirmingUserDeletion') }"
+        x-show="show"
+        x-cloak
+        style="display: none;"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm"
+        x-on:keydown.escape.window="show = null"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+    >
+        <div 
+            class="w-full max-w-lg rounded-xl bg-white shadow-2xl"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+            @click.outside="show = null"
+        >
+            <div class="space-y-4 px-6 py-6">
+                <div class="flex items-start gap-4">
+                    <div class="rounded-full bg-red-100 p-2 shrink-0">
+                        <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-medium text-gray-900">Confirm Deletion</h3>
+                        <p class="mt-2 text-sm text-gray-500">
+                            Are you sure you want to delete this user? This action cannot be undone.
+                            <span class="block mt-2 font-medium text-red-600">All user data will be permanently removed.</span>
+                        </p>
+                        @error('delete') 
+                            <p class="mt-2 text-sm font-bold text-red-600">{{ $message }}</p> 
+                        @enderror
+                    </div>
+                </div>
+            </div>
+    
+            <div class="flex justify-end gap-x-4 border-t bg-gray-50 px-6 py-4 rounded-b-xl">
+                <x-ui.button variant="outline" type="button" x-on:click="show = null">Cancel</x-ui.button>
+                <x-ui.button variant="danger" type="button" wire:click="deleteUser">Delete User</x-ui.button>
+            </div>
+        </div>
+    </div>
 </div>
