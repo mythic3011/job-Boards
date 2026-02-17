@@ -35,6 +35,13 @@ new class extends Component
 
         $isJobOwner = $application->jobPosting->company_user_id === $user->id;
 
+        // Mark decision message as read when applicant views it
+        if ($application->applicant_user_id === $user->id
+            && $application->decision_message
+            && !$application->decision_message_read_at) {
+            $application->update(['decision_message_read_at' => now()]);
+        }
+
         title('Application for ' . $application->jobPosting->title);
 
         return [
@@ -45,29 +52,77 @@ new class extends Component
 
 }; ?>
 
-<div class="max-w-4xl mx-auto">
+<div class="max-w-4xl mx-auto" x-data="{ showApprove: false, showReject: false }">
     <div class="mb-6 flex items-center justify-between">
         <h1 class="text-3xl font-bold">Application Details</h1>
         <div class="flex items-center gap-3">
             @if($isJobOwner)
-                <form method="POST" action="{{ route('applications.approve', $application->idcode) }}">
-                    @csrf
-                    <x-ui.button type="submit" variant="primary">
-                        Accept
-                    </x-ui.button>
-                </form>
-                <form method="POST" action="{{ route('applications.reject', $application->idcode) }}">
-                    @csrf
-                    <x-ui.button type="submit" variant="danger">
-                        Reject
-                    </x-ui.button>
-                </form>
+                <x-ui.button type="button" variant="primary" :disabled="$application->status === 'approved'" x-on:click="showApprove = true">
+                    Accept
+                </x-ui.button>
+                <x-ui.button type="button" variant="danger" x-on:click="showReject = true">
+                    Reject
+                </x-ui.button>
             @endif
             <x-ui.button href="{{ route('my.applications.index') }}" variant="secondary">
                 Back to List
             </x-ui.button>
         </div>
     </div>
+
+    @if($isJobOwner)
+        <div x-show="showApprove" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div class="w-full max-w-md rounded-lg bg-white shadow-xl">
+                <div class="border-b px-6 py-4">
+                    <h2 class="text-lg font-semibold text-gray-900">Approve Application</h2>
+                    <p class="text-sm text-gray-500">Optional: leave a message for the applicant.</p>
+                </div>
+                <form method="POST" action="{{ route('applications.approve', $application->idcode) }}">
+                    @csrf
+                    <div class="px-6 py-4">
+                        <label for="decision_message_approve" class="block text-sm font-medium text-gray-700 mb-2">Message (Optional)</label>
+                        <textarea
+                            id="decision_message_approve"
+                            name="decision_message"
+                            rows="4"
+                            class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            placeholder="e.g., We are excited to move forward with your application..."
+                        ></textarea>
+                    </div>
+                    <div class="flex items-center justify-end gap-3 border-t px-6 py-4">
+                        <x-ui.button type="button" variant="outline" x-on:click="showApprove = false">Cancel</x-ui.button>
+                        <x-ui.button type="submit" variant="primary">Confirm Approve</x-ui.button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div x-show="showReject" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div class="w-full max-w-md rounded-lg bg-white shadow-xl">
+                <div class="border-b px-6 py-4">
+                    <h2 class="text-lg font-semibold text-gray-900">Reject Application</h2>
+                    <p class="text-sm text-gray-500">Optional: leave a message for the applicant.</p>
+                </div>
+                <form method="POST" action="{{ route('applications.reject', $application->idcode) }}">
+                    @csrf
+                    <div class="px-6 py-4">
+                        <label for="decision_message_reject" class="block text-sm font-medium text-gray-700 mb-2">Message (Optional)</label>
+                        <textarea
+                            id="decision_message_reject"
+                            name="decision_message"
+                            rows="4"
+                            class="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            placeholder="e.g., We decided to proceed with other candidates..."
+                        ></textarea>
+                    </div>
+                    <div class="flex items-center justify-end gap-3 border-t px-6 py-4">
+                        <x-ui.button type="button" variant="outline" x-on:click="showReject = false">Cancel</x-ui.button>
+                        <x-ui.button type="submit" variant="danger">Confirm Reject</x-ui.button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
 
     <x-ui.card padding="p-8">
         <div class="border-b border-gray-200 pb-6 mb-6">
@@ -132,6 +187,15 @@ new class extends Component
                     @endif
                 </div>
             </div>
+
+            @if($application->decision_message)
+                <div>
+                    <h3 class="text-lg font-medium text-gray-900">Company Message</h3>
+                    <div class="mt-2 text-gray-700 bg-indigo-50 p-4 rounded-md border border-indigo-100">
+                        {!! nl2br(e($application->decision_message)) !!}
+                    </div>
+                </div>
+            @endif
 
             <div>
                 <h3 class="text-lg font-medium text-gray-900">Resume / CV</h3>

@@ -6,7 +6,6 @@ use App\Models\Application;
 use App\Models\JobPosting;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
@@ -16,13 +15,18 @@ class DashboardService
     private const CACHE_DURATION = 300;
 
     /**
+     * Cache key for dashboard stats.
+     */
+    private const CACHE_KEY = 'dashboard.stats';
+
+    /**
      * Get dashboard statistics.
      *
      * @return array<string, int>
      */
     public function getStats(): array
     {
-        return Cache::remember('dashboard.stats', self::CACHE_DURATION, function () {
+        return Cache::remember(self::CACHE_KEY, self::CACHE_DURATION, function () {
             return [
                 'total_users' => User::count(),
                 'total_companies' => User::where('user_type', 'company')->count(),
@@ -41,6 +45,6 @@ class DashboardService
      */
     public function clearCache(): void
     {
-        Cache::forget('dashboard.stats');
+        Cache::forget(self::CACHE_KEY);
     }
 }

@@ -1,5 +1,3 @@
-
-
 <div class="max-w-3xl mx-auto space-y-6">
     <!-- Header -->
     <div>
@@ -108,22 +106,50 @@
                 </div>
 
                 <div class="max-w-xs mx-auto">
-                    <x-ui.input
-                        label="Verification Code"
-                        name="verificationCode"
-                        wire:model="verificationCode"
-                        maxlength="6"
-                        pattern="[0-9]{6}"
-                        placeholder="000000"
-                        autocomplete="one-time-code"
-                        help="Enter the 6-digit code from your authenticator app"
-                    />
+                    <div class="space-y-1">
+                        <label for="verificationCode" class="block text-sm font-medium text-gray-700">
+                            Verification Code
+                        </label>
+                        <div class="relative">
+                            <input
+                                type="text"
+                                id="verificationCode"
+                                name="verificationCode"
+                                wire:model.live.debounce.300ms="verificationCode"
+                                maxlength="6"
+                                pattern="[0-9]{6}"
+                                placeholder="000000"
+                                autocomplete="one-time-code"
+                                class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset {{ $codeIsValid ? 'ring-green-500 focus:ring-green-600' : ($errors->has('verificationCode') ? 'ring-red-300 focus:ring-red-500' : 'ring-gray-300 focus:ring-indigo-600') }} placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6"
+                            >
+                            @if($errors->has('verificationCode'))
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                    <svg class="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                            @elseif($codeIsValid)
+                                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                    <svg class="h-5 w-5 text-green-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                            @endif
+                        </div>
+                        @if($errors->has('verificationCode'))
+                            <p class="mt-1 text-sm text-red-600">{{ $errors->first('verificationCode') }}</p>
+                        @else
+                            <p class="mt-1 text-sm text-gray-500">Enter the 6-digit code. It will verify automatically.</p>
+                        @endif
+                    </div>
+                    @if($autoVerifying)
+                        <p class="mt-2 text-xs text-gray-500 text-center">Verifying...</p>
+                    @elseif($codeIsValid)
+                        <p class="mt-2 text-xs text-green-600 text-center">✓ Code verified! Redirecting...</p>
+                    @endif
                 </div>
 
                 <div class="flex justify-center gap-3">
-                    <x-ui.button wire:click="confirm2FA" variant="primary">
-                        Verify & Enable
-                    </x-ui.button>
                     <x-ui.button wire:click="cancel2FA" variant="outline">
                         Cancel
                     </x-ui.button>

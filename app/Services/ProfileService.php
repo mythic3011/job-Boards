@@ -107,14 +107,19 @@ class ProfileService
      */
     public function getProfileData(User $user): array
     {
+        $userData = $user->only([
+            'id', 'idcode', 'login_id', 'nickname', 'email',
+            'user_type', 'profile_image_path', 'created_at'
+        ]);
+
+        // Add formatted user type label
+        $userData['user_type_label'] = $user->getUserTypeLabel();
+
         return [
-            'user' => $user->only([
-                'id', 'idcode', 'login_id', 'nickname', 'email', 
-                'user_type', 'profile_image_path', 'created_at'
-            ]),
+            'user' => $userData,
             'two_factor_enabled' => $this->twoFactorService->isEnabled($user),
             'has_profile_image' => !empty($user->profile_image_path),
-            'profile_image_url' => $user->profile_image_path 
+            'profile_image_url' => $user->profile_image_path
                 ? $this->profileImageService->getImageUrl($user->profile_image_path)
                 : null,
         ];

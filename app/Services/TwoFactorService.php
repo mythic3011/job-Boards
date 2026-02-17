@@ -85,10 +85,22 @@ class TwoFactorService
     public function confirm(User $user, string $code): bool
     {
         if (!$this->verifyCode($user, $code)) {
+            \Log::warning('2FA verification failed', [
+                'user_id' => $user->id,
+                'ip' => request()->ip(),
+            ]);
             return false;
         }
 
-        ($this->confirmAction)($user, $code);
+        try {
+            ($this->confirmAction)($user, $code);
+        } catch (\Exception $e) {
+            \Log::error('2FA confirmation failed', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
 
         $this->auditLogger->logBusinessEvent(
             eventType: '2fa.confirmed',
@@ -98,6 +110,7 @@ class TwoFactorService
             meta: [
                 'user_id' => $user->id,
                 'confirmed_at' => now()->toDateTimeString(),
+                'ip' => request()->ip(),
             ]
         );
 
@@ -177,6 +190,7 @@ class TwoFactorService
 
     /**
      * Get recovery codes for the user.
+     * Recovery codes are stored as encrypted JSON strings.
      */
     public function getRecoveryCodes(User $user): array
     {
@@ -185,12 +199,16 @@ class TwoFactorService
         }
 
         try {
-            return json_decode(decrypt($user->two_factor_recovery_codes), true) ?? [];
+            $decrypted = decrypt($user->two_factor_recovery_codes);
+            $decoded = json_decode($decrypted, true);
+
+            return is_array($decoded) ? $decoded : [];
         } catch (\Exception $e) {
             \Log::error('Failed to decrypt recovery codes', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return [];
         }
     }

@@ -35,9 +35,18 @@ class PasswordResetController extends Controller
         ]);
 
         try {
-            $status = $action($request->only('email', 'code', 'recovery_code'));
+            $result = $action($request->only('email', 'code', 'recovery_code'));
+            $status = is_array($result) ? ($result['status'] ?? Password::RESET_LINK_SENT) : $result;
 
-            return back()->with('status', $status);
+            if (is_array($result) && ($result['local'] ?? false) && !empty($result['token']) && !empty($result['email'])) {
+                $resetUrl = url('/reset-password/' . $result['token']) . '?' . http_build_query([
+                    'email' => $result['email'],
+                ]);
+
+                return redirect()->to($resetUrl)->with('status', __($status));
+            }
+
+            return back()->with('status', __($status));
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {

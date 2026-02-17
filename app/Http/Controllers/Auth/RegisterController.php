@@ -26,6 +26,12 @@ class RegisterController extends Controller
             // Log the user in automatically
             Auth::login($user);
             
+            // If 2FA was enabled during registration, redirect to 2FA setup
+            if (!empty($request->input('enable_2fa'))) {
+                return redirect()->route('profile.two-factor')
+                    ->with('success', 'Welcome! Your account has been created. Please complete your two-factor authentication setup.');
+            }
+            
             return redirect()->intended('/')
                 ->with('success', 'Welcome to the platform, ' . $user->nickname . '! Your account has been created successfully.');
                 
@@ -46,3 +52,4 @@ class RegisterController extends Controller
         }
     }
 }
+

@@ -222,7 +222,7 @@ class InstallService
             'nickname' => $data['admin_name'],
             'email' => $data['admin_email'],
             'password' => Hash::make($data['admin_password']),
-            'user_type' => 'company',
+            'user_type' => 'admin',
         ]);
 
         $admin->assignRole($adminRole);
@@ -254,6 +254,7 @@ class InstallService
         $user->forceFill([
             'two_factor_secret' => Fortify::currentEncrypter()->encrypt($secret),
             'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt(json_encode($recoveryCodes)),
+            'two_factor_confirmed_at' => now(),
         ])->save();
 
         TwoFactorAuthenticationEnabled::dispatch($user);

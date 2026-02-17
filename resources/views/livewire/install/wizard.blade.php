@@ -14,12 +14,11 @@
         <!-- Step Indicators -->
         <div class="flex justify-between mb-8 max-w-md mx-auto">
             @foreach([1 => 'Account', 2 => 'System', 3 => 'Security', 4 => 'Review'] as $step => $label)
-                <div class="flex flex-col items-center">
+                <div class="flex flex-col items-center" wire:key="indicator-{{ $step }}-{{ $currentStep }}">
                     <div class="w-10 h-10 rounded-full border-2 flex items-center justify-center font-semibold text-sm transition-all duration-200 
-                        @if($currentStep > $step) bg-green-500 text-white border-green-500
-                        @elseif($currentStep === $step) bg-indigo-600 text-white border-indigo-600 ring-4 ring-indigo-200
-                        @else bg-white text-gray-400 border-gray-300
-                        @endif">
+                        {{ $currentStep > $step ? 'bg-green-500 text-white border-green-500' : '' }}
+                        {{ $currentStep === $step ? 'bg-indigo-600 text-white border-indigo-600 ring-4 ring-indigo-200' : '' }}
+                        {{ $currentStep < $step ? 'bg-white text-gray-400 border-gray-300' : '' }}">
                         @if($currentStep > $step)
                             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                         @else
@@ -27,10 +26,9 @@
                         @endif
                     </div>
                     <span class="text-xs mt-2 font-medium 
-                        @if($currentStep === $step) text-indigo-600
-                        @elseif($currentStep > $step) text-green-600
-                        @else text-gray-400
-                        @endif">{{ $label }}</span>
+                        {{ $currentStep === $step ? 'text-indigo-600' : '' }}
+                        {{ $currentStep > $step ? 'text-green-600' : '' }}
+                        {{ $currentStep < $step ? 'text-gray-400' : '' }}">{{ $label }}</span>
                 </div>
             @endforeach
         </div>
@@ -43,7 +41,7 @@
         @endif
 
         <!-- Step Content -->
-        <div class="bg-white rounded-2xl shadow-xl p-8">
+        <div class="bg-white rounded-2xl shadow-xl p-8" wire:key="step-{{ $currentStep }}">
             @if($currentStep === 1)
                 @include('livewire.install.steps.account')
             @elseif($currentStep === 2)

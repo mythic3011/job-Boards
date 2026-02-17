@@ -19,6 +19,7 @@ class Application extends Model
         'job_id',
         'applicant_user_id',
         'message',
+        'decision_message',
         'cv_file_path',
         'cv_original_name',
         'cv_mime',

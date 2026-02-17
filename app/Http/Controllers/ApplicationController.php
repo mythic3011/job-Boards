@@ -8,6 +8,7 @@ use App\Services\ApplicationService;
 use App\Services\AuditLogger;
 use App\Services\ProfileImageService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -230,16 +231,26 @@ class ApplicationController extends Controller
     /**
      * Approve an application (company owner only).
      */
-    public function approve(string $idcode, AuditLogger $auditLogger)
+    public function approve(Request $request, string $idcode, AuditLogger $auditLogger)
     {
-        $application = Application::byIdcode($idcode)
-            ->with(['jobPosting', 'applicantUser'])
-            ->firstOrFail();
+        $application = Application::byIdcode($idcode)->firstOrFail();
+        $this->authorize('approve', $application);
 
-        $this->authorize('updateStatus', $application);
+        if ($application->status === 'approved') {
+            return back()->with('info', 'This application has already been approved.');
+        }
+
+        $validated = $request->validate([
+            'decision_message' => ['nullable', 'string', 'max:2000'],
+        ]);
 
         $oldStatus = $application->status->value;
-        $application->update(['status' => 'approved']);
+
+        $application->update([
+            'status' => 'approved',
+            'decision_message' => $validated['decision_message'] ?? null,
+            'decision_message_read_at' => null,
+        ]);
 
         $auditLogger->log('application.status_changed', [
             'application_id' => $application->id,
@@ -259,16 +270,22 @@ class ApplicationController extends Controller
     /**
      * Reject an application (company owner only).
      */
-    public function reject(string $idcode, AuditLogger $auditLogger)
+    public function reject(Request $request, string $idcode, AuditLogger $auditLogger)
     {
-        $application = Application::byIdcode($idcode)
-            ->with(['jobPosting', 'applicantUser'])
-            ->firstOrFail();
+        $application = Application::byIdcode($idcode)->firstOrFail();
+        $this->authorize('reject', $application);
 
-        $this->authorize('updateStatus', $application);
+        $validated = $request->validate([
+            'decision_message' => ['nullable', 'string', 'max:2000'],
+        ]);
 
         $oldStatus = $application->status->value;
-        $application->update(['status' => 'rejected']);
+
+        $application->update([
+            'status' => 'rejected',
+            'decision_message' => $validated['decision_message'] ?? null,
+            'decision_message_read_at' => null,
+        ]);
 
         $auditLogger->log('application.status_changed', [
             'application_id' => $application->id,

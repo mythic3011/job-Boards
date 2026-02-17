@@ -20,7 +20,7 @@ class SendPasswordResetLinkWithTwoFactor
     /**
      * Send a password reset link with 2FA verification.
      */
-    public function __invoke(array $input): string
+    public function __invoke(array $input): array
     {
         // Rate limiting
         $key = 'password-reset-2fa:' . $input['email'];
@@ -102,12 +102,43 @@ class SendPasswordResetLinkWithTwoFactor
             ]);
         }
 
-        // 2FA verified, send password reset link
+        // 2FA verified, send password reset link (or log token locally for debugging)
+        if (app()->environment('local')) {
+            $token = Password::broker()->createToken($user);
+            RateLimiter::clear($key);
+
+            // Log token for debugging ONLY - never expose in response
+            \Log::debug('Password reset token generated (LOCAL ONLY)', [
+                'email' => $user->email,
+                'reset_url' => route('password.reset', [
+                    'token' => $token,
+                    'email' => $user->email
+                ]),
+            ]);
+
+            $this->auditLogger->logSecurityEvent(
+                eventType: 'password_reset.link_generated',
+                request: request(),
+                userId: $user->id,
+                meta: [
+                    'email' => $user->email,
+                    'ip' => request()->ip(),
+                    'verified_with' => !empty($input['code']) ? '2fa_code' : 'recovery_code',
+                    'local_shortcut' => true,
+                ]
+            );
+
+            return [
+                'status' => Password::RESET_LINK_SENT,
+                'local' => true,
+            ];
+        }
+
         $status = Password::sendResetLink(['email' => $input['email']]);
 
         if ($status === Password::RESET_LINK_SENT) {
             RateLimiter::clear($key);
-            
+
             $this->auditLogger->logSecurityEvent(
                 eventType: 'password_reset.link_sent',
                 request: request(),
@@ -118,8 +149,11 @@ class SendPasswordResetLinkWithTwoFactor
                     'verified_with' => !empty($input['code']) ? '2fa_code' : 'recovery_code',
                 ]
             );
-            
-            return __($status);
+
+            return [
+                'status' => $status,
+                'local' => false,
+            ];
         }
 
         RateLimiter::hit($key, 60);

@@ -27,4 +27,11 @@ supervisord.pid
 composer.phar
 cookies.txt
 public/vendor
-!./.claude/
+
+# AI-related files
+.claude/
+.cursor/
+.cursorrules
+AGENTS.md
+CLAUDE.md
+.github/copilot-instructions.md

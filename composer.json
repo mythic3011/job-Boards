@@ -46,8 +46,7 @@
     "scripts": {
         "setup": [
             "composer install",
-            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
-            "@php artisan key:generate",
+            "bash bootstrap-env.sh",
             "@php artisan migrate --force",
             "npm install",
             "npm run build"
@@ -68,10 +67,9 @@
             "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
         ],
         "post-root-package-install": [
-            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+            "bash bootstrap-env.sh"
         ],
         "post-create-project-cmd": [
-            "@php artisan key:generate --ansi",
             "@php artisan migrate --graceful --ansi"
         ],
         "pg:migrate": "@php artisan migrate",
