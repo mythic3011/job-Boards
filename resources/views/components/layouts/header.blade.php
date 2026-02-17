@@ -32,7 +32,7 @@
                                 class="border border-gray-200"
                             />
                             <span class="font-medium">{{ auth()->user()->nickname }}</span>
-                            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">{{ auth()->user()->user_type }}</span>
+                            <span class="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">{{ auth()->user()->getUserTypeLabel() }}</span>
                             <svg class="ml-1 h-4 w-4 transition-transform duration-200" data-dropdown-arrow fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>

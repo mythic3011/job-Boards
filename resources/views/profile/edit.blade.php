@@ -77,7 +77,7 @@
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
-                    <p class="text-gray-900 text-sm bg-gray-50 px-3 py-2 rounded-md">{{ ucfirst($user['user_type']) }}</p>
+                    <p class="text-gray-900 text-sm bg-gray-50 px-3 py-2 rounded-md">{{ auth()->user()->getUserTypeLabel() }}</p>
                     <p class="text-xs text-gray-500 mt-1">Account type cannot be changed</p>
                 </div>
             </div>

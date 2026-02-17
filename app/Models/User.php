@@ -148,6 +148,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Check if user is a system admin.
+     */
+    public function isAdmin(): bool
+    {
+        return $this->user_type === 'admin';
+    }
+
+    /**
      * Check if user is a company.
      */
     public function isCompany(): bool
@@ -161,6 +169,19 @@ class User extends Authenticatable
     public function isIndividual(): bool
     {
         return $this->user_type === 'individual';
+    }
+
+    /**
+     * Get formatted user type label.
+     */
+    public function getUserTypeLabel(): string
+    {
+        return match($this->user_type) {
+            'admin' => 'System Admin',
+            'company' => 'Company',
+            'individual' => 'Individual',
+            default => ucfirst($this->user_type),
+        };
     }
 
     /**

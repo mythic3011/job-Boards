@@ -43,7 +43,7 @@
                         </div>
                         <div>
                             <h3 class="text-lg font-medium text-gray-900">{{ $user['nickname'] }}</h3>
-                            <p class="text-sm text-gray-500">{{ ucfirst($user['user_type']) }} Account</p>
+                            <p class="text-sm text-gray-500">{{ $user['user_type_label'] }} Account</p>
                         </div>
                     </div>
 
@@ -59,7 +59,7 @@
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
-                            <p class="text-gray-900">{{ ucfirst($user['user_type']) }}</p>
+                            <p class="text-gray-900">{{ $user['user_type_label'] }}</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Member Since</label>
