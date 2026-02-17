@@ -50,7 +50,7 @@ class TwoFactor extends Component
             return;
         }
 
-        session()->flash('success', '🎉 Two-factor authentication is now active! Your account is more secure.');
+        session()->flash('success', 'Two-factor authentication is now active! Your account is more secure.');
         $this->verificationCode = '';
     }
 
@@ -101,7 +101,7 @@ class TwoFactor extends Component
 
                 // Verify 2FA is actually enabled
                 if ($user->two_factor_confirmed_at) {
-                    session()->flash('success', '🎉 Two-factor authentication is now active! Your account is more secure.');
+                    session()->flash('success', 'Two-factor authentication is now active! Your account is more secure.');
                     $this->js('setTimeout(() => window.location.href = "' . route('profile.show') . '", 800);');
                 } else {
                     $this->codeIsValid = false;
