@@ -22,25 +22,31 @@
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         },
-        async copySecret() {
-            const secret = '{{ $twoFactorSecret }}';
-            try {
-                await navigator.clipboard.writeText(secret);
-                this.copying = true;
-                setTimeout(() => this.copying = false, 2000);
-            } catch (err) {
-                console.error('Failed to copy:', err);
+        copyToClipboard(text) {
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            ta.setSelectionRange(0, ta.value.length);
+            var ok = false;
+            try { ok = document.execCommand('copy'); } catch(e) {}
+            document.body.removeChild(ta);
+            if (!ok && navigator.clipboard) {
+                navigator.clipboard.writeText(text).catch(function() {});
             }
         },
-        async copyCodes() {
-            const codes = @json($recoveryCodes);
-            try {
-                await navigator.clipboard.writeText(codes.join('\n'));
-                this.copying = true;
-                setTimeout(() => this.copying = false, 2000);
-            } catch (err) {
-                console.error('Failed to copy:', err);
-            }
+        copySecret() {
+            this.copyToClipboard('{{ $twoFactorSecret }}');
+            this.copying = true;
+            setTimeout(() => this.copying = false, 2000);
+        },
+        copyCodes() {
+            const codes = Array.from(document.querySelectorAll('[data-recovery-code]')).map(el => el.textContent.trim());
+            this.copyToClipboard(codes.join('\n'));
+            this.copying = true;
+            setTimeout(() => this.copying = false, 2000);
         }
     }"
     x-on:2fa-verified.window="verified = true"
@@ -125,7 +131,7 @@
             @if(count($recoveryCodes) > 0)
                 <div class="grid grid-cols-2 gap-1.5 font-mono text-xs mb-3">
                     @foreach($recoveryCodes as $code)
-                        <div class="text-gray-700 bg-white px-2 py-1 rounded">{{ $code }}</div>
+                        <div data-recovery-code class="text-gray-700 bg-white px-2 py-1 rounded">{{ $code }}</div>
                     @endforeach
                 </div>
                 <div class="flex gap-3 text-xs">

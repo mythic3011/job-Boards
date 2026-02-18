@@ -100,9 +100,15 @@
 
                 <div class="bg-gray-50 rounded-lg p-4">
                     <p class="text-sm font-medium text-gray-700 mb-2">Can't scan? Enter this code manually:</p>
-                    <code class="block bg-white px-3 py-2 rounded border text-sm font-mono break-all">
-                        {{ decrypt($user->two_factor_secret) }}
-                    </code>
+                    <div class="flex items-center gap-2">
+                        <code id="2fa-secret-key" class="flex-1 block bg-white px-3 py-2 rounded border text-sm font-mono break-all">{{ decrypt($user->two_factor_secret) }}</code>
+                        <button
+                            type="button"
+                            onclick="copy2faKey(this)"
+                            class="shrink-0 text-sm text-indigo-600 hover:text-indigo-800 font-medium px-2 py-1 rounded border border-indigo-200 hover:bg-indigo-50 transition-colors">
+                            Copy
+                        </button>
+                    </div>
                 </div>
 
                 <div class="max-w-xs mx-auto">
@@ -200,3 +206,29 @@
         </div>
     </x-ui.card>
 </div>
+
+<script>
+function copy2faKey(btn) {
+    var text = document.getElementById('2fa-secret-key').innerText.trim();
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand('copy'); } catch(e) {}
+    document.body.removeChild(ta);
+    if (!ok && navigator.clipboard) {
+        navigator.clipboard.writeText(text).catch(function() {});
+    }
+    btn.textContent = 'Copied!';
+    btn.classList.add('text-green-600', 'border-green-300');
+    btn.classList.remove('text-indigo-600', 'border-indigo-200');
+    setTimeout(function() {
+        btn.textContent = 'Copy';
+        btn.classList.remove('text-green-600', 'border-green-300');
+        btn.classList.add('text-indigo-600', 'border-indigo-200');
+    }, 2000);
+}
+</script>

@@ -11,6 +11,11 @@ class UserFactory extends Factory
 {
     protected static ?string $password;
 
+    private static array $companySuffixes = [
+        'Inc.', 'LLC', 'Corp.', 'Group', 'Solutions', 'Technologies', 'Services',
+        'Partners', 'Consulting', 'Ventures', 'Industries', 'Systems', 'Labs',
+    ];
+
     public function definition(): array
     {
         $userType = fake()->randomElement(['company', 'individual']);
@@ -19,7 +24,7 @@ class UserFactory extends Factory
         return [
             'idcode' => 'user_' . Str::uuid()->toString(),
             'login_id' => $loginId,
-            'nickname' => fake()->name(),
+            'nickname' => $userType === 'company' ? $this->companyName() : fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'password' => static::$password ??= Hash::make('password'),
             'user_type' => $userType,
@@ -32,6 +37,7 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'user_type' => 'company',
+            'nickname' => $this->companyName(),
         ]);
     }
 
@@ -39,7 +45,19 @@ class UserFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'user_type' => 'individual',
+            'nickname' => fake()->name(),
         ]);
     }
 
+    private function companyName(): string
+    {
+        $suffix = fake()->randomElement(self::$companySuffixes);
+        $style = fake()->numberBetween(1, 3);
+
+        return match ($style) {
+            1 => fake()->lastName() . ' & ' . fake()->lastName() . ' ' . $suffix,
+            2 => fake()->city() . ' ' . $suffix,
+            default => fake()->lastName() . ' ' . $suffix,
+        };
+    }
 }
