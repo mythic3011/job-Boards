@@ -120,7 +120,7 @@ new class extends Component
             });
 
             $successMessage = 'Application submitted successfully!';
-            if ($profileImageUpdated) {
+            if ($this->profile_image) {
                 $successMessage .= ' Profile photo updated successfully.';
             }
 

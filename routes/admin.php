@@ -34,6 +34,10 @@ Route::middleware([
         ->middleware('permission:admin.jobs.view')
         ->name('jobs.index');
 
+    Volt::route('/jobs/{idcode}/edit', 'admin.jobs.edit')
+        ->middleware('permission:admin.jobs.moderate')
+        ->name('jobs.edit');
+
     // Application Management
     Volt::route('/applications', 'admin.applications.index')
         ->middleware('permission:admin.applications.view')
