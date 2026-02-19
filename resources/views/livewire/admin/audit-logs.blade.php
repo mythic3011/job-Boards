@@ -53,15 +53,20 @@ new class extends Component
     {
         $today = now()->startOfDay();
 
+        $stats = AuditLog::where('occurred_at', '>=/', $today)
+            ->selectRaw("
+                COUNT(*) as total_today,
+                COUNT(CASE WHEN event_type = 'login_failed' THEN 1 END) as failed_logins,
+                COUNT(CASE WHEN event_type IN ('suspicious_user_agent', 'suspicious_ua_high_risk_path', 'admin_probe') THEN 1 END) as suspicious,
+                COUNT(CASE WHEN event_type = 'account_locked' THEN 1 END) as locked_accounts
+            ")
+            ->first();
+
         return [
-            'total_today'       => AuditLog::where('occurred_at', '>=', $today)->count(),
-            'failed_logins'     => AuditLog::where('occurred_at', '>=', $today)
-                                           ->where('event_type', 'login_failed')->count(),
-            'suspicious'        => AuditLog::where('occurred_at', '>=', $today)
-                                           ->whereIn('event_type', ['suspicious_user_agent', 'suspicious_ua_high_risk_path', 'admin_probe'])
-                                           ->count(),
-            'locked_accounts'   => AuditLog::where('occurred_at', '>=', $today)
-                                           ->where('event_type', 'account_locked')->count(),
+            'total_today'     => $stats->total_today,
+            'failed_logins'   => $stats->failed_logins,
+            'suspicious'      => $stats->suspicious,
+            'locked_accounts' => $stats->locked_accounts,
         ];
     }
 
