@@ -30,10 +30,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'hide.admin' => \App\Http\Middleware\HideAdminRoutes::class,
             'admin.2fa' => \App\Http\Middleware\RequireAdminTwoFactor::class,
             '2fa.enabled' => \App\Http\Middleware\RequireTwoFactorEnabled::class,
-        ]);
-
-        // Register Spatie Permission middleware aliases
-        $middleware->alias([
+            'maintenance.check' => \App\Http\Middleware\CheckMaintenanceMode::class,
+            // Register Spatie Permission middleware aliases
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,

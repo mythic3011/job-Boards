@@ -144,7 +144,7 @@
                             Change Password
                         </span>
                     @endif
-                    <a href="{{ route('profile.two-factor') }}" 
+                          <a href="{{ route('admin.settings.index') }}" 
                        class="group block w-full text-left px-4 py-3 text-sm font-medium text-gray-800 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-green-50 hover:to-emerald-50 border border-gray-200 hover:border-green-300 rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
                         <span class="flex items-center gap-2">
                             <svg class="w-4 h-4 text-gray-600 group-hover:text-green-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">

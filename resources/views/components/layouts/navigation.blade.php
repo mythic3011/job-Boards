@@ -49,14 +49,5 @@
                 Admin
             </a>
         @endcan
-        @can('admin.system.view')
-            <a
-                href="{{ route('admin.audit-logs.index') }}"
-                class="{{ $linkClasses('admin.audit-logs.index') }}"
-                aria-current="{{ $isActive('admin.audit-logs') ? 'page' : null }}"
-            >
-                Audit Logs
-            </a>
-        @endcan
     @endauth
 </nav>

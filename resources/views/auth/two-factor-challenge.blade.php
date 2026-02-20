@@ -36,10 +36,6 @@
                     placeholder="000000"
                     :value="old('code')"
                 />
-                @error('code')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-                
                 <p class="mt-2 text-sm text-gray-600">
                     Enter the 6-digit code from your authenticator app.
                 </p>
@@ -56,10 +52,6 @@
                     placeholder="XXXXX-XXXXX"
                     :value="old('recovery_code')"
                 />
-                @error('recovery_code')
-                    <p class="mt-1 text-sm text-red-600">{{ $message }}</p>
-                @enderror
-                
                 <p class="mt-2 text-sm text-gray-600">
                     Enter one of your recovery codes.
                 </p>

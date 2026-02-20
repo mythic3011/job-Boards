@@ -21,8 +21,19 @@ class JobController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'requirement' => ['required', 'string'],
             'duty' => ['required', 'string'],
-            'salary' => ['nullable', 'string', 'max:255'],
+            'salary' => ['nullable', 'string', 'max:255', 'regex:/^(?!\s+$)[0-9\s\-,]*$/'],
         ]);
+
+        $validated = [
+            'title' => trim($validated['title']),
+            'requirement' => trim($validated['requirement']),
+            'duty' => trim($validated['duty']),
+            'salary' => isset($validated['salary']) ? trim($validated['salary']) : null,
+        ];
+
+        if ($validated['salary'] === '') {
+            $validated['salary'] = null;
+        }
 
         /** @var JobService $jobService */
         $jobService = app(JobService::class);

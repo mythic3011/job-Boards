@@ -33,6 +33,9 @@
     </main>
 
     @livewireScripts
+    @auth
+        @livewire('components.maintenance-alert')
+    @endauth
     <x-layouts.assets />
 </body>
 </html>
