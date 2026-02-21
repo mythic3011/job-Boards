@@ -45,9 +45,15 @@ class TwoFactorService
             return false;
         }
 
+        return $this->verifyTotp($user, $code);
+    }
+
+    /**
+     * Raw TOTP verification core.
+     */
+    private function verifyTotp(User $user, string $code): bool
+    {
         try {
-            // Fortify's TwoFactorAuthenticatable trait provides the encrypted secret
-            // The provider expects the decrypted secret, so we need to use Fortify's decryption
             $secret = decrypt($user->two_factor_secret);
             return $this->provider->verify($secret, $code);
         } catch (\Exception $e) {
