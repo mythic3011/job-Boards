@@ -25,7 +25,7 @@ Route::post('/logout', function (Request $request) {
 
 // Custom registration route (bypasses Fortify for now)
 Route::post('/register', [RegisterController::class, 'store'])
-    ->middleware(['guest'])
+    ->middleware(['guest', 'maintenance.check'])
     ->name('register.store');
 
 // Override Fortify's password reset email route to require 2FA

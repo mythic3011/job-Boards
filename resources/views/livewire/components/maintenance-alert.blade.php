@@ -1,4 +1,4 @@
-<div wire:poll.5s="checkMaintenanceStatus">
+<div wire:poll.30s="checkMaintenanceStatus">
     @if($maintenanceActive && !$isAdmin)
         <!-- Maintenance Modal Overlay -->
         <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

@@ -3,12 +3,15 @@
 namespace App\Http\Middleware;
 
 use App\Models\Setting;
+use App\Services\AuditLogger;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckMaintenanceMode
 {
+    public function __construct(private AuditLogger $auditLogger) {}
+
     /**
      * Handle an incoming request.
      *
@@ -22,6 +25,13 @@ class CheckMaintenanceMode
         if ($maintenanceEnabled) {
             // Allow admins to bypass maintenance mode
             if (auth()->check() && auth()->user()->hasRole('admin')) {
+                $this->auditLogger->logSecurityEvent(
+                    eventType: 'maintenance.admin_bypass',
+                    request: $request,
+                    userId: auth()->id(),
+                    meta: ['path' => $request->path()],
+                    statusCode: 200,
+                );
                 return $next($request);
             }
 
