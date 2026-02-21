@@ -46,6 +46,8 @@ class TwoFactorService
         }
 
         try {
+            // Fortify's TwoFactorAuthenticatable trait provides the encrypted secret
+            // The provider expects the decrypted secret, so we need to use Fortify's decryption
             $secret = decrypt($user->two_factor_secret);
             return $this->provider->verify($secret, $code);
         } catch (\Exception $e) {
@@ -81,14 +83,11 @@ class TwoFactorService
 
     /**
      * Confirm two-factor authentication with a verification code.
+     * Let Fortify's action handle the verification to avoid double-verification issues.
      */
     public function confirm(User $user, string $code): bool
     {
-        if (!$this->verifyCode($user, $code)) {
-            \Log::warning('2FA verification failed', [
-                'user_id' => $user->id,
-                'ip' => request()->ip(),
-            ]);
+        if (empty($code) || !$user->two_factor_secret) {
             return false;
         }
 
@@ -199,6 +198,7 @@ class TwoFactorService
         }
 
         try {
+            // Fortify stores recovery codes as encrypted JSON
             $decrypted = decrypt($user->two_factor_recovery_codes);
             $decoded = json_decode($decrypted, true);
 
@@ -253,6 +253,7 @@ class TwoFactorService
         }
 
         try {
+            // Decrypt the secret that Fortify stores encrypted
             return decrypt($user->two_factor_secret);
         } catch (\Exception $e) {
             \Log::error('Failed to decrypt 2FA secret', [

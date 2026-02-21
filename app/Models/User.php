@@ -130,7 +130,6 @@ class User extends Authenticatable
             'locked_until' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
-            'two_factor_recovery_codes' => 'encrypted:array',
         ];
     }
 
