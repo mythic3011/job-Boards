@@ -32,11 +32,6 @@ class MaintenanceAlert extends Component
 
     public function goHome(): void
     {
-        if ($this->maintenanceActive) {
-            $this->logout();
-            return;
-        }
-
         $this->redirect(route('home'));
     }
 
@@ -44,6 +39,7 @@ class MaintenanceAlert extends Component
     {
         auth()->logout();
         session()->invalidate();
-        $this->redirect(route('home'));
+        session()->regenerateToken();
+        $this->redirect(route('login'));
     }
 }
