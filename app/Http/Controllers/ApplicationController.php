@@ -236,7 +236,7 @@ class ApplicationController extends Controller
         $application = Application::byIdcode($idcode)->firstOrFail();
         $this->authorize('approve', $application);
 
-        if ($application->status === 'approved') {
+        if ($application->status->value === 'approved') {
             return back()->with('info', 'This application has already been approved.');
         }
 
@@ -252,7 +252,7 @@ class ApplicationController extends Controller
             'decision_message_read_at' => null,
         ]);
 
-        $auditLogger->log('application.status_changed', [
+        $auditLogger->logBusinessEvent('application.status_changed', $request, 'application', $application->idcode, [
             'application_id' => $application->id,
             'application_idcode' => $application->idcode,
             'old_status' => $oldStatus,
@@ -275,6 +275,10 @@ class ApplicationController extends Controller
         $application = Application::byIdcode($idcode)->firstOrFail();
         $this->authorize('reject', $application);
 
+        if ($application->status->value === 'rejected') {
+            return back()->with('info', 'This application has already been rejected.');
+        }
+
         $validated = $request->validate([
             'decision_message' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -287,7 +291,7 @@ class ApplicationController extends Controller
             'decision_message_read_at' => null,
         ]);
 
-        $auditLogger->log('application.status_changed', [
+        $auditLogger->logBusinessEvent('application.status_changed', $request, 'application', $application->idcode, [
             'application_id' => $application->id,
             'application_idcode' => $application->idcode,
             'old_status' => $oldStatus,

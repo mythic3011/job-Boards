@@ -87,21 +87,21 @@ new class extends Component
                                 </p>
                             @endif
                             @php
-                                $statusLabel = $application->status === 'approved'
+                                $statusLabel = $application->status->value === 'approved'
                                     ? 'Approved'
-                                    : ($application->status === 'rejected'
+                                    : ($application->status->value === 'rejected'
                                         ? 'Rejected'
                                         : 'Applied, pending approval');
-                                $statusClasses = $application->status === 'approved'
+                                $statusClasses = $application->status->value === 'approved'
                                     ? 'bg-green-100 text-green-800 border-green-200'
-                                    : ($application->status === 'rejected'
+                                    : ($application->status->value === 'rejected'
                                         ? 'bg-red-100 text-red-800 border-red-200'
                                         : 'bg-yellow-100 text-yellow-800 border-yellow-200');
                             @endphp
                             <div class="flex items-center gap-2">
                                 <span>Status:</span>
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border {{ $statusClasses }}">
-                                    <span class="w-1.5 h-1.5 rounded-full mr-1.5 {{ $application->status === 'approved' ? 'bg-green-600' : ($application->status === 'rejected' ? 'bg-red-600' : 'bg-yellow-600') }}"></span>
+                                    <span class="w-1.5 h-1.5 rounded-full mr-1.5 {{ $application->status->value === 'approved' ? 'bg-green-600' : ($application->status->value === 'rejected' ? 'bg-red-600' : 'bg-yellow-600') }}"></span>
                                     {{ $statusLabel }}
                                 </span>
                             </div>
