@@ -91,6 +91,7 @@ class User extends Authenticatable
         'two_factor_secret',
         'two_factor_recovery_codes',
         'two_factor_confirmed_at',
+        'password_changed_at',
     ];
 
     /**
@@ -130,6 +131,7 @@ class User extends Authenticatable
             'locked_until' => 'datetime',
             'password' => 'hashed',
             'two_factor_confirmed_at' => 'datetime',
+            'password_changed_at' => 'datetime',
         ];
     }
 

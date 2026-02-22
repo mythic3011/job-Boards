@@ -223,6 +223,7 @@ class InstallService
             'email' => $data['admin_email'],
             'password' => Hash::make($data['admin_password']),
             'user_type' => 'admin',
+            'password_changed_at' => now(),
         ]);
 
         $admin->assignRole($adminRole);
