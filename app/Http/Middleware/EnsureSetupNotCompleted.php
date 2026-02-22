@@ -55,8 +55,8 @@ class EnsureSetupNotCompleted extends BaseSetupMiddleware
             ]);
         }
 
-        return redirect()->route('home')
-            ->with('error', 'Setup has already been completed.');
+        return redirect()->route('login')
+            ->with('status', 'Setup has already been completed.');
     }
 
     /**

@@ -42,6 +42,6 @@ class EnsureSetupCompleted extends BaseSetupMiddleware
         ]);
 
         return redirect()->route('install.index')
-            ->with('error', 'Please complete the installation wizard first.');
+            ->with('status', 'Please complete the setup wizard before continuing.');
     }
 }
