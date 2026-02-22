@@ -20,6 +20,7 @@ services:
       XDEBUG_CONFIG: ${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}
       IGNITION_LOCAL_SITES_PATH: ${PWD}
       DB_HOST: postgres
+      REDIS_HOST: redis
     volumes:
       - '.:/var/www/html'
     networks:
@@ -29,10 +30,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      selenium:
-        condition: service_started
-      mailpit:
-        condition: service_started
 
   postgres:
     image: postgres:15-alpine
@@ -67,23 +64,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
-
-  selenium:
-    image: selenium/standalone-chromium
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
-    volumes:
-      - '/dev/shm:/dev/shm'
-    networks:
-      - sail
-
-  mailpit:
-    image: axllent/mailpit:latest
-    ports:
-      - '127.0.0.1:${FORWARD_MAILPIT_PORT:-1025}:1025'
-      - '127.0.0.1:${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
-    networks:
-      - sail
 
 networks:
   sail:

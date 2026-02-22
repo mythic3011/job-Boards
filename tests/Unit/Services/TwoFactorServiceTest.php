@@ -324,6 +324,27 @@ class TwoFactorServiceTest extends TestCase
     }
 
     /** @test */
+    public function it_consumes_a_recovery_code()
+    {
+        $codes = ['abcd-1234', 'efgh-5678', 'ijkl-9012'];
+
+        $this->user->forceFill([
+            'two_factor_secret' => encrypt('secret'),
+            'two_factor_confirmed_at' => now(),
+            'two_factor_recovery_codes' => encrypt(json_encode($codes)),
+        ])->save();
+
+        $this->service->consumeRecoveryCode($this->user, 'efgh-5678');
+
+        $remaining = $this->service->getRecoveryCodes($this->user);
+
+        $this->assertCount(2, $remaining);
+        $this->assertNotContains('efgh-5678', $remaining);
+        $this->assertContains('abcd-1234', $remaining);
+        $this->assertContains('ijkl-9012', $remaining);
+    }
+
+    /** @test */
     public function it_does_not_throw_exception_for_valid_code()
     {
         // Manually set up 2FA state

@@ -83,7 +83,11 @@ class SendPasswordResetLinkWithTwoFactor
                     break;
                 }
             }
-            
+
+            if ($verified) {
+                $this->twoFactorService->consumeRecoveryCode($user, $input['recovery_code']);
+            }
+
             if (!$verified) {
                 RateLimiter::hit($key, 60);
                 
@@ -113,15 +117,6 @@ class SendPasswordResetLinkWithTwoFactor
             $token = Password::broker()->createToken($user);
             RateLimiter::clear($key);
 
-            // Log token for debugging ONLY - never expose in response
-            \Log::debug('Password reset token generated (LOCAL ONLY)', [
-                'email' => $user->email,
-                'reset_url' => route('password.reset', [
-                    'token' => $token,
-                    'email' => $user->email
-                ]),
-            ]);
-
             $this->auditLogger->logSecurityEvent(
                 eventType: 'password_reset.link_generated',
                 request: request(),
@@ -130,13 +125,14 @@ class SendPasswordResetLinkWithTwoFactor
                     'email' => $user->email,
                     'ip' => request()->ip(),
                     'verified_with' => !empty($input['code']) ? '2fa_code' : 'recovery_code',
-                    'local_shortcut' => true,
                 ]
             );
 
             return [
                 'status' => Password::RESET_LINK_SENT,
                 'local' => true,
+                'token' => $token,
+                'email' => $user->email,
             ];
         }
 

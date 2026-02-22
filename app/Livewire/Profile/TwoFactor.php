@@ -171,12 +171,14 @@ class TwoFactor extends Component
         $is2FAEnabled = $twoFactorService->isEnabled($user);
         $isSettingUp2FA = $twoFactorService->isSetupInProgress($user);
         $recoveryCodes = $twoFactorService->getRecoveryCodes($user);
+        $secret = $isSettingUp2FA ? $twoFactorService->getSecret($user) : null;
 
         return view('livewire.profile.two-factor', [
             'user' => $user,
             'is2FAEnabled' => $is2FAEnabled,
             'isSettingUp2FA' => $isSettingUp2FA,
             'recoveryCodes' => $recoveryCodes,
+            'secret' => $secret,
             'codeIsValid' => $this->codeIsValid,
         ])->layout('layouts.app')->title('Security Settings');
     }

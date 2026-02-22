@@ -101,9 +101,7 @@
                 <div class="bg-gray-50 rounded-lg p-4">
                     <p class="text-sm font-medium text-gray-700 mb-2">Can't scan? Enter this code manually:</p>
                     <code class="block bg-white px-3 py-2 rounded border text-sm font-mono break-all">
-                        @if($user->two_factor_secret)
-                            {{ app('App\\Services\\TwoFactorService')->getSecret($user) }}
-                        @endif
+                        {{ $secret }}
                     </code>
                 </div>
 

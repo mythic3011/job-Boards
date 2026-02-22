@@ -9,6 +9,7 @@ use App\Services\AuditLogger;
 use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
@@ -76,14 +77,14 @@ class PasswordResetController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        // If user has 2FA enabled, require 2FA code for password reset
-        // Verify 2FA if enabled
-        if ($user && $this->twoFactorService->isEnabled($user)) {
+        // Skip 2FA check if this reset was admin-initiated
+        $adminInitiated = $user && Cache::pull('admin_reset:' . $request->token);
+
+        if (!$adminInitiated && $user && $this->twoFactorService->isEnabled($user)) {
             $request->validate([
                 'two_factor_code' => ['required', 'string', 'size:6'],
             ]);
 
-            // Verify 2FA code
             if (!$this->twoFactorService->verifyCode($user, $request->two_factor_code)) {
                 return back()->withErrors([
                     'two_factor_code' => 'The provided two-factor authentication code is invalid.',

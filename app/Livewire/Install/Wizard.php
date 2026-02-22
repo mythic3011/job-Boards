@@ -34,6 +34,7 @@ class Wizard extends Component
     public string $testCode = '';
     public string $testResult = '';
     public bool $testSuccess = false;
+    public string $verifiedOtpCode = '';
 
     // Step 4: Review & Complete
     public bool $installDemo = false;
@@ -202,6 +203,7 @@ class Wizard extends Component
 
             if ($valid) {
                 $this->testSuccess = true;
+                $this->verifiedOtpCode = $this->testCode;
                 $this->testResult = 'Valid code! 2FA is working correctly.';
                 $this->dispatch('2fa-verified');
             } else {
@@ -258,6 +260,7 @@ class Wizard extends Component
                 'admin_password' => $this->password,
                 'admin_password_confirmation' => $this->password_confirmation,
                 'two_factor_secret' => $this->twoFactorSecret,
+                'otp_code' => $this->verifiedOtpCode,
                 'recovery_codes' => $this->recoveryCodes,
                 'app_name' => $this->app_name,
                 'app_url' => $this->app_url,

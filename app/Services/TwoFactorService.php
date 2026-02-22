@@ -230,6 +230,24 @@ class TwoFactorService
     }
 
     /**
+     * Consume a recovery code, removing it from the user's list after successful use.
+     */
+    public function consumeRecoveryCode(User $user, string $code): void
+    {
+        $codes = $this->getRecoveryCodes($user);
+        $normalized = str_replace('-', '', $code);
+
+        $remaining = array_values(array_filter(
+            $codes,
+            fn($c) => !hash_equals(str_replace('-', '', $c), $normalized)
+        ));
+
+        $user->forceFill([
+            'two_factor_recovery_codes' => encrypt(json_encode($remaining)),
+        ])->save();
+    }
+
+    /**
      * Get QR code SVG for the user.
      */
     public function getQrCodeSvg(User $user): ?string

@@ -3,6 +3,7 @@
 use App\Models\User;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
+use Illuminate\Support\Facades\Password;
 
 use function Livewire\Volt\{layout, title};
 
@@ -16,6 +17,8 @@ new class extends Component
     public string $search = '';
     public string $roleFilter = '';
     public ?string $confirmingUserDeletion = null;
+    public ?string $resetUrl = null;
+    public ?string $resetUserName = null;
 
     public function with(): array
     {
@@ -37,6 +40,33 @@ new class extends Component
             'users' => $query->with('roles')->latest()->paginate(15),
             'roles' => \Spatie\Permission\Models\Role::all(),
         ];
+    }
+
+    public function forcePasswordReset(string $userId): void
+    {
+        $this->authorize('admin.users.force_password_reset');
+
+        $user = User::findOrFail($userId);
+
+        $token = Password::broker()->createToken($user);
+
+        // Mark this token as admin-initiated so the reset form skips 2FA check
+        \Illuminate\Support\Facades\Cache::put('admin_reset:' . $token, true, now()->addMinutes(60));
+
+        $this->resetUrl = url('/reset-password/' . $token) . '?' . http_build_query(['email' => $user->email]);
+        $this->resetUserName = $user->nickname;
+
+        app(\App\Services\AuditLogger::class)->logBusinessEvent(
+            eventType: 'user.force_password_reset',
+            request: request(),
+            targetType: 'user',
+            targetIdcode: $user->idcode,
+            meta: [
+                'user_email' => $user->email,
+                'admin_id' => auth()->id(),
+                'admin_initiated' => true,
+            ]
+        );
     }
 
     public function lockUser(string $userId): void
@@ -270,6 +300,16 @@ new class extends Component
                                     @endif
 
                                     <x-ui.button
+                                        wire:click="forcePasswordReset('{{ $user->id }}')"
+                                        wire:loading.attr="disabled"
+                                        wire:target="forcePasswordReset('{{ $user->id }}')"
+                                        variant="outline"
+                                        size="sm"
+                                    >
+                                        Reset Password
+                                    </x-ui.button>
+
+                                    <x-ui.button
                                         wire:click="confirmUserDeletion('{{ $user->id }}')"
                                         variant="danger"
                                         size="sm"
@@ -342,6 +382,76 @@ new class extends Component
             <div class="flex justify-end gap-x-4 border-t bg-gray-50 px-6 py-4 rounded-b-xl">
                 <x-ui.button variant="outline" type="button" x-on:click="show = null">Cancel</x-ui.button>
                 <x-ui.button variant="danger" type="button" wire:click="deleteUser">Delete User</x-ui.button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Password URL Modal -->
+    <div
+        x-data="{ show: @entangle('resetUrl'), copied: false }"
+        x-show="show"
+        x-cloak
+        style="display: none;"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm"
+        x-on:keydown.escape.window="$wire.set('resetUrl', null)"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+    >
+        <div
+            class="w-full max-w-lg rounded-xl bg-white shadow-2xl"
+            x-transition:enter="transition ease-out duration-200"
+            x-transition:enter-start="opacity-0 scale-95"
+            x-transition:enter-end="opacity-100 scale-100"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 scale-100"
+            x-transition:leave-end="opacity-0 scale-95"
+            @click.outside="$wire.set('resetUrl', null)"
+        >
+            <div class="px-6 py-6 space-y-4">
+                <div class="flex items-start gap-4">
+                    <div class="rounded-full bg-blue-100 p-2 shrink-0">
+                        <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-lg font-medium text-gray-900">Password Reset Link</h3>
+                        <p class="mt-1 text-sm text-gray-500">
+                            Share this link with <span class="font-medium text-gray-700">{{ $resetUserName }}</span>. It expires after use or 60 minutes.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <input
+                        type="text"
+                        readonly
+                        value="{{ $resetUrl }}"
+                        class="flex-1 text-xs font-mono bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 truncate"
+                        x-ref="resetUrlInput"
+                        @click="$refs.resetUrlInput.select()"
+                    >
+                    <button
+                        type="button"
+                        @click="navigator.clipboard.writeText('{{ $resetUrl }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                        class="flex-shrink-0 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-w-[64px] text-center"
+                    >
+                        <span x-show="!copied">Copy</span>
+                        <span x-show="copied" class="text-green-600">Copied!</span>
+                    </button>
+                </div>
+
+                <p class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    This link bypasses email. Do not share it publicly.
+                </p>
+            </div>
+
+            <div class="flex justify-end border-t bg-gray-50 px-6 py-4 rounded-b-xl">
+                <x-ui.button variant="outline" type="button" wire:click="$set('resetUrl', null)">Close</x-ui.button>
             </div>
         </div>
     </div>

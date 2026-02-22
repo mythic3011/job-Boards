@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use PragmaRX\Google2FALaravel\Google2FA;
 
 class InstallController extends Controller
 {
@@ -137,8 +138,11 @@ class InstallController extends Controller
                 'admin_email' => 'required|email|unique:users,email|max:255',
                 'admin_password' => 'required|string|min:12|max:255',
                 'two_factor_secret' => 'required|string|min:16',
+                'otp_code' => 'required|string|size:6|regex:/^\d{6}$/',
             ]);
         }
+
+        $this->verifyInstallOtp($request);
 
         $this->checkSuspiciousActivity($request);
 
@@ -396,6 +400,29 @@ class InstallController extends Controller
         }
 
         return true;
+    }
+
+    /**
+     * Verify the OTP code against the provided 2FA secret during installation.
+     */
+    private function verifyInstallOtp(Request $request): void
+    {
+        $secret = $request->input('two_factor_secret') ?? $request->input('twoFactorSecret');
+        $code = $request->input('otp_code');
+
+        if (!$secret || !$code) {
+            throw ValidationException::withMessages([
+                'otp_code' => ['OTP verification is required.'],
+            ]);
+        }
+
+        $valid = app(Google2FA::class)->verifyKey($secret, $code);
+
+        if (!$valid) {
+            throw ValidationException::withMessages([
+                'otp_code' => ['The verification code is invalid. Please check your authenticator app.'],
+            ]);
+        }
     }
 
     /**
