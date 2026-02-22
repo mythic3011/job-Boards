@@ -23,8 +23,8 @@ enum ApplicationStatus: string
     {
         return match($this) {
             self::PENDING => [self::APPROVED, self::REJECTED],
-            self::APPROVED => [], // Cannot change once approved
-            self::REJECTED => [], // Cannot change once rejected
+            self::APPROVED => [self::REJECTED], // Can reject even after approval
+            self::REJECTED => [self::APPROVED], // Can approve even after rejection
         };
     }
 

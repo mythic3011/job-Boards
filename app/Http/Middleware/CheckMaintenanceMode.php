@@ -6,6 +6,7 @@ use App\Models\Setting;
 use App\Services\AuditLogger;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 class CheckMaintenanceMode
@@ -19,32 +20,33 @@ class CheckMaintenanceMode
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // Check if maintenance mode is enabled
-        $maintenanceEnabled = Setting::getBool('maintenance_mode', false);
+        $maintenanceEnabled = Cache::remember('setting.maintenance_mode', 60, fn () => Setting::getBool('maintenance_mode', false));
 
-        if ($maintenanceEnabled) {
-            // Allow admins to bypass maintenance mode
-            if (auth()->check() && auth()->user()->hasRole('admin')) {
-                $this->auditLogger->logSecurityEvent(
-                    eventType: 'maintenance.admin_bypass',
-                    request: $request,
-                    userId: auth()->id(),
-                    meta: ['path' => $request->path()],
-                    statusCode: 200,
-                );
-                return $next($request);
-            }
-
-            // For non-authenticated users, show maintenance page
-            if (!auth()->check()) {
-                return response()->view('errors.maintenance', [], 503);
-            }
-
-            // For authenticated non-admin users, show maintenance modal
+        if (! $maintenanceEnabled) {
             return $next($request);
         }
 
-        // Normal operation when maintenance mode is disabled
+        if (! auth()->check()) {
+            return response()->view('errors.maintenance', [], 503);
+        }
+
+        if (auth()->user()->hasRole('admin')) {
+            // Log once per session to avoid flooding audit logs on every request
+            if (! session()->has('maintenance_bypass_logged')) {
+                $this->auditLogger->logSecurityEvent(
+                    eventType: 'maintenance.admin_bypass',
+                    request: $request,
+                    userId: auth()->user()->idcode,
+                    meta: ['path' => $request->path()],
+                    statusCode: 200,
+                );
+                session()->put('maintenance_bypass_logged', true);
+            }
+
+            return $next($request);
+        }
+
+        // Authenticated non-admin: pass through — MaintenanceAlert component shows a modal overlay
         return $next($request);
     }
 }

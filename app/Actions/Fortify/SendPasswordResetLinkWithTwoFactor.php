@@ -4,17 +4,16 @@ namespace App\Actions\Fortify;
 
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\TwoFactorService;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use Laravel\Fortify\Fortify;
-use PragmaRX\Google2FA\Google2FA;
 
 class SendPasswordResetLinkWithTwoFactor
 {
     public function __construct(
-        private readonly AuditLogger $auditLogger
+        private readonly AuditLogger $auditLogger,
+        private readonly TwoFactorService $twoFactorService,
     ) {}
 
     /**
@@ -55,7 +54,7 @@ class SendPasswordResetLinkWithTwoFactor
 
         if (!empty($input['code'])) {
             // Verify OTP code
-            $verified = $this->verifyOtpCode($user, $input['code']);
+            $verified = $this->twoFactorService->verifyCode($user, $input['code']);
             
             if (!$verified) {
                 RateLimiter::hit($key, 60);
@@ -75,9 +74,20 @@ class SendPasswordResetLinkWithTwoFactor
                 ]);
             }
         } elseif (!empty($input['recovery_code'])) {
-            // Verify recovery code
-            $verified = $this->verifyRecoveryCode($user, $input['recovery_code']);
-            
+            // Verify recovery code via TwoFactorService
+            $inputCode = str_replace('-', '', $input['recovery_code']);
+            $recoveryCodes = $this->twoFactorService->getRecoveryCodes($user);
+            foreach ($recoveryCodes as $recoveryCode) {
+                if (hash_equals(str_replace('-', '', $recoveryCode), $inputCode)) {
+                    $verified = true;
+                    break;
+                }
+            }
+
+            if ($verified) {
+                $this->twoFactorService->consumeRecoveryCode($user, $input['recovery_code']);
+            }
+
             if (!$verified) {
                 RateLimiter::hit($key, 60);
                 
@@ -107,15 +117,6 @@ class SendPasswordResetLinkWithTwoFactor
             $token = Password::broker()->createToken($user);
             RateLimiter::clear($key);
 
-            // Log token for debugging ONLY - never expose in response
-            \Log::debug('Password reset token generated (LOCAL ONLY)', [
-                'email' => $user->email,
-                'reset_url' => route('password.reset', [
-                    'token' => $token,
-                    'email' => $user->email
-                ]),
-            ]);
-
             $this->auditLogger->logSecurityEvent(
                 eventType: 'password_reset.link_generated',
                 request: request(),
@@ -124,13 +125,14 @@ class SendPasswordResetLinkWithTwoFactor
                     'email' => $user->email,
                     'ip' => request()->ip(),
                     'verified_with' => !empty($input['code']) ? '2fa_code' : 'recovery_code',
-                    'local_shortcut' => true,
                 ]
             );
 
             return [
                 'status' => Password::RESET_LINK_SENT,
                 'local' => true,
+                'token' => $token,
+                'email' => $user->email,
             ];
         }
 
@@ -162,59 +164,4 @@ class SendPasswordResetLinkWithTwoFactor
         ]);
     }
 
-    /**
-     * Verify OTP code.
-     */
-    protected function verifyOtpCode(User $user, string $code): bool
-    {
-        if (!preg_match('/^\d{6}$/', $code)) {
-            return false;
-        }
-
-        try {
-            $google2fa = new Google2FA();
-            $secret = Fortify::currentEncrypter()->decrypt($user->two_factor_secret);
-            
-            return $google2fa->verifyKey($secret, $code, 2); // 2 windows tolerance
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('2FA verification failed', [
-                'error' => $e->getMessage(),
-                'user_id' => $user->id,
-            ]);
-            return false;
-        }
-    }
-
-    /**
-     * Verify recovery code.
-     */
-    protected function verifyRecoveryCode(User $user, string $code): bool
-    {
-        if (!$user->two_factor_recovery_codes) {
-            return false;
-        }
-
-        try {
-            $recoveryCodes = json_decode(
-                Fortify::currentEncrypter()->decrypt($user->two_factor_recovery_codes),
-                true
-            );
-
-            $code = str_replace('-', '', $code);
-
-            foreach ($recoveryCodes as $recoveryCode) {
-                if (hash_equals(str_replace('-', '', $recoveryCode), $code)) {
-                    return true;
-                }
-            }
-
-            return false;
-        } catch (\Exception $e) {
-            \Illuminate\Support\Facades\Log::error('Recovery code verification failed', [
-                'error' => $e->getMessage(),
-                'user_id' => $user->id,
-            ]);
-            return false;
-        }
-    }
 }

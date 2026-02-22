@@ -45,6 +45,14 @@ class TwoFactorService
             return false;
         }
 
+        return $this->verifyTotp($user, $code);
+    }
+
+    /**
+     * Raw TOTP verification core.
+     */
+    private function verifyTotp(User $user, string $code): bool
+    {
         try {
             $secret = decrypt($user->two_factor_secret);
             return $this->provider->verify($secret, $code);
@@ -81,14 +89,11 @@ class TwoFactorService
 
     /**
      * Confirm two-factor authentication with a verification code.
+     * Let Fortify's action handle the verification to avoid double-verification issues.
      */
     public function confirm(User $user, string $code): bool
     {
-        if (!$this->verifyCode($user, $code)) {
-            \Log::warning('2FA verification failed', [
-                'user_id' => $user->id,
-                'ip' => request()->ip(),
-            ]);
+        if (empty($code) || !$user->two_factor_secret) {
             return false;
         }
 
@@ -199,6 +204,7 @@ class TwoFactorService
         }
 
         try {
+            // Fortify stores recovery codes as encrypted JSON
             $decrypted = decrypt($user->two_factor_recovery_codes);
             $decoded = json_decode($decrypted, true);
 
@@ -221,6 +227,24 @@ class TwoFactorService
         return collect(range(1, $count))
             ->map(fn() => RecoveryCode::generate())
             ->toArray();
+    }
+
+    /**
+     * Consume a recovery code, removing it from the user's list after successful use.
+     */
+    public function consumeRecoveryCode(User $user, string $code): void
+    {
+        $codes = $this->getRecoveryCodes($user);
+        $normalized = str_replace('-', '', $code);
+
+        $remaining = array_values(array_filter(
+            $codes,
+            fn($c) => !hash_equals(str_replace('-', '', $c), $normalized)
+        ));
+
+        $user->forceFill([
+            'two_factor_recovery_codes' => encrypt(json_encode($remaining)),
+        ])->save();
     }
 
     /**
@@ -253,6 +277,7 @@ class TwoFactorService
         }
 
         try {
+            // Decrypt the secret that Fortify stores encrypted
             return decrypt($user->two_factor_secret);
         } catch (\Exception $e) {
             \Log::error('Failed to decrypt 2FA secret', [

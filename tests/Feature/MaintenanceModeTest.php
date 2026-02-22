@@ -32,6 +32,7 @@ class MaintenanceModeTest extends TestCase
         return User::factory()->create(['user_type' => 'individual']);
     }
 
+    // User-Agent header required to pass HandleSuspiciousUserAgent middleware in tests
     private function withBrowser(): static
     {
         return $this->withHeader('User-Agent', 'Mozilla/5.0 (compatible; TestBrowser/1.0)');
@@ -67,6 +68,13 @@ class MaintenanceModeTest extends TestCase
              ->assertOk();
     }
 
+    public function test_home_accessible_when_maintenance_off(): void
+    {
+        $this->withBrowser()
+             ->get(route('home'))
+             ->assertOk();
+    }
+
     // --- Maintenance ON: guests ---
 
     public function test_guest_sees_503_on_job_routes_during_maintenance(): void
@@ -78,15 +86,21 @@ class MaintenanceModeTest extends TestCase
              ->assertStatus(503);
     }
 
-    public function test_guest_sees_503_on_profile_routes_during_maintenance(): void
+    public function test_guest_sees_503_on_home_during_maintenance(): void
     {
         $this->enableMaintenance();
 
-        $user = $this->regularUser();
-        // Profile routes require auth, so guest gets redirected — but we test
-        // that an authenticated non-admin also gets through (modal shown client-side).
-        // For a true guest hitting a profile URL, auth middleware redirects first.
-        // We verify the maintenance check fires for authenticated users below.
+        $this->withBrowser()
+             ->get(route('home'))
+             ->assertStatus(503);
+    }
+
+    public function test_guest_redirected_to_login_on_profile_routes_during_maintenance(): void
+    {
+        $this->enableMaintenance();
+
+        // auth middleware fires before maintenance.check for profile routes,
+        // so unauthenticated guests are redirected to login rather than seeing 503.
         $this->withBrowser()
              ->get(route('profile.show'))
              ->assertRedirect(route('login'));
@@ -105,6 +119,15 @@ class MaintenanceModeTest extends TestCase
                  'password_confirmation' => 'password',
                  'user_type'             => 'individual',
              ])
+             ->assertStatus(503);
+    }
+
+    public function test_guest_cannot_request_password_reset_during_maintenance(): void
+    {
+        $this->enableMaintenance();
+
+        $this->withBrowser()
+             ->post(route('password.email'), ['email' => 'test@example.com'])
              ->assertStatus(503);
     }
 

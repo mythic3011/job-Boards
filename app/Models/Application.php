@@ -97,11 +97,12 @@ class Application extends Model
         // Convert string to enum if needed
         $status = $value instanceof ApplicationStatus ? $value : ApplicationStatus::from($value);
 
-        // Validate transition if status already exists
+        // Validate transition if status already exists and is different from new status
         if (isset($this->attributes['status']) && !empty($this->attributes['status'])) {
             $currentStatus = ApplicationStatus::from($this->attributes['status']);
 
-            if (!$currentStatus->canTransitionTo($status)) {
+            // Only validate transition if status is actually changing
+            if ($currentStatus->value !== $status->value && !$currentStatus->canTransitionTo($status)) {
                 throw new \InvalidArgumentException(
                     "Cannot transition application status from {$currentStatus->value} to {$status->value}"
                 );

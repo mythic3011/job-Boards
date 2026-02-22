@@ -1,13 +1,11 @@
 {{-- Step 3: Two-Factor Authentication --}}
-<div class="space-y-6" 
-    x-data="{ 
-        copying: false,
+<div class="space-y-6"
+    x-data="{
         verified: @js($testSuccess),
+        copying: false,
+        showCodes: false,
         tryNextStep() {
-            if (!this.verified) {
-                alert('⚠️ 2FA Verification Required\n\nPlease enter the 6-digit code from your authenticator app and click Verify before continuing to the next step.');
-                return;
-            }
+            if (!this.verified) return;
             $wire.nextStep();
         },
         downloadCodes() {
@@ -16,157 +14,137 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'recovery_codes_' + Date.now() + '.txt';
+            a.download = 'recovery_codes.txt';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
         },
         async copySecret() {
-            const secret = '{{ $twoFactorSecret }}';
-            try {
-                await navigator.clipboard.writeText(secret);
-                this.copying = true;
-                setTimeout(() => this.copying = false, 2000);
-            } catch (err) {
-                console.error('Failed to copy:', err);
-            }
-        },
-        async copyCodes() {
-            const codes = @json($recoveryCodes);
-            try {
-                await navigator.clipboard.writeText(codes.join('\n'));
-                this.copying = true;
-                setTimeout(() => this.copying = false, 2000);
-            } catch (err) {
-                console.error('Failed to copy:', err);
-            }
+            await navigator.clipboard.writeText('{{ $twoFactorSecret }}');
+            this.copying = true;
+            setTimeout(() => this.copying = false, 2000);
         }
     }"
     x-on:2fa-verified.window="verified = true"
 >
     <div>
-        <h2 class="text-2xl font-bold text-gray-900">Two-Factor Authentication</h2>
-        <p class="text-sm text-gray-600 mt-1">Secure your admin account with 2FA (required for administrators)</p>
+        <h2 class="text-2xl font-bold text-gray-900">Secure Your Account</h2>
+        <p class="text-sm text-gray-600 mt-1">Two-factor authentication is required for admin accounts</p>
     </div>
 
-    <form @submit.prevent="tryNextStep()" class="space-y-5">
-        <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 space-y-5">
-            <!-- QR Code -->
-            <div class="text-center">
-                <div class="inline-block bg-white p-4 rounded-xl shadow-sm">
+    <div class="space-y-4">
+        {{-- Step A: Scan or enter key --}}
+        <div class="border border-gray-200 rounded-xl overflow-hidden">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                <p class="text-sm font-semibold text-gray-700">1. Add to your authenticator app</p>
+                <p class="text-xs text-gray-500 mt-0.5">Google Authenticator, Authy, 1Password, etc.</p>
+            </div>
+            <div class="p-4 flex flex-col sm:flex-row items-center gap-6">
+                {{-- QR Code --}}
+                <div class="flex-shrink-0">
                     @if($qrCodeDataUrl)
-                        {!! $qrCodeDataUrl !!}
+                        <div class="bg-white p-3 border border-gray-200 rounded-lg inline-block">
+                            {!! $qrCodeDataUrl !!}
+                        </div>
                     @else
-                        <div class="w-48 h-48 flex items-center justify-center text-gray-400">
-                            <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                            </svg>
+                        <div class="w-40 h-40 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs text-center px-4">
+                            QR code unavailable
                         </div>
                     @endif
                 </div>
-                <p class="text-sm text-gray-700 mt-3">Scan with Google Authenticator, Authy, or similar app</p>
-            </div>
 
-            <!-- Manual Entry Key -->
-            <div class="bg-white rounded-lg p-4">
-                <label class="block text-xs font-semibold text-gray-700 mb-2">Manual Entry Key</label>
-                <div class="flex items-center gap-2">
-                    <code class="flex-1 text-sm font-mono bg-gray-50 px-3 py-2 rounded border text-gray-900">
-                        {{ $formattedSecret }}
-                    </code>
-                    <button 
-                        type="button"
-                        @click="copySecret"
-                        class="px-3 py-2 text-sm bg-gray-100 hover:bg-gray-200 rounded transition-colors">
-                        <span x-show="!copying">Copy</span>
-                        <span x-show="copying" class="text-green-600">✓</span>
-                    </button>
+                {{-- Manual key --}}
+                <div class="flex-1 w-full">
+                    <p class="text-xs font-medium text-gray-600 mb-2">Or enter this key manually:</p>
+                    <div class="flex items-center gap-2">
+                        <code class="flex-1 text-sm font-mono bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 break-all">{{ $formattedSecret }}</code>
+                        <button type="button" @click="copySecret"
+                            class="flex-shrink-0 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-w-[56px] text-center">
+                            <span x-show="!copying">Copy</span>
+                            <span x-show="copying" class="text-green-600">Copied!</span>
+                        </button>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Test Code -->
-            <div class="bg-white rounded-lg p-4 space-y-3">
-                <label class="block text-xs font-semibold text-gray-700">Test Your Code</label>
-                <div class="flex gap-2">
-                    <input 
-                        type="text" 
-                        wire:model="testCode"
-                        inputmode="numeric" 
-                        maxlength="6" 
-                        placeholder="123456"
-                        class="w-32 px-3 py-2 text-center text-lg font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    >
-                    <button 
-                        type="button"
-                        wire:click="testOTP"
-                        class="px-4 py-2 bg-indigo-600 text-white text-sm rounded-lg font-medium hover:bg-indigo-700">
-                        Verify
-                    </button>
-                </div>
-                @if($testResult)
-                    <p class="text-xs {{ $testSuccess ? 'text-green-600' : 'text-red-600' }}">
-                        {{ $testResult }}
-                    </p>
+        {{-- Step B: Verify code --}}
+        <div class="border {{ $testSuccess ? 'border-green-300 bg-green-50' : 'border-gray-200' }} rounded-xl overflow-hidden transition-colors">
+            <div class="bg-gray-50 {{ $testSuccess ? 'bg-green-50' : '' }} px-4 py-3 border-b {{ $testSuccess ? 'border-green-200' : 'border-gray-200' }}">
+                <p class="text-sm font-semibold text-gray-700">2. Verify it works</p>
+                <p class="text-xs text-gray-500 mt-0.5">Enter the 6-digit code from your app to confirm setup</p>
+            </div>
+            <div class="p-4">
+                @if($testSuccess)
+                    <div class="flex items-center gap-2 text-green-700">
+                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
+                        </svg>
+                        <span class="text-sm font-medium">Verified — your authenticator app is working correctly</span>
+                    </div>
+                @else
+                    <div class="flex items-center gap-3">
+                        <input
+                            type="text"
+                            wire:model="testCode"
+                            inputmode="numeric"
+                            maxlength="6"
+                            placeholder="000000"
+                            class="w-32 px-3 py-2 text-center text-lg font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        >
+                        <button type="button" wire:click="testOTP"
+                            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">
+                            Verify
+                        </button>
+                        @if($testResult && !$testSuccess)
+                            <p class="text-sm text-red-600">{{ $testResult }}</p>
+                        @endif
+                    </div>
                 @endif
             </div>
         </div>
 
-        <!-- Recovery Codes -->
-        <div class="bg-amber-50 rounded-lg p-4">
-            <h4 class="text-sm font-semibold text-gray-900 mb-2 flex items-center">
-                <svg class="w-4 h-4 mr-2 text-amber-600" fill="currentColor" viewBox="0 0 20 20">
-                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
-                </svg>
-                Recovery Codes
-            </h4>
-            <p class="text-xs text-gray-700 mb-3">Save these codes securely. Use them if you lose access to your authenticator.</p>
-            
-            @if(count($recoveryCodes) > 0)
-                <div class="grid grid-cols-2 gap-1.5 font-mono text-xs mb-3">
-                    @foreach($recoveryCodes as $code)
-                        <div class="text-gray-700 bg-white px-2 py-1 rounded">{{ $code }}</div>
-                    @endforeach
+        {{-- Step C: Save recovery codes --}}
+        <div class="border border-amber-200 bg-amber-50 rounded-xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-amber-200 flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-semibold text-gray-700">3. Save your recovery codes</p>
+                    <p class="text-xs text-gray-500 mt-0.5">Store these somewhere safe — you'll need them if you lose your device</p>
                 </div>
-                <div class="flex gap-3 text-xs">
-                    <button type="button" @click="copyCodes" class="text-indigo-600 hover:text-indigo-800 font-medium">
-                        Copy All
+                <button type="button" @click="showCodes = !showCodes"
+                    class="text-xs text-amber-700 font-medium hover:text-amber-900 underline flex-shrink-0 ml-4">
+                    <span x-show="!showCodes">Show</span>
+                    <span x-show="showCodes">Hide</span>
+                </button>
+            </div>
+            <div x-show="showCodes" x-transition class="p-4 space-y-3">
+                @if(count($recoveryCodes) > 0)
+                    <div class="grid grid-cols-2 gap-1.5">
+                        @foreach($recoveryCodes as $code)
+                            <code class="text-xs font-mono bg-white border border-amber-200 px-2 py-1.5 rounded text-gray-800">{{ $code }}</code>
+                        @endforeach
+                    </div>
+                    <button type="button" @click="downloadCodes"
+                        class="text-xs font-medium text-amber-700 hover:text-amber-900 underline">
+                        Download as text file
                     </button>
-                    <button type="button" @click="downloadCodes" class="text-indigo-600 hover:text-indigo-800 font-medium">
-                        Download
-                    </button>
-                </div>
-            @endif
+                @endif
+            </div>
         </div>
+    </div>
 
-        <div x-show="!verified" x-transition class="bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex items-center gap-2">
-            <svg class="w-5 h-5 text-yellow-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-            </svg>
-            <p class="text-sm text-yellow-800">You must verify your 2FA code above before continuing to the next step.</p>
-        </div>
-
-        <div x-show="verified" x-transition class="bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
-            <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
-            </svg>
-            <p class="text-sm text-green-800">✓ 2FA verified successfully! You can now continue.</p>
-        </div>
-
-        <div class="flex gap-3 pt-4">
-            <button 
-                type="button"
-                wire:click="previousStep"
-                class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors">
-                ← Back
-            </button>
-            <button 
-                type="submit"
-                x-bind:disabled="!verified"
-                x-bind:class="verified ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'"
-                class="flex-1 px-6 py-3 rounded-lg font-medium transition-colors shadow-sm">
-                Continue →
-            </button>
-        </div>
-    </form>
+    {{-- Navigation --}}
+    <div class="flex gap-3 pt-2">
+        <button type="button" wire:click="previousStep"
+            class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors">
+            ← Back
+        </button>
+        <button type="button" @click="tryNextStep"
+            :disabled="!verified"
+            :class="verified ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'"
+            class="flex-1 px-6 py-3 rounded-lg font-medium transition-colors">
+            Continue →
+        </button>
+    </div>
 </div>

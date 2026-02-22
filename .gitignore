@@ -28,6 +28,10 @@ composer.phar
 cookies.txt
 public/vendor
 
+# Docs
+/docs/
+*.md
+
 # AI-related files
 .claude/
 .cursor/

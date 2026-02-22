@@ -57,7 +57,7 @@ new class extends Component
         <h1 class="text-3xl font-bold">Application Details</h1>
         <div class="flex items-center gap-3">
             @if($isJobOwner)
-                <x-ui.button type="button" variant="primary" :disabled="$application->status === 'approved'" x-on:click="showApprove = true">
+                <x-ui.button type="button" variant="primary" :disabled="$application->status->value === 'approved'" x-on:click="showApprove = true">
                     Accept
                 </x-ui.button>
                 <x-ui.button type="button" variant="danger" x-on:click="showReject = true">
@@ -130,19 +130,19 @@ new class extends Component
                 {{ $application->jobPosting->title }}
             </h2>
             @php
-                $statusLabel = $application->status === 'approved'
+                $statusLabel = $application->status->value === 'approved'
                     ? 'Approved'
-                    : ($application->status === 'rejected'
+                    : ($application->status->value === 'rejected'
                         ? 'Rejected'
                         : 'Applied, pending approval');
-                $statusClasses = $application->status === 'approved'
+                $statusClasses = $application->status->value === 'approved'
                     ? 'bg-green-100 text-green-800 border-green-200'
-                    : ($application->status === 'rejected'
+                    : ($application->status->value === 'rejected'
                         ? 'bg-red-100 text-red-800 border-red-200'
                         : 'bg-yellow-100 text-yellow-800 border-yellow-200');
-                $dotClass = $application->status === 'approved'
+                $dotClass = $application->status->value === 'approved'
                     ? 'bg-green-600'
-                    : ($application->status === 'rejected'
+                    : ($application->status->value === 'rejected'
                         ? 'bg-red-600'
                         : 'bg-yellow-600');
             @endphp
