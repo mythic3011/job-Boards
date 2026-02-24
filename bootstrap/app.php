@@ -17,21 +17,24 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
 
         $middleware->web(append: [
-            \App\Http\Middleware\SecurityHeaders::class,
-            \App\Http\Middleware\HandleSuspiciousUserAgent::class, // Replaced BlockBadUserAgent
-            \App\Http\Middleware\CheckMaintenanceMode::class,
+            \App\Http\Middleware\SecurityHeaders::class, // for CSP and HSTS
+            \App\Http\Middleware\HandleSuspiciousUserAgent::class, // for bot detection and blocking
+            \App\Http\Middleware\CheckMaintenanceMode::class, // for maintenance mode handling
             \App\Http\Middleware\LogHttpResponse::class, // Log all HTTP responses
         ]);
 
         // Register middleware aliases
         $middleware->alias([
+            // common middleware for app routes
             'request.id' => \App\Http\Middleware\RequestId::class,
+            // install middleware
             'setup.not.completed' => \App\Http\Middleware\EnsureSetupNotCompleted::class,
             'setup.completed' => \App\Http\Middleware\EnsureSetupCompleted::class,
             'hide.admin' => \App\Http\Middleware\HideAdminRoutes::class,
             'admin.2fa' => \App\Http\Middleware\RequireAdminTwoFactor::class,
             '2fa.enabled' => \App\Http\Middleware\RequireTwoFactorEnabled::class,
             'maintenance.check' => \App\Http\Middleware\CheckMaintenanceMode::class,
+
             // Register Spatie Permission middleware aliases
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
@@ -39,6 +42,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Return 404 for unauthenticated requests to hide protected route existence
+        $exceptions->renderable(function (\Illuminate\Auth\AuthenticationException $e, $request) {
+            if (! $request->expectsJson()) {
+                abort(404);
+            }
+        });
+
         // Log permission denied (403) events
         $exceptions->renderable(function (\Illuminate\Auth\Access\AuthorizationException $e, $request) {
             if ($request->user()) {

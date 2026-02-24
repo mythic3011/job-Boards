@@ -95,15 +95,15 @@ class MaintenanceModeTest extends TestCase
              ->assertStatus(503);
     }
 
-    public function test_guest_redirected_to_login_on_profile_routes_during_maintenance(): void
+    public function test_guest_sees_404_on_profile_routes_during_maintenance(): void
     {
         $this->enableMaintenance();
 
         // auth middleware fires before maintenance.check for profile routes,
-        // so unauthenticated guests are redirected to login rather than seeing 503.
+        // so unauthenticated guests see 404 (protected route hidden) rather than 503.
         $this->withBrowser()
              ->get(route('profile.show'))
-             ->assertRedirect(route('login'));
+             ->assertNotFound();
     }
 
     public function test_guest_cannot_register_during_maintenance(): void

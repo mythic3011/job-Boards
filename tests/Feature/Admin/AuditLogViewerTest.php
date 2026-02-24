@@ -36,7 +36,7 @@ class AuditLogViewerTest extends TestCase
     {
         $this->withBrowser()
              ->get(route('admin.audit-logs.index'))
-             ->assertRedirect(route('login'));
+             ->assertNotFound();
     }
 
     public function test_non_admin_cannot_access_audit_logs(): void
