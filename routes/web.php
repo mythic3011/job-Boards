@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Schema;
 
 /*
 |--------------------------------------------------------------------------
-| Installation Routes (Must be first)
+| Installation Routes
 |--------------------------------------------------------------------------
 */
 require __DIR__.'/install.php';
