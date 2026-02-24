@@ -15,7 +15,7 @@ export default defineConfig({
             ignored: ['**/storage/framework/views/**'],
         },
         hmr: {
-            host: 'localhost',
+            host: process.env.VITE_HMR_HOST ?? 'localhost',
         },
     },
 });

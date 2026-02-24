@@ -9,12 +9,12 @@ MODE="${1:-full}"
 case "$MODE" in
     skip) ./skip-install.sh ;;
     quick)
+        docker compose exec laravel.test php artisan migrate:fresh --force
         docker compose exec laravel.test php artisan optimize:clear
         docker compose exec laravel.test npm install
         docker compose exec laravel.test npm run build
         docker compose exec laravel.test composer install
         docker compose restart laravel.test
-        docker compose exec laravel.test php artisan migrate
         ./skip-install.sh ;;
     full)
         docker compose exec laravel.test php artisan optimize:clear

@@ -30,7 +30,7 @@ class DemoDataSeeder extends Seeder
         $individualPassword = 'Alex@Secure#99!';
 
         $demoCompany = User::firstOrCreate(
-            ['idcode' => 'user_demo_company'],
+            ['idcode' => 'user_' . Str::uuid()->toString()],
             [
                 'login_id' => 'brightpath_hr',
                 'nickname' => 'BrightPath Recruiting',
@@ -42,7 +42,7 @@ class DemoDataSeeder extends Seeder
         $demoCompany->assignRole($companyRole);
 
         $demoIndividual = User::firstOrCreate(
-            ['idcode' => 'user_demo_individual'],
+            ['idcode' => 'user_' . Str::uuid()->toString()],
             [
                 'login_id' => 'alex_morgan',
                 'nickname' => 'Alex Morgan',

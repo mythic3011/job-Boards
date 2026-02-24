@@ -286,7 +286,7 @@ new class extends Component
                                             </x-ui.button>
                                         @else
                                             <x-ui.button href="{{ route('register') }}" variant="primary">
-                                                Switch to a company account
+                                                register to apply
                                             </x-ui.button>
                                         @endif
                                     @else

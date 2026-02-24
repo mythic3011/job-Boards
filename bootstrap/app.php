@@ -55,7 +55,24 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        // In development/local, Laravel will show detailed error pages automatically
-        // In production, custom error pages will be used
-        // No need for empty exception handler
+        // Redirect unexpected exceptions to /error in production
+        $exceptions->renderable(function (\Throwable $e, $request) {
+            if (! $request->expectsJson() && app()->isProduction()) {
+                $skip = [
+                    \Illuminate\Auth\AuthenticationException::class,
+                    \Illuminate\Auth\Access\AuthorizationException::class,
+                    \Symfony\Component\HttpKernel\Exception\HttpException::class,
+                    \Illuminate\Validation\ValidationException::class,
+                ];
+
+                foreach ($skip as $class) {
+                    if ($e instanceof $class) {
+                        return null;
+                    }
+                }
+
+                return redirect()->route('error.page')
+                    ->with('error_message', 'An unexpected error occurred. Please try again.');
+            }
+        });
     })->create();

@@ -191,7 +191,7 @@ class User extends Authenticatable
     public function getUserTypeLabel(): string
     {
         return match($this->user_type) {
-            'admin' => 'System Admin',
+            'admin' => 'Admin',
             'company' => 'Company',
             'individual' => 'Individual',
             default => ucfirst($this->user_type),

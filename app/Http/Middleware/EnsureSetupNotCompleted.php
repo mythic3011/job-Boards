@@ -42,7 +42,6 @@ class EnsureSetupNotCompleted extends BaseSetupMiddleware
      */
     private function denyAccess(Request $request): Response
     {
-        // Log install probe attempt (OWASP A09 - Security Misconfiguration)
         try {
             $this->auditLogger->logRequestEvent(
                 eventType: 'install_probe',
@@ -55,8 +54,7 @@ class EnsureSetupNotCompleted extends BaseSetupMiddleware
             ]);
         }
 
-        return redirect()->route('login')
-            ->with('status', 'Setup has already been completed.');
+        return redirect()->route('install.gone')->with('install_gone', true);
     }
 
     /**
