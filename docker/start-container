@@ -12,5 +12,8 @@ export PHP_BIN
 mkdir -p /var/log/laravel /var/www/html/storage/logs
 ln -sf /var/www/html/storage/logs/laravel.log /var/log/laravel/laravel.log 2>/dev/null || true
 
+# Run migrations on startup so the sessions table exists before serving requests
+$PHP_BIN /var/www/html/artisan migrate --force 2>&1 || true
+
 # Start supervisord which will manage processes (php artisan serve, etc.)
 exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf
