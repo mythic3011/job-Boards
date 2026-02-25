@@ -25,9 +25,15 @@ class DemoDataSeeder extends Seeder
             ->each(fn ($u) => $u->assignRole($individualRole));
 
         // Fixed demo accounts
-        // Passwords meet project requirements: 12+ chars, mixed case, letters, numbers, symbols
-        $companyPassword = 'BrightPath#2025!';
-        $individualPassword = 'Alex@Secure#99!';
+        // generate strong random passwords that meet the project requirements
+        $rules = (new \App\Actions\Fortify\PasswordValidationRules())->passwordRules();
+
+        $companyPassword = $this->generateValidPassword($rules);
+        $individualPassword = $this->generateValidPassword($rules);
+
+        // log generated values for developers
+        $this->command->info('Demo company password: ' . $companyPassword);
+        $this->command->info('Demo individual password: ' . $individualPassword);
 
         $demoCompany = User::firstOrCreate(
             ['idcode' => 'user_' . Str::uuid()->toString()],
@@ -151,4 +157,23 @@ class DemoDataSeeder extends Seeder
         $this->command->info('  - ' . $allJobs->count() . ' job postings');
         $this->command->info('  - ' . $allApplications->count() . ' applications');
     }
+
+    /**
+     * Create a password string that satisfies the given validation rules.
+     *
+     * @param array<int, mixed> $rules
+     */
+    private function generateValidPassword(array $rules): string
+    {
+        do {
+            $pwd = fake()->password(12, 24);
+            $validator = \Illuminate\Support\Facades\Validator::make(
+                ['password' => $pwd],
+                ['password' => $rules]
+            );
+        } while ($validator->fails());
+
+        return $pwd;
+    }
 }
+

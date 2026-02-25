@@ -1,0 +1,7 @@
+---
+filenames:
+  - /var/log/nginx/access.log
+  - /var/log/nginx/error.log
+labels:
+  type: nginx
+poll_without_inotify: true

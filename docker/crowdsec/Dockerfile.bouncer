@@ -1,0 +1,8 @@
+FROM fbonalair/traefik-crowdsec-bouncer:latest AS bouncer
+FROM debian:bookworm-slim
+
+COPY --from=bouncer /app /app
+COPY bouncer-wrapper.sh /bouncer-wrapper.sh
+RUN chmod +x /bouncer-wrapper.sh
+
+ENTRYPOINT ["/bouncer-wrapper.sh"]

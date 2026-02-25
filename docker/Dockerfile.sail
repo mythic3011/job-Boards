@@ -5,7 +5,7 @@ FROM ubuntu:24.04
 
 LABEL maintainer="@mythic3011"
 LABEL version="1.0.0"
-LABEL description="refactored Laravel Sail Dockerfile for better performance"
+LABEL description="Laravel Sail Dockerfile"
 LABEL github="https://github.com/mythic3011/"
 
 # arg variables for configuration dockerfile

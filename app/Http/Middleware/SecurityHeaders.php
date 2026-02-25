@@ -15,6 +15,7 @@ class SecurityHeaders
     {
         $response = $next($request);
         $response->headers->set('X-Frame-Options', 'DENY');
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-XSS-Protection', '1; mode=block');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set(
@@ -35,7 +36,7 @@ class SecurityHeaders
 
         $csp = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'" . $viteDevServer,
+            "script-src 'self' 'unsafe-inline'" . $viteDevServer,
             "style-src 'self' 'unsafe-inline'" . $viteDevServer,
             "img-src 'self' data: https:",
             "font-src 'self' data:",

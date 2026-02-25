@@ -11,22 +11,28 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Trust Nginx reverse proxy for X-Forwarded-* headers
+        $middleware->trustProxies(at: '*');
+
         // Global middleware (runs on all requests)
         $middleware->web(prepend: [
             \App\Http\Middleware\RequestId::class,
         ]);
 
         $middleware->web(append: [
-            \App\Http\Middleware\SecurityHeaders::class, // for CSP and HSTS
-            \App\Http\Middleware\HandleSuspiciousUserAgent::class, // for bot detection and blocking
-            \App\Http\Middleware\CheckMaintenanceMode::class, // for maintenance mode handling
-            \App\Http\Middleware\LogHttpResponse::class, // Log all HTTP responses
+            \App\Http\Middleware\SecurityHeaders::class,
+            \App\Http\Middleware\BlockBadUserAgent::class,
+            \App\Http\Middleware\HoneypotProtection::class, // honeypot on login/register/forgot-password
+            \App\Http\Middleware\HandleSuspiciousUserAgent::class,
+            \App\Http\Middleware\CheckMaintenanceMode::class,
+            \App\Http\Middleware\LogHttpResponse::class,
         ]);
 
         // Register middleware aliases
         $middleware->alias([
             // common middleware for app routes
             'request.id' => \App\Http\Middleware\RequestId::class,
+            'honeypot' => \App\Http\Middleware\HoneypotProtection::class,
             // install middleware
             'setup.not.completed' => \App\Http\Middleware\EnsureSetupNotCompleted::class,
             'setup.completed' => \App\Http\Middleware\EnsureSetupCompleted::class,

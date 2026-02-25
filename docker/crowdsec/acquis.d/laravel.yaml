@@ -1,0 +1,6 @@
+---
+filenames:
+  - /var/log/laravel/laravel.log
+labels:
+  type: syslog
+poll_without_inotify: true

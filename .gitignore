@@ -39,3 +39,6 @@ public/vendor
 AGENTS.md
 CLAUDE.md
 .github/copilot-instructions.md
+
+# SSL certificates (generated locally)
+docker/nginx/ssl/

@@ -22,6 +22,7 @@
             <div class="bg-white shadow-md rounded-lg p-8">
                 <form class="space-y-6" action="{{ route('login') }}" method="POST">
                     @csrf
+                    <x-honeypot />
 
                     <div>
                         <label for="login_id" class="block text-sm font-medium text-gray-700">

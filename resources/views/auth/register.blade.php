@@ -72,6 +72,7 @@
                 @else
                     <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                         @csrf
+                        <x-honeypot />
                     
                     <div>
                         <label for="login_id" class="block text-sm font-medium text-gray-700">
