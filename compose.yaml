@@ -5,11 +5,14 @@ services:
         ports:
             - "${APP_PORT:-80}:80"
             - "${APP_SSL_PORT:-443}:443"
+        environment:
+            MONITORING_PASSWORD: "${MONITORING_PASSWORD}"
         volumes:
             - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
             - ./docker/nginx/entrypoint.sh:/docker-entrypoint-custom.sh:ro
             - nginx-ssl:/etc/nginx/ssl
             - nginx-logs:/var/log/nginx
+            - nginx-htpasswd:/etc/nginx/htpasswd
         networks:
             - sail
         depends_on:
@@ -86,6 +89,36 @@ services:
         depends_on:
             crowdsec-key-init:
                 condition: service_completed_successfully
+        restart: unless-stopped
+
+    prometheus:
+        image: prom/prometheus:latest
+        volumes:
+            - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+            - prometheus-data:/prometheus
+        command:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.retention.time=7d'
+        networks:
+            - sail
+        restart: unless-stopped
+
+    grafana:
+        image: grafana/grafana:latest
+        environment:
+            GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD}"
+            GF_USERS_ALLOW_SIGN_UP: "false"
+            GF_SERVER_ROOT_URL: "https://%(domain)s/monitoring/grafana/"
+            GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+            GF_AUTH_ANONYMOUS_ENABLED: "false"
+            GF_SECURITY_DISABLE_GRAVATAR: "true"
+        volumes:
+            - grafana-data:/var/lib/grafana
+            - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+        networks:
+            - sail
+        depends_on:
+            - prometheus
         restart: unless-stopped
 
     laravel.test:
@@ -171,6 +204,8 @@ volumes:
         driver: local
     nginx-logs:
         driver: local
+    nginx-htpasswd:
+        driver: local
     laravel-logs:
         driver: local
     crowdsec-db:
@@ -178,4 +213,8 @@ volumes:
     crowdsec-config:
         driver: local
     crowdsec-keys:
+        driver: local
+    prometheus-data:
+        driver: local
+    grafana-data:
         driver: local
