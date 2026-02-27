@@ -27,7 +27,7 @@ if [ ! -f "$HTPASSWD" ] && [ -n "$MONITORING_PASSWORD" ]; then
     mkdir -p /etc/nginx/htpasswd
     apk add --no-cache apache2-utils > /dev/null 2>&1 || true
     htpasswd -cb "$HTPASSWD" admin "$MONITORING_PASSWORD"
-    chmod 600 "$HTPASSWD"
+    chmod 644 "$HTPASSWD"
     echo "htpasswd generated."
 elif [ -f "$HTPASSWD" ]; then
     echo "htpasswd already exists, skipping."
