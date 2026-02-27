@@ -6,12 +6,9 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Validator;
 
 class UserFactory extends Factory
 {
-    protected static ?string $password;
-
     private static array $companySuffixes = [
         'Inc.', 'LLC', 'Corp.', 'Group', 'Solutions', 'Technologies', 'Services',
         'Partners', 'Consulting', 'Ventures', 'Industries', 'Systems', 'Labs',
@@ -22,17 +19,12 @@ class UserFactory extends Factory
         $userType = fake()->randomElement(['company', 'individual']);
         $loginId = fake()->unique()->userName();
 
-        // generate a random, reasonably strong password for demo users
-        // ensure it meets the same validation rules used by the app
-        $passwordRules = (new \App\Actions\Fortify\PasswordValidationRules())->passwordRules();
-        $rawPwd = $this->generateValidPassword($passwordRules);
-
         return [
             'idcode' => 'user_' . Str::uuid()->toString(),
             'login_id' => $loginId,
             'nickname' => $userType === 'company' ? $this->companyName() : fake()->name(),
             'email' => fake()->unique()->safeEmail(),
-            'password' => Hash::make($rawPwd),
+            'password' => Hash::make($this->generateValidPassword()),
             'user_type' => $userType,
             'profile_image_path' => null,
             'locked_until' => null,
@@ -68,17 +60,23 @@ class UserFactory extends Factory
     }
 
     /**
-     * Generate a random password string that satisfies the given validation rules.
-     *
-     * @param array<int, mixed> $rules
+     * Generate a password that meets app requirements:
+     * - At least 12 characters
+     * - Uppercase, lowercase, number, special char
+     * - Not in breach database (can't guarantee, but use strong random)
      */
-    private function generateValidPassword(array $rules): string
+    private function generateValidPassword(): string
     {
-        do {
-            $pwd = fake()->password(12, 24);
-            $validator = Validator::make(['password' => $pwd], ['password' => $rules]);
-        } while ($validator->fails());
+        $upper = fake()->randomElement(range('A', 'Z'));
+        $lower = fake()->randomElement(range('a', 'z'));
+        $digit = fake()->randomElement(range('0', '9'));
+        $special = fake()->randomElement(['@', '$', '!', '%', '*', '?', '&']);
 
-        return $pwd;
+        $remaining = Str::random(fake()->numberBetween(8, 16));
+
+        $chars = str_split($upper . $lower . $digit . $special . $remaining);
+        shuffle($chars);
+
+        return implode('', $chars);
     }
 }

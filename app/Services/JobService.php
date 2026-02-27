@@ -19,7 +19,7 @@ class JobService
     /**
      * Create a new job posting.
      *
-     * @param  array{title: string, requirement: string, duty: string, salary?: string|null}  $data
+     * @param  array{title: string, requirement: string, duty: string, salary_from?: int|null, salary_to?: int|null}  $data
      */
     public function createJob(array $data): JobPosting
     {
@@ -28,7 +28,8 @@ class JobService
             'title' => $data['title'],
             'requirement' => $data['requirement'],
             'duty' => $data['duty'],
-            'salary' => $data['salary'] ?? null,
+            'salary_from' => $data['salary_from'] ?? null,
+            'salary_to' => $data['salary_to'] ?? null,
         ]);
 
         $this->logJobCreation($job);

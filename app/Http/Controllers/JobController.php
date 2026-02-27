@@ -21,23 +21,25 @@ class JobController extends Controller
             'title' => ['required', 'string', 'max:255'],
             'requirement' => ['required', 'string'],
             'duty' => ['required', 'string'],
-            'salary' => ['nullable', 'string', 'max:255', 'regex:/^(?!\s+$)[0-9\s\-,]*$/'],
+            'salary_from' => ['nullable', 'integer', 'min:0', 'max:99999999'],
+            'salary_to' => ['nullable', 'integer', 'min:0', 'max:99999999'],
         ]);
 
-        $validated = [
+        $salaryFrom = $validated['salary_from'] ?? null;
+        $salaryTo = $validated['salary_to'] ?? null;
+
+        if ($salaryTo && $salaryFrom && $salaryTo <= $salaryFrom) {
+            return back()->withErrors(['salary_to' => 'The upper salary must be greater than the lower salary.'])->withInput();
+        }
+
+        $jobService = app(JobService::class);
+        $jobService->createJob([
             'title' => trim($validated['title']),
             'requirement' => trim($validated['requirement']),
             'duty' => trim($validated['duty']),
-            'salary' => isset($validated['salary']) ? trim($validated['salary']) : null,
-        ];
-
-        if ($validated['salary'] === '') {
-            $validated['salary'] = null;
-        }
-
-        /** @var JobService $jobService */
-        $jobService = app(JobService::class);
-        $jobService->createJob($validated);
+            'salary_from' => $salaryFrom,
+            'salary_to' => $salaryTo,
+        ]);
 
         return redirect()
             ->route('jobs.index')

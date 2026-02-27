@@ -20,6 +20,7 @@ class Application extends Model
         'applicant_user_id',
         'message',
         'decision_message',
+        'decision_message_read_at',
         'cv_file_path',
         'cv_original_name',
         'cv_mime',

@@ -2,7 +2,6 @@
 
 namespace Database\Factories;
 
-use App\Models\Application;
 use App\Models\JobPosting;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -25,6 +24,9 @@ class ApplicationFactory extends Factory
 
     public function definition(): array
     {
+        $firstName = fake()->firstName();
+        $lastName = fake()->lastName();
+
         return [
             'idcode' => 'app_' . Str::uuid()->toString(),
             'job_id' => JobPosting::factory(),
@@ -32,16 +34,16 @@ class ApplicationFactory extends Factory
             'message' => fake()->randomElement(self::$messages),
             'cv_file_path' => 'cvs/' . Str::uuid()->toString() . '.pdf',
             'cv_original_name' => fake()->randomElement([
+                "{$firstName}_{$lastName}_Resume.pdf",
+                "{$firstName}_{$lastName}_CV.pdf",
+                "Resume_{$lastName}.pdf",
+                "CV_{$firstName}_{$lastName}_2025.pdf",
                 'resume.pdf',
                 'cv.pdf',
-                'John_Smith_Resume.pdf',
-                'Jane_Doe_CV.pdf',
-                'Resume_2025.pdf',
-                'CV_updated.pdf',
             ]),
             'cv_mime' => 'application/pdf',
-            'cv_size_bytes' => fake()->numberBetween(50000, 5000000),
-            'cv_sha256' => Str::random(64),
+            'cv_size_bytes' => fake()->numberBetween(50000, 4500000),
+            'cv_sha256' => bin2hex(random_bytes(32)),
         ];
     }
 }

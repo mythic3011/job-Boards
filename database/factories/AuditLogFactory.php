@@ -2,18 +2,27 @@
 
 namespace Database\Factories;
 
-use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 class AuditLogFactory extends Factory
 {
+    private static array $eventTypes = [
+        'user_login', 'login_failed', 'user_registered',
+        'account_locked', 'account_locked_attempt',
+        'profile_updated', 'profile_image_deleted', 'password_updated',
+        '2fa.enabled', '2fa.confirmed', '2fa.disabled', '2fa.recovery_codes_regenerated',
+        'cv_download', 'admin.job.updated',
+        'password_reset.link_sent', 'password_reset_completed',
+        'suspicious_user_agent', 'admin_probe',
+    ];
+
+    private static array $actorTypes = ['user', 'guest'];
+
     public function definition(): array
     {
         $methods = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
-        $eventTypes = ['created', 'updated', 'deleted', 'viewed', 'login', 'logout'];
-        $actorTypes = ['user', 'system', 'guest'];
         $statusCodes = [200, 201, 204, 400, 401, 403, 404, 422, 500];
 
         return [
@@ -21,8 +30,8 @@ class AuditLogFactory extends Factory
             'occurred_at' => fake()->dateTimeBetween('-1 year', 'now'),
             'request_id' => Str::uuid()->toString(),
             'actor_user_id' => User::factory(),
-            'actor_type' => fake()->randomElement($actorTypes),
-            'event_type' => fake()->randomElement($eventTypes),
+            'actor_type' => fake()->randomElement(self::$actorTypes),
+            'event_type' => fake()->randomElement(self::$eventTypes),
             'method' => fake()->randomElement($methods),
             'path' => '/' . fake()->words(3, true),
             'status_code' => fake()->randomElement($statusCodes),
@@ -32,7 +41,6 @@ class AuditLogFactory extends Factory
             'target_idcode' => fake()->optional()->uuid(),
             'meta' => fake()->optional()->randomElement([
                 null,
-                ['key' => 'value'],
                 ['action' => 'test', 'details' => fake()->sentence()],
             ]),
         ];

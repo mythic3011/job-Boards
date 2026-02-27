@@ -36,7 +36,7 @@ class SecurityHeaders
 
         $csp = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'" . $viteDevServer,
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval'" . $viteDevServer,
             "style-src 'self' 'unsafe-inline'" . $viteDevServer,
             "img-src 'self' data: https:",
             "font-src 'self' data:",

@@ -22,8 +22,23 @@ class JobPosting extends Model
         'title',
         'requirement',
         'duty',
-        'salary',
+        'salary_from',
+        'salary_to',
     ];
+
+    /**
+     * Display-friendly salary string, e.g. "$50,000 - $70,000" or "$50,000".
+     */
+    public function getSalaryAttribute(): ?string
+    {
+        if (!$this->salary_from) {
+            return null;
+        }
+        if ($this->salary_to) {
+            return '$' . number_format($this->salary_from) . ' - $' . number_format($this->salary_to);
+        }
+        return '$' . number_format($this->salary_from);
+    }
 
     protected static function boot(): void
     {
