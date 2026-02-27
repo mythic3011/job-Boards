@@ -35,4 +35,14 @@ else
     echo "MONITORING_PASSWORD not set, skipping htpasswd generation."
 fi
 
+# Remove symlinks and create actual log files for CrowdSec
+if [ -L /var/log/nginx/access.log ]; then
+    rm -f /var/log/nginx/access.log
+    touch /var/log/nginx/access.log
+fi
+if [ -L /var/log/nginx/error.log ]; then
+    rm -f /var/log/nginx/error.log
+    touch /var/log/nginx/error.log
+fi
+
 exec nginx -g 'daemon off;'
