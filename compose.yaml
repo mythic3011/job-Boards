@@ -31,10 +31,9 @@ services:
                 crowdsecurity/http-cve
                 crowdsecurity/base-http-scenarios
             GID: "1000"
-        entrypoint: ["/crowdsec-entrypoint.sh"]
         volumes:
-            - ./docker/crowdsec/acquis.d:/etc/crowdsec/acquis.d:ro
-            - ./docker/crowdsec/entrypoint.sh:/crowdsec-entrypoint.sh:ro
+            - ./docker/crowdsec/acquis.d/nginx.yaml:/etc/crowdsec/acquis.d/nginx.yaml:ro
+            - ./docker/crowdsec/acquis.d/laravel.yaml:/etc/crowdsec/acquis.d/laravel.yaml:ro
             - nginx-logs:/var/log/nginx:ro
             - laravel-logs:/var/log/laravel:ro
             - crowdsec-db:/var/lib/crowdsec/data
@@ -42,15 +41,21 @@ services:
             - crowdsec-keys:/crowdsec-keys
         networks:
             - sail
+        depends_on:
+            laravel.test:
+                condition: service_started
         restart: unless-stopped
         healthcheck:
-            test: ["CMD", "cscli", "version"]
+            test:
+                [
+                    "CMD-SHELL",
+                    "test -f /etc/crowdsec/config.yaml && cscli version || exit 1",
+                ]
             interval: 10s
             timeout: 5s
-            retries: 5
-            start_period: 30s
+            retries: 10
+            start_period: 60s
 
-    # Init container: waits for CrowdSec, generates bouncer key into shared volume, then exits
     crowdsec-key-init:
         image: crowdsecurity/crowdsec:latest
         entrypoint: ["/init-bouncer-key.sh"]
@@ -96,13 +101,9 @@ services:
             - "host.docker.internal:host-gateway"
         ports:
             - "127.0.0.1:${VITE_PORT:-5173}:${VITE_PORT:-5173}"
-            # uncomment for debug
-            # - "127.0.0.1:${APP_PORT:-80}:80"
         environment:
             WWWUSER: ${WWWUSER}
             LARAVEL_SAIL:
-            # uncoment for debug
-            # XDEBUG_MODE: ${SAIL_XDEBUG_MODE:-debug}
             XDEBUG_MODE: ${SAIL_XDEBUG_MODE:-off}
             XDEBUG_CONFIG: ${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}
             IGNITION_LOCAL_SITES_PATH: ${PWD}
