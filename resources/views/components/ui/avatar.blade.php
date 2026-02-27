@@ -20,8 +20,8 @@
 @endphp
 
 <div class="relative {{ $sizeClasses }} rounded-full overflow-hidden {{ $class }}" data-avatar>
-    <div class="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600">
-        <span class="font-bold text-white">{{ $initial }}</span>
+    <div class="absolute inset-0 w-full h-full flex items-center justify-center bg-indigo-500">
+        <span class="font-bold">{{ $initial }}</span>
     </div>
     @if($src)
         <img src="{{ $src }}"

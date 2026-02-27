@@ -19,7 +19,7 @@
             @endif
         </div>
         @isset($icon)
-            <div class="{{ $iconColor }} flex-shrink-0 ml-4" aria-hidden="true">
+            <div class="{{ $iconColor }} shrink-0 ml-4" aria-hidden="true">
                 {{ $icon }}
             </div>
         @endisset

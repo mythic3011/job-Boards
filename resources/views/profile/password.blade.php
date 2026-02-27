@@ -4,6 +4,14 @@
 
 @section('content')
 <div class="max-w-2xl mx-auto">
+    <nav class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <a href="{{ route('profile.show') }}" class="hover:text-indigo-600 transition-colors">Profile</a>
+        <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+        <span class="text-gray-900 font-medium">Change Password</span>
+    </nav>
+
     <div class="mb-6">
         <h1 class="text-3xl font-bold text-gray-900">Change Password</h1>
         <p class="text-gray-600 mt-1">Update your password to keep your account secure</p>
@@ -101,8 +109,8 @@
             </div>
 
             <!-- Password Requirements -->
-            <div class="mt-6 p-4 bg-gray-50 rounded-md">
-                <h3 class="text-sm font-medium text-gray-900 mb-2">Password Requirements</h3>
+            <div class="mt-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <h3 class="text-sm font-semibold text-gray-900 mb-2">Password Requirements</h3>
                 <ul class="text-sm text-gray-600 space-y-1">
                     <li>• At least 12 characters long</li>
                     <li>• Contains uppercase and lowercase letters</li>

@@ -21,19 +21,27 @@ new class extends Component
     #[Validate('required|string')]
     public string $duty = '';
 
-    #[Validate('nullable|string|max:255|regex:/^(?!\s+$)[0-9\s\-,]*$/')]
-    public ?string $salary = null;
+    #[Validate('nullable|integer|min:0|max:99999999')]
+    public ?int $salary_from = null;
+
+    #[Validate('nullable|integer|min:0|max:99999999')]
+    public ?int $salary_to = null;
+
+    public function updatedSalaryFrom(mixed $value): void
+    {
+        $this->salary_from = $value !== '' && $value !== null ? (int) $value : null;
+    }
+
+    public function updatedSalaryTo(mixed $value): void
+    {
+        $this->salary_to = $value !== '' && $value !== null ? (int) $value : null;
+    }
 
     private function normalizeInput(): void
     {
         $this->title = trim($this->title);
         $this->requirement = trim($this->requirement);
         $this->duty = trim($this->duty);
-        $this->salary = $this->salary !== null ? trim($this->salary) : null;
-
-        if ($this->salary === '') {
-            $this->salary = null;
-        }
     }
 
     public function mount(): void
@@ -48,11 +56,17 @@ new class extends Component
         $this->normalizeInput();
         $this->validate();
 
+        if ($this->salary_to && $this->salary_from && $this->salary_to <= $this->salary_from) {
+            $this->addError('salary_to', 'The upper salary must be greater than the lower salary.');
+            return null;
+        }
+
         $job = $jobService->createJob([
             'title' => $this->title,
             'requirement' => $this->requirement,
             'duty' => $this->duty,
-            'salary' => $this->salary,
+            'salary_from' => $this->salary_from,
+            'salary_to' => $this->salary_to,
         ]);
 
         session()->flash('message', 'Job posting created successfully!');
@@ -62,7 +76,19 @@ new class extends Component
 }; ?>
 
 <div class="max-w-4xl mx-auto">
-    <h1 class="text-3xl font-bold mb-6">Create Job</h1>
+    {{-- Breadcrumb --}}
+    <nav class="mb-4 flex items-center gap-2 text-sm text-gray-500">
+        <a href="{{ route('jobs.index') }}" class="hover:text-indigo-600 transition-colors">Jobs</a>
+        <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+        </svg>
+        <span class="text-gray-900 font-medium">Post a Job</span>
+    </nav>
+
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">Post a Job</h1>
+        <p class="text-sm text-gray-500 mt-1">Fill in the details below to publish your job listing.</p>
+    </div>
 
     <x-ui.card padding="p-8">
         <form
@@ -95,20 +121,43 @@ new class extends Component
                 required
             />
 
-            <x-ui.input
-                label="Salary (Optional, HK$)"
-                name="salary"
-                wire:model="salary"
-                placeholder="e.g., 50000 - 70000"
-                inputmode="numeric"
-                pattern="[0-9\s\-,]*"
-                title="Please enter only numbers, spaces, hyphens, and commas"
-                oninput="if (/[^0-9\s\-,]/.test(this.value)) { alert('Only numbers, spaces, hyphens, and commas are allowed'); this.value = this.value.replace(/[^0-9\s\-,]/g, ''); }"
-            />
+            <div>
+                <x-ui.form-label>Salary (Optional, HK$)</x-ui.form-label>
+                <div class="mt-1 flex items-center gap-3">
+                    <div class="relative flex-1">
+                        <span class="pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm text-gray-400">$</span>
+                        <input
+                            type="number"
+                            wire:model="salary_from"
+                            placeholder="From"
+                            min="0"
+                            max="99999999"
+                            step="1"
+                            class="block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-gray-900 text-right shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                        >
+                    </div>
+                    <span class="shrink-0 text-sm text-gray-400">to</span>
+                    <div class="relative flex-1">
+                        <span class="pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm text-gray-400">$</span>
+                        <input
+                            type="number"
+                            wire:model="salary_to"
+                            placeholder="To (optional)"
+                            min="0"
+                            max="99999999"
+                            step="1"
+                            class="block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-gray-900 text-right shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                        >
+                    </div>
+                </div>
+                <p class="mt-1.5 text-xs text-gray-400">Leave blank if not specified. "To" is optional for a range.</p>
+                <x-ui.form-error name="salary_from" />
+                <x-ui.form-error name="salary_to" />
+            </div>
 
-            <div class="flex gap-4">
+            <div class="flex gap-4 pt-2">
                 <x-ui.button type="submit" variant="primary" size="lg">
-                    Create Job Posting
+                    Publish Job Posting
                 </x-ui.button>
                 <x-ui.button href="{{ route('jobs.index') }}" variant="outline" size="lg">
                     Cancel

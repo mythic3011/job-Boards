@@ -33,7 +33,7 @@
 
     <div class="flex flex-col items-center space-y-4">
         <div class="relative group">
-            <div class="relative w-32 h-32 rounded-full overflow-hidden border-4 {{ $hasError ? 'border-red-300' : 'border-gray-200' }} bg-gradient-to-br from-blue-400 to-purple-500 shadow-lg"
+            <div class="relative w-32 h-32 rounded-full overflow-hidden border-4 {{ $hasError ? 'border-red-300' : 'border-gray-200' }} bg-indigo-100 shadow-lg"
                  id="{{ $inputId }}-container">
                 @if($hasCurrentImage)
                     <img src="{{ $currentImage }}" 
@@ -42,7 +42,7 @@
                          id="{{ $inputId }}-current-avatar">
                 @else
                     <!-- Default Avatar with Initial -->
-                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600"
+                    <div class="w-full h-full flex items-center justify-center bg-indigo-100"
                          id="{{ $inputId }}-current-avatar">
                         <span class="text-4xl font-bold text-white">{{ $userInitial }}</span>
                     </div>
@@ -127,7 +127,7 @@
     @error($name)
         <div class="text-center">
             <p class="text-sm text-red-600 flex items-center justify-center gap-2">
-                <svg class="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
                 </svg>
                 {{ $message }}
@@ -147,61 +147,49 @@ let pendingChange = null;
 
 function handleAvatarSelect(input) {
     const file = input.files[0];
-    console.log('File selected:', file);
 
-    if (!file) {
-        console.log('No file selected.');
-        return;
-    }
+    if (!file) return;
 
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
     if (!allowedTypes.includes(file.type.toLowerCase())) {
-        console.error('Invalid file type:', file.type);
         showToast('Please select a valid image file (JPG, PNG, WebP, or GIF)', 'error');
         input.value = '';
         return;
     }
 
     if (file.size > 2097152) {
-        console.error('File size exceeds limit:', file.size);
         showToast('File size must be less than 2MB', 'error');
         input.value = '';
         return;
     }
 
-    console.log('Valid file selected:', file.name);
     showAvatarPreview(file, input);
 }
 
 function showAvatarPreview(file, input) {
     const reader = new FileReader();
     reader.onload = e => {
-        console.log('File read successfully:', e.target.result);
         const container = document.getElementById(`${input.id}-container`);
-        const $current = document.getElementById(`${input.id}-current-avatar`);
-        const $actions = document.getElementById(`${input.id}-actions`);
+        const current = document.getElementById(`${input.id}-current-avatar`);
+        const actions = document.getElementById(`${input.id}-actions`);
 
-        if (container && $current) {
-            // Create preview image if it doesn't exist
-            let $preview = document.getElementById(`${input.id}-preview-avatar`);
-            if (!$preview) {
-                $preview = document.createElement('img');
-                $preview.id = `${input.id}-preview-avatar`;
-                $preview.alt = 'Preview';
-                $preview.className = 'w-full h-full object-cover absolute inset-0 rounded-full';
-                container.appendChild($preview);
+        if (container && current) {
+            let preview = document.getElementById(`${input.id}-preview-avatar`);
+            if (!preview) {
+                preview = document.createElement('img');
+                preview.id = `${input.id}-preview-avatar`;
+                preview.alt = 'Preview';
+                preview.className = 'w-full h-full object-cover absolute inset-0 rounded-full';
+                container.appendChild(preview);
             }
-            
-            $preview.src = e.target.result;
-            $preview.style.cssText = 'width: 100% !important; height: 100% !important; object-fit: cover !important; position: absolute !important; inset: 0 !important; opacity: 1 !important; visibility: visible !important; display: block !important; z-index: 10; border: none !important; border-radius: 50% !important;';
-            
-            // Hide the background gradient and border to show only the image
+
+            preview.src = e.target.result;
+            preview.style.cssText = 'width: 100% !important; height: 100% !important; object-fit: cover !important; position: absolute !important; inset: 0 !important; opacity: 1 !important; visibility: visible !important; display: block !important; z-index: 10; border: none !important; border-radius: 50% !important;';
             container.style.cssText = 'background: transparent !important; border: none !important; box-shadow: 0 0 0 2px #e5e7eb;';
-            
-            $current.style.opacity = '0.3';
-            if ($actions) {
-                $actions.classList.remove('opacity-0');
-                $actions.classList.add('opacity-100');
+            current.style.opacity = '0.3';
+            if (actions) {
+                actions.classList.remove('opacity-0');
+                actions.classList.add('opacity-100');
             }
             pendingChange = {inputId: input.id, file, dataUrl: e.target.result};
             showToast('Photo ready to save', 'info');
@@ -209,7 +197,6 @@ function showAvatarPreview(file, input) {
     };
 
     reader.onerror = () => {
-        console.error('Error reading file.');
         showToast('Error reading file. Please try again.', 'error');
         input.value = '';
     };
@@ -287,20 +274,34 @@ function resetAvatarState(input) {
 
 function removeCurrentAvatar(inputId) {
     if (!confirm('Are you sure you want to remove your profile photo?')) return;
-    const $form = $('<form method="POST" action="/profile/image" style="display:none">').append($('<input type="hidden" name="_method" value="DELETE">')).append($('<input type="hidden" name="_token">').val($('meta[name="csrf-token"]').attr('content')));
-    $('body').append($form), showToast('Removing profile photo...', 'info'), $form.submit();
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/profile/image';
+    form.style.display = 'none';
+    const methodInput = document.createElement('input');
+    methodInput.type = 'hidden';
+    methodInput.name = '_method';
+    methodInput.value = 'DELETE';
+    const tokenMeta = document.querySelector('meta[name="csrf-token"]');
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'hidden';
+    tokenInput.name = '_token';
+    tokenInput.value = tokenMeta ? tokenMeta.getAttribute('content') : '';
+    form.appendChild(methodInput);
+    form.appendChild(tokenInput);
+    document.body.appendChild(form);
+    showToast('Removing profile photo...', 'info');
+    form.submit();
 }
 
 // Legacy compatibility
-const handleFileSelect = handleAvatarSelect, clearFilePreview = cancelAvatarChange, changeImage = inputId => $(`#${inputId}`).click();
+const handleFileSelect = handleAvatarSelect, clearFilePreview = cancelAvatarChange, changeImage = inputId => document.getElementById(inputId)?.click();
 
 function showToast(message, type = 'info') {
-    window.toast ? window.toast.show(message, type) : console.log(`Toast (${type}): ${message}`) || ($ && createSimpleToast(message, type));
-}
-
-function createSimpleToast(message, type) {
-    const colors = {success: 'bg-green-500', error: 'bg-red-500', warning: 'bg-yellow-500', info: 'bg-blue-500'};
-    const $toast = $(`<div class="fixed top-4 right-4 ${colors[type] || colors.info} text-white px-6 py-3 rounded-lg shadow-lg z-50 transform transition-all duration-300 opacity-0 translate-x-full"><div class="flex items-center gap-2"><span>${message}</span><button class="ml-2 text-white hover:text-gray-200 font-bold" onclick="$(this).closest('div').fadeOut()">&times;</button></div></div>`);
-    $('body').append($toast), setTimeout(() => $toast.removeClass('opacity-0 translate-x-full'), 10), setTimeout(() => $toast.fadeOut(300, function() { $(this).remove(); }), 5000);
+    if (window.toast) {
+        window.toast.show(message, type);
+    } else {
+        console.log(`Toast (${type}): ${message}`);
+    }
 }
 </script>

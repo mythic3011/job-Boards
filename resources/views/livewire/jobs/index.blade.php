@@ -53,7 +53,7 @@ new class extends Component
             ->where('title', 'ilike', '%' . $this->search . '%')
             ->latest()
             ->limit(6)
-            ->get(['id', 'idcode', 'title', 'salary', 'company_user_id', 'created_at']);
+            ->get(['id', 'idcode', 'title', 'salary_from', 'salary_to', 'company_user_id', 'created_at']);
     }
 
     public function getRecentJobsProperty(): \Illuminate\Database\Eloquent\Collection
@@ -77,7 +77,7 @@ new class extends Component
         }
 
         match ($this->sort) {
-            'salary_desc' => $query->orderByRaw('salary DESC NULLS LAST'),
+            'salary_desc' => $query->orderBy('salary_from', 'desc'),
             'oldest'      => $query->oldest(),
             default       => $query->latest(),
         };
@@ -242,7 +242,7 @@ new class extends Component
                                     <p class="text-sm text-gray-500">{{ $job->companyUser?->nickname ?? 'Unknown company' }}</p>
                                     @if($job->salary)
                                         <span class="text-gray-300">&middot;</span>
-                                        <span class="text-sm font-semibold text-emerald-700">HKD{{ $job->salary }}</span>
+                                        <span class="text-sm font-semibold text-emerald-700">{{ $job->salary }}</span>
                                     @endif
                                 </div>
 

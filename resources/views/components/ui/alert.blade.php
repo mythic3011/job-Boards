@@ -12,7 +12,7 @@
         'info' => 'border-blue-200 bg-blue-50 text-blue-800',
     ];
     
-    $classes = 'rounded-md border px-4 py-3 text-sm ' . ($typeClasses[$type] ?? $typeClasses['info']);
+    $classes = 'rounded-lg border px-4 py-3 text-sm ' . ($typeClasses[$type] ?? $typeClasses['info']);
     
     $ariaLive = in_array($type, ['success', 'error']) ? 'polite' : 'off';
     $autoDismiss = in_array($type, ['success', 'error']);
@@ -33,7 +33,7 @@
     <div class="flex items-start justify-between gap-3">
         <div class="flex items-start gap-2 flex-1">
             @if($icon)
-                <div class="flex-shrink-0 mt-0.5">
+                <div class="shrink-0 mt-0.5">
                     {{ $icon }}
                 </div>
             @endif
@@ -42,7 +42,7 @@
         @if($dismissible)
             <button
                 type="button"
-                class="flex-shrink-0 text-current opacity-50 hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded"
+                class="shrink-0 text-current opacity-50 hover:opacity-75 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded cursor-pointer"
                 @click="show = false"
                 aria-label="Dismiss alert"
             >

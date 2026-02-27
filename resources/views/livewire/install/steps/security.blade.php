@@ -42,7 +42,7 @@
             </div>
             <div class="p-4 flex flex-col sm:flex-row items-center gap-6">
                 {{-- QR Code --}}
-                <div class="flex-shrink-0">
+                <div class="shrink-0">
                     @if($qrCodeDataUrl)
                         <div class="bg-white p-3 border border-gray-200 rounded-lg inline-block">
                             {!! $qrCodeDataUrl !!}
@@ -60,7 +60,7 @@
                     <div class="flex items-center gap-2">
                         <code class="flex-1 text-sm font-mono bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 break-all">{{ $formattedSecret }}</code>
                         <button type="button" @click="copySecret"
-                            class="flex-shrink-0 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-w-[56px] text-center">
+                            class="shrink-0 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-w-[56px] text-center">
                             <span x-show="!copying">Copy</span>
                             <span x-show="copying" class="text-green-600">Copied!</span>
                         </button>
@@ -78,7 +78,7 @@
             <div class="p-4">
                 @if($testSuccess)
                     <div class="flex items-center gap-2 text-green-700">
-                        <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
                         </svg>
                         <span class="text-sm font-medium">Verified — your authenticator app is working correctly</span>
@@ -113,7 +113,7 @@
                     <p class="text-xs text-gray-500 mt-0.5">Store these somewhere safe — you'll need them if you lose your device</p>
                 </div>
                 <button type="button" @click="showCodes = !showCodes"
-                    class="text-xs text-amber-700 font-medium hover:text-amber-900 underline flex-shrink-0 ml-4">
+                    class="text-xs text-amber-700 font-medium hover:text-amber-900 underline shrink-0 ml-4">
                     <span x-show="!showCodes">Show</span>
                     <span x-show="showCodes">Hide</span>
                 </button>

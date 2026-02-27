@@ -8,7 +8,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                     </svg>
                 </div>
-                <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
+                <h2 class="mt-6 text-center text-3xl font-bold text-gray-900">
                     Sign in to your account
                 </h2>
                 <p class="mt-2 text-center text-sm text-gray-600">
@@ -19,80 +19,71 @@
                 </p>
             </div>
 
-            <div class="bg-white shadow-md rounded-lg p-8">
+            <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-8">
                 <form class="space-y-6" action="{{ route('login') }}" method="POST">
                     @csrf
                     <x-honeypot />
 
                     <div>
-                        <label for="login_id" class="block text-sm font-medium text-gray-700">
+                        <label for="login_id" class="block text-sm font-medium text-gray-700 mb-1">
                             Username or Email
                         </label>
-                        <div class="mt-1">
-                            <input
-                                id="login_id"
-                                name="login_id"
-                                type="text"
-                                autocomplete="username"
-                                required
-                                autofocus
-                                value="{{ old('login_id') }}"
-                                class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('login_id') border-red-300 @enderror"
-                                placeholder="Enter your username or email"
-                            >
-                        </div>
+                        <input
+                            id="login_id"
+                            name="login_id"
+                            type="text"
+                            autocomplete="username"
+                            required
+                            autofocus
+                            value="{{ old('login_id') }}"
+                            class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all {{ $errors->has('login_id') ? 'border-red-300' : 'border-gray-300' }}"
+                            placeholder="Enter your username or email"
+                        >
                         @error('login_id')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700">
+                        <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
                             Password
                         </label>
-                        <div class="mt-1">
-                            <input
-                                id="password"
-                                name="password"
-                                type="password"
-                                autocomplete="current-password"
-                                required
-                                class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('password') border-red-300 @enderror"
-                            >
-                        </div>
+                        <input
+                            id="password"
+                            name="password"
+                            type="password"
+                            autocomplete="current-password"
+                            required
+                            class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all {{ $errors->has('password') ? 'border-red-300' : 'border-gray-300' }}"
+                        >
                         @error('password')
-                            <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
                         @enderror
                     </div>
 
                     <div class="flex items-center justify-between">
-                        <div class="flex items-center">
+                        <div class="flex items-center gap-2">
                             <input
                                 id="remember"
                                 name="remember"
                                 type="checkbox"
-                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded cursor-pointer"
                             >
-                            <label for="remember" class="ml-2 block text-sm text-gray-900">
+                            <label for="remember" class="text-sm text-gray-700 cursor-pointer">
                                 Remember me
                             </label>
                         </div>
-
-                        <div class="text-sm">
-                            <a href="{{ route('password.request') }}" class="font-medium text-indigo-600 hover:text-indigo-500">
-                                Forgot password?
-                            </a>
-                        </div>
+                        <a href="{{ route('password.request') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                            Forgot password?
+                        </a>
                     </div>
 
-                    <div>
-                        <button
-                            type="submit"
-                            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                        >
-                            Sign in
-                        </button>
-                    </div>
+                    <button
+                        type="submit"
+                        class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors cursor-pointer"
+                    >
+                        Sign in
+                    </button>
                 </form>
             </div>
 

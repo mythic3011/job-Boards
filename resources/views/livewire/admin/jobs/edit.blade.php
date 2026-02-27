@@ -25,8 +25,21 @@ new class extends Component
     #[Validate('required|string')]
     public string $duty = '';
 
-    #[Validate('nullable|string|max:255|regex:/^(?!\s+$)[0-9\s\-,]*$/')]
-    public ?string $salary = null;
+    #[Validate('nullable|integer|min:0|max:99999999')]
+    public ?int $salary_from = null;
+
+    #[Validate('nullable|integer|min:0|max:99999999')]
+    public ?int $salary_to = null;
+
+    public function updatedSalaryFrom(mixed $value): void
+    {
+        $this->salary_from = $value !== '' && $value !== null ? (int) $value : null;
+    }
+
+    public function updatedSalaryTo(mixed $value): void
+    {
+        $this->salary_to = $value !== '' && $value !== null ? (int) $value : null;
+    }
 
     public function mount(string $idcode): void
     {
@@ -38,7 +51,8 @@ new class extends Component
         $this->title = $this->job->title;
         $this->requirement = $this->job->requirement;
         $this->duty = $this->job->duty;
-        $this->salary = $this->job->salary;
+        $this->salary_from = $this->job->salary_from;
+        $this->salary_to = $this->job->salary_to;
     }
 
     private function normalizeInput(): void
@@ -46,11 +60,6 @@ new class extends Component
         $this->title = trim($this->title);
         $this->requirement = trim($this->requirement);
         $this->duty = trim($this->duty);
-        $this->salary = $this->salary !== null ? trim($this->salary) : null;
-
-        if ($this->salary === '') {
-            $this->salary = null;
-        }
     }
 
     public function update(AuditLogger $auditLogger): mixed
@@ -67,11 +76,17 @@ new class extends Component
             return null;
         }
 
+        if ($this->salary_to && $this->salary_from && $this->salary_to <= $this->salary_from) {
+            $this->addError('salary_to', 'The upper salary must be greater than the lower salary.');
+            return null;
+        }
+
         $this->job->update([
             'title' => $this->title,
             'requirement' => $this->requirement,
             'duty' => $this->duty,
-            'salary' => $this->salary,
+            'salary_from' => $this->salary_from,
+            'salary_to' => $this->salary_to,
         ]);
 
         $auditLogger->logBusinessEvent(
@@ -106,14 +121,14 @@ new class extends Component
         class="mb-6 flex items-start gap-3 rounded-xl border border-red-300 bg-red-50 px-5 py-4 shadow-sm"
         role="alert"
     >
-        <svg class="mt-0.5 h-5 w-5 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
         <div class="flex-1">
             <p class="text-sm font-semibold text-red-800">Validation Error</p>
             <p class="mt-0.5 text-sm text-red-700" x-text="validationAlert"></p>
         </div>
-        <button type="button" @click="validationAlert = ''" class="flex-shrink-0 rounded text-red-400 hover:text-red-600 focus:outline-none" aria-label="Dismiss">
+        <button type="button" @click="validationAlert = ''" class="shrink-0 rounded text-red-400 hover:text-red-600 focus:outline-none" aria-label="Dismiss">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -168,16 +183,39 @@ new class extends Component
                 required
             />
 
-            <x-ui.input
-                label="Salary (Optional, HK$)"
-                name="salary"
-                wire:model="salary"
-                placeholder="e.g., 50,000 - 70,000"
-                inputmode="numeric"
-                pattern="[0-9\s\-,]*"
-                title="Please enter only numbers, spaces, hyphens, and commas"
-                oninput="if (/[^0-9\s\-,]/.test(this.value)) { alert('Only numbers, spaces, hyphens, and commas are allowed'); this.value = this.value.replace(/[^0-9\s\-,]/g, ''); }"
-            />
+            <div>
+                <x-ui.form-label>Salary (Optional, HK$)</x-ui.form-label>
+                <div class="mt-1 flex items-center gap-3">
+                    <div class="relative flex-1">
+                        <span class="pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm text-gray-400">$</span>
+                        <input
+                            type="number"
+                            wire:model="salary_from"
+                            placeholder="From"
+                            min="0"
+                            max="99999999"
+                            step="1"
+                            class="block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-gray-900 text-right shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                        >
+                    </div>
+                    <span class="shrink-0 text-sm text-gray-400">to</span>
+                    <div class="relative flex-1">
+                        <span class="pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm text-gray-400">$</span>
+                        <input
+                            type="number"
+                            wire:model="salary_to"
+                            placeholder="To (optional)"
+                            min="0"
+                            max="99999999"
+                            step="1"
+                            class="block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-gray-900 text-right shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                        >
+                    </div>
+                </div>
+                <p class="mt-1.5 text-xs text-gray-400">Leave blank if not specified. "To" is optional for a range.</p>
+                <x-ui.form-error name="salary_from" />
+                <x-ui.form-error name="salary_to" />
+            </div>
 
             <div class="flex gap-4">
                 <x-ui.button type="submit" variant="primary" size="lg">

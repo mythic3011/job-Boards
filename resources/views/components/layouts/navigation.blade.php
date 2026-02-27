@@ -50,7 +50,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
                     </svg>
                 </button>
-                <div class="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-[100] border border-gray-200 opacity-0 scale-95 pointer-events-none transition-all duration-100" data-dropdown-menu>
+                <div class="absolute left-0 mt-2 w-48 bg-white rounded-lg shadow-lg py-1 z-[100] border border-gray-200 opacity-0 scale-95 pointer-events-none transition-all duration-100" data-dropdown-menu>
                     @can('admin.users.view')
                         <a href="{{ route('admin.users.index') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">Users</a>
                     @endcan

@@ -43,6 +43,10 @@ Route::middleware([
         ->middleware('permission:admin.applications.view')
         ->name('applications.index');
 
+    Volt::route('/applications/{idcode}', 'admin.applications.show')
+        ->middleware('permission:admin.applications.view')
+        ->name('applications.show');
+
     // Audit Logs
     Volt::route('/audit-logs', 'admin.audit-logs')
         ->middleware('permission:admin.system.view')

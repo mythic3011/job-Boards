@@ -37,5 +37,6 @@
         @livewire('components.maintenance-alert')
     @endauth
     <x-layouts.assets />
+    <div id="modal-root" class="relative z-[9999]"></div>
 </body>
 </html>

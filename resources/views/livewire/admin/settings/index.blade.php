@@ -65,17 +65,14 @@ new class extends Component
         $this->authorize('admin.settings.update');
         $this->validate();
 
-        // Password confirmation for security
         if (empty($this->password)) {
             $this->addError('password', 'Password confirmation is required for security.');
-
             return;
         }
 
-        if (! \Illuminate\Support\Facades\Hash::check($this->password, auth()->user()->password)) {
+        if (!\Illuminate\Support\Facades\Hash::check($this->password, auth()->user()->password)) {
             $this->addError('password', 'The provided password is incorrect.');
             $this->password = '';
-
             return;
         }
 
@@ -98,13 +95,11 @@ new class extends Component
             return;
         }
 
-        // Get current database state
         $demoModeBefore = Setting::getBool('demo_mode', false);
         $registrationsOpenBefore = Setting::getBool('registrations_open', true);
         $maintenanceModeBefore = Setting::getBool('maintenance_mode', false);
 
-        // NEW: Double check against actual DB state
-        if ($this->demo_mode === $demoModeBefore && 
+        if ($this->demo_mode === $demoModeBefore &&
             $this->registrations_open === $registrationsOpenBefore &&
             $this->maintenance_mode === $maintenanceModeBefore) {
             $this->current_demo_mode = $demoModeBefore;
@@ -166,14 +161,12 @@ new class extends Component
     {
         $demoSeededAt = Setting::get('demo_seeded_at');
 
-        if (! $demoSeededAt) {
+        if (!$demoSeededAt) {
             \Log::warning('Attempted to clear demo data but no demo_seeded_at timestamp found');
             session()->flash('error', 'No demo data to clear.');
-
             return;
         }
 
-        // Only delete users created AFTER demo seeding
         \Illuminate\Support\Facades\DB::transaction(function () use ($demoSeededAt) {
             $demoUsers = \App\Models\User::whereDoesntHave('roles', function ($query) {
                 $query->where('name', 'admin');
@@ -185,11 +178,9 @@ new class extends Component
 
             if ($userCount === 0) {
                 \Log::info('No demo users to delete');
-
                 return;
             }
 
-            // Audit log BEFORE deletion
             app(\App\Services\AuditLogger::class)->logBusinessEvent(
                 eventType: 'demo.data_cleared',
                 request: request(),
@@ -212,19 +203,29 @@ new class extends Component
 
     protected function hasChanges(): bool
     {
-        // Use loose comparison to handle type juggling if needed, though boolean properties should be fine
-        return $this->demo_mode !== $this->current_demo_mode || 
+        return $this->demo_mode !== $this->current_demo_mode ||
                $this->registrations_open !== $this->current_registrations_open ||
                $this->maintenance_mode !== $this->current_maintenance_mode;
     }
 }; ?>
 
-<div>
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-3xl font-bold">System Settings</h1>
-    </div>
-
-    {{-- NEW: Support for multiple alert types --}}
+<div
+    x-data="{
+        demoMode: @entangle('demo_mode'),
+        registrationsOpen: @entangle('registrations_open'),
+        maintenanceMode: @entangle('maintenance_mode'),
+        currentDemoMode: @entangle('current_demo_mode'),
+        currentRegistrationsOpen: @entangle('current_registrations_open'),
+        currentMaintenanceMode: @entangle('current_maintenance_mode'),
+        showConfirm: @entangle('showConfirmModal'),
+        get hasChanges() {
+            return this.demoMode !== this.currentDemoMode
+                || this.registrationsOpen !== this.currentRegistrationsOpen
+                || this.maintenanceMode !== this.currentMaintenanceMode;
+        }
+    }"
+>
+    {{-- Flash Messages --}}
     @if (session('message'))
         <x-ui.alert type="success" class="mb-6">
             {{ session('message') }}
@@ -243,30 +244,18 @@ new class extends Component
         </x-ui.alert>
     @endif
 
+    {{-- Settings Card --}}
     <x-ui.card padding="p-8">
-        <form
-            wire:submit.prevent="save"
-            class="space-y-6"
-            x-data="{ 
-                demoMode: @entangle('demo_mode'), 
-                registrationsOpen: @entangle('registrations_open'), 
-                maintenanceMode: @entangle('maintenance_mode'),
-                currentDemoMode: @entangle('current_demo_mode'), 
-                currentRegistrationsOpen: @entangle('current_registrations_open'),
-                currentMaintenanceMode: @entangle('current_maintenance_mode'),
-                showConfirm: @entangle('showConfirmModal'),
-                get hasChanges() {
-                    return this.demoMode !== this.currentDemoMode || this.registrationsOpen !== this.currentRegistrationsOpen || this.maintenanceMode !== this.currentMaintenanceMode;
-                }
-            }"
-        >
+        <form wire:submit.prevent="save" class="space-y-6">
+
             <div>
                 <h2 class="text-lg font-semibold text-gray-900">Feature Toggles</h2>
                 <p class="text-sm text-gray-600 mt-1">Configure system-wide settings and features.</p>
             </div>
 
             <div class="grid gap-4">
-                <!-- Demo Mode Setting -->
+
+                {{-- Demo Mode --}}
                 <div class="relative rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-md">
                     <div class="flex items-start justify-between gap-4">
                         <label class="flex items-start cursor-pointer flex-1">
@@ -290,9 +279,9 @@ new class extends Component
                         <div class="flex flex-col items-end gap-2">
                             <span
                                 class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm transition-all"
-                                :class="currentDemoMode 
-                                    ? 'bg-gradient-to-r from-emerald-50 to-emerald-100 text-emerald-700 ring-1 ring-emerald-600/20' 
-                                    : 'bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 ring-1 ring-gray-300/50'"
+                                :class="currentDemoMode
+                                    ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/20'
+                                    : 'bg-gray-50 text-gray-600 ring-1 ring-gray-300/50'"
                             >
                                 <span class="h-2 w-2 rounded-full" :class="currentDemoMode ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'"></span>
                                 <span x-text="currentDemoMode ? 'Active' : 'Inactive'"></span>
@@ -308,7 +297,7 @@ new class extends Component
                     </div>
                 </div>
 
-                <!-- Registrations Open Setting -->
+                {{-- User Registrations --}}
                 <div class="relative rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-md">
                     <div class="flex items-start justify-between gap-4">
                         <label class="flex items-start cursor-pointer flex-1">
@@ -332,9 +321,9 @@ new class extends Component
                         <div class="flex flex-col items-end gap-2">
                             <span
                                 class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm transition-all"
-                                :class="currentRegistrationsOpen 
-                                    ? 'bg-gradient-to-r from-blue-50 to-blue-100 text-blue-700 ring-1 ring-blue-600/20' 
-                                    : 'bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 ring-1 ring-gray-300/50'"
+                                :class="currentRegistrationsOpen
+                                    ? 'bg-blue-50 text-blue-700 ring-1 ring-blue-600/20'
+                                    : 'bg-gray-50 text-gray-600 ring-1 ring-gray-300/50'"
                             >
                                 <span class="h-2 w-2 rounded-full" :class="currentRegistrationsOpen ? 'bg-blue-500' : 'bg-gray-400'"></span>
                                 <span x-text="currentRegistrationsOpen ? 'Open' : 'Closed'"></span>
@@ -350,7 +339,7 @@ new class extends Component
                     </div>
                 </div>
 
-                <!-- System Maintenance Mode Setting -->
+                {{-- Maintenance Mode --}}
                 <div class="relative rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-all hover:shadow-md">
                     <div class="flex items-start justify-between gap-4">
                         <label class="flex items-start cursor-pointer flex-1">
@@ -374,9 +363,9 @@ new class extends Component
                         <div class="flex flex-col items-end gap-2">
                             <span
                                 class="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm transition-all"
-                                :class="currentMaintenanceMode 
-                                    ? 'bg-gradient-to-r from-red-50 to-red-100 text-red-700 ring-1 ring-red-600/20' 
-                                    : 'bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 ring-1 ring-gray-300/50'"
+                                :class="currentMaintenanceMode
+                                    ? 'bg-red-50 text-red-700 ring-1 ring-red-600/20'
+                                    : 'bg-gray-50 text-gray-600 ring-1 ring-gray-300/50'"
                             >
                                 <span class="h-2 w-2 rounded-full" :class="currentMaintenanceMode ? 'bg-red-500 animate-pulse' : 'bg-gray-400'"></span>
                                 <span x-text="currentMaintenanceMode ? 'Enabled' : 'Disabled'"></span>
@@ -391,24 +380,24 @@ new class extends Component
                         </div>
                     </div>
                 </div>
+
             </div>
 
-            {{-- Fixed: Changed justify-between to justify-start and gap-4 to keep button on left --}}
+            {{-- Save Button Row --}}
             <div class="flex items-center justify-start gap-4 pt-4 border-t">
-                <x-ui.button 
-                    type="button" 
-                    variant="primary" 
-                    wire:click="save"
+                <x-ui.button
+                    type="submit"
+                    variant="primary"
                     x-bind:disabled="!hasChanges"
                     wire:loading.attr="disabled"
-                    class="min-w-[140px] transition-opacity order-1" 
+                    class="min-w-[140px] transition-opacity"
                     x-bind:class="{ 'opacity-50 cursor-not-allowed': !hasChanges }"
                 >
                     <span wire:loading.remove wire:target="save">Save Changes</span>
                     <span wire:loading wire:target="save">Processing…</span>
                 </x-ui.button>
 
-                <div x-show="hasChanges" style="display: none;" x-transition class="flex items-center gap-2 text-sm text-amber-700 order-2">
+                <div x-show="hasChanges" style="display: none;" x-transition class="flex items-center gap-2 text-sm text-amber-700">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
                     </svg>
@@ -416,122 +405,250 @@ new class extends Component
                 </div>
             </div>
 
-            <!-- Confirmation Modal -->
-            <div
-                x-show="showConfirm"
-                style="display: none;"
-                class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm"
-                x-on:keydown.escape.window="showConfirm = false"
-                x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0"
-                x-transition:enter-end="opacity-100"
-                x-transition:leave="transition ease-in duration-200"
-                x-transition:leave-start="opacity-100"
-                x-transition:leave-end="opacity-0"
-            >
-                <div 
-                    class="w-full max-w-lg rounded-xl bg-white shadow-2xl"
-                    x-transition:enter="transition ease-out duration-200"
-                    x-transition:enter-start="opacity-0 scale-95"
-                    x-transition:enter-end="opacity-100 scale-100"
-                    x-transition:leave="transition ease-in duration-200"
-                    x-transition:leave-start="opacity-100 scale-100"
-                    x-transition:leave-end="opacity-0 scale-95"
-                    @click.outside="showConfirm = false"
+        </form>
+    </x-ui.card>
+<template x-teleport="#modal-root">
+    <div
+        x-show="showConfirm"
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-gray-950/60 sm:p-4 backdrop-blur-sm"
+        x-on:keydown.escape.window="showConfirm = false"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+    >
+        <div
+            class=" sm:max-w-lg sm:w-full rounded-t-2xl sm:rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 overflow-hidden flex flex-col max-h-[95vh] sm:max-h-[85vh]"
+            x-transition:enter="transition ease-out duration-300"
+            x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave="transition ease-in duration-200"
+            x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+            x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+            @click.outside="showConfirm = false"
+        >
+            {{-- Modal Header --}}
+            <div class="relative px-6 pt-6 pb-5 bg-gradient-to-br from-indigo-50 to-white border-b border-indigo-100 shrink-0">
+                <button
+                    type="button"
+                    class="absolute top-4 right-4 rounded-lg p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                    x-on:click="showConfirm = false"
+                    aria-label="Close"
                 >
-                    <div class="border-b px-6 py-4 bg-gradient-to-r from-indigo-50 to-blue-50">
-                        <div class="flex items-center gap-3">
-                            <div class="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-100">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h3 class="text-lg font-semibold text-gray-900">Confirm Changes</h3>
-                                <p class="text-sm text-gray-600">Review the impact before applying.</p>
-                            </div>
-                        </div>
-                        <div class="space-y-2">
-                            <label for="password-confirm" class="block text-sm font-medium text-gray-700">
-                                Confirm Password
-                            </label>
-                            <input
-                                type="password"
-                                id="password-confirm"
-                                wire:model="password"
-                                class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                placeholder="Enter your password to confirm"
-                                required
-                            >
-                            @error('password')
-                                <p class="text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 px-4 py-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+                <div class="flex items-center gap-4 pr-6">
+                    <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 shadow-md shadow-indigo-200">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
                     </div>
-                    <div class="px-6 py-5 space-y-3">
-                        <div 
-                            x-show="demoMode !== currentDemoMode"
-                            class="rounded-lg p-4 text-sm"
-                            :class="demoMode ? 'bg-emerald-50 border border-emerald-200' : 'bg-amber-50 border border-amber-200'"
-                        >
-                            <div class="flex items-start gap-3">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5" :class="demoMode ? 'text-emerald-600' : 'text-amber-600'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
-                                </svg>
-                                <div>
-                                    <p class="font-semibold" :class="demoMode ? 'text-emerald-900' : 'text-amber-900'">Demo Mode</p>
-                                    <p class="mt-1" :class="demoMode ? 'text-emerald-700' : 'text-amber-700'" x-text="demoMode ? 'Will be enabled — sample data will be loaded into the system.' : 'Will be disabled — all demo data will be permanently removed.'"></p>
-                                </div>
-                            </div>
-                        </div>
-                        <div 
-                            x-show="registrationsOpen !== currentRegistrationsOpen"
-                            class="rounded-lg p-4 text-sm"
-                            :class="registrationsOpen ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50 border border-gray-200'"
-                        >
-                            <div class="flex items-start gap-3">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5" :class="registrationsOpen ? 'text-blue-600' : 'text-gray-600'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                                </svg>
-                                <div>
-                                    <p class="font-semibold" :class="registrationsOpen ? 'text-blue-900' : 'text-gray-900'">User Registrations</p>
-                                    <p class="mt-1" :class="registrationsOpen ? 'text-blue-700' : 'text-gray-700'" x-text="registrationsOpen ? 'Will be opened — new users can create accounts.' : 'Will be closed — registration will be disabled.'"></p>
-                                </div>
-                            </div>
-                        </div>
-                        <div 
-                            x-show="maintenanceMode !== currentMaintenanceMode"
-                            class="rounded-lg p-4 text-sm"
-                            :class="maintenanceMode ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'"
-                        >
-                            <div class="flex items-start gap-3">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mt-0.5" :class="maintenanceMode ? 'text-red-600' : 'text-green-600'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                </svg>
-                                <div>
-                                    <p class="font-semibold" :class="maintenanceMode ? 'text-red-900' : 'text-green-900'">System Maintenance Mode</p>
-                                    <p class="mt-1" :class="maintenanceMode ? 'text-red-700' : 'text-green-700'" x-text="maintenanceMode ? 'Will be enabled — users will be blocked from accessing the job board.' : 'Will be disabled — users can access the job board normally.'"></p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-end gap-3 border-t bg-gray-50 px-6 py-4">
-                        <x-ui.button type="button" variant="outline" x-on:click="showConfirm = false">
-                            Cancel
-                        </x-ui.button>
-                        <x-ui.button
-                            type="button"
-                            variant="primary"
-                            wire:click="confirmSave"
-                            wire:loading.attr="disabled"
-                        >
-                            <span wire:loading.remove wire:target="confirmSave">Apply Changes</span>
-                            <span wire:loading wire:target="confirmSave">Applying…</span>
-                        </x-ui.button>
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-900 leading-tight">Confirm Changes</h3>
+                        <p class="text-sm text-gray-500 mt-0.5">Review the impact before applying.</p>
                     </div>
                 </div>
             </div>
-        </form>
-    </x-ui.card>
+
+            {{-- Modal Body --}}
+            <div class="px-6 py-5 space-y-3 overflow-y-auto flex-1 bt-2 bm-2">
+
+                {{-- Password Field --}}
+                <div class="space-y-1.5">
+                    <label for="password-confirm" class="block text-sm font-medium text-gray-700">
+                        Admin Password
+                    </label>
+                    <div class="relative">
+<div class="relative">
+    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 w-10">
+        <svg 
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            class="shrink-0 text-gray-400" 
+            fill="none" 
+            viewBox="0 0 24 24" 
+            stroke="currentColor" 
+            stroke-width="2"
+        >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+        </svg>
+    </div>
+    <input
+        type="password"
+        id="password-confirm"
+        wire:model="password"
+        class="w-full rounded-lg border border-gray-300 bg-white pl-10 pr-3 py-2.5 text-sm shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 focus:outline-hidden transition"
+        placeholder="Enter your password to confirm"
+        autocomplete="current-password"
+    >
+</div>
+
+
+                    @error('password')
+                        <div class="flex items-center gap-1.5 text-sm text-red-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                            {{ $message }}
+                        </div>
+                    @enderror
+                </div>
+
+                {{-- Divider --}}
+                <div class="relative py-1">
+                    <div class="absolute inset-0 flex items-center">
+                        <div class="w-full border-t border-gray-100"></div>
+                    </div>
+                    <div class="relative flex justify-center">
+                        <span class="bg-white px-3 text-xs font-medium text-gray-400 uppercase tracking-wider">Changes to apply</span>
+                    </div>
+                </div>
+
+                {{-- Demo Mode Change Notice --}}
+                <div
+                    x-show="demoMode !== currentDemoMode"
+                    x-transition
+                    class="rounded-xl p-4 text-sm"
+                    :class="demoMode
+                        ? 'bg-emerald-50 border border-emerald-200 shadow-sm shadow-emerald-100'
+                        : 'bg-amber-50 border border-amber-200 shadow-sm shadow-amber-100'"
+                >
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                            :class="demoMode ? 'bg-emerald-100' : 'bg-amber-100'">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="demoMode ? 'text-emerald-600' : 'text-amber-600'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <p class="font-semibold text-sm" :class="demoMode ? 'text-emerald-900' : 'text-amber-900'">Demo Mode</p>
+                                <span
+                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                                    :class="demoMode ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'"
+                                    x-text="demoMode ? 'Enabling' : 'Disabling'"
+                                ></span>
+                            </div>
+                            <p class="mt-1 text-xs leading-relaxed"
+                                :class="demoMode ? 'text-emerald-700' : 'text-amber-700'"
+                                x-text="demoMode ? 'Sample data will be loaded into the system.' : 'All demo data will be permanently removed.'"
+                            ></p>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Registrations Change Notice --}}
+                <div
+                    x-show="registrationsOpen !== currentRegistrationsOpen"
+                    x-transition
+                    class="rounded-xl p-4 text-sm"
+                    :class="registrationsOpen
+                        ? 'bg-blue-50 border border-blue-200 shadow-sm shadow-blue-100'
+                        : 'bg-gray-50 border border-gray-200 shadow-sm'"
+                >
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                            :class="registrationsOpen ? 'bg-blue-100' : 'bg-gray-100'">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="registrationsOpen ? 'text-blue-600' : 'text-gray-500'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <p class="font-semibold text-sm" :class="registrationsOpen ? 'text-blue-900' : 'text-gray-900'">User Registrations</p>
+                                <span
+                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                                    :class="registrationsOpen ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'"
+                                    x-text="registrationsOpen ? 'Opening' : 'Closing'"
+                                ></span>
+                            </div>
+                            <p class="mt-1 text-xs leading-relaxed"
+                                :class="registrationsOpen ? 'text-blue-700' : 'text-gray-600'"
+                                x-text="registrationsOpen ? 'New users will be able to create accounts.' : 'New user registration will be disabled.'"
+                            ></p>
+                        </div>
+                    </div>
+                </div>
+
+                {{-- Maintenance Mode Change Notice --}}
+                <div
+                    x-show="maintenanceMode !== currentMaintenanceMode"
+                    x-transition
+                    class="rounded-xl p-4 text-sm"
+                    :class="maintenanceMode
+                        ? 'bg-red-50 border border-red-200 shadow-sm shadow-red-100'
+                        : 'bg-green-50 border border-green-200 shadow-sm shadow-green-100'"
+                >
+                    <div class="flex items-start gap-3">
+                        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+                            :class="maintenanceMode ? 'bg-red-100' : 'bg-green-100'">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :class="maintenanceMode ? 'text-red-600' : 'text-green-600'" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <p class="font-semibold text-sm" :class="maintenanceMode ? 'text-red-900' : 'text-green-900'">Maintenance Mode</p>
+                                <span
+                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                                    :class="maintenanceMode ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'"
+                                    x-text="maintenanceMode ? 'Enabling' : 'Disabling'"
+                                ></span>
+                            </div>
+                            <p class="mt-1 text-xs leading-relaxed"
+                                :class="maintenanceMode ? 'text-red-700' : 'text-green-700'"
+                                x-text="maintenanceMode ? 'Users will be blocked from accessing the job board.' : 'Users can access the job board normally.'"
+                            ></p>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            {{-- Modal Footer --}}
+            <div class="flex items-center justify-between gap-3 border-t border-gray-100 bg-gray-50/80 px-6 py-4 shrink-0">
+                <p class="text-xs text-gray-400 hidden sm:block">This action will take effect immediately.</p>
+                <div class="flex items-center gap-2 ml-auto">
+                    <x-ui.button
+                        type="button"
+                        variant="outline"
+                        x-on:click="showConfirm = false"
+                    >
+                        Cancel
+                    </x-ui.button>
+                    <x-ui.button
+                        type="button"
+                        variant="primary"
+                        wire:click="confirmSave"
+                        wire:loading.attr="disabled"
+                        class="min-w-[130px]"
+                    >
+                        <span wire:loading.remove wire:target="confirmSave" class="flex items-center gap-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Apply Changes
+                        </span>
+                        <span wire:loading wire:target="confirmSave" class="flex items-center gap-1.5">
+                            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                            </svg>
+                            Applying…
+                        </span>
+                    </x-ui.button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</template>
+
+
 </div>

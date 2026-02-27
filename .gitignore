@@ -1,9 +1,8 @@
 *.log
 .DS_Store
 .env
-.env.backup
-.env.production
-.env.testing
+.env.*
+!.env.example
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -19,6 +18,12 @@
 /public/storage
 /storage/*.key
 /storage/pail
+/storage/app/private/
+/storage/app/public/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/views/
+/bootstrap/cache/*.php
 /vendor
 Homestead.json
 Homestead.yaml
@@ -28,9 +33,11 @@ composer.phar
 cookies.txt
 public/vendor
 
-# Docs
-/docs/
-*.md
+# Published vendor views
+/resources/views/vendor/
+
+# docs dir and all files within it
+/docs/*/*.md
 
 # AI-related files
 .claude/

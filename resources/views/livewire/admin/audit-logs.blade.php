@@ -154,55 +154,57 @@ new class extends Component
     </div>
 
     <!-- Filters -->
-    <x-ui.card class="mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <x-ui.input
-                label="Search"
-                name="search"
-                wire:model.live.debounce.300ms="search"
-                placeholder="IP, user, target..."
-            />
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Event Type</label>
-                <select wire:model.live="eventType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                    <option value="">All Events</option>
-                    @foreach($this->eventTypes as $type)
-                        <option value="{{ $type }}">{{ str_replace('_', ' ', $type) }}</option>
-                    @endforeach
-                </select>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Actor Type</label>
-                <select wire:model.live="actorType" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                    <option value="">All Actors</option>
-                    <option value="user">User</option>
-                    <option value="guest">Guest</option>
-                    <option value="system">System</option>
-                </select>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select wire:model.live="status" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                    <option value="">All</option>
-                    <option value="success">Success (2xx)</option>
-                    <option value="failed">Failed (4xx+)</option>
-                </select>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
-                <select wire:model.live="dateRange" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                    <option value="today">Today</option>
-                    <option value="last_7_days">Last 7 Days</option>
-                    <option value="last_30_days">Last 30 Days</option>
-                    <option value="all">All Time</option>
-                </select>
+    <div class="mb-6 flex flex-wrap gap-3">
+        {{-- Search --}}
+        <div class="relative flex-1 min-w-48">
+            <div class="flex items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-all duration-150 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
+                <svg style="width:18px;height:18px;flex-shrink:0;color:#9ca3af" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input
+                    type="text"
+                    wire:model.live.debounce.300ms="search"
+                    placeholder="IP, user, target…"
+                    class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none min-w-0"
+                    autocomplete="off"
+                />
+                @if($search)
+                    <button wire:click="$set('search', '')" class="shrink-0 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors cursor-pointer" aria-label="Clear search">
+                        <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                @endif
             </div>
         </div>
-    </x-ui.card>
+
+        <select wire:model.live="eventType" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+            <option value="">All Events</option>
+            @foreach($this->eventTypes as $type)
+                <option value="{{ $type }}">{{ str_replace('_', ' ', $type) }}</option>
+            @endforeach
+        </select>
+
+        <select wire:model.live="actorType" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+            <option value="">All Actors</option>
+            <option value="user">User</option>
+            <option value="guest">Guest</option>
+            <option value="system">System</option>
+        </select>
+
+        <select wire:model.live="status" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+            <option value="">All Statuses</option>
+            <option value="success">Success (2xx)</option>
+            <option value="failed">Failed (4xx+)</option>
+        </select>
+
+        <select wire:model.live="dateRange" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+            <option value="today">Today</option>
+            <option value="last_7_days">Last 7 Days</option>
+            <option value="last_30_days">Last 30 Days</option>
+            <option value="all">All Time</option>
+        </select>
+    </div>
 
     <!-- Table -->
     <x-ui.card>
@@ -245,7 +247,7 @@ new class extends Component
                                     <div class="font-medium text-gray-900">{{ $log->actor->nickname }}</div>
                                     <div class="text-xs text-gray-500">{{ $log->actor->login_id }}</div>
                                 @else
-                                    <span class="text-gray-400 italic">{{ $log->actor_type ?? 'guest' }}</span>
+                                    <span class="text-gray-400">{{ $log->actor_type ?? 'guest' }}</span>
                                 @endif
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap font-mono text-gray-600">

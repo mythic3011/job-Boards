@@ -19,19 +19,8 @@ new class extends Component
     public string $password_confirmation = '';
     public $profile_image = null;
 
-    public function test()
-    {
-        \Log::info('Test method called - Livewire is working!');
-        $this->login_id = 'test_' . time();
-    }
-
     public function register()
     {
-        \Log::info('Registration method called', [
-            'login_id' => $this->login_id,
-            'email' => $this->email,
-        ]);
-
         $this->validate([
             'login_id' => 'required|string|max:255|unique:users,login_id',
             'nickname' => 'required|string|max:255',
@@ -83,7 +72,7 @@ new class extends Component
                     type="text"
                     wire:model="login_id"
                     required
-                    class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('login_id') border-red-300 @enderror"
+                    class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('login_id') border-red-300 @enderror"
                     placeholder="Choose a unique username"
                 >
             </div>
@@ -103,7 +92,7 @@ new class extends Component
                     type="text"
                     wire:model="nickname"
                     required
-                    class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('nickname') border-red-300 @enderror"
+                    class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('nickname') border-red-300 @enderror"
                     placeholder="Your display name"
                 >
             </div>
@@ -124,7 +113,7 @@ new class extends Component
                     wire:model="email"
                     autocomplete="email"
                     required
-                    class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('email') border-red-300 @enderror"
+                    class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('email') border-red-300 @enderror"
                     placeholder="you@example.com"
                 >
             </div>
@@ -142,7 +131,7 @@ new class extends Component
                 name="user_type"
                 wire:model="user_type"
                 required
-                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('user_type') border-red-300 @enderror"
+                class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('user_type') border-red-300 @enderror"
             >
                 <option value="individual">Individual (Job Seeker)</option>
                 <option value="company">Company (Employer)</option>
@@ -167,7 +156,7 @@ new class extends Component
                     wire:model="password"
                     autocomplete="new-password"
                     required
-                    class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('password') border-red-300 @enderror"
+                    class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('password') border-red-300 @enderror"
                 >
             </div>
             <p class="mt-1 text-xs text-gray-500">
@@ -190,7 +179,7 @@ new class extends Component
                     wire:model="password_confirmation"
                     autocomplete="new-password"
                     required
-                    class="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm @error('password_confirmation') border-red-300 @enderror"
+                    class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('password_confirmation') border-red-300 @enderror"
                 >
             </div>
             @error('password_confirmation')
@@ -213,20 +202,9 @@ new class extends Component
         <div>
             <button
                 type="submit"
-                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+                class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors cursor-pointer"
             >
                 Create account
-            </button>
-        </div>
-
-        <!-- Debug: Test button -->
-        <div>
-            <button
-                type="button"
-                wire:click="test"
-                class="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-            >
-                Test Livewire (Debug)
             </button>
         </div>
     </form>

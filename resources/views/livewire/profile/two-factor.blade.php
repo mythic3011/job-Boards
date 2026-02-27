@@ -50,7 +50,7 @@
                 @if(count($recoveryCodes) > 0)
                     <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
                         <div class="flex items-start gap-3">
-                            <svg class="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <svg class="w-5 h-5 text-amber-600 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                 <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
                             </svg>
                             <div class="flex-1">
@@ -120,7 +120,7 @@
                                 pattern="[0-9]{6}"
                                 placeholder="000000"
                                 autocomplete="one-time-code"
-                                class="block w-full rounded-md border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset {{ $codeIsValid ? 'ring-green-500 focus:ring-green-600' : ($errors->has('verificationCode') ? 'ring-red-300 focus:ring-red-500' : 'ring-gray-300 focus:ring-indigo-600') }} placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6"
+                                class="block w-full rounded-lg border-0 py-1.5 px-3 text-gray-900 shadow-sm ring-1 ring-inset {{ $codeIsValid ? 'ring-green-500 focus:ring-green-600' : ($errors->has('verificationCode') ? 'ring-red-300 focus:ring-red-500' : 'ring-gray-300 focus:ring-indigo-600') }} placeholder:text-gray-400 focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6"
                             >
                             @if($errors->has('verificationCode'))
                                 <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
@@ -180,19 +180,19 @@
         <h3 class="text-lg font-semibold text-gray-900 mb-3">Security Tips</h3>
         <div class="space-y-3 text-sm text-gray-600">
             <div class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                 </svg>
                 <span>Use a strong, unique password for your account</span>
             </div>
             <div class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                 </svg>
                 <span>Keep your recovery codes in a safe place, separate from your device</span>
             </div>
             <div class="flex items-start gap-3">
-                <svg class="w-5 h-5 text-green-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <svg class="w-5 h-5 text-green-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                 </svg>
                 <span>Never share your authentication codes with anyone</span>

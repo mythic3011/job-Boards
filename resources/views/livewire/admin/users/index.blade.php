@@ -191,26 +191,37 @@ new class extends Component
     </div>
 
     <!-- Filters -->
-    <x-ui.card class="mb-6">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <x-ui.input
-                label="Search"
-                name="search"
-                wire:model.live.debounce.300ms="search"
-                placeholder="Search by username, email, or name"
-            />
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Filter by Role</label>
-                <select wire:model.live="roleFilter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm px-3 py-2 focus:border-indigo-500 focus:ring-indigo-500">
-                    <option value="">All Roles</option>
-                    @foreach($roles as $role)
-                        <option value="{{ $role->name }}">{{ ucfirst($role->name) }}</option>
-                    @endforeach
-                </select>
+    <div class="mb-6 flex flex-wrap gap-3">
+        {{-- Search --}}
+        <div class="relative flex-1 min-w-64">
+            <div class="flex items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-all duration-150 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
+                <svg style="width:18px;height:18px;flex-shrink:0;color:#9ca3af" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input
+                    type="text"
+                    wire:model.live.debounce.300ms="search"
+                    placeholder="Search by username, email, or name"
+                    class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none min-w-0"
+                    autocomplete="off"
+                />
+                @if($search)
+                    <button wire:click="$set('search', '')" class="shrink-0 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors cursor-pointer" aria-label="Clear search">
+                        <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                @endif
             </div>
         </div>
-    </x-ui.card>
+
+        <select wire:model.live="roleFilter" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+            <option value="">All Roles</option>
+            @foreach($roles as $role)
+                <option value="{{ $role->name }}">{{ ucfirst($role->name) }}</option>
+            @endforeach
+        </select>
+    </div>
 
     <!-- Users Table -->
     <x-ui.card>
@@ -313,7 +324,6 @@ new class extends Component
                                         wire:click="confirmUserDeletion('{{ $user->id }}')"
                                         variant="danger"
                                         size="sm"
-                                        class="text-white"
                                     >
                                         Delete
                                     </x-ui.button>
@@ -438,7 +448,7 @@ new class extends Component
                     <button
                         type="button"
                         @click="navigator.clipboard.writeText('{{ $resetUrl }}'); copied = true; setTimeout(() => copied = false, 2000)"
-                        class="flex-shrink-0 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-w-[64px] text-center"
+                        class="shrink-0 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-w-[64px] text-center"
                     >
                         <span x-show="!copied">Copy</span>
                         <span x-show="copied" class="text-green-600">Copied!</span>

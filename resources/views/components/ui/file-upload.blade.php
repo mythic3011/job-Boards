@@ -27,7 +27,7 @@
     @endphp
 
     <div class="mt-1 flex items-center gap-4" x-data="{ fileName: '' }">
-        <label for="{{ $name }}" class="cursor-pointer flex-shrink-0 w-full">
+        <label for="{{ $name }}" class="cursor-pointer shrink-0 w-full">
             <div class="flex flex-col items-center justify-center px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors w-full">
                 <div class="text-center">
                     <svg class="mx-auto h-10 w-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -21,7 +21,7 @@
     @endif
 
     <div class="mt-1 flex items-center gap-4">
-        <label for="{{ $name }}" class="cursor-pointer flex-shrink-0">
+        <label for="{{ $name }}" class="cursor-pointer shrink-0">
             <div class="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
                 <div class="text-center">
                     <x-heroicon-o-photo class="mx-auto h-8 w-8 text-gray-400" />

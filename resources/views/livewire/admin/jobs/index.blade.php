@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\JobPosting;
+use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\DashboardService;
 use Livewire\Volt\Component;
@@ -16,6 +17,29 @@ new class extends Component
     use WithPagination;
 
     public string $search = '';
+    public string $companyFilter = '';
+    public string $sort = 'latest';
+
+    private const ALLOWED_SORTS = ['latest', 'oldest'];
+
+    public function updatedSearch(): void { $this->resetPage(); }
+    public function updatedCompanyFilter(): void { $this->resetPage(); }
+
+    public function updatedSort(): void
+    {
+        if (!in_array($this->sort, self::ALLOWED_SORTS, true)) {
+            $this->sort = 'latest';
+        }
+        $this->resetPage();
+    }
+
+    public function clearFilters(): void
+    {
+        $this->search = '';
+        $this->companyFilter = '';
+        $this->sort = 'latest';
+        $this->resetPage();
+    }
 
     public function deleteJob(string $jobId, DashboardService $dashboardService, AuditLogger $auditLogger): void
     {
@@ -47,12 +71,28 @@ new class extends Component
         $query = JobPosting::with('companyUser');
 
         if ($this->search) {
-            $query->where('title', 'like', '%' . $this->search . '%')
-                  ->orWhere('requirement', 'like', '%' . $this->search . '%');
+            $query->where(function ($q) {
+                $q->where('title', 'ilike', '%' . $this->search . '%')
+                  ->orWhere('requirement', 'ilike', '%' . $this->search . '%');
+            });
         }
 
+        if ($this->companyFilter) {
+            $query->where('company_user_id', $this->companyFilter);
+        }
+
+        match (in_array($this->sort, self::ALLOWED_SORTS, true) ? $this->sort : 'latest') {
+            'oldest' => $query->oldest(),
+            default  => $query->latest(),
+        };
+
+        $companies = User::where('user_type', 'company')
+            ->orderBy('nickname')
+            ->get(['id', 'nickname']);
+
         return [
-            'jobs' => $query->latest()->paginate(15),
+            'jobs'      => $query->paginate(15),
+            'companies' => $companies,
         ];
     }
 }; ?>
@@ -72,14 +112,47 @@ new class extends Component
         </x-ui.alert>
     @endif
 
-    <!-- Search -->
-    <div class="mb-6 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <x-ui.input
-            label="Search Jobs"
-            name="search"
-            wire:model.live.debounce.300ms="search"
-            placeholder="Search by title or requirements..."
-        />
+    <!-- Search + filters -->
+    <div class="mb-6 flex flex-wrap gap-3">
+        <div class="relative flex-1 min-w-48">
+            <div class="flex items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-all duration-150 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
+                <svg style="width:18px;height:18px;flex-shrink:0;color:#9ca3af" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <input
+                    type="text"
+                    wire:model.live.debounce.300ms="search"
+                    placeholder="Search by title or requirements…"
+                    class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none min-w-0"
+                    autocomplete="off"
+                />
+                @if($search)
+                    <button wire:click="$set('search', '')" class="shrink-0 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors cursor-pointer" aria-label="Clear search">
+                        <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                @endif
+            </div>
+        </div>
+
+        <select wire:model.live="companyFilter" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+            <option value="">All companies</option>
+            @foreach($companies as $company)
+                <option value="{{ $company->id }}">{{ $company->nickname }}</option>
+            @endforeach
+        </select>
+
+        <select wire:model.live="sort" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+            <option value="latest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+        </select>
+
+        @if($search || $companyFilter || $sort !== 'latest')
+            <button wire:click="clearFilters" class="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-500 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-700 cursor-pointer">
+                Clear all
+            </button>
+        @endif
     </div>
 
     <!-- Jobs Table -->
@@ -110,9 +183,9 @@ new class extends Component
                             <td class="px-6 py-4">
                                 <div class="text-sm font-semibold text-gray-900 transition-colors group-hover:text-indigo-700">{{ $job->title }}</div>
                                 @if($job->salary)
-                                    <div class="mt-0.5 text-xs text-gray-500">HK$ {{ $job->salary }}</div>
+                                    <div class="mt-0.5 text-xs text-gray-500">{{ $job->salary }}</div>
                                 @else
-                                    <div class="mt-0.5 text-xs italic text-gray-400">No salary stated</div>
+                                    <div class="mt-0.5 text-xs text-gray-400">No salary stated</div>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
@@ -120,9 +193,10 @@ new class extends Component
                             </td>
                             <td class="px-6 py-4 text-center">
                                 @php $appCount = $job->applications()->count(); @endphp
-                                <span class="inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold {{ $appCount > 0 ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-400' }}">
+                                <a href="{{ route('admin.applications.index', ['companyFilter' => $job->company_user_id]) }}"
+                                   class="inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold transition-colors cursor-pointer {{ $appCount > 0 ? 'bg-violet-100 text-violet-700 hover:bg-violet-200' : 'bg-gray-100 text-gray-400' }}">
                                     {{ $appCount }}
-                                </span>
+                                </a>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {{ $job->created_at->diffForHumans() }}
@@ -130,16 +204,16 @@ new class extends Component
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center justify-end gap-2">
                                     <a href="{{ route('jobs.show', $job->idcode) }}"
-                                       class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-all duration-150 hover:border-gray-300 hover:bg-gray-50">
+                                       class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-all duration-150 hover:border-gray-300 hover:bg-gray-50 cursor-pointer">
                                         View
                                     </a>
                                     <a href="{{ route('admin.jobs.edit', $job->idcode) }}"
-                                       class="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all duration-150 hover:border-blue-300 hover:bg-blue-100">
+                                       class="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all duration-150 hover:border-blue-300 hover:bg-blue-100 cursor-pointer">
                                         Edit
                                     </a>
                                     <button
                                         @click="pendingDeleteId = '{{ $job->id }}'; showDeleteModal = true"
-                                        class="inline-flex items-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-all duration-150 hover:border-red-300 hover:bg-red-100"
+                                        class="inline-flex items-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-all duration-150 hover:border-red-300 hover:bg-red-100 cursor-pointer"
                                     >
                                         Delete
                                     </button>
@@ -156,8 +230,8 @@ new class extends Component
                                         </svg>
                                     </div>
                                     <p class="text-sm font-semibold text-gray-500">No job postings found</p>
-                                    @if($search)
-                                        <p class="text-xs text-gray-400">Try adjusting your search term</p>
+                                    @if($search || $companyFilter)
+                                        <p class="text-xs text-gray-400">Try adjusting your search or filters</p>
                                     @endif
                                 </div>
                             </td>
@@ -210,7 +284,7 @@ new class extends Component
                             Are you sure you want to delete this job posting? This action <span class="font-semibold text-gray-800">cannot be undone</span>.
                         </p>
                         <div class="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-                            <svg class="mt-0.5 h-4 w-4 flex-shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="mt-0.5 h-4 w-4 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01" />
                             </svg>
                             <p class="text-xs font-medium text-red-700">All related applications will be permanently removed.</p>
@@ -223,7 +297,7 @@ new class extends Component
                 <button
                     type="button"
                     x-on:click="showDeleteModal = false"
-                    class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 cursor-pointer"
                 >
                     Cancel
                 </button>
@@ -232,7 +306,7 @@ new class extends Component
                     @click="$wire.deleteJob(pendingDeleteId)"
                     wire:loading.attr="disabled"
                     wire:target="deleteJob"
-                    class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 active:bg-red-800 disabled:opacity-60"
+                    class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 active:bg-red-800 disabled:opacity-60 cursor-pointer"
                 >
                     <span wire:loading.remove wire:target="deleteJob">Delete Job</span>
                     <span wire:loading wire:target="deleteJob">Deleting…</span>

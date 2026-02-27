@@ -6,7 +6,7 @@
     <title>System Maintenance</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gradient-to-br from-red-50 to-orange-50">
+<body class="bg-orange-50">
     <div class="min-h-screen flex items-center justify-center px-4 py-12">
         <div class="max-w-md w-full">
             <!-- Maintenance Icon -->
@@ -21,7 +21,7 @@
 
             <!-- Card -->
             <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-                <div class="px-6 py-8 bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-100">
+                <div class="px-6 py-8 bg-red-50 border-b border-red-100">
                     <h1 class="text-2xl font-bold text-gray-900 mb-2">System Maintenance</h1>
                     <p class="text-sm text-gray-600">We're temporarily offline</p>
                 </div>
@@ -45,7 +45,7 @@
                     <!-- Info Box -->
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                         <div class="flex gap-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-600 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             <div>
@@ -60,23 +60,20 @@
                         <a href="{{ route('home') }}" class="block w-full text-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition">
                             Return to Home
                         </a>
-                        <a href="{{ route('logout') }}" class="block w-full text-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-lg transition" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-                            Logout
-                        </a>
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="block w-full text-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-lg transition cursor-pointer">
+                                Logout
+                            </button>
+                        </form>
                     </div>
                 </div>
             </div>
 
-            <!-- Footer Message -->
             <p class="text-center text-sm text-gray-600 mt-6">
                 Estimated completion time: Less than an hour
             </p>
         </div>
     </div>
-
-    <!-- Logout Form (hidden) -->
-    <form id="logout-form" action="{{ route('logout') }}" method="POST" style="display: none;">
-        @csrf
-    </form>
 </body>
 </html>
