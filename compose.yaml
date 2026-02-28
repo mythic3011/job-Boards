@@ -34,9 +34,12 @@ services:
                 crowdsecurity/http-cve
                 crowdsecurity/base-http-scenarios
             GID: "1000"
+            DISABLE_PARSERS: "crowdsecurity/whitelists"
         volumes:
             - ./docker/crowdsec/acquis.d/nginx.yaml:/etc/crowdsec/acquis.d/nginx.yaml:ro
             - ./docker/crowdsec/acquis.d/laravel.yaml:/etc/crowdsec/acquis.d/laravel.yaml:ro
+            - ./docker/crowdsec/parsers/s02-enrich/whitelists.yaml:/etc/crowdsec/parsers/s02-enrich/local-whitelists.yaml:ro
+            - ./docker/crowdsec/scenarios/laravel-bf.yaml:/etc/crowdsec/scenarios/laravel-bf.yaml:ro
             - nginx-logs:/var/log/nginx:ro
             - laravel-logs:/var/log/laravel:ro
             - crowdsec-db:/var/lib/crowdsec/data

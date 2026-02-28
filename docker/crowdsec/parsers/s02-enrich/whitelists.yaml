@@ -1,0 +1,9 @@
+name: crowdsecurity/whitelists
+description: "Whitelist only internal Docker service IPs, not the full private range"
+whitelist:
+  reason: "internal docker services"
+  ip:
+    - "::1"
+    - "127.0.0.1"
+  cidr:
+    - "172.16.0.0/12"
