@@ -142,9 +142,7 @@
                             <p class="mt-1 text-sm text-gray-500">Enter the 6-digit code. It will verify automatically.</p>
                         @endif
                     </div>
-                    @if($autoVerifying)
-                        <p class="mt-2 text-xs text-gray-500 text-center">Verifying...</p>
-                    @elseif($codeIsValid)
+                    @if($codeIsValid)
                         <p class="mt-2 text-xs text-green-600 text-center">✓ Code verified! Redirecting...</p>
                     @endif
                 </div>
