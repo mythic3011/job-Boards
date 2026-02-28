@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="robots" content="noindex, nofollow" />
+        <title>50× Error | Service Unavailable</title>
+        <style>
+            :root {
+                --danger: #dc2626;
+                --bg: #f8fafc;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: var(--bg);
+                color: #1e293b;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+                text-align: center;
+            }
+            .container {
+                max-width: 480px;
+                padding: 2rem;
+                background: white;
+                border-radius: 10px;
+                border-top: 4px solid var(--danger);
+                box-shadow: 0 8px 12px rgba(0, 0, 0, 0.1);
+            }
+            h1 {
+                color: var(--danger);
+                margin-bottom: 0.5rem;
+                font-size: 1.75rem;
+            }
+            p {
+                line-height: 1.6;
+                color: #64748b;
+            }
+            .info {
+                margin-top: 1.5rem;
+                padding: 1rem;
+                background: #f1f5f9;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 0.85rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <svg
+                style="
+                    width: 48px;
+                    height: 48px;
+                    color: var(--danger);
+                    margin-bottom: 1rem;
+                "
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+            </svg>
+            <h1>50× Error</h1>
+            <p>
+                Something on our side didn’t work as expected. Our team has been
+                notified.
+            </p>
+            <div class="info">
+                Status: UNAVAILABLE &nbsp;&bull;&nbsp; Time:
+                <span id="ts"></span>
+            </div>
+            <p style="font-size: 0.8rem; margin-top: 1.5rem">
+                Please try again in a moment. If the problem persists, contact
+                the administrator.
+            </p>
+        </div>
+        <script>
+            document.getElementById("ts").innerText = new Date().toUTCString();
+        </script>
+    </body>
+</html>

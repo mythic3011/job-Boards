@@ -33,8 +33,10 @@ composer.phar
 cookies.txt
 public/vendor
 
-# Published vendor views
+# Published vendor views (including Livewire overrides)
 /resources/views/vendor/
+# specifically ignore Livewire's published styles/templates
+/resources/views/vendor/livewire/
 
 # docs dir and all files within it
 /docs/*/*.md

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="robots" content="noindex, nofollow" />
+        <title>429 – Too Many Requests | Security System</title>
+        <style>
+            :root {
+                --warn: #d97706;
+                --bg: #f8fafc;
+            }
+            body {
+                font-family:
+                    "Segoe UI",
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: var(--bg);
+                color: #1e293b;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 100vh;
+                margin: 0;
+                text-align: center;
+            }
+            .container {
+                max-width: 480px;
+                padding: 2rem;
+                background: white;
+                border-radius: 12px;
+                border-top: 4px solid var(--warn);
+                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            }
+            h1 {
+                color: var(--warn);
+                margin-bottom: 0.5rem;
+                font-size: 1.5rem;
+            }
+            p {
+                line-height: 1.6;
+                color: #64748b;
+            }
+            .info {
+                margin-top: 1.5rem;
+                padding: 1rem;
+                background: #fffbeb;
+                border-radius: 8px;
+                font-family: monospace;
+                font-size: 0.85rem;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <svg
+                style="
+                    width: 48px;
+                    height: 48px;
+                    color: var(--warn);
+                    margin-bottom: 1rem;
+                "
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+            >
+                <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                />
+            </svg>
+            <h1>Rate Limit Exceeded</h1>
+            <p>
+                You have sent too many requests in a short period. Our firewall
+                has temporarily throttled your connection.
+            </p>
+            <div class="info">
+                Status: THROTTLED &nbsp;&bull;&nbsp; Retry after:
+                <span id="cd">30</span>s
+            </div>
+            <p style="font-size: 0.8rem; margin-top: 1.5rem">
+                This limit exists to protect platform stability. Please slow
+                down and try again.
+            </p>
+        </div>
+        <script>
+            var s = 30;
+            var el = document.getElementById("cd");
+            var t = setInterval(function () {
+                if (--s <= 0) {
+                    clearInterval(t);
+                    el.innerText = "0";
+                } else {
+                    el.innerText = s;
+                }
+            }, 1000);
+        </script>
+    </body>
+</html>
