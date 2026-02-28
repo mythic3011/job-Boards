@@ -37,6 +37,8 @@ wait_for_container() {
 
 start_containers() {
     if ! docker exec "$CONTAINER" true &>/dev/null 2>&1; then
+        echo "Building laravel.test image..."
+        docker compose build laravel.test
         echo "Starting containers..."
         docker compose up -d
     fi
