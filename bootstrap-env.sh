@@ -108,6 +108,14 @@ generate_for_var() {
 [ ! -f .env.example ] && { echo "Error: .env.example not found"; exit 1; }
 [ ! -f .env ] && cp .env.example .env && echo "Created .env from .env.example"
 
+# ─── Detect running containers ───────────────────────────────────────────────
+# In dev mode, skip DB_PASSWORD regeneration if postgres is already running
+# to avoid breaking an existing database instance.
+POSTGRES_RUNNING=false
+if [[ "$MODE" == "dev" ]] && docker ps --format '{{.Names}}' 2>/dev/null | grep -q "postgres"; then
+    POSTGRES_RUNNING=true
+fi
+
 echo ""
 echo "═══════════════════════════════════════"
 echo " Security Bootstrap — ${MODE} mode"
@@ -158,8 +166,12 @@ while IFS= read -r line; do
         # Production: force regenerate all secrets
         generate_for_var "$var"
     elif is_weak "$val" "$var"; then
-        # Dev: only fix weak/missing values
-        generate_for_var "$var"
+        # Dev: skip DB_PASSWORD if postgres is already running to avoid breaking it
+        if [[ "$var" == "DB_PASSWORD" && "$POSTGRES_RUNNING" == "true" ]]; then
+            echo "  ⚠ DB_PASSWORD is weak but postgres is running — skipping (fix manually)"
+        else
+            generate_for_var "$var"
+        fi
     fi
 done < .env.example
 
