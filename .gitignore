@@ -49,5 +49,6 @@ CLAUDE.md
 
 # SSL certificates (generated locally)
 docker/nginx/ssl/
+
 # ignore any backup .env files
 admin-*-*.txt
