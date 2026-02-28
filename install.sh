@@ -39,6 +39,16 @@ wait_for_container() {
     echo "Container ready."
 }
 
+wait_for_container_up() {
+    echo "Waiting for $CONTAINER to start..."
+    local attempts=0
+    until docker exec "$CONTAINER" true &>/dev/null 2>&1; do
+        attempts=$((attempts + 1))
+        [[ $attempts -ge 30 ]] && { echo "Container did not start in time."; exit 1; }
+        sleep 2
+    done
+}
+
 port_in_use() {
     local port="$1"
     ss -tlnp 2>/dev/null | grep -qE ":${port}([^0-9]|$)" || \
@@ -114,6 +124,9 @@ start_containers() {
         echo "Starting containers..."
         docker compose down --remove-orphans 2>/dev/null || true
         docker compose up -d
+        wait_for_container_up
+        echo "Installing dependencies..."
+        app composer install --no-interaction --prefer-dist
     fi
     wait_for_container
 }
