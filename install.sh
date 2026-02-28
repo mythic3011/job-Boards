@@ -112,6 +112,7 @@ start_containers() {
         echo "Building laravel.test image..."
         docker compose build laravel.test
         echo "Starting containers..."
+        docker compose down --remove-orphans 2>/dev/null || true
         docker compose up -d
     fi
     wait_for_container
