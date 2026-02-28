@@ -68,7 +68,11 @@ find_free_port() {
 patch_env_port() {
     local key="$1" value="$2"
     if grep -qE "^${key}=" .env 2>/dev/null; then
-        sed -i "s|^${key}=.*|${key}=${value}|" .env
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|^${key}=.*|${key}=${value}|" .env
+        else
+            sed -i "s|^${key}=.*|${key}=${value}|" .env
+        fi
     else
         echo "${key}=${value}" >> .env
     fi

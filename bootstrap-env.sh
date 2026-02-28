@@ -101,7 +101,7 @@ generate_for_var() {
         *SECRET*|*KEY*|*TOKEN*) new=$(gen_secret) ;;
         *UUID*)              new=$(gen_uuid) ;;
     esac
-    [[ -n "$new" ]] && set_env "$var" "$new"
+    [[ -n "$new" ]] && set_env "$var" "$new" || true
 }
 
 # ─── Preflight ────────────────────────────────────────────────────────────────
