@@ -148,7 +148,7 @@ EOF
 }
 
 # ── Bootstrap secrets ─────────────────────────────────────────────────────────
-./bootstrap-env.sh "$ENV_MODE"
+./bootstrap-env.sh "$ENV_MODE" || true
 
 case "$SETUP_MODE" in
 
