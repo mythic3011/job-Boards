@@ -19,7 +19,7 @@ ENV_MODE="${2:-dev}"
     exit 1
 }
 
-CONTAINER="job-boards-laravel.test-1"
+CONTAINER="jobs-borads-laravel.test"
 
 # ── Host user identity (required by Docker Compose / Sail) ────────────────────
 export WWWUSER="${WWWUSER:-$(id -u)}"
@@ -33,7 +33,7 @@ wait_for_container() {
     local attempts=0
     until docker exec "$CONTAINER" php artisan --version &>/dev/null; do
         attempts=$((attempts + 1))
-        [[ $attempts -ge 30 ]] && { echo "Container did not become ready in time."; exit 1; }
+        [[ $attempts -ge 60 ]] && { echo "Container did not become ready in time."; exit 1; }
         sleep 2
     done
     echo "Container ready."
