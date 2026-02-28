@@ -19,7 +19,11 @@ ENV_MODE="${2:-dev}"
     exit 1
 }
 
-CONTAINER="jobs-borads-laravel.test-1"
+CONTAINER="job-boards-laravel.test-1"
+
+# ── Host user identity (required by Docker Compose / Sail) ────────────────────
+export WWWUSER="${WWWUSER:-$(id -u)}"
+export WWWGROUP="${WWWGROUP:-$(id -g)}"
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 app() { docker exec "$CONTAINER" "$@"; }
@@ -35,8 +39,76 @@ wait_for_container() {
     echo "Container ready."
 }
 
+port_in_use() {
+    local port="$1"
+    ss -tlnp 2>/dev/null | grep -qE ":${port}([^0-9]|$)" || \
+    netstat -tlnp 2>/dev/null | grep -qE ":${port}([^0-9]|$)"
+}
+
+find_free_port() {
+    local start="$1"
+    local p="$start"
+    while [[ $p -le 9001 ]]; do
+        port_in_use "$p" || { echo "$p"; return; }
+        p=$((p + 1))
+    done
+    echo ""
+}
+
+patch_env_port() {
+    local key="$1" value="$2"
+    if grep -qE "^${key}=" .env 2>/dev/null; then
+        sed -i "s|^${key}=.*|${key}=${value}|" .env
+    else
+        echo "${key}=${value}" >> .env
+    fi
+}
+
+check_ports() {
+    local app_port ssl_port
+    app_port=$(grep -E '^APP_PORT=' .env 2>/dev/null | cut -d'=' -f2- || echo "80")
+    ssl_port=$(grep -E '^APP_SSL_PORT=' .env 2>/dev/null | cut -d'=' -f2- || echo "443")
+    app_port="${app_port:-80}"
+    ssl_port="${ssl_port:-443}"
+
+    local blocked=()
+    port_in_use "$app_port"  && blocked+=("APP_PORT:$app_port")
+    port_in_use "$ssl_port"  && blocked+=("APP_SSL_PORT:$ssl_port")
+
+    [[ ${#blocked[@]} -eq 0 ]] && return 0
+
+    echo ""
+    echo "Port conflict detected:"
+    for entry in "${blocked[@]}"; do
+        echo "  ${entry%%:*} = ${entry##*:} is already in use"
+    done
+    echo ""
+    read -r -p "Auto-assign free ports in range 3001–9001? [Y/n] " _ans
+    if [[ "${_ans,,}" == "n" ]]; then
+        echo "Aborted. Free the ports or update APP_PORT / APP_SSL_PORT in .env manually."
+        exit 1
+    fi
+
+    for entry in "${blocked[@]}"; do
+        local key="${entry%%:*}"
+        local old_port="${entry##*:}"
+        local new_port
+        new_port=$(find_free_port 3001)
+        if [[ -z "$new_port" ]]; then
+            echo "ERROR: No free port found in range 3001–9001 for ${key}."
+            exit 1
+        fi
+        echo "  ${key}: ${old_port} → ${new_port}"
+        patch_env_port "$key" "$new_port"
+        # Avoid reusing the same port for SSL
+        export "$key"="$new_port"
+    done
+    echo ""
+}
+
 start_containers() {
     if ! docker exec "$CONTAINER" true &>/dev/null 2>&1; then
+        check_ports
         echo "Building laravel.test image..."
         docker compose build laravel.test
         echo "Starting containers..."
@@ -55,6 +127,10 @@ build_assets() {
 }
 
 seed_admin() {
+    if ! command -v jq &>/dev/null; then
+        echo "ERROR: 'jq' is required for seed_admin but is not installed."
+        exit 1
+    fi
     local admin_password two_factor_secret recovery_codes_json
     admin_password=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)
     two_factor_secret=$(openssl rand -base64 20 \
@@ -100,7 +176,9 @@ EOF
     local app_name qr_url
     app_name=$(grep "^APP_NAME=" .env | cut -d'=' -f2- | tr -d '"')
     app_name="${app_name:-Jobs Board}"
-    qr_url="otpauth://totp/${app_name}:admin@example.com?secret=${two_factor_secret}&issuer=${app_name// /%20}"
+    local encoded_issuer
+    encoded_issuer=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${app_name}'))" 2>/dev/null || echo "${app_name// /%20}")
+    qr_url="otpauth://totp/${encoded_issuer}:admin@example.com?secret=${two_factor_secret}&issuer=${encoded_issuer}"
 
     echo ""
     echo "═══════════════════════════════════════"
@@ -121,7 +199,7 @@ EOF
     else
         local encoded_url
         encoded_url=$(python3 -c \
-            "import urllib.parse; print(urllib.parse.quote('${qr_url}'))" \
+            "import urllib.parse; print(urllib.parse.quote('${qr_url}', safe=''))" \
             2>/dev/null || echo "")
         [[ -n "$encoded_url" ]] && \
             echo "  QR: https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encoded_url}"
@@ -148,17 +226,26 @@ EOF
 }
 
 # ── Bootstrap secrets ─────────────────────────────────────────────────────────
-./bootstrap-env.sh "$ENV_MODE" || true
+# Only regenerate secrets for modes that start fresh; skip/quick reuse existing env.
+if [[ "$SETUP_MODE" == "full" || "$SETUP_MODE" == "demo" ]]; then
+    if ! ./bootstrap-env.sh "$ENV_MODE"; then
+        echo "WARNING: bootstrap-env.sh reported an error — continuing, but verify .env is correct."
+    fi
+fi
 
 case "$SETUP_MODE" in
 
     skip)
+        wait_for_container
         app php artisan tinker --execute="App\Models\Setting::markSetupCompleted();"
         ;;
 
     quick)
         wait_for_container
         build_assets
+        echo "WARNING: 'quick' mode runs migrate:fresh — all existing data will be wiped."
+        read -r -p "Continue? [y/N] " _confirm
+        [[ "${_confirm,,}" == "y" ]] || { echo "Aborted."; exit 0; }
         app php artisan migrate:fresh --force
         ;;
 
