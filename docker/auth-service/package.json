@@ -1,0 +1,16 @@
+{
+    "name": "monitoring-auth-service",
+    "version": "1.0.0",
+    "description": "Auth service for Grafana/Prometheus monitoring access",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js",
+        "dev": "node --watch index.js"
+    },
+    "dependencies": {
+        "bcrypt": "^5.1.1",
+        "cookie-parser": "^1.4.7",
+        "express": "^4.21.2",
+        "express-rate-limit": "^7.5.0"
+    }
+}

@@ -1,11 +1,15 @@
 type: leaky
 name: local/laravel-bf
 description: "Detect brute force against Laravel login (419 CSRF/rate-limit responses)"
-filter: "evt.Meta.log_type == 'http_access-log' && evt.Parsed.verb == 'POST' && evt.Meta.http_status == '419'"
+filter: >
+  evt.Meta.log_type == 'http_access-log' &&
+  evt.Parsed.verb == 'POST' &&
+  evt.Parsed.uri contains '/login' &&
+  (evt.Meta.http_status == '419' || evt.Meta.http_status == '422')
 groupby: evt.Meta.source_ip
-capacity: 8
-leakspeed: "10s"
-blackhole: 5m
+capacity: 5
+leakspeed: "30s"
+blackhole: 30m
 labels:
   confidence: 3
   spoofable: 0

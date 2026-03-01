@@ -4,4 +4,5 @@ filenames:
   - /var/log/nginx/error.log
 labels:
   type: nginx
+  source: nginx-proxy
 poll_without_inotify: true

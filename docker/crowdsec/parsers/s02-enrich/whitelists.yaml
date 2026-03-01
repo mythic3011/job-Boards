@@ -7,3 +7,4 @@ whitelist:
     - "127.0.0.1"
   cidr:
     - "172.16.0.0/12"
+    - "100.64.0.0/10" # Tailscale CGNAT

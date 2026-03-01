@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # ─── Usage ────────────────────────────────────────────────────────────────────
@@ -21,11 +21,23 @@ SED_CMD="sed -i"
 # ─── Generators ──────────────────────────────────────────────────────────────
 gen_secret()   { openssl rand -hex 32; }
 gen_app_key()  { echo "base64:$(openssl rand -base64 32)"; }
-gen_uuid()     { command -v uuidgen &>/dev/null \
-    && uuidgen | tr '[:upper:]' '[:lower:]' \
-    || printf '%08x-%04x-4%03x-%04x-%012x\n' $RANDOM $RANDOM $RANDOM $RANDOM $RANDOM; }
-gen_db_pass()  { openssl rand -base64 32 | tr -d "=+/" | cut -c1-32; }
-gen_mon_pass() { openssl rand -base64 32 | tr -d "=+/" | cut -c1-24; }
+
+gen_uuid() {
+    # Prefer system sources, fallback with correct variant bits
+    cat /proc/sys/kernel/random/uuid 2>/dev/null \
+    || python3 -c "import uuid; print(uuid.uuid4())" 2>/dev/null \
+    || printf '%08x-%04x-4%03x-%04x-%012x\n' \
+        $((RANDOM * RANDOM)) \
+        $RANDOM \
+        $((RANDOM & 0xfff)) \
+        $((0x8000 | (RANDOM & 0x3fff))) \
+        $((RANDOM * RANDOM * RANDOM))
+}
+
+# Unified pass generator — gen_pass <length>
+gen_pass() { openssl rand -base64 48 | tr -d "=+/" | cut -c1-"${1:-32}"; }
+gen_db_pass()  { gen_pass 32; }
+gen_mon_pass() { gen_pass 24; }
 
 # ─── Boolean misconfiguration detection ──────────────────────────────────────
 is_misconfigured() {
@@ -76,13 +88,29 @@ is_secret_var() {
     return 1
 }
 
-# ─── Env file writer ──────────────────────────────────────────────────────────
+# ─── Env file writer (safe for special chars including base64) ────────────────
 set_env() {
     local var="$1" val="$2"
     if grep -q "^${var}=" .env 2>/dev/null; then
-        eval "$SED_CMD 's|^${var}=.*\$|${var}=${val}|' .env"
+        # Use python for safe replacement — avoids sed delimiter collisions
+        python3 - <<PYEOF
+import re, sys
+var  = ${var@Q}
+val  = ${val@Q}
+path = '.env'
+with open(path, 'r') as f:
+    content = f.read()
+content = re.sub(
+    r'^' + re.escape(var) + r'=.*$',
+    var + '=' + val,
+    content,
+    flags=re.MULTILINE
+)
+with open(path, 'w') as f:
+    f.write(content)
+PYEOF
     else
-        echo "${var}=${val}" >> .env
+        printf '%s=%s\n' "$var" "$val" >> .env
     fi
     echo "  ✔ ${var} updated"
 }
@@ -96,7 +124,9 @@ generate_for_var() {
         REDIS_PASSWORD)      new=$(gen_secret) ;;
         MONITORING_PASSWORD) new=$(gen_mon_pass) ;;
         GRAFANA_PASSWORD)    new=$(gen_mon_pass) ;;
-        CROWDSEC_ENROLL_KEY) return ;; # Always manual
+        CROWDSEC_ENROLL_KEY)
+            echo "  ⚠ CROWDSEC_ENROLL_KEY — manual setup required (app.crowdsec.net)"
+            return ;;
         AWS_*)               set_env "$var" "" ; return ;;
         *SECRET*|*KEY*|*TOKEN*) new=$(gen_secret) ;;
         *UUID*)              new=$(gen_uuid) ;;
@@ -112,7 +142,8 @@ generate_for_var() {
 # In dev mode, skip DB_PASSWORD regeneration if postgres is already running
 # to avoid breaking an existing database instance.
 POSTGRES_RUNNING=false
-if [[ "$MODE" == "dev" ]] && docker ps --format '{{.Names}}' 2>/dev/null | grep -q "postgres"; then
+if [[ "$MODE" == "dev" ]] && \
+   docker ps --filter "ancestor=postgres" --format '{{.Names}}' 2>/dev/null | grep -q .; then
     POSTGRES_RUNNING=true
 fi
 
@@ -124,8 +155,9 @@ echo "════════════════════════�
 if [[ "$MODE" == "production" ]]; then
     echo ""
     echo "⚠ Production mode: all secrets will be regenerated."
-    echo "  Existing .env backed up to .env.backup.$(date +%Y%m%d-%H%M%S)"
-    cp .env ".env.backup.$(date +%Y%m%d-%H%M%S)"
+    BACKUP_DATE=$(date -u +%Y%m%d-%H%M%S 2>/dev/null || date +%Y%m%d-%H%M%S)
+    echo "  Existing .env backed up to .env.backup.${BACKUP_DATE}"
+    cp .env ".env.backup.${BACKUP_DATE}"
 fi
 
 # ── 1. Boolean security settings (both modes) ─────────────────────────────────
@@ -163,10 +195,8 @@ while IFS= read -r line; do
     val=$(grep "^${var}=" .env 2>/dev/null | cut -d'=' -f2- || echo "")
 
     if [[ "$MODE" == "production" ]] && is_secret_var "$var"; then
-        # Production: force regenerate all secrets
         generate_for_var "$var"
     elif is_weak "$val" "$var"; then
-        # Dev: skip DB_PASSWORD if postgres is already running to avoid breaking it
         if [[ "$var" == "DB_PASSWORD" && "$POSTGRES_RUNNING" == "true" ]]; then
             echo "  ⚠ DB_PASSWORD is weak but postgres is running — skipping (fix manually)"
         else
@@ -175,7 +205,7 @@ while IFS= read -r line; do
     fi
 done < .env.example
 
-# ── 3. Monitoring vars (ensure always exist) ───────────────────────────────────
+# ── 3. Monitoring credentials ──────────────────────────────────────────────────
 echo ""
 echo "── Monitoring credentials ──"
 
@@ -188,21 +218,59 @@ for var in MONITORING_PASSWORD GRAFANA_PASSWORD; do
     fi
 done
 
-# ── 4. Production: regenerate monitoring.htpasswd ─────────────────────────────
-if [[ "$MODE" == "production" ]]; then
-    echo ""
-    echo "── Regenerating monitoring.htpasswd ──"
-    MONITORING_PWD=$(grep "^MONITORING_PASSWORD=" .env | cut -d'=' -f2-)
-    if command -v docker &>/dev/null && [[ -n "$MONITORING_PWD" ]]; then
-        mkdir -p docker/nginx
-        docker run --rm httpd:alpine \
-            htpasswd -nb admin "$MONITORING_PWD" \
-            > docker/nginx/monitoring.htpasswd
-        chmod 600 docker/nginx/monitoring.htpasswd
-        echo "  ✔ docker/nginx/monitoring.htpasswd regenerated"
+# Bcrypt hash via htpasswd -B (method B as requested)
+MPW=$(grep "^MONITORING_PASSWORD=" .env | cut -d'=' -f2-)
+if [[ -n "$MPW" ]]; then
+    EXISTING_HASH=$(grep "^MONITORING_PASSWORD_HASH=" .env 2>/dev/null | cut -d'=' -f2- || true)
+    if [[ -z "$EXISTING_HASH" || "$MODE" == "production" ]]; then
+        echo "  Generating bcrypt hash for MONITORING_PASSWORD (htpasswd -B)..."
+        # Extract only the hash part (htpasswd outputs "user:hash", we want hash only)
+        HASH=$(docker run --rm httpd:alpine \
+            htpasswd -bnB "" "$MPW" | cut -d: -f2 | tr -d '\n\r')
+        set_env "MONITORING_PASSWORD_HASH" "$HASH"
     else
-        echo "  ⚠ Docker not available — regenerate htpasswd manually"
+        echo "  ✔ MONITORING_PASSWORD_HASH already set"
     fi
+fi
+
+# Session secret for auth-service
+val=$(grep "^SESSION_SECRET=" .env 2>/dev/null | cut -d'=' -f2- || echo "")
+if [[ -z "$val" || "$MODE" == "production" ]]; then
+    set_env "SESSION_SECRET" "$(gen_secret)"
+else
+    echo "  ✔ SESSION_SECRET already set"
+fi
+
+# propagate some variables into frontend project (if it exists)
+FRONTEND_ENV="docker/auth-service/frontend/.env"
+if [[ -d "docker/auth-service/frontend" ]]; then
+    echo "VITE_AUTH_VERIFY=/monitoring/auth/verify" > "$FRONTEND_ENV"
+    echo "VITE_AUTH_CHECK=/monitoring/auth/check" >> "$FRONTEND_ENV"
+    echo "VITE_REDIRECT_DEFAULT=/monitoring/grafana/" >> "$FRONTEND_ENV"
+    # also share session secret for client-side use if necessary (beware security)
+    echo "VITE_SESSION_SECRET=${val}" >> "$FRONTEND_ENV"
+    echo "  ✔ propagated vars to frontend/.env"
+fi
+
+# ── 4. Nginx htpasswd ─────────────────────────────────────────────────────────
+echo ""
+echo "── Nginx htpasswd ──"
+
+MPW=$(grep "^MONITORING_PASSWORD=" .env | cut -d'=' -f2-)
+if [[ -n "$MPW" ]]; then
+    if command -v docker &>/dev/null; then
+        mkdir -p docker/nginx/htpasswd
+        docker run --rm httpd:alpine \
+            htpasswd -bnB admin "$MPW" \
+            > docker/nginx/htpasswd/monitoring.htpasswd
+        chmod 600 docker/nginx/htpasswd/monitoring.htpasswd
+        echo "  ✔ docker/nginx/htpasswd/monitoring.htpasswd regenerated"
+    else
+        echo "  ⚠ Docker not available — regenerate htpasswd manually:"
+        echo "    htpasswd -bnB admin <password> > docker/nginx/htpasswd/monitoring.htpasswd"
+    fi
+else
+    echo "  ⚠ MONITORING_PASSWORD not set — skipping htpasswd"
 fi
 
 # ── 5. Final audit ─────────────────────────────────────────────────────────────
@@ -230,6 +298,8 @@ audit_var SESSION_ENCRYPT
 audit_var SESSION_SECURE_COOKIE
 audit_var MONITORING_PASSWORD
 audit_var GRAFANA_PASSWORD
+audit_var MONITORING_PASSWORD_HASH
+audit_var SESSION_SECRET
 
 # Production extra checks
 if [[ "$MODE" == "production" ]]; then

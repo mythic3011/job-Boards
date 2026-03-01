@@ -52,5 +52,12 @@ CLAUDE.md
 # SSL certificates (generated locally)
 docker/nginx/ssl/
 
+# auth-service frontend build & deps
+/docker/auth-service/frontend/node_modules/
+/docker/auth-service/frontend/dist/
+
+# nginx host log directory
+/docker/nginx/logs/
+
 # ignore any backup .env files
 admin-*-*.txt

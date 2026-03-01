@@ -1,6 +1,6 @@
 services:
     nginx:
-        container_name: jobs-borads-nginx
+        container_name: jobs-boards-nginx
         image: nginx:alpine
         entrypoint: ["/docker-entrypoint-custom.sh"]
         ports:
@@ -11,9 +11,8 @@ services:
         volumes:
             - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
             - ./docker/nginx/entrypoint.sh:/docker-entrypoint-custom.sh:ro
-            - ./docker/nginx/errors:/usr/share/nginx/html:ro # static error pages
+            - ./docker/nginx/errors:/usr/share/nginx/html:ro
             - nginx-ssl:/etc/nginx/ssl
-            - nginx-logs:/var/log/nginx
             - nginx-htpasswd:/etc/nginx/htpasswd
         networks:
             - sail
@@ -28,8 +27,22 @@ services:
             retries: 3
             start_period: 15s
 
+    auth-service:
+        build: ./docker/auth-service
+        environment:
+            - MONITORING_PASSWORD_HASH=${MONITORING_PASSWORD_HASH}
+            - SESSION_SECRET=${SESSION_SECRET}
+        networks:
+            - sail
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+            interval: 10s
+            timeout: 5s
+            retries: 3
+
     crowdsec:
-        container_name: jobs-borads-crowdsec
+        container_name: jobs-boards-crowdsec
         image: crowdsecurity/crowdsec:latest
         environment:
             COLLECTIONS: >-
@@ -43,7 +56,6 @@ services:
             - ./docker/crowdsec/acquis.d/laravel.yaml:/etc/crowdsec/acquis.d/laravel.yaml:ro
             - ./docker/crowdsec/parsers/s02-enrich/whitelists.yaml:/etc/crowdsec/parsers/s02-enrich/local-whitelists.yaml:ro
             - ./docker/crowdsec/scenarios/laravel-bf.yaml:/etc/crowdsec/scenarios/laravel-bf.yaml:ro
-            - nginx-logs:/var/log/nginx:ro
             - laravel-logs:/var/log/laravel:ro
             - crowdsec-db:/var/lib/crowdsec/data
             - crowdsec-config:/etc/crowdsec
@@ -66,7 +78,7 @@ services:
             start_period: 60s
 
     crowdsec-key-init:
-        container_name: jobs-borads-crowdsec-key-init
+        container_name: jobs-boards-crowdsec-key-init
         image: crowdsecurity/crowdsec:latest
         entrypoint: ["/init-bouncer-key.sh"]
         volumes:
@@ -82,7 +94,7 @@ services:
         restart: on-failure
 
     crowdsec-bouncer:
-        container_name: jobs-borads-crowdsec-bouncer
+        container_name: jobs-boards-crowdsec-bouncer
         build:
             context: ./docker/crowdsec
             dockerfile: Dockerfile.bouncer
@@ -100,7 +112,7 @@ services:
         restart: unless-stopped
 
     prometheus:
-        container_name: jobs-borads-prometheus
+        container_name: jobs-boards-prometheus
         image: prom/prometheus:latest
         volumes:
             - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
@@ -113,7 +125,7 @@ services:
         restart: unless-stopped
 
     grafana:
-        container_name: jobs-borads-grafana
+        container_name: jobs-boards-grafana
         image: grafana/grafana:latest
         environment:
             GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD}"
@@ -132,7 +144,7 @@ services:
         restart: unless-stopped
 
     laravel.test:
-        container_name: jobs-borads-laravel.test
+        container_name: jobs-boards-laravel.test
         build:
             context: .
             dockerfile: docker/Dockerfile.sail
@@ -165,7 +177,7 @@ services:
                 condition: service_healthy
 
     postgres:
-        container_name: jobs-borads-postgres
+        container_name: jobs-boards-postgres
         image: postgres:15-alpine
         ports:
             - "127.0.0.1:${FORWARD_DB_PORT:-5432}:5432"
@@ -189,7 +201,7 @@ services:
             start_period: 10s
 
     redis:
-        container_name: jobs-borads-redis
+        container_name: jobs-boards-redis
         image: redis:alpine
         ports:
             - "127.0.0.1:${FORWARD_REDIS_PORT:-6379}:6379"
@@ -214,8 +226,6 @@ volumes:
     sail-redis:
         driver: local
     nginx-ssl:
-        driver: local
-    nginx-logs:
         driver: local
     nginx-htpasswd:
         driver: local
