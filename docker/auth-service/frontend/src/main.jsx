@@ -213,12 +213,12 @@ export default function App() {
     );
 }
 
-import ReactDOM from 'react-dom/client';
-const rootElement = document.getElementById('root');
+import ReactDOM from "react-dom/client";
+const rootElement = document.getElementById("root");
 if (rootElement) {
-  const root = ReactDOM.createRoot(rootElement);
-  root.render(<App />);
-  console.log('auth frontend bootstrapped');
+    const root = ReactDOM.createRoot(rootElement);
+    root.render(<App />);
+    console.log("auth frontend bootstrapped");
 } else {
-  console.error('root element not found');
+    console.error("root element not found");
 }
