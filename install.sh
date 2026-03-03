@@ -202,6 +202,20 @@ build_assets() {
     wait_for "Container ready" 60 app php artisan --version
 }
 
+check_existing_install() {
+    if ! docker exec -T "$CONTAINER" true &>/dev/null 2>&1; then
+        return 0
+    fi
+    local setup_complete
+    setup_complete=$(app php artisan tinker --execute="echo App\Models\Setting::isSetupCompleted() ? 'true' : 'false';" 2>/dev/null | tail -1 || echo "false")
+    if [[ "$setup_complete" == "true" ]]; then
+        echo ""
+        echo "WARNING: Existing installation detected. migrate:fresh will destroy all data."
+        read -r -p "Continue and wipe existing data? [y/N] " _confirm
+        [[ "${_confirm,,}" == "y" ]] || { echo "Aborted."; exit 0; }
+    fi
+}
+
 print_monitoring_credentials() {
     local mon_pwd grafana_pwd
     mon_pwd=$(grep "^MONITORING_PASSWORD=" .env | cut -d'=' -f2- || echo "")
@@ -429,6 +443,7 @@ case "$SETUP_MODE" in
 
     full)
         start_containers
+        check_existing_install
         build_assets
         app php artisan migrate:fresh --force
         app php artisan db:seed --class=RolePermissionSeeder --force
@@ -438,6 +453,7 @@ case "$SETUP_MODE" in
 
     demo)
         start_containers
+        check_existing_install
         build_assets
         app php artisan migrate:fresh --force
         app php artisan db:seed --class=RolePermissionSeeder --force
