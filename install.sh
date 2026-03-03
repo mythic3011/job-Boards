@@ -250,16 +250,16 @@ prompt_admin_info() {
 
     if [[ "${_use_defaults,,}" == "n" ]]; then
         read -r -p "  Email [$default_email]: " _input_email
-        ADMIN_EMAIL="${_input_email:-$default_email}"
+        ADMIN_INFO[email]="${_input_email:-$default_email}"
 
         read -r -p "  Nickname [$default_nickname]: " _input_nickname
-        ADMIN_NICKNAME="${_input_nickname:-$default_nickname}"
+        ADMIN_INFO[nickname]="${_input_nickname:-$default_nickname}"
 
         while true; do
             read -r -s -p "  Password (min 12 chars, leave blank to auto-generate): " _input_password
             echo ""
             if [[ -z "$_input_password" ]]; then
-                ADMIN_PASSWORD=""
+                ADMIN_INFO[password]=""
                 break
             elif [[ ${#_input_password} -lt 12 ]]; then
                 echo "  Password must be at least 12 characters."
@@ -267,7 +267,7 @@ prompt_admin_info() {
                 read -r -s -p "  Confirm password: " _confirm_password
                 echo ""
                 if [[ "$_input_password" == "$_confirm_password" ]]; then
-                    ADMIN_PASSWORD="$_input_password"
+                    ADMIN_INFO[password]="$_input_password"
                     break
                 else
                     echo "  Passwords do not match, try again."
@@ -275,9 +275,9 @@ prompt_admin_info() {
             fi
         done
     else
-        ADMIN_EMAIL="$default_email"
-        ADMIN_NICKNAME="$default_nickname"
-        ADMIN_PASSWORD=""
+        ADMIN_INFO[email]="$default_email"
+        ADMIN_INFO[nickname]="$default_nickname"
+        ADMIN_INFO[password]=""
     fi
 }
 
@@ -287,15 +287,16 @@ seed_admin() {
         exit 1
     fi
 
+    declare -A ADMIN_INFO=()
     prompt_admin_info
 
     local admin_password
-    if [[ -z "$ADMIN_PASSWORD" ]]; then
+    if [[ -z "${ADMIN_INFO[password]}" ]]; then
         admin_password=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)
     else
-        admin_password="$ADMIN_PASSWORD"
+        admin_password="${ADMIN_INFO[password]}"
     fi
-    unset ADMIN_PASSWORD
+    ADMIN_INFO[password]=""
 
     # Proper base32 TOTP secret (RFC 6238 compliant)
     local two_factor_secret
@@ -308,8 +309,8 @@ seed_admin() {
 
     # Pass sensitive values via environment to avoid heredoc injection
     export _ADMIN_PASSWORD="$admin_password"
-    export _ADMIN_EMAIL="$ADMIN_EMAIL"
-    export _ADMIN_NICKNAME="$ADMIN_NICKNAME"
+    export _ADMIN_EMAIL="${ADMIN_INFO[email]}"
+    export _ADMIN_NICKNAME="${ADMIN_INFO[nickname]}"
     export _2FA_SECRET="$two_factor_secret"
     local recovery_codes_json
     recovery_codes_json=$(printf '%s\n' "${recovery_codes[@]}" | jq -R . | jq -s .)
@@ -344,7 +345,11 @@ use Illuminate\Support\Facades\Hash;
     # Clean up sensitive env vars immediately after use
     unset _ADMIN_PASSWORD _ADMIN_EMAIL _ADMIN_NICKNAME _2FA_SECRET _RECOVERY_JSON
 
-    app php artisan tinker --execute="App\Models\Setting::markSetupCompleted();"
+    local is_complete
+    is_complete=$(app php artisan tinker --execute="echo App\Models\Setting::isSetupCompleted() ? 'yes' : 'no';" 2>/dev/null | tail -1 || echo "no")
+    if [[ "$is_complete" != "yes" ]]; then
+        app php artisan tinker --execute="App\Models\Setting::markSetupCompleted();"
+    fi
     app php artisan optimize:clear
 
     # ── Output credentials ─────────────────────────────────────────────────────
@@ -354,13 +359,13 @@ use Illuminate\Support\Facades\Hash;
     encoded_issuer=$(python3 -c \
         "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" \
         "$app_name" 2>/dev/null || echo "${app_name// /%20}")
-    qr_url="otpauth://totp/${encoded_issuer}:${ADMIN_EMAIL}?secret=${two_factor_secret}&issuer=${encoded_issuer}"
+    qr_url="otpauth://totp/${encoded_issuer}:${ADMIN_INFO[email]}?secret=${two_factor_secret}&issuer=${encoded_issuer}"
 
     echo ""
     echo "======================================="
     echo " Admin Credentials"
     echo "======================================="
-    echo "  Email:    ${ADMIN_EMAIL}"
+    echo "  Email:    ${ADMIN_INFO[email]}"
     echo "  Password: ${admin_password}"
     echo "  2FA:      ${two_factor_secret}"
     echo ""
@@ -392,7 +397,7 @@ use Illuminate\Support\Facades\Hash;
         echo "======================================="
         echo " Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
         echo "======================================="
-        echo "Email:    ${ADMIN_EMAIL}"
+        echo "Email:    ${ADMIN_INFO[email]}"
         echo "Password: ${admin_password}"
         echo "2FA:      ${two_factor_secret}"
         printf 'Recovery: '
