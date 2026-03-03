@@ -5,7 +5,7 @@ set -euo pipefail
 #
 #   full        — start containers + build assets + migrate (web wizard completes setup)
 #   demo        — full + seed admin account + mock data (no web wizard needed)
-#   quick       — rebuild assets + migrate:FRESH ⚠ WIPES ALL DATA (containers must be running)
+#   quick       — migrate:FRESH ⚠ WIPES ALL DATA + rebuild assets (containers must be running)
 #   skip        — mark setup complete only
 #   setupAdmin  — create admin account interactively (containers must be running)
 
@@ -414,6 +414,29 @@ use Illuminate\Support\Facades\Hash;
     echo "    (stored in /tmp -- will be lost on reboot, copy now)"
 }
 
+print_summary() {
+    local mode="$1"
+    local ssl_port app_url
+    ssl_port=$(grep -E '^APP_SSL_PORT=' .env 2>/dev/null | cut -d'=' -f2- || echo "443")
+    ssl_port="${ssl_port:-443}"
+    if [[ "$ssl_port" == "443" ]]; then
+        app_url="https://localhost"
+    else
+        app_url="https://localhost:${ssl_port}"
+    fi
+
+    echo ""
+    echo "======================================="
+    echo " Done: $mode"
+    echo "======================================="
+    echo "  App:        $app_url"
+    echo "  Monitoring: $app_url/monitoring/grafana/"
+    echo ""
+    echo "  docker compose ps   — check service health"
+    echo "  docker compose logs — view logs"
+    echo ""
+}
+
 # ── Bootstrap secrets ─────────────────────────────────────────────────────────
 if [[ "$SETUP_MODE" == "full" || "$SETUP_MODE" == "demo" ]]; then
     if ! ./bootstrap-env.sh "$ENV_MODE"; then
@@ -427,6 +450,7 @@ case "$SETUP_MODE" in
     setupAdmin)
         wait_for "Container ready" 60 app php artisan --version
         seed_admin
+        print_summary "$SETUP_MODE"
         ;;
 
     skip)
@@ -439,6 +463,7 @@ case "$SETUP_MODE" in
             echo "Setup already complete."
         fi
         unset _skip_is_complete
+        print_summary "$SETUP_MODE"
         ;;
 
     quick)
@@ -449,7 +474,7 @@ case "$SETUP_MODE" in
         wait_for "Container ready" 60 app php artisan --version
         build_assets
         app php artisan migrate:fresh --force
-        echo "Quick setup complete."
+        print_summary "$SETUP_MODE"
         ;;
 
     full)
@@ -459,7 +484,7 @@ case "$SETUP_MODE" in
         app php artisan migrate:fresh --force
         app php artisan db:seed --class=RolePermissionSeeder --force
         print_monitoring_credentials
-        echo "Setup complete. Visit the app to finish via the web wizard."
+        print_summary "$SETUP_MODE"
         ;;
 
     demo)
@@ -486,6 +511,7 @@ case "$SETUP_MODE" in
             echo "  4. Delete /tmp/monitoring-*.txt after saving credentials"
             echo "  5. Confirm monitoring accessible via Tailscale only"
         fi
+        print_summary "$SETUP_MODE"
         ;;
 
 esac
