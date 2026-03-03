@@ -151,9 +151,9 @@ check_ports() {
     [[ ${#blocked[@]} -eq 0 ]] && return 0
 
     echo ""
-    echo "Port conflict detected:"
+    err "Port conflict detected:"
     for entry in "${blocked[@]}"; do
-        echo "  ${entry%%:*} = ${entry##*:} is already in use"
+        err "  ${entry%%:*} = ${entry##*:} is already in use"
     done
     echo ""
     read -r -p "Auto-assign free ports in range 3001-9001? [Y/n] " _ans
@@ -440,7 +440,7 @@ print_summary() {
 # ── Bootstrap secrets ─────────────────────────────────────────────────────────
 if [[ "$SETUP_MODE" == "full" || "$SETUP_MODE" == "demo" ]]; then
     if ! ./bootstrap-env.sh "$ENV_MODE"; then
-        echo "WARNING: bootstrap-env.sh reported an error — continuing, but verify .env is correct."
+        err "WARNING: bootstrap-env.sh reported an error — continuing, but verify .env is correct."
     fi
 fi
 
@@ -468,7 +468,7 @@ case "$SETUP_MODE" in
 
     quick)
         echo ""
-        echo "WARNING: 'quick' mode runs migrate:fresh -- ALL existing data will be wiped."
+        err "WARNING: 'quick' mode runs migrate:fresh -- ALL existing data will be wiped."
         read -r -p "Continue? [y/N] " _confirm
         [[ "${_confirm,,}" == "y" ]] || { echo "Aborted."; exit 0; }
         wait_for "Container ready" 60 app php artisan --version
