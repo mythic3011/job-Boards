@@ -17,7 +17,7 @@ ENV_MODE="${2:-dev}"
     exit 1
 }
 [[ "$ENV_MODE" != "dev" && "$ENV_MODE" != "production" ]] && {
-    echo "Usage: $0 [full|demo|quick|skip] [dev|production]"
+    echo "Usage: $0 [full|demo|quick|skip|setupAdmin] [dev|production]"
     exit 1
 }
 
@@ -396,8 +396,7 @@ use Illuminate\Support\Facades\Hash;
 }
 
 # ── Bootstrap secrets ─────────────────────────────────────────────────────────
-# Only regenerate secrets for modes that start fresh
-if [[ "$SETUP_MODE" == "full" || "$SETUP_MODE" == "demo" || "$SETUP_MODE" == "setupAdmin" ]]; then
+if [[ "$SETUP_MODE" == "full" || "$SETUP_MODE" == "demo" ]]; then
     if ! ./bootstrap-env.sh "$ENV_MODE"; then
         echo "WARNING: bootstrap-env.sh reported an error — continuing, but verify .env is correct."
     fi
