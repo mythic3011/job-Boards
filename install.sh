@@ -21,8 +21,6 @@ ENV_MODE="${2:-dev}"
     exit 1
 }
 
-check_deps
-
 # ── Fix: typo "borads" → "boards" ─────────────────────────────────────────────
 CONTAINER="jobs-boards-laravel.test"
 
@@ -67,6 +65,8 @@ check_deps() {
         exit 1
     fi
 }
+
+check_deps
 
 wait_for() {
     local label="$1" max_attempts="$2"
@@ -431,8 +431,14 @@ case "$SETUP_MODE" in
 
     skip)
         wait_for "Container ready" 60 app php artisan --version
-        app php artisan tinker --execute="App\Models\Setting::markSetupCompleted();"
-        echo "Setup marked as complete."
+        _skip_is_complete=$(app php artisan tinker --execute="echo App\Models\Setting::isSetupCompleted() ? 'yes' : 'no';" 2>/dev/null | tail -1 || echo "no")
+        if [[ "$_skip_is_complete" != "yes" ]]; then
+            app php artisan tinker --execute="App\Models\Setting::markSetupCompleted();"
+            echo "Setup marked as complete."
+        else
+            echo "Setup already complete."
+        fi
+        unset _skip_is_complete
         ;;
 
     quick)
