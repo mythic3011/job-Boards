@@ -68,25 +68,23 @@ check_deps() {
     fi
 }
 
-wait_for_container() {
-    echo "Waiting for $CONTAINER to be ready..."
-    local attempts=0
-    until app php artisan --version &>/dev/null; do
+wait_for() {
+    local label="$1" max_attempts="$2"
+    shift 2
+    local attempts=0 elapsed=0
+    printf "%s " "$label"
+    until "$@" &>/dev/null 2>&1; do
         attempts=$((attempts + 1))
-        [[ $attempts -ge 60 ]] && { err "Container did not become ready in time."; exit 1; }
+        elapsed=$((attempts * 2))
+        if [[ $attempts -ge $max_attempts ]]; then
+            echo ""
+            err "$label timed out after ${elapsed}s."
+            exit 1
+        fi
+        printf "."
         sleep 2
     done
-    echo "Container ready."
-}
-
-wait_for_container_up() {
-    echo "Waiting for $CONTAINER to start..."
-    local attempts=0
-    until docker exec -T "$CONTAINER" true &>/dev/null 2>&1; do
-        attempts=$((attempts + 1))
-        [[ $attempts -ge 30 ]] && { err "Container did not start in time."; exit 1; }
-        sleep 2
-    done
+    echo " done (${elapsed}s)"
 }
 
 port_in_use() {
@@ -188,11 +186,11 @@ start_containers() {
         echo "Starting containers..."
         docker compose down --remove-orphans 2>/dev/null || true
         docker compose up -d
-        wait_for_container_up
+        wait_for "Container starting" 30 docker exec -T "$CONTAINER" true
         echo "Installing composer dependencies..."
         app composer install --no-interaction --prefer-dist
     fi
-    wait_for_container
+    wait_for "Container ready" 60 app php artisan --version
 }
 
 build_assets() {
@@ -201,7 +199,7 @@ build_assets() {
     app npm install
     app npm run build
     docker compose restart laravel.test
-    wait_for_container
+    wait_for "Container ready" 60 app php artisan --version
 }
 
 print_monitoring_credentials() {
@@ -409,12 +407,12 @@ fi
 case "$SETUP_MODE" in
 
     setupAdmin)
-        wait_for_container
+        wait_for "Container ready" 60 app php artisan --version
         seed_admin
         ;;
 
     skip)
-        wait_for_container
+        wait_for "Container ready" 60 app php artisan --version
         app php artisan tinker --execute="App\Models\Setting::markSetupCompleted();"
         echo "Setup marked as complete."
         ;;
@@ -424,7 +422,7 @@ case "$SETUP_MODE" in
         echo "WARNING: 'quick' mode runs migrate:fresh -- ALL existing data will be wiped."
         read -r -p "Continue? [y/N] " _confirm
         [[ "${_confirm,,}" == "y" ]] || { echo "Aborted."; exit 0; }
-        wait_for_container
+        wait_for "Container ready" 60 app php artisan --version
         build_assets
         app php artisan migrate:fresh --force
         echo "Quick setup complete."
