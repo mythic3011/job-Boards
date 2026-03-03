@@ -21,7 +21,7 @@ ENV_MODE="${2:-dev}"
     exit 1
 }
 
-# ── Fix: typo "borads" → "boards" ─────────────────────────────────────────────
+# ── Container name ────────────────────────────────────────────────────────────
 CONTAINER="jobs-boards-laravel.test"
 
 # ── Host user identity (required by Docker Compose / Sail) ────────────────────
@@ -53,7 +53,7 @@ check_deps() {
     done
 
     # docker compose v2 check (plugin, not standalone)
-    if ! docker compose version &>/dev/null 2>&1; then
+    if ! docker compose version &>/dev/null; then
         missing+=("docker compose (plugin):https://docs.docker.com/compose/install/")
     fi
 
@@ -73,7 +73,7 @@ wait_for() {
     shift 2
     local attempts=0 elapsed=0
     printf "%s " "$label"
-    until "$@" &>/dev/null 2>&1; do
+    until "$@" &>/dev/null; do
         attempts=$((attempts + 1))
         elapsed=$((attempts * 2))
         if [[ $attempts -ge $max_attempts ]]; then
@@ -96,7 +96,7 @@ port_in_use() {
         netstat -tlnp | grep -qE ":${port}([^0-9]|$)" && return 0
     fi
     # Last resort: attempt TCP connection
-    (echo >/dev/tcp/localhost/"$port") &>/dev/null 2>&1 && return 0
+    (echo >/dev/tcp/localhost/"$port") &>/dev/null && return 0
     return 1
 }
 
@@ -179,7 +179,7 @@ check_ports() {
 }
 
 start_containers() {
-    if ! docker exec -T "$CONTAINER" true &>/dev/null 2>&1; then
+    if ! docker exec -T "$CONTAINER" true &>/dev/null; then
         check_ports
         echo "Building laravel.test image..."
         docker compose build laravel.test
@@ -203,12 +203,10 @@ build_assets() {
 }
 
 check_existing_install() {
-    if ! docker exec -T "$CONTAINER" true &>/dev/null 2>&1; then
+    if ! docker exec -T "$CONTAINER" true &>/dev/null; then
         return 0
     fi
-    local setup_complete
-    setup_complete=$(app php artisan tinker --execute="echo App\Models\Setting::isSetupCompleted() ? 'true' : 'false';" 2>/dev/null | tail -1 || echo "false")
-    if [[ "$setup_complete" == "true" ]]; then
+    if app php artisan tinker --execute="exit(App\Models\Setting::isSetupCompleted() ? 0 : 1);" &>/dev/null; then
         echo ""
         echo "WARNING: Existing installation detected. migrate:fresh will destroy all data."
         read -r -p "Continue and wipe existing data? [y/N] " _confirm
@@ -250,16 +248,16 @@ prompt_admin_info() {
 
     if [[ "${_use_defaults,,}" == "n" ]]; then
         read -r -p "  Email [$default_email]: " _input_email
-        ADMIN_INFO[email]="${_input_email:-$default_email}"
+        _PROMPT_EMAIL="${_input_email:-$default_email}"
 
         read -r -p "  Nickname [$default_nickname]: " _input_nickname
-        ADMIN_INFO[nickname]="${_input_nickname:-$default_nickname}"
+        _PROMPT_NICKNAME="${_input_nickname:-$default_nickname}"
 
         while true; do
             read -r -s -p "  Password (min 12 chars, leave blank to auto-generate): " _input_password
             echo ""
             if [[ -z "$_input_password" ]]; then
-                ADMIN_INFO[password]=""
+                _PROMPT_PASSWORD=""
                 break
             elif [[ ${#_input_password} -lt 12 ]]; then
                 echo "  Password must be at least 12 characters."
@@ -267,7 +265,7 @@ prompt_admin_info() {
                 read -r -s -p "  Confirm password: " _confirm_password
                 echo ""
                 if [[ "$_input_password" == "$_confirm_password" ]]; then
-                    ADMIN_INFO[password]="$_input_password"
+                    _PROMPT_PASSWORD="$_input_password"
                     break
                 else
                     echo "  Passwords do not match, try again."
@@ -275,9 +273,9 @@ prompt_admin_info() {
             fi
         done
     else
-        ADMIN_INFO[email]="$default_email"
-        ADMIN_INFO[nickname]="$default_nickname"
-        ADMIN_INFO[password]=""
+        _PROMPT_EMAIL="$default_email"
+        _PROMPT_NICKNAME="$default_nickname"
+        _PROMPT_PASSWORD=""
     fi
 }
 
@@ -287,20 +285,23 @@ seed_admin() {
         exit 1
     fi
 
-    declare -A ADMIN_INFO=()
     prompt_admin_info
 
+    local admin_email="$_PROMPT_EMAIL"
+    local admin_nickname="$_PROMPT_NICKNAME"
+    local admin_password_input="$_PROMPT_PASSWORD"
+    unset _PROMPT_EMAIL _PROMPT_NICKNAME _PROMPT_PASSWORD
+
     local admin_password
-    if [[ -z "${ADMIN_INFO[password]}" ]]; then
+    if [[ -z "$admin_password_input" ]]; then
         admin_password=$(openssl rand -base64 16 | tr -d "=+/" | cut -c1-16)
     else
-        admin_password="${ADMIN_INFO[password]}"
+        admin_password="$admin_password_input"
     fi
-    ADMIN_INFO[password]=""
 
     # Proper base32 TOTP secret (RFC 6238 compliant)
     local two_factor_secret
-    two_factor_secret=$(openssl rand 20 | base32 | tr -d '=' | cut -c1-32)
+    two_factor_secret=$(python3 -c "import base64, os; print(base64.b32encode(os.urandom(20)).decode().rstrip('=')[:32])")
 
     local recovery_codes=()
     for _ in {1..10}; do
@@ -309,8 +310,8 @@ seed_admin() {
 
     # Pass sensitive values via environment to avoid heredoc injection
     export _ADMIN_PASSWORD="$admin_password"
-    export _ADMIN_EMAIL="${ADMIN_INFO[email]}"
-    export _ADMIN_NICKNAME="${ADMIN_INFO[nickname]}"
+    export _ADMIN_EMAIL="$admin_email"
+    export _ADMIN_NICKNAME="$admin_nickname"
     export _2FA_SECRET="$two_factor_secret"
     local recovery_codes_json
     recovery_codes_json=$(printf '%s\n' "${recovery_codes[@]}" | jq -R . | jq -s .)
@@ -345,9 +346,7 @@ use Illuminate\Support\Facades\Hash;
     # Clean up sensitive env vars immediately after use
     unset _ADMIN_PASSWORD _ADMIN_EMAIL _ADMIN_NICKNAME _2FA_SECRET _RECOVERY_JSON
 
-    local is_complete
-    is_complete=$(app php artisan tinker --execute="echo App\Models\Setting::isSetupCompleted() ? 'yes' : 'no';" 2>/dev/null | tail -1 || echo "no")
-    if [[ "$is_complete" != "yes" ]]; then
+    if ! app php artisan tinker --execute="exit(App\Models\Setting::isSetupCompleted() ? 0 : 1);" &>/dev/null; then
         app php artisan tinker --execute="App\Models\Setting::markSetupCompleted();"
     fi
     app php artisan optimize:clear
@@ -359,13 +358,13 @@ use Illuminate\Support\Facades\Hash;
     encoded_issuer=$(python3 -c \
         "import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))" \
         "$app_name" 2>/dev/null || echo "${app_name// /%20}")
-    qr_url="otpauth://totp/${encoded_issuer}:${ADMIN_INFO[email]}?secret=${two_factor_secret}&issuer=${encoded_issuer}"
+    qr_url="otpauth://totp/${encoded_issuer}:${admin_email}?secret=${two_factor_secret}&issuer=${encoded_issuer}"
 
     echo ""
     echo "======================================="
     echo " Admin Credentials"
     echo "======================================="
-    echo "  Email:    ${ADMIN_INFO[email]}"
+    echo "  Email:    ${admin_email}"
     echo "  Password: ${admin_password}"
     echo "  2FA:      ${two_factor_secret}"
     echo ""
@@ -397,7 +396,7 @@ use Illuminate\Support\Facades\Hash;
         echo "======================================="
         echo " Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
         echo "======================================="
-        echo "Email:    ${ADMIN_INFO[email]}"
+        echo "Email:    ${admin_email}"
         echo "Password: ${admin_password}"
         echo "2FA:      ${two_factor_secret}"
         printf 'Recovery: '
@@ -455,14 +454,12 @@ case "$SETUP_MODE" in
 
     skip)
         wait_for "Container ready" 60 app php artisan --version
-        _skip_is_complete=$(app php artisan tinker --execute="echo App\Models\Setting::isSetupCompleted() ? 'yes' : 'no';" 2>/dev/null | tail -1 || echo "no")
-        if [[ "$_skip_is_complete" != "yes" ]]; then
+        if ! app php artisan tinker --execute="exit(App\Models\Setting::isSetupCompleted() ? 0 : 1);" &>/dev/null; then
             app php artisan tinker --execute="App\Models\Setting::markSetupCompleted();"
             echo "Setup marked as complete."
         else
             echo "Setup already complete."
         fi
-        unset _skip_is_complete
         print_summary "$SETUP_MODE"
         ;;
 
@@ -474,6 +471,7 @@ case "$SETUP_MODE" in
         wait_for "Container ready" 60 app php artisan --version
         build_assets
         app php artisan migrate:fresh --force
+        app php artisan db:seed --class=RolePermissionSeeder --force
         print_summary "$SETUP_MODE"
         ;;
 
