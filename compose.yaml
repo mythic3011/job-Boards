@@ -14,6 +14,7 @@ services:
             - ./docker/nginx/errors:/usr/share/nginx/html:ro
             - nginx-ssl:/etc/nginx/ssl
             - nginx-htpasswd:/etc/nginx/htpasswd
+            - nginx-logs:/var/log/nginx
         networks:
             - sail
         depends_on:
