@@ -1,23 +1,24 @@
 #!/bin/bash
 set -euo pipefail
 
-# Usage: ./install.sh [full|demo|quick|skip|setupAdmin] [dev|production]
+# Usage: ./install.sh [full|demo|quick|skip|setupAdmin|test] [dev|production]
 #
 #   full        — start containers + build assets + migrate (web wizard completes setup)
 #   demo        — full + seed admin account + mock data (no web wizard needed)
 #   quick       — migrate:FRESH ⚠ WIPES ALL DATA + rebuild assets (containers must be running)
 #   skip        — mark setup complete only
 #   setupAdmin  — create admin account interactively (containers must be running)
+#   test        — setup testing database and sync credentials (containers must be running)
 
 SETUP_MODE="${1:-full}"
 ENV_MODE="${2:-dev}"
 
-[[ "$SETUP_MODE" != "full" && "$SETUP_MODE" != "demo" && "$SETUP_MODE" != "quick" && "$SETUP_MODE" != "skip" && "$SETUP_MODE" != "setupAdmin" ]] && {
-    echo "Usage: $0 [full|demo|quick|skip|setupAdmin] [dev|production]"
+[[ "$SETUP_MODE" != "full" && "$SETUP_MODE" != "demo" && "$SETUP_MODE" != "quick" && "$SETUP_MODE" != "skip" && "$SETUP_MODE" != "setupAdmin" && "$SETUP_MODE" != "test" ]] && {
+    echo "Usage: $0 [full|demo|quick|skip|setupAdmin|test] [dev|production]"
     exit 1
 }
 [[ "$ENV_MODE" != "dev" && "$ENV_MODE" != "production" ]] && {
-    echo "Usage: $0 [full|demo|quick|skip|setupAdmin] [dev|production]"
+    echo "Usage: $0 [full|demo|quick|skip|setupAdmin|test] [dev|production]"
     exit 1
 }
 
@@ -510,6 +511,23 @@ case "$SETUP_MODE" in
             echo "  5. Confirm monitoring accessible via Tailscale only"
         fi
         print_summary "$SETUP_MODE"
+        ;;
+
+    test)
+        wait_for "Container ready" 60 app php artisan --version
+
+        echo "Setting up testing environment..."
+
+        # Sync .env.testing with .env credentials
+        ./bootstrap-env.sh test
+
+        # Create testing database if it doesn't exist
+        echo "Creating testing database..."
+        docker exec jobs-boards-postgres psql -U jobs_user -d postgres -c "CREATE DATABASE testing;" 2>/dev/null || echo "  (testing database already exists)"
+
+        echo ""
+        echo "Testing environment ready."
+        echo "Run tests with: docker exec jobs-boards-laravel.test php artisan test"
         ;;
 
 esac

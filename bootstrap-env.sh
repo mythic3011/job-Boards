@@ -2,15 +2,17 @@
 set -euo pipefail
 
 # ─── Usage ────────────────────────────────────────────────────────────────────
-# ./bootstrap-env.sh [dev|production]
+# ./bootstrap-env.sh [dev|production|test]
 # dev        — generate missing/weak secrets only, never overwrite existing strong values
 # production — force-regenerate ALL secrets regardless of current value
+# test       — sync .env.testing with .env credentials (DB password, APP_KEY)
 
 MODE="${1:-dev}"
-[[ "$MODE" != "dev" && "$MODE" != "production" ]] && {
-    echo "Usage: $0 [dev|production]"
+[[ "$MODE" != "dev" && "$MODE" != "production" && "$MODE" != "test" ]] && {
+    echo "Usage: $0 [dev|production|test]"
     echo "  dev        — fill missing/weak secrets only"
     echo "  production — force-regenerate ALL secrets (safe deploy)"
+    echo "  test       — sync .env.testing with .env credentials"
     exit 1
 }
 
@@ -137,6 +139,60 @@ generate_for_var() {
 # ─── Preflight ────────────────────────────────────────────────────────────────
 [ ! -f .env.example ] && { echo "Error: .env.example not found"; exit 1; }
 [ ! -f .env ] && cp .env.example .env && echo "Created .env from .env.example"
+
+# ─── Test mode: sync .env.testing with .env ───────────────────────────────────
+if [[ "$MODE" == "test" ]]; then
+    echo ""
+    echo "═══════════════════════════════════════"
+    echo " Test Environment Sync"
+    echo "═══════════════════════════════════════"
+
+    # Read critical values from .env
+    APP_KEY=$(grep "^APP_KEY=" .env 2>/dev/null | cut -d'=' -f2- || echo "")
+    DB_PASSWORD=$(grep "^DB_PASSWORD=" .env 2>/dev/null | cut -d'=' -f2- || echo "")
+
+    if [[ -z "$APP_KEY" ]]; then
+        echo "  ✘ APP_KEY not found in .env — run './bootstrap-env.sh dev' first"
+        exit 1
+    fi
+
+    if [[ -z "$DB_PASSWORD" ]]; then
+        echo "  ✘ DB_PASSWORD not found in .env — run './bootstrap-env.sh dev' first"
+        exit 1
+    fi
+
+    # Create or update .env.testing
+    cat > .env.testing <<EOF
+APP_NAME=Laravel
+APP_ENV=testing
+APP_KEY=$APP_KEY
+APP_DEBUG=true
+APP_URL=http://localhost
+
+DB_CONNECTION=pgsql
+DB_HOST=postgres
+DB_PORT=5432
+DB_DATABASE=testing
+DB_USERNAME=jobs_user
+DB_PASSWORD=$DB_PASSWORD
+
+CACHE_STORE=array
+SESSION_DRIVER=array
+QUEUE_CONNECTION=sync
+MAIL_MAILER=array
+
+# Disable install security checks for testing
+INSTALL_ALLOWED_IPS=
+INSTALL_TOKEN=
+
+BCRYPT_ROUNDS=4
+EOF
+
+    echo "  ✔ .env.testing synced with .env credentials"
+    echo ""
+    echo "✔ Test environment ready"
+    exit 0
+fi
 
 # ─── Detect running containers ───────────────────────────────────────────────
 # In dev mode, skip DB_PASSWORD regeneration if postgres is already running
