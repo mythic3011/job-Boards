@@ -61,6 +61,19 @@ mkdir -p /var/log/nginx
 touch /var/log/nginx/access.log /var/log/nginx/error.log
 chmod 644 /var/log/nginx/*.log
 
+# Write CrowdSec bouncer config from template
+KEY_FILE="/crowdsec-keys/bouncer.key"
+if [ -s "$KEY_FILE" ]; then
+    CROWDSEC_BOUNCER_API_KEY=$(cat "$KEY_FILE")
+    mkdir -p /etc/crowdsec/bouncers
+    sed "s|\${CROWDSEC_BOUNCER_API_KEY}|${CROWDSEC_BOUNCER_API_KEY}|g" \
+        /etc/nginx/crowdsec-bouncer.conf.template \
+        > /etc/crowdsec/bouncers/crowdsec-nginx-bouncer.conf
+    echo "CrowdSec bouncer config written."
+else
+    echo "WARNING: /crowdsec-keys/bouncer.key not found, CrowdSec bouncer disabled."
+fi
+
 
 cleanup() {
     [ -n "$TAIL_PID" ] && kill "$TAIL_PID" 2>/dev/null || true

@@ -15,11 +15,7 @@ function ShieldIcon() {
             <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6
-           3.99 15.954 3.99 12V6a12 12 0 0116.026-.2.75.75 0 01.25.559
-           v5.641c0 3.968-2.186 7.506-5.42 9.48a.75.75 0 01-.764 0
-           C10.186 19.506 8 15.968 8 12V6.359a.75.75 0 01.25-.559
-           A11.959 11.959 0 0112 5.714z"
+                d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
             />
         </svg>
     );
@@ -205,7 +201,7 @@ export default function App() {
                 </div>
 
                 {/* Footer */}
-                <p className="text-center text-xs text-brand-border mt-6">
+                <p className="text-center text-xs text-brand-muted mt-6">
                     JobBoard Infrastructure
                 </p>
             </div>

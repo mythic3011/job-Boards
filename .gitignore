@@ -61,3 +61,4 @@ docker/nginx/ssl/
 
 # ignore any backup .env files
 admin-*-*.txt
+.env.testing

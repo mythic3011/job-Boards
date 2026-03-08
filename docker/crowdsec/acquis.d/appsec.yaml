@@ -1,0 +1,7 @@
+---
+appsec_config: crowdsecurity/appsec-default
+name: crowdsec_appsec
+source: appsec
+listen_addr: 0.0.0.0:7422
+labels:
+  type: appsec

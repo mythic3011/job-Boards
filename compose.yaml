@@ -1,8 +1,9 @@
 services:
     nginx:
         container_name: jobs-boards-nginx
-        image: nginx:alpine
-        entrypoint: ["/docker-entrypoint-custom.sh"]
+        build:
+            context: ./docker/nginx
+            dockerfile: Dockerfile
         ports:
             - "${APP_PORT:-80}:80"
             - "${APP_SSL_PORT:-443}:443"
@@ -10,16 +11,25 @@ services:
             MONITORING_PASSWORD: "${MONITORING_PASSWORD}"
         volumes:
             - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-            - ./docker/nginx/entrypoint.sh:/docker-entrypoint-custom.sh:ro
+            - ./docker/nginx/crowdsec-bouncer.conf.template:/etc/nginx/crowdsec-bouncer.conf.template:ro
             - ./docker/nginx/errors:/usr/share/nginx/html:ro
             - nginx-ssl:/etc/nginx/ssl
             - nginx-htpasswd:/etc/nginx/htpasswd
             - nginx-logs:/var/log/nginx
+            - crowdsec-keys:/crowdsec-keys:ro
         networks:
             - sail
         depends_on:
-            - laravel.test
-            - crowdsec-bouncer
+            laravel.test:
+                condition: service_started
+            crowdsec-key-init:
+                condition: service_completed_successfully
+            crowdsec:
+                condition: service_healthy
+            grafana:
+                condition: service_healthy
+            auth-service:
+                condition: service_healthy
         restart: unless-stopped
         healthcheck:
             test: ["CMD-SHELL", "curl -sf http://laravel.test:80/up || exit 1"]
@@ -50,11 +60,14 @@ services:
                 crowdsecurity/nginx
                 crowdsecurity/http-cve
                 crowdsecurity/base-http-scenarios
+                crowdsecurity/appsec-virtual-patching
+                crowdsecurity/appsec-generic-rules
             GID: "1000"
             DISABLE_PARSERS: "crowdsecurity/whitelists"
         volumes:
             - ./docker/crowdsec/acquis.d/nginx.yaml:/etc/crowdsec/acquis.d/nginx.yaml:ro
             - ./docker/crowdsec/acquis.d/laravel.yaml:/etc/crowdsec/acquis.d/laravel.yaml:ro
+            - ./docker/crowdsec/acquis.d/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
             - ./docker/crowdsec/parsers/s02-enrich/whitelists.yaml:/etc/crowdsec/parsers/s02-enrich/local-whitelists.yaml:ro
             - ./docker/crowdsec/scenarios/laravel-bf.yaml:/etc/crowdsec/scenarios/laravel-bf.yaml:ro
             - ./docker/crowdsec/scenarios/path-scanner.yaml:/etc/crowdsec/scenarios/path-scanner.yaml:ro
@@ -96,24 +109,6 @@ services:
                 condition: service_healthy
         restart: on-failure
 
-    crowdsec-bouncer:
-        container_name: jobs-boards-crowdsec-bouncer
-        build:
-            context: ./docker/crowdsec
-            dockerfile: Dockerfile.bouncer
-        environment:
-            CROWDSEC_AGENT_HOST: crowdsec:8080
-            GIN_MODE: release
-            PORT: "8080"
-        volumes:
-            - crowdsec-keys:/crowdsec-keys:ro
-        networks:
-            - sail
-        depends_on:
-            crowdsec-key-init:
-                condition: service_completed_successfully
-        restart: unless-stopped
-
     prometheus:
         container_name: jobs-boards-prometheus
         image: prom/prometheus:latest
@@ -150,6 +145,12 @@ services:
         depends_on:
             - prometheus
         restart: unless-stopped
+        healthcheck:
+            test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+            interval: 10s
+            timeout: 5s
+            retries: 3
+            start_period: 30s
 
     laravel.test:
         container_name: jobs-boards-laravel.test
