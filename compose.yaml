@@ -1,6 +1,9 @@
 services:
     nginx:
         container_name: jobs-boards-nginx
+        labels:
+            - dev.orbstack.domains=jobboard.local
+            - dev.orbstack.https-port=443
         build:
             context: ./docker/nginx
             dockerfile: Dockerfile

@@ -13,34 +13,49 @@ if ! command -v openssl >/dev/null 2>&1 || ! command -v htpasswd >/dev/null 2>&1
 fi
 
 
-# SSL cert renewal logic (simplified to avoid BusyBox date issues)
+# SSL cert renewal logic
+LAN_IP=$(hostname -i 2>/dev/null | awk '{print $1}')
+[ -z "$LAN_IP" ] && LAN_IP="127.0.0.1"
+
+# Build dynamic SAN list
+SAN_LIST="DNS:localhost,DNS:jobboard.local,IP:127.0.0.1,IP:${LAN_IP}"
+
+# Auto-detect OrbStack: container hostname resolves as *.orb.local
+CONTAINER_HOST=$(hostname 2>/dev/null)
+ORB_DOMAIN="${CONTAINER_HOST}.orb.local"
+if nslookup "$ORB_DOMAIN" 127.0.0.11 >/dev/null 2>&1; then
+    SAN_LIST="${SAN_LIST},DNS:${ORB_DOMAIN}"
+    echo "OrbStack detected, adding ${ORB_DOMAIN} to cert SANs."
+fi
+
+# Check if cert needs renewal
 RENEW_CERT=0
 if [ ! -f "$CERT" ] || [ ! -f "$KEY" ]; then
     RENEW_CERT=1
-else
-    # if certificate file is unreadable/regenerates incorrectly, renew
-    if ! openssl x509 -noout -in "$CERT" >/dev/null 2>&1; then
-        RENEW_CERT=1
-    fi
+elif ! openssl x509 -noout -in "$CERT" >/dev/null 2>&1; then
+    RENEW_CERT=1
+elif ! openssl x509 -noout -text -in "$CERT" 2>/dev/null | grep -q "IP Address:${LAN_IP}"; then
+    echo "LAN IP $LAN_IP not in cert SANs, regenerating..."
+    RENEW_CERT=1
+elif echo "$SAN_LIST" | grep -q "orb.local" && \
+     ! openssl x509 -noout -text -in "$CERT" 2>/dev/null | grep -q "DNS:${ORB_DOMAIN}"; then
+    echo "OrbStack domain ${ORB_DOMAIN} not in cert SANs, regenerating..."
+    RENEW_CERT=1
 fi
 
 if [ "$RENEW_CERT" -eq 1 ]; then
     echo "Generating self-signed SSL certificate..."
     mkdir -p /etc/nginx/ssl
 
-    # improved LAN IP detection: use -i fallback
-    LAN_IP=$(hostname -i 2>/dev/null | awk '{print $1}')
-    [ -z "$LAN_IP" ] && LAN_IP="127.0.0.1"
-
     openssl req -x509 -nodes -days 825 -newkey rsa:2048 \
         -keyout "$KEY" \
         -out "$CERT" \
         -subj "/C=HK/ST=HK/L=HongKong/O=JobBoard/OU=Dev/CN=jobboard.local" \
-        -addext "subjectAltName=DNS:localhost,DNS:jobboard.local,IP:127.0.0.1,IP:${LAN_IP}" \
+        -addext "subjectAltName=${SAN_LIST}" \
         2>/dev/null
     chmod 644 "$CERT"
     chmod 600 "$KEY"
-    echo "SSL certificate generated for $LAN_IP."
+    echo "SSL certificate generated (SANs: ${SAN_LIST})."
 fi
 
 if [ -n "$MONITORING_PASSWORD" ]; then
@@ -58,7 +73,7 @@ if [ -n "$MONITORING_PASSWORD" ] && [ ! -f "$HTPASSWD" ]; then
 fi
 
 mkdir -p /var/log/nginx
-touch /var/log/nginx/access.log /var/log/nginx/error.log
+touch /var/log/nginx/access.log /var/log/nginx/error.log /var/log/nginx/fp-trap.log
 chmod 644 /var/log/nginx/*.log
 
 # Write CrowdSec bouncer config from template
@@ -87,4 +102,4 @@ else
     TAIL_PID=$!
 fi
 
-exec nginx -g 'daemon off;'
+exec nginx -g 'daemon off;' -c /etc/nginx/nginx.conf
