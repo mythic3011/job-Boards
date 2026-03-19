@@ -49,6 +49,7 @@ Route::get('/', function () {
 | Feature-Specific Route Groups
 |--------------------------------------------------------------------------
 */
+require __DIR__.'/bot.php';
 require __DIR__.'/error.php';
 require __DIR__.'/images.php';
 require __DIR__.'/jobs.php';

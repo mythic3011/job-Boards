@@ -1,6 +1,13 @@
 FROM openresty/openresty:alpine
 
-RUN apk add --no-cache openssl apache2-utils curl tar
+RUN apk add --no-cache openssl apache2-utils curl tar && \
+    mkdir -p /usr/local/openresty/lualib/resty && \
+    curl -sL "https://raw.githubusercontent.com/ledgetech/lua-resty-http/master/lib/resty/http.lua" \
+        -o /usr/local/openresty/lualib/resty/http.lua && \
+    curl -sL "https://raw.githubusercontent.com/ledgetech/lua-resty-http/master/lib/resty/http_connect.lua" \
+        -o /usr/local/openresty/lualib/resty/http_connect.lua && \
+    curl -sL "https://raw.githubusercontent.com/ledgetech/lua-resty-http/master/lib/resty/http_headers.lua" \
+        -o /usr/local/openresty/lualib/resty/http_headers.lua
 
 # Extract cs-nginx-bouncer Lua files
 RUN curl -sL "https://github.com/crowdsecurity/cs-nginx-bouncer/releases/download/v1.1.5/crowdsec-nginx-bouncer.tgz" \

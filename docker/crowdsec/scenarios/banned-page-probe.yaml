@@ -1,0 +1,13 @@
+type: trigger
+name: custom/banned-page-probe
+description: "IP fired bot fingerprint beacon from banned page"
+filter: '"POST /api/bot/fp-log" in evt.Line.Raw'
+groupby: evt.Meta.source_ip
+blackhole: 5m
+labels:
+  service: http
+  type: scan
+  remediation: true
+decisions:
+  - type: ban
+    duration: 24h

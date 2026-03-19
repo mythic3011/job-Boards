@@ -1,0 +1,7 @@
+---
+filenames:
+  - /var/log/nginx/fp-trap.log
+labels:
+  type: nginx
+  source: fp-trap
+poll_without_inotify: true

@@ -1,102 +1,82 @@
 <!doctype html>
 <html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <meta name="robots" content="noindex, nofollow" />
-        <title>429 – Too Many Requests | Security System</title>
-        <style>
-            :root {
-                --warn: #d97706;
-                --bg: #f8fafc;
-            }
-            body {
-                font-family:
-                    "Segoe UI",
-                    system-ui,
-                    -apple-system,
-                    sans-serif;
-                background: var(--bg);
-                color: #1e293b;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                height: 100vh;
-                margin: 0;
-                text-align: center;
-            }
-            .container {
-                max-width: 480px;
-                padding: 2rem;
-                background: white;
-                border-radius: 12px;
-                border-top: 4px solid var(--warn);
-                box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            }
-            h1 {
-                color: var(--warn);
-                margin-bottom: 0.5rem;
-                font-size: 1.5rem;
-            }
-            p {
-                line-height: 1.6;
-                color: #64748b;
-            }
-            .info {
-                margin-top: 1.5rem;
-                padding: 1rem;
-                background: #fffbeb;
-                border-radius: 8px;
-                font-family: monospace;
-                font-size: 0.85rem;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <svg
-                style="
-                    width: 48px;
-                    height: 48px;
-                    color: var(--warn);
-                    margin-bottom: 1rem;
-                "
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-            >
-                <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
-                />
-            </svg>
-            <h1>Rate Limit Exceeded</h1>
-            <p>
-                You have sent too many requests in a short period. Our firewall
-                has temporarily throttled your connection.
-            </p>
-            <div class="info">
-                Status: THROTTLED &nbsp;&bull;&nbsp; Retry after:
-                <span id="cd">30</span>s
-            </div>
-            <p style="font-size: 0.8rem; margin-top: 1.5rem">
-                This limit exists to protect platform stability. Please slow
-                down and try again.
-            </p>
-        </div>
-        <script>
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>429 Too Many Requests</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0f0f1a;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .card {
+            background: #1a1a2e;
+            border: 1px solid #2d2d4e;
+            border-radius: 12px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        .code { font-size: 4rem; font-weight: 700; color: #d97706; line-height: 1; margin-bottom: 0.5rem; }
+        h1 { font-size: 1.25rem; color: #c9b8e8; font-weight: 600; margin-bottom: 0.75rem; }
+        p { color: #888; font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem; }
+        .countdown {
+            display: inline-block;
+            background: rgba(217,119,6,0.1);
+            border: 1px solid rgba(217,119,6,0.3);
+            color: #d97706;
+            padding: 0.5rem 1.25rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+        }
+        .retry-link {
+            display: none;
+            color: #d97706;
+            text-decoration: none;
+            font-size: 0.9rem;
+            border: 1px solid rgba(217,119,6,0.4);
+            padding: 0.6rem 1.5rem;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+        .retry-link:hover { background: rgba(217,119,6,0.1); }
+        .footer { margin-top: 1.5rem; font-size: 0.75rem; color: #444; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="code">429</div>
+        <h1>Too Many Requests</h1>
+        <p>You've sent too many requests in a short period. Please slow down and try again shortly.</p>
+        <div class="countdown" id="countdown">Retry in <span id="timer">30</span>s</div>
+        <a href="/" class="retry-link" id="retry-link">Try again</a>
+        <div class="footer">All requests are logged &middot; Repeated violations may result in a ban</div>
+    </div>
+    <script>
+        (function () {
             var s = 30;
-            var el = document.getElementById("cd");
-            var t = setInterval(function () {
-                if (--s <= 0) {
-                    clearInterval(t);
-                    el.innerText = "0";
-                } else {
-                    el.innerText = s;
+            var timer = document.getElementById('timer');
+            var countdown = document.getElementById('countdown');
+            var link = document.getElementById('retry-link');
+            var iv = setInterval(function () {
+                s--;
+                timer.textContent = s;
+                if (s <= 0) {
+                    clearInterval(iv);
+                    countdown.style.display = 'none';
+                    link.style.display = 'inline-block';
                 }
             }, 1000);
-        </script>
-    </body>
+        })();
+    </script>
+</body>
 </html>
