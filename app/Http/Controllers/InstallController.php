@@ -227,8 +227,8 @@ class InstallController extends Controller
     private function validateCompleteRequest(Request $request): void
     {
         $request->validate([
-            'admin_name' => 'required|string|max:255|regex:/^[a-zA-Z\s\-_\.]+$/',
-            'admin_email' => 'required|email:rfc,dns|unique:users,email|max:255',
+            'admin_name' => 'required|string|max:255',
+            'admin_email' => 'required|email:rfc|unique:users,email|max:255',
             'admin_password' => 'required|string|min:12|max:255|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/',
             'admin_password_confirmation' => 'required|string|same:admin_password',
             'two_factor_secret' => 'required|string|regex:/^[A-Z2-7]{16,}$/i',

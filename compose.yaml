@@ -44,6 +44,7 @@ services:
     auth-service:
         build: ./docker/auth-service
         environment:
+            - MONITORING_ADMIN_USERNAME=${MONITORING_ADMIN_USERNAME}
             - MONITORING_PASSWORD_HASH=${MONITORING_PASSWORD_HASH}
             - SESSION_SECRET=${SESSION_SECRET}
         networks:
@@ -75,10 +76,11 @@ services:
             - ./docker/crowdsec/scenarios/laravel-bf.yaml:/etc/crowdsec/scenarios/laravel-bf.yaml:ro
             - ./docker/crowdsec/scenarios/path-scanner.yaml:/etc/crowdsec/scenarios/path-scanner.yaml:ro
             - nginx-logs:/var/log/nginx:ro
-            - laravel-logs:/var/log/laravel:ro
+            - ./storage/logs:/var/log/laravel:ro
             - crowdsec-db:/var/lib/crowdsec/data
             - crowdsec-config:/etc/crowdsec
             - crowdsec-keys:/crowdsec-keys
+            - crowdsec-logs:/var/log/crowdsec
         networks:
             - sail
         depends_on:
@@ -125,6 +127,48 @@ services:
             - sail
         restart: unless-stopped
 
+    nginx-exporter:
+        container_name: jobs-boards-nginx-exporter
+        image: nginx/nginx-prometheus-exporter:latest
+        command:
+            - "--nginx.scrape-uri=http://nginx:9113/metrics"
+        networks:
+            - sail
+        depends_on:
+            nginx:
+                condition: service_started
+        restart: unless-stopped
+
+    loki:
+        container_name: jobs-boards-loki
+        image: grafana/loki:latest
+        command: -config.file=/etc/loki/local-config.yaml
+        volumes:
+            - ./docker/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+            - loki-data:/loki
+        networks:
+            - sail
+        restart: unless-stopped
+        healthcheck:
+            disable: true
+
+    promtail:
+        container_name: jobs-boards-promtail
+        image: grafana/promtail:latest
+        command: -config.file=/etc/promtail/config.yaml
+        volumes:
+            - ./docker/promtail/config.yaml:/etc/promtail/config.yaml:ro
+            - nginx-logs:/var/log/nginx:ro
+            - ./storage/logs:/var/log/laravel:ro
+            - crowdsec-logs:/var/log/crowdsec:ro
+            - promtail-positions:/var/lib/promtail
+        networks:
+            - sail
+        depends_on:
+            loki:
+                condition: service_started
+        restart: unless-stopped
+
     grafana:
         container_name: jobs-boards-grafana
         image: grafana/grafana:latest
@@ -140,6 +184,9 @@ services:
             GF_AUTH_PROXY_HEADER_PROPERTY: "username"
             GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
             GF_AUTH_PROXY_HEADERS: "Name:X-WEBAUTH-USER"
+            DB_DATABASE: "${DB_DATABASE}"
+            DB_USERNAME: "${DB_USERNAME}"
+            DB_PASSWORD: "${DB_PASSWORD}"
         volumes:
             - grafana-data:/var/lib/grafana
             - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -149,7 +196,11 @@ services:
             - prometheus
         restart: unless-stopped
         healthcheck:
-            test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+            test:
+                [
+                    "CMD-SHELL",
+                    "wget -qO- http://localhost:3000/api/health || exit 1",
+                ]
             interval: 10s
             timeout: 5s
             retries: 3
@@ -179,7 +230,6 @@ services:
             REDIS_HOST: redis
         volumes:
             - ".:/var/www/html"
-            - laravel-logs:/var/log/laravel
         networks:
             - sail
         depends_on:
@@ -187,6 +237,52 @@ services:
                 condition: service_healthy
             redis:
                 condition: service_healthy
+
+    queue-worker:
+        container_name: jobs-boards-queue-worker
+        build:
+            context: .
+            dockerfile: docker/Dockerfile.sail
+            args:
+                WWWGROUP: ${WWWGROUP}
+                INSTALL_PLAYWRIGHT: "false"
+                INSTALL_BUN: "false"
+        image: sail-8.5/app
+        entrypoint:
+            [
+                "php",
+                "artisan",
+                "queue:work",
+                "--sleep=1",
+                "--tries=3",
+                "--backoff=10",
+                "--timeout=300",
+            ]
+        environment:
+            WWWUSER: ${WWWUSER}
+            LARAVEL_SAIL:
+            DB_HOST: postgres
+            REDIS_HOST: redis
+        volumes:
+            - ".:/var/www/html"
+        networks:
+            - sail
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    "ps aux | grep -q '[p]hp artisan queue:work' || exit 1",
+                ]
+            interval: 15s
+            timeout: 5s
+            retries: 3
+            start_period: 20s
+        restart: unless-stopped
 
     postgres:
         container_name: jobs-boards-postgres
@@ -243,15 +339,19 @@ volumes:
         driver: local
     nginx-logs:
         driver: local
-    laravel-logs:
-        driver: local
     crowdsec-db:
         driver: local
     crowdsec-config:
         driver: local
     crowdsec-keys:
         driver: local
+    crowdsec-logs:
+        driver: local
     prometheus-data:
+        driver: local
+    loki-data:
+        driver: local
+    promtail-positions:
         driver: local
     grafana-data:
         driver: local

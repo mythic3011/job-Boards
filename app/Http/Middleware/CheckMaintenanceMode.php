@@ -46,7 +46,12 @@ class CheckMaintenanceMode
             return $next($request);
         }
 
-        // Authenticated non-admin: pass through — MaintenanceAlert component shows a modal overlay
-        return $next($request);
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'The system is currently under maintenance. Please try again later.',
+            ], 503);
+        }
+
+        return response()->view('errors.maintenance', [], 503);
     }
 }

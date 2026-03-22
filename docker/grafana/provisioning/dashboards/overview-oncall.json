@@ -1,0 +1,304 @@
+{
+    "title": "Overview - Oncall",
+    "uid": "overview-oncall",
+    "schemaVersion": 38,
+    "version": 3,
+    "refresh": "30s",
+    "time": { "from": "now-6h", "to": "now" },
+    "templating": {
+        "list": [
+            {
+                "name": "ban_ip",
+                "label": "Banned IP",
+                "type": "query",
+                "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+                "query": "query_result(topk(30, sum by (ip) (count_over_time({job=\"crowdsec\",source=\"nginx-bouncer\"} |= \"ban\" | regexp \"(?P<ip>(?:\\\\d{1,3}\\\\.){3}\\\\d{1,3})\" [1h]))))",
+                "regex": "/ip=\\\"([^\\\"]+)\\\"/",
+                "refresh": 2,
+                "sort": 3,
+                "multi": false,
+                "includeAll": false
+            }
+        ]
+    },
+    "links": [
+        {
+            "title": "HTTP / WAF / Edge",
+            "type": "dashboards",
+            "tags": [],
+            "asDropdown": false,
+            "icon": "external link",
+            "url": "/d/http-edge/http-waf-edge"
+        },
+        {
+            "title": "Laravel Logs",
+            "type": "dashboards",
+            "tags": [],
+            "asDropdown": false,
+            "icon": "external link",
+            "url": "/d/laravel-logs/laravel-app-logs"
+        },
+        {
+            "title": "Queue Workers",
+            "type": "dashboards",
+            "tags": [],
+            "asDropdown": false,
+            "icon": "external link",
+            "url": "/d/queue-workers/queue-workers"
+        },
+        {
+            "title": "Infra / Postgres",
+            "type": "dashboards",
+            "tags": [],
+            "asDropdown": false,
+            "icon": "external link",
+            "url": "/d/infra-postgres/infra-postgres"
+        }
+    ],
+    "panels": [
+        {
+            "id": 1,
+            "title": "RPS (last 1m)",
+            "type": "stat",
+            "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+            "datasource": { "type": "prometheus", "uid": "PBFA97CFB590B2093" },
+            "targets": [
+                {
+                    "expr": "sum(rate(nginx_http_requests_total[1m]))",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "reduceOptions": { "calcs": ["lastNotNull"] },
+                "colorMode": "value"
+            },
+            "links": [
+                {
+                    "title": "Open HTTP / WAF / Edge",
+                    "url": "/d/http-edge/http-waf-edge",
+                    "targetBlank": false
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "title": "Laravel Errors (last 5m)",
+            "type": "stat",
+            "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "sum(count_over_time({app=\"laravel\"} | json | level_name=\"ERROR\" [5m]))",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "reduceOptions": { "calcs": ["lastNotNull"] },
+                "colorMode": "background"
+            },
+            "links": [
+                {
+                    "title": "Open Laravel Logs",
+                    "url": "/d/laravel-logs/laravel-app-logs",
+                    "targetBlank": false
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "title": "Edge 5xx (last 5m)",
+            "type": "stat",
+            "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "sum(count_over_time({job=\"nginx\"} |~ \" 5[0-9]{2} \" [5m]))",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "reduceOptions": { "calcs": ["lastNotNull"] },
+                "colorMode": "background"
+            },
+            "links": [
+                {
+                    "title": "Open HTTP / WAF / Edge",
+                    "url": "/d/http-edge/http-waf-edge",
+                    "targetBlank": false
+                }
+            ]
+        },
+        {
+            "id": 4,
+            "title": "CrowdSec Bans (last 5m)",
+            "type": "stat",
+            "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "sum(count_over_time({job=\"crowdsec\",source=\"nginx-bouncer\"} |= \"ban\" [5m]))",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "reduceOptions": { "calcs": ["lastNotNull"] },
+                "colorMode": "background"
+            },
+            "links": [
+                {
+                    "title": "Open HTTP / WAF / Edge",
+                    "url": "/d/http-edge/http-waf-edge",
+                    "targetBlank": false
+                }
+            ]
+        },
+        {
+            "id": 5,
+            "title": "Nginx Requests Over Time",
+            "type": "timeseries",
+            "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "sum(count_over_time({job=\"nginx\"}[1m]))",
+                    "legendFormat": "requests/min",
+                    "refId": "A"
+                },
+                {
+                    "expr": "sum(count_over_time({job=\"nginx\"} |~ \" 5[0-9]{2} \" [1m]))",
+                    "legendFormat": "5xx/min",
+                    "refId": "B"
+                }
+            ]
+        },
+        {
+            "id": 6,
+            "title": "Laravel Errors Over Time",
+            "type": "timeseries",
+            "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "sum(count_over_time({app=\"laravel\"} | json | level_name=\"ERROR\" [1m]))",
+                    "legendFormat": "errors/min",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 7,
+            "title": "Recent Laravel Errors",
+            "type": "logs",
+            "gridPos": { "x": 0, "y": 12, "w": 24, "h": 10 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "{app=\"laravel\"} | json | level_name=\"ERROR\"",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "showTime": true,
+                "showLabels": true,
+                "sortOrder": "Descending",
+                "dedupStrategy": "none",
+                "enableLogDetails": true,
+                "prettifyLogMessage": true
+            }
+        },
+        {
+            "id": 8,
+            "title": "Overall Security + App Pulse",
+            "type": "timeseries",
+            "gridPos": { "x": 0, "y": 22, "w": 12, "h": 8 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "sum(count_over_time({job=\"nginx\"}[1m]))",
+                    "legendFormat": "edge req/min",
+                    "refId": "A"
+                },
+                {
+                    "expr": "sum(count_over_time({job=\"crowdsec\",source=\"nginx-bouncer\"} |= \"ban\" [5m]))",
+                    "legendFormat": "bans/5m",
+                    "refId": "B"
+                },
+                {
+                    "expr": "sum(count_over_time({app=\"laravel\"} | json | level_name=\"ERROR\" [1m]))",
+                    "legendFormat": "laravel errors/min",
+                    "refId": "C"
+                }
+            ]
+        },
+        {
+            "id": 9,
+            "title": "Top Banned IPs (last 1h)",
+            "type": "bargauge",
+            "gridPos": { "x": 12, "y": 22, "w": 12, "h": 8 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "topk(10, sum by (ip) (count_over_time({job=\"crowdsec\",source=\"nginx-bouncer\"} |= \"ban\" | regexp \"(?P<ip>(?:[0-9]{1,3}\\\\.){3}[0-9]{1,3})\" [1h])))",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "displayMode": "gradient",
+                "orientation": "horizontal",
+                "reduceOptions": { "calcs": ["lastNotNull"] }
+            }
+        },
+        {
+            "id": 10,
+            "title": "Last Banned IPs",
+            "type": "logs",
+            "gridPos": { "x": 0, "y": 30, "w": 12, "h": 8 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "{job=\"crowdsec\",source=\"nginx-bouncer\"} |= \"ban\"",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "showTime": true,
+                "showLabels": true,
+                "sortOrder": "Descending",
+                "dedupStrategy": "none",
+                "enableLogDetails": true,
+                "prettifyLogMessage": true
+            }
+        },
+        {
+            "id": 11,
+            "title": "Suspicious Requests For Selected Banned IP",
+            "type": "logs",
+            "gridPos": { "x": 12, "y": 30, "w": 12, "h": 8 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "{job=\"nginx\"} |~ \"$ban_ip\" |~ \" (403|429|444) \"",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "showTime": true,
+                "showLabels": true,
+                "sortOrder": "Descending",
+                "dedupStrategy": "none",
+                "enableLogDetails": true,
+                "prettifyLogMessage": true
+            }
+        },
+        {
+            "id": 12,
+            "title": "Framework Standard Queries",
+            "type": "text",
+            "gridPos": { "x": 0, "y": 38, "w": 24, "h": 5 },
+            "options": {
+                "mode": "markdown",
+                "content": "Use these as framework baseline in Explore:\n\n- `count_over_time({job=\\\"crowdsec\\\",source=\\\"engine\\\"}[5m])`\n- `count_over_time({job=\\\"crowdsec\\\",source=\\\"nginx-bouncer\\\"} |= \\\"ban\\\" [5m])`\n- `sum by (status) (rate({job=\\\"nginx\\\"} | regexp \\\" (?P<status>[1-5][0-9]{2}) \\\" [5m]))`\n- `count_over_time({app=\\\"laravel\\\"} |= \\\"ERROR\\\" [5m])`"
+            }
+        }
+    ]
+}

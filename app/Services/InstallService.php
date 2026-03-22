@@ -267,7 +267,6 @@ class InstallService
     protected function installDemoData(): void
     {
         Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\DemoDataSeeder']);
-        Setting::set('demo_seeded_at', now()->toDateTimeString());
 
         $this->auditLogger->logBusinessEvent(
             eventType: 'setup.demo_data_seeded',

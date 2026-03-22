@@ -5,15 +5,3 @@
     </x-slot:actions>
 </x-errors.page>
 
-<!-- <script>
-    let seconds = 5;
-    const el = document.getElementById('countdown');
-    const timer = setInterval(() => {
-        seconds--;
-        el.textContent = seconds;
-        if (seconds <= 0) {
-            clearInterval(timer);
-            window.location.href = '{{ route('home') }}';
-        }
-    }, 1000);
-</script> -->

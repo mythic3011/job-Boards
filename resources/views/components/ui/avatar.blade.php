@@ -27,6 +27,6 @@
         <img src="{{ $src }}"
              alt="{{ $name ? $name . '\'s avatar' : 'Avatar' }}"
              class="relative w-full h-full object-cover"
-             onerror="this.remove();">
+             x-on:error="$el.remove()">
     @endif
 </div>

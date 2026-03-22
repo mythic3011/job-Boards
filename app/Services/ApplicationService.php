@@ -13,7 +13,8 @@ class ApplicationService
     public function __construct(
         private readonly CvFileService $cvFileService,
         private readonly Guard $auth,
-        private readonly Request $request
+        private readonly Request $request,
+        private readonly AuditLogger $auditLogger
     ) {
     }
 
@@ -69,6 +70,26 @@ class ApplicationService
      */
     private function logApplicationSubmission(Application $application, JobPosting $job): void
     {
+        $user = $this->auth->user();
+
+        $this->auditLogger->logBusinessEvent(
+            eventType: 'application.submitted',
+            request: $this->request,
+            targetType: 'application',
+            targetIdcode: $application->idcode,
+            meta: [
+                'application_id' => $application->id,
+                'application_idcode' => $application->idcode,
+                'job_id' => $job->id,
+                'job_idcode' => $job->idcode,
+                'applicant_user_id' => $application->applicant_user_id,
+                'actor_user_type' => $user?->user_type,
+                'actor_roles' => $user ? $user->roles()->pluck('name')->values()->all() : [],
+                'cv_mime' => $application->cv_mime,
+                'cv_size_bytes' => $application->cv_size_bytes,
+            ]
+        );
+
         Log::info('Application submitted', [
             'user_id' => $this->auth->id(),
             'application_id' => $application->id,

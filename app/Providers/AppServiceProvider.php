@@ -8,7 +8,10 @@ use App\Policies\ApplicationPolicy;
 use App\Policies\JobPostingPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -66,6 +69,16 @@ class AppServiceProvider extends ServiceProvider
             
             // Normal paths: 20 requests per 5 minutes
             return Limit::perMinutes(5, 20)->by($request->ip());
+        });
+
+        Event::listen(JobFailed::class, function (JobFailed $event) {
+            Log::error('Queue job failed', [
+                'connection' => $event->connectionName,
+                'queue' => $event->job?->getQueue(),
+                'job' => $event->job?->resolveName(),
+                'payload' => $event->job?->payload(),
+                'exception' => $event->exception->getMessage(),
+            ]);
         });
     }
 }

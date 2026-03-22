@@ -37,6 +37,42 @@ new class extends Component
         <p class="mt-1 text-sm text-gray-500">Overview of your Jobs Board platform</p>
     </div>
 
+    {{-- Admin Quick Navigation --}}
+    <div class="mb-8">
+        <x-ui.section-label>Quick Navigation</x-ui.section-label>
+        <div class="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            @can('admin.users.view')
+                <a href="{{ route('admin.users.index') }}" class="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50 transition-colors">
+                    Users
+                </a>
+            @endcan
+
+            @can('admin.jobs.view')
+                <a href="{{ route('admin.jobs.index') }}" class="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50 transition-colors">
+                    Jobs
+                </a>
+            @endcan
+
+            @can('admin.applications.view')
+                <a href="{{ route('admin.applications.index') }}" class="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50 transition-colors">
+                    Applications
+                </a>
+            @endcan
+
+            @can('admin.system.view')
+                <a href="{{ route('admin.audit-logs.index') }}" class="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50 transition-colors">
+                    Audit Logs
+                </a>
+            @endcan
+
+            @can('admin.settings.view')
+                <a href="{{ route('admin.settings.index') }}" class="rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:border-indigo-300 hover:text-indigo-700 hover:bg-indigo-50 transition-colors">
+                    Settings
+                </a>
+            @endcan
+        </div>
+    </div>
+
     {{-- Platform Stats --}}
     <x-ui.section-label>Platform</x-ui.section-label>
     <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">

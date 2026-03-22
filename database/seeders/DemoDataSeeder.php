@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Application;
 use App\Models\JobPosting;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -33,8 +34,9 @@ class DemoDataSeeder extends Seeder
         $this->command->info('Demo individual password: ' . $individualPassword);
 
         $demoCompany = User::firstOrCreate(
-            ['idcode' => 'user_' . Str::uuid()->toString()],
+            ['login_id' => 'brightpath_hr'],
             [
+                'idcode' => 'user_' . Str::uuid()->toString(),
                 'login_id' => 'brightpath_hr',
                 'nickname' => 'BrightPath Recruiting',
                 'email' => 'hiring@brightpathrecruiting.com',
@@ -45,8 +47,9 @@ class DemoDataSeeder extends Seeder
         $demoCompany->assignRole($companyRole);
 
         $demoIndividual = User::firstOrCreate(
-            ['idcode' => 'user_' . Str::uuid()->toString()],
+            ['login_id' => 'alex_morgan'],
             [
+                'idcode' => 'user_' . Str::uuid()->toString(),
                 'login_id' => 'alex_morgan',
                 'nickname' => 'Alex Morgan',
                 'email' => 'alex.morgan@email.com',
@@ -147,6 +150,18 @@ class DemoDataSeeder extends Seeder
             );
             $allApplications->push($app);
         }
+
+        // Persist exact seeded user IDs so cleanup can target demo users safely.
+        $seededUserIds = $companies->pluck('id')
+            ->merge($individuals->pluck('id'))
+            ->push($demoCompany->id)
+            ->push($demoIndividual->id)
+            ->unique()
+            ->values()
+            ->all();
+
+        Setting::set('demo_seeded_at', now()->toDateTimeString());
+        Setting::set('demo_seed_user_ids', json_encode($seededUserIds));
 
         $this->command->info('Demo data seeded.');
         $this->command->info('');

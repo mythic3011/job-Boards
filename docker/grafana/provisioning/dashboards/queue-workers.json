@@ -1,0 +1,62 @@
+{
+    "title": "Queue Workers",
+    "uid": "queue-workers",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": { "from": "now-6h", "to": "now" },
+    "panels": [
+        {
+            "id": 1,
+            "title": "Queue-related Error Lines (5m)",
+            "type": "stat",
+            "gridPos": { "x": 0, "y": 0, "w": 8, "h": 4 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "sum(count_over_time({app=\"laravel\"} | json | level_name=\"ERROR\" |~ \"(?i)queue|job|worker\" [5m]))",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "reduceOptions": { "calcs": ["lastNotNull"] },
+                "colorMode": "background"
+            }
+        },
+        {
+            "id": 2,
+            "title": "Queue Failures Over Time",
+            "type": "timeseries",
+            "gridPos": { "x": 8, "y": 0, "w": 16, "h": 8 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "sum(count_over_time({app=\"laravel\"} | json | level_name=\"ERROR\" |~ \"(?i)queue|failed|job\" [1m]))",
+                    "legendFormat": "queue failures/min",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "title": "Queue-related Error Stream",
+            "type": "logs",
+            "gridPos": { "x": 0, "y": 8, "w": 24, "h": 12 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "{app=\"laravel\"} | json | level_name=\"ERROR\" |~ \"(?i)queue|job|worker\"",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "showTime": true,
+                "showLabels": true,
+                "sortOrder": "Descending",
+                "dedupStrategy": "none",
+                "enableLogDetails": true,
+                "prettifyLogMessage": true
+            }
+        }
+    ]
+}

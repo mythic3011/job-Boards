@@ -44,16 +44,16 @@ $(() => {
         username: (username) =>
             !username || username.length < 3
                 ? {
-                    valid: false,
-                    message: "Username must be at least 3 characters",
-                }
+                      valid: false,
+                      message: "Username must be at least 3 characters",
+                  }
                 : !/^[a-zA-Z0-9_]+$/.test(username)
-                    ? {
+                  ? {
                         valid: false,
                         message:
                             "Username can only contain letters, numbers, and underscores",
                     }
-                    : { valid: true },
+                  : { valid: true },
         name: (name) =>
             !name || name.length < CONFIG.NAME_MIN_LENGTH
                 ? { valid: false, message: "Name too short" }
@@ -65,10 +65,18 @@ $(() => {
         password: (password) =>
             password.length < CONFIG.PASSWORD_MIN_LENGTH
                 ? {
-                    valid: false,
-                    message: `Password must be ${CONFIG.PASSWORD_MIN_LENGTH}+ chars`,
-                }
-                : /^(password|123456|admin|user|test|p@ssw0rd)/i.test(password)
+                      valid: false,
+                      message: `Password must be ${CONFIG.PASSWORD_MIN_LENGTH}+ chars`,
+                  }
+                : !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(password)
+                  ? {
+                        valid: false,
+                        message:
+                            "Password must include uppercase, lowercase, and a number",
+                    }
+                  : /^(password|123456|admin|user|test|p@ssw0rd)/i.test(
+                          password,
+                      )
                     ? { valid: false, message: "Weak password" }
                     : { valid: true },
         passwordMatch: (password, confirm) =>
@@ -96,6 +104,7 @@ $(() => {
         constructor() {
             this.step = 1;
             this.otpVerified = false;
+            this.completing = false;
             this.data = {
                 username: "",
                 name: "",
@@ -188,6 +197,7 @@ $(() => {
                 return;
             }
             try {
+                this.bindGlobalNavigationHandlers();
                 this.cleanupDOM();
                 setTimeout(() => this.renderWizard(), CONFIG.DELAYS.RENDER);
             } catch (error) {
@@ -216,11 +226,6 @@ $(() => {
                     .addClass(
                         "min-h-screen bg-gradient-to-br from-indigo-50 to-blue-50",
                     )
-                    .css({
-                        display: "block",
-                        visibility: "visible",
-                        opacity: "1",
-                    })
                     .html(this.getWizardHTML());
                 if (window.toast) {
                     window.toast.container = null;
@@ -286,6 +291,19 @@ $(() => {
             if (renderer) renderer();
         }
 
+        bindGlobalNavigationHandlers() {
+            $(document)
+                .off("click.installWizardNav")
+                .on("click.installWizardNav", "#step-back", (e) => {
+                    e.preventDefault();
+                    this.prev();
+                })
+                .on("click.installWizardNav", "#complete-install", (e) => {
+                    e.preventDefault();
+                    this.complete();
+                });
+        }
+
         renderStep1() {
             return `
                 <div class="space-y-6">
@@ -297,37 +315,37 @@ $(() => {
                     <form id="step1-form" class="space-y-5">
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Username <span class="text-red-500">*</span></label>
-                                <input id="username" type="text" placeholder="admin" required
+                                <label for="username" class="block text-sm font-medium text-gray-700 mb-1.5">Username <span class="text-red-500">*</span></label>
+                                    <input id="username" type="text" placeholder="admin" required autocomplete="username"
                                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                        value="${this.data.username || ""}">
                                 <p class="text-xs text-gray-500 mt-1">Letters, numbers, underscores (3+ chars)</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span class="text-red-500">*</span></label>
-                                <input id="name" type="text" placeholder="John Doe" required
+                                <label for="name" class="block text-sm font-medium text-gray-700 mb-1.5">Full Name <span class="text-red-500">*</span></label>
+                                    <input id="name" type="text" placeholder="John Doe" required autocomplete="name"
                                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                        value="${this.data.name || ""}">
                             </div>
                         </div>
                         
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Email Address <span class="text-red-500">*</span></label>
-                            <input id="email" type="email" placeholder="admin@example.com" required
+                            <label for="email" class="block text-sm font-medium text-gray-700 mb-1.5">Email Address <span class="text-red-500">*</span></label>
+                            <input id="email" type="email" placeholder="admin@example.com" required autocomplete="email"
                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                    value="${this.data.email || ""}">
                         </div>
                         
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Password <span class="text-red-500">*</span></label>
-                                <input id="password" type="password" placeholder="Min 12 characters" required
+                                <label for="password" class="block text-sm font-medium text-gray-700 mb-1.5">Password <span class="text-red-500">*</span></label>
+                                    <input id="password" type="password" placeholder="Min 12 characters" required autocomplete="new-password"
                                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                                 <p class="text-xs text-gray-500 mt-1">Use a strong, unique password</p>
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password <span class="text-red-500">*</span></label>
-                                <input id="confirm" type="password" placeholder="Re-enter password" required
+                                <label for="confirm" class="block text-sm font-medium text-gray-700 mb-1.5">Confirm Password <span class="text-red-500">*</span></label>
+                                    <input id="confirm" type="password" placeholder="Re-enter password" required autocomplete="new-password"
                                        class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
                             </div>
                         </div>
@@ -353,7 +371,7 @@ $(() => {
 
                     <form id="step2-form" class="space-y-5">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Application Name</label>
+                            <label for="app_name" class="block text-sm font-medium text-gray-700 mb-1.5">Application Name</label>
                             <input id="app_name" type="text" placeholder="My Job Board"
                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                    value="${this.data.app_name || "Jobs Board"}">
@@ -361,7 +379,7 @@ $(() => {
                         </div>
                         
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Application URL</label>
+                            <label for="app_url" class="block text-sm font-medium text-gray-700 mb-1.5">Application URL</label>
                             <input id="app_url" type="url" placeholder="https://jobs.example.com"
                                    class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                    value="${this.data.app_url || window.location.origin}">
@@ -369,7 +387,7 @@ $(() => {
                         </div>
                         
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1.5">Timezone</label>
+                            <label for="timezone" class="block text-sm font-medium text-gray-700 mb-1.5">Timezone</label>
                             <select id="timezone" class="w-full px-3.5 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
                                 <option value="Asia/Hong_Kong" ${this.data.timezone === "Asia/Hong_Kong" ? "selected" : ""}>Hong Kong (HKT)</option>
                                 <option value="UTC" ${this.data.timezone === "UTC" ? "selected" : ""}>UTC</option>
@@ -385,7 +403,7 @@ $(() => {
                         </div>
 
                         <div class="flex gap-3 pt-4">
-                            <button type="button" onclick="window.installWizard.prev()"
+                            <button type="button" id="step-back"
                                     class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors">
                                 ← Back
                             </button>
@@ -417,7 +435,7 @@ $(() => {
                             </div>
 
                             <div class="bg-white rounded-lg p-4">
-                                <label class="block text-xs font-semibold text-gray-700 mb-2">Manual Entry Key</label>
+                                <p class="block text-xs font-semibold text-gray-700 mb-2">Manual Entry Key</p>
                                 <div class="flex items-center gap-2">
                                     <code id="2fa-secret-key" class="flex-1 text-sm font-mono bg-gray-50 px-3 py-2 rounded border text-gray-900"></code>
                                     <button type="button" id="copy-2fa-secret"
@@ -428,7 +446,7 @@ $(() => {
                             </div>
 
                             <div class="bg-white rounded-lg p-4 space-y-3">
-                                <label class="block text-xs font-semibold text-gray-700">Test Your Code</label>
+                                <label for="test-otp" class="block text-xs font-semibold text-gray-700">Test Your Code</label>
                                 <div class="flex gap-2">
                                     <input id="test-otp" type="text" inputmode="numeric" maxlength="6" placeholder="123456"
                                            class="w-32 px-3 py-2 text-center text-lg font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500" />
@@ -473,7 +491,7 @@ $(() => {
                         </div>
 
                         <div class="flex gap-3 pt-4">
-                            <button type="button" onclick="window.installWizard.prev()"
+                            <button type="button" id="step-back"
                                     class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors">
                                 ← Back
                             </button>
@@ -552,11 +570,11 @@ $(() => {
                     </div>
 
                     <div class="flex gap-3 pt-4">
-                        <button onclick="window.installWizard.prev()"
+                        <button type="button" id="step-back"
                                 class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors">
                             ← Back
                         </button>
-                        <button onclick="window.installWizard.complete()"
+                        <button type="button" id="complete-install"
                                 class="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium hover:from-indigo-700 hover:to-purple-700 transition-all shadow-lg">
                             Complete Installation ✓
                         </button>
@@ -597,14 +615,28 @@ $(() => {
             const $appUrl = $(SELECTORS.APP_URL);
             const $timezone = $(SELECTORS.TIMEZONE);
 
-            if ($username.length) result.username = $username.val()?.trim().replace(/[<>'"&]/g, "") || "";
-            if ($name.length) result.name = $name.val()?.trim().replace(/[<>'"&]/g, "") || "";
+            if ($username.length)
+                result.username =
+                    $username
+                        .val()
+                        ?.trim()
+                        .replace(/[<>'"&]/g, "") || "";
+            if ($name.length)
+                result.name =
+                    $name
+                        .val()
+                        ?.trim()
+                        .replace(/[<>'"&]/g, "") || "";
             if ($email.length) result.email = $email.val()?.trim() || "";
             if ($password.length) result.password = $password.val() || "";
             if ($confirm.length) result.confirm = $confirm.val() || "";
-            if ($appName.length) result.app_name = $appName.val()?.trim() || "Jobs Board";
-            if ($appUrl.length) result.app_url = $appUrl.val()?.trim() || window.location.origin;
-            if ($timezone.length) result.timezone = $timezone.val() || "Asia/Hong_Kong";
+            if ($appName.length)
+                result.app_name = $appName.val()?.trim() || "Jobs Board";
+            if ($appUrl.length)
+                result.app_url =
+                    $appUrl.val()?.trim() || window.location.origin;
+            if ($timezone.length)
+                result.timezone = $timezone.val() || "Asia/Hong_Kong";
 
             return result;
         }
@@ -637,7 +669,9 @@ $(() => {
                 .on("submit", (e) => {
                     e.preventDefault();
                     if (!this.otpVerified) {
-                        alert('⚠️ 2FA Verification Required\n\nPlease enter the 6-digit code from your authenticator app and click Verify before continuing to the next step.');
+                        alert(
+                            "⚠️ 2FA Verification Required\n\nPlease enter the 6-digit code from your authenticator app and click Verify before continuing to the next step.",
+                        );
                         return;
                     }
                     this.next();
@@ -667,13 +701,21 @@ $(() => {
                 const $label = $(el).find(".step-label");
 
                 // Update circle
-                $circle.removeClass("bg-green-500 text-white border-green-500 bg-indigo-600 border-indigo-600 ring-4 ring-indigo-200 bg-white text-gray-400 border-gray-300");
+                $circle.removeClass(
+                    "bg-green-500 text-white border-green-500 bg-indigo-600 border-indigo-600 ring-4 ring-indigo-200 bg-white text-gray-400 border-gray-300",
+                );
 
                 if (this.step > stepNum) {
-                    $circle.addClass("bg-green-500 text-white border-green-500");
-                    $circle.html('<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>');
+                    $circle.addClass(
+                        "bg-green-500 text-white border-green-500",
+                    );
+                    $circle.html(
+                        '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>',
+                    );
                 } else if (this.step === stepNum) {
-                    $circle.addClass("bg-indigo-600 text-white border-indigo-600 ring-4 ring-indigo-200");
+                    $circle.addClass(
+                        "bg-indigo-600 text-white border-indigo-600 ring-4 ring-indigo-200",
+                    );
                     $circle.html(stepNum);
                 } else {
                     $circle.addClass("bg-white text-gray-400 border-gray-300");
@@ -681,7 +723,9 @@ $(() => {
                 }
 
                 // Update label
-                $label.removeClass("text-indigo-600 text-green-600 text-gray-400");
+                $label.removeClass(
+                    "text-indigo-600 text-green-600 text-gray-400",
+                );
                 if (this.step === stepNum) {
                     $label.addClass("text-indigo-600");
                 } else if (this.step > stepNum) {
@@ -803,13 +847,20 @@ $(() => {
                         this.otpVerified = true;
                         setResult("✓ Valid code! 2FA is working.", true);
                         // Update Continue button to enabled state
-                        const $continueBtn = $("#step3-form button[type='submit']");
-                        $continueBtn.prop('disabled', false)
-                            .removeClass('bg-gray-300 text-gray-500 cursor-not-allowed')
-                            .addClass('bg-indigo-600 text-white hover:bg-indigo-700');
+                        const $continueBtn = $(
+                            "#step3-form button[type='submit']",
+                        );
+                        $continueBtn
+                            .prop("disabled", false)
+                            .removeClass(
+                                "bg-gray-300 text-gray-500 cursor-not-allowed",
+                            )
+                            .addClass(
+                                "bg-indigo-600 text-white hover:bg-indigo-700",
+                            );
                         // Swap warning banner for success banner
-                        $("#step3-warning").addClass('hidden');
-                        $("#step3-success").removeClass('hidden');
+                        $("#step3-warning").addClass("hidden");
+                        $("#step3-success").removeClass("hidden");
                     } else {
                         setResult("Invalid code. Check your app.", false);
                     }
@@ -822,13 +873,20 @@ $(() => {
 
         complete() {
             try {
+                if (this.completing) return;
+                this.completing = true;
                 this.data.demo = $(SELECTORS.DEMO).is(":checked");
                 if (!this.csrf) {
                     window.toast.error(
                         "Security token missing. Refresh the page.",
                     );
+                    this.completing = false;
                     return;
                 }
+                const $completeBtn = $("#complete-install");
+                $completeBtn
+                    .prop("disabled", true)
+                    .addClass("opacity-70 cursor-not-allowed");
                 utils.setupAjax(this.csrf);
                 if (!this.data.recoveryCodes?.length)
                     this.generateRecoveryCodes();
@@ -849,21 +907,36 @@ $(() => {
                         window.toast.success("Installation complete!");
                         setTimeout(
                             () =>
-                            (window.location.href =
-                                data?.success && data.redirect
-                                    ? data.redirect
-                                    : "/login"),
+                                (window.location.href =
+                                    data?.success && data.redirect
+                                        ? data.redirect
+                                        : "/login"),
                             1000,
                         );
                     })
                     .fail((xhr) => {
+                        this.completing = false;
+                        $completeBtn
+                            .prop("disabled", false)
+                            .removeClass("opacity-70 cursor-not-allowed");
                         console.error("Installation failed:", xhr);
+                        const response = xhr.responseJSON || {};
+                        const validationErrors = response.errors
+                            ? Object.values(response.errors)
+                                  .flat()
+                                  .filter(Boolean)
+                            : [];
                         const errorMsg =
-                            xhr.responseJSON?.message ||
+                            validationErrors[0] ||
+                            response.message ||
                             "Installation failed. Check console.";
                         window.toast.error(errorMsg);
                     });
             } catch (error) {
+                this.completing = false;
+                $("#complete-install")
+                    .prop("disabled", false)
+                    .removeClass("opacity-70 cursor-not-allowed");
                 console.error("Complete error:", error);
                 window.toast.error("An error occurred. Please try again.");
             }

@@ -71,6 +71,7 @@ new class extends Component
                     name="login_id"
                     type="text"
                     wire:model="login_id"
+                    autocomplete="username"
                     required
                     class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('login_id') border-red-300 @enderror"
                     placeholder="Choose a unique username"
@@ -91,6 +92,7 @@ new class extends Component
                     name="nickname"
                     type="text"
                     wire:model="nickname"
+                    autocomplete="name"
                     required
                     class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('nickname') border-red-300 @enderror"
                     placeholder="Your display name"

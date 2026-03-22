@@ -1,0 +1,69 @@
+{
+    "title": "Laravel App Logs",
+    "uid": "laravel-logs",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": { "from": "now-6h", "to": "now" },
+    "templating": {
+        "list": [
+            {
+                "name": "level",
+                "type": "custom",
+                "label": "Level",
+                "query": "ERROR,WARNING,INFO,DEBUG",
+                "current": { "text": "ERROR", "value": "ERROR" }
+            }
+        ]
+    },
+    "panels": [
+        {
+            "id": 1,
+            "title": "Error Rate (5m)",
+            "type": "timeseries",
+            "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "sum by (level_name) (rate({app=\"laravel\"} | json | level_name=~\"$level\" [5m]))",
+                    "legendFormat": "{{level_name}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "title": "Top Error Messages (1h)",
+            "type": "table",
+            "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "topk(10, sum by (message) (count_over_time({app=\"laravel\"} | json | level_name=\"ERROR\" | label_format message=\"{{.message}}\" [1h])))",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "title": "Laravel Error Stream",
+            "type": "logs",
+            "gridPos": { "x": 0, "y": 8, "w": 24, "h": 14 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "{app=\"laravel\"} | json | level_name=~\"$level\"",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "showTime": true,
+                "showLabels": true,
+                "sortOrder": "Descending",
+                "dedupStrategy": "none",
+                "enableLogDetails": true,
+                "prettifyLogMessage": true
+            }
+        }
+    ]
+}

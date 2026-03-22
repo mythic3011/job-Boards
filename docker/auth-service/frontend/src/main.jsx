@@ -3,6 +3,21 @@ import "./index.css";
 
 const REDIRECT_DEFAULT = "/monitoring/grafana/";
 
+const SERVICES = [
+    { key: "nginx", label: "Nginx" },
+    { key: "auth-service", label: "Auth Service" },
+    { key: "crowdsec", label: "CrowdSec" },
+    { key: "crowdsec-key-init", label: "Key Init" },
+    { key: "prometheus", label: "Prometheus" },
+    { key: "loki", label: "Loki" },
+    { key: "promtail", label: "Promtail" },
+    { key: "grafana", label: "Grafana" },
+    { key: "laravel.test", label: "Laravel" },
+    { key: "postgres", label: "Postgres" },
+    { key: "redis", label: "Redis" },
+    { key: "sail", label: "Sail" },
+];
+
 function ShieldIcon() {
     return (
         <svg
@@ -201,6 +216,24 @@ export default function App() {
                 </div>
 
                 {/* Footer */}
+                <div className="mt-5 rounded-xl border border-brand-border bg-brand-surface/70 p-3">
+                    <p className="mb-2 text-center text-[11px] uppercase tracking-[0.18em] text-brand-muted">
+                        Monitored Services
+                    </p>
+                    <div className="grid grid-cols-6 gap-2 sm:grid-cols-6">
+                        {SERVICES.map((service) => (
+                            <img
+                                key={service.key}
+                                src={`/monitoring/icons/services/${service.key}.svg`}
+                                alt={service.label}
+                                title={service.label}
+                                className="h-8 w-8 rounded-md border border-brand-border/70"
+                                loading="lazy"
+                            />
+                        ))}
+                    </div>
+                </div>
+
                 <p className="text-center text-xs text-brand-muted mt-6">
                     JobBoard Infrastructure
                 </p>

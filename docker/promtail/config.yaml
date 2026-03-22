@@ -1,0 +1,56 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /var/lib/promtail/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+    batchwait: 2s
+    batchsize: 262144
+
+scrape_configs:
+  # Nginx logs
+  - job_name: nginx
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: nginx
+          app: nginx
+          __path__: /var/log/nginx/*.log
+
+  # Laravel application logs
+  - job_name: laravel-app
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: laravel
+          app: laravel
+          __path__: /var/log/laravel/*.log
+
+  # CrowdSec bouncer events (emitted into nginx error log)
+  - job_name: crowdsec-bouncer
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: crowdsec
+          app: crowdsec
+          source: nginx-bouncer
+          __path__: /var/log/nginx/error.log
+
+  # CrowdSec engine logs (if configured to file)
+  - job_name: crowdsec-engine
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: crowdsec
+          app: crowdsec
+          source: engine
+          __path__: /var/log/crowdsec/*.log
+      - targets: [localhost]
+        labels:
+          job: crowdsec
+          app: crowdsec
+          source: engine
+          __path__: /var/log/crowdsec.log

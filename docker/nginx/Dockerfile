@@ -1,5 +1,7 @@
 FROM openresty/openresty:alpine
 
+COPY errors/banned.html /tmp/banned.html
+
 RUN apk add --no-cache openssl apache2-utils curl tar && \
     mkdir -p /usr/local/openresty/lualib/resty && \
     curl -sL "https://raw.githubusercontent.com/ledgetech/lua-resty-http/master/lib/resty/http.lua" \
@@ -18,6 +20,7 @@ RUN curl -sL "https://github.com/crowdsecurity/cs-nginx-bouncer/releases/downloa
     && cp /tmp/crowdsec-nginx-bouncer-v1.1.5-rc1/lua-mod/lib/plugins/crowdsec/*.lua /usr/local/lua/crowdsec/plugins/crowdsec/ \
     && mkdir -p /var/lib/crowdsec/lua/templates \
     && cp /tmp/crowdsec-nginx-bouncer-v1.1.5-rc1/lua-mod/templates/ban.html /var/lib/crowdsec/lua/templates/ban.html \
+    && cp /tmp/banned.html /var/lib/crowdsec/lua/templates/ban.html \
     && mkdir -p /etc/crowdsec/bouncers \
     && rm -rf /tmp/cs-bouncer* /tmp/crowdsec-nginx-bouncer*
 

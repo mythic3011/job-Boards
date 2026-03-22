@@ -15,9 +15,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <title>{{ $title ?? config('app.name', 'Jobs Board') }}</title>
     
-    @livewireStyles
+    @livewireStyles(['nonce' => csp_nonce()])
 </head>
 <body class="min-h-screen bg-gray-50 {{ $showHeader ? 'text-gray-900' : '' }}">
     @if($showHeader)
@@ -32,7 +33,7 @@
         {{ $slot }}
     </main>
 
-    @livewireScripts
+    @livewireScripts(['nonce' => csp_nonce()])
     @auth
         @livewire('components.maintenance-alert')
     @endauth

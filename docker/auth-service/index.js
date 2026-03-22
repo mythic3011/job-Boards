@@ -12,12 +12,12 @@ app.use(express.json());
 app.use(cookieParser());
 
 // serve built frontend assets if present
-const path = require('path');
-app.use(express.static(path.join(__dirname, 'public')));
+const path = require("path");
+app.use(express.static(path.join(__dirname, "public")));
 
 // fallback for client-side routing (login page)
-app.get(['/','/login'], (_req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+app.get(["/", "/login"], (_req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 // ── Logger ────────────────────────────────────────────────────────────────────
@@ -34,12 +34,18 @@ const log = (level, msg, meta = {}) => {
 
 // ── Config ────────────────────────────────────────────────────────────────────
 const USERS = {
-    admin: process.env.MONITORING_PASSWORD_HASH || "",
+    [process.env.MONITORING_ADMIN_USERNAME]:
+        process.env.MONITORING_PASSWORD_HASH || "",
 };
+
 const SESSION_TTL = 8 * 60 * 60 * 1000; // 8h
 const SESSION_SECRET = process.env.SESSION_SECRET || "";
 
-if (!USERS.admin) {
+if (!process.env.MONITORING_ADMIN_USERNAME) {
+    log("warn", "MONITORING_ADMIN_USERNAME not set — all logins will fail");
+}
+
+if (!USERS[process.env.MONITORING_ADMIN_USERNAME]) {
     log("warn", "MONITORING_PASSWORD_HASH not set — all logins will fail");
 }
 if (!SESSION_SECRET) {
@@ -133,31 +139,54 @@ const getClientIP = (req) =>
     req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
     req.ip;
 
+const getAuditMeta = (req, extra = {}) => ({
+    ip: getClientIP(req),
+    ua: req.headers["user-agent"] || "",
+    requestId: req.headers["x-request-id"] || "",
+    ...extra,
+});
+
+const normalizeBcryptHash = (hash) => {
+    if (!hash) return hash;
+    // Apache htpasswd emits $2y$, while node-bcrypt expects $2a$/$2b$.
+    return hash.replace(/^\$2y\$/, "$2b$");
+};
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) =>
     res.json({ status: "ok", sessions: sessions.size }),
 );
 
 app.post("/verify", verifyLimiter, async (req, res) => {
-    const ip = getClientIP(req);
     const { username, password } = req.body || {};
+    const meta = getAuditMeta(req, { username: username || "" });
 
     if (!username || !password) {
-        log("warn", "verify: missing credentials", { ip });
+        log("warn", "audit.auth.verify.denied", {
+            ...meta,
+            reason: "missing_credentials",
+        });
         return res.status(400).json({ error: "Missing credentials" });
     }
 
-    const hash = USERS[username];
+    const hash = normalizeBcryptHash(USERS[username]);
     let valid = false;
     try {
         valid = hash ? await bcrypt.compare(password, hash) : false;
     } catch (err) {
-        log("error", "bcrypt error", { ip, err: err.message });
+        log("error", "audit.auth.verify.error", {
+            ...meta,
+            reason: "bcrypt_compare_failed",
+            err: err.message,
+        });
         return res.status(500).json({ error: "Internal error" });
     }
 
     if (!valid) {
-        log("warn", "verify: invalid credentials", { ip, username });
+        log("warn", "audit.auth.verify.denied", {
+            ...meta,
+            reason: "invalid_credentials",
+        });
         // Delay to slow brute force even after rate limit resets
         await new Promise((r) => setTimeout(r, 500));
         return res.status(401).json({ error: "Invalid credentials" });
@@ -169,13 +198,12 @@ app.post("/verify", verifyLimiter, async (req, res) => {
     sessions.set(rawToken, {
         username,
         expires: Date.now() + SESSION_TTL,
-        ip,
+        ip: meta.ip,
         ua: req.headers["user-agent"] || "",
     });
 
-    log("info", "verify: login success", {
-        ip,
-        username,
+    log("info", "audit.auth.verify.success", {
+        ...meta,
         sessions: sessions.size,
     });
 
@@ -189,32 +217,55 @@ app.post("/verify", verifyLimiter, async (req, res) => {
 });
 
 app.get("/check", checkLimiter, (req, res) => {
-    const ip = getClientIP(req);
     const signedToken = req.cookies?.monitoring_session;
+    const meta = getAuditMeta(req);
+
+    if (!signedToken) {
+        log("warn", "audit.auth.check.denied", {
+            ...meta,
+            reason: "missing_session_cookie",
+        });
+        return res.status(401).end();
+    }
+
     const rawToken = verifyToken(signedToken);
 
     if (!rawToken) {
+        log("warn", "audit.auth.check.denied", {
+            ...meta,
+            reason: "invalid_session_signature",
+        });
         return res.status(401).end();
     }
 
     const session = sessions.get(rawToken);
 
     if (!session) {
+        log("warn", "audit.auth.check.denied", {
+            ...meta,
+            reason: "session_not_found",
+        });
         return res.status(401).end();
     }
 
     if (session.expires < Date.now()) {
         sessions.delete(rawToken);
-        log("info", "check: session expired", { ip });
+        log("info", "audit.auth.check.denied", {
+            ...meta,
+            reason: "session_expired",
+            username: session.username,
+        });
         return res.status(401).end();
     }
 
     // IP binding — reject if IP changed
-    if (session.ip !== ip) {
+    if (session.ip !== meta.ip) {
         sessions.delete(rawToken);
-        log("warn", "check: IP mismatch — session invalidated", {
+        log("warn", "audit.auth.check.denied", {
+            ...meta,
+            reason: "ip_mismatch",
             expected: session.ip,
-            got: ip,
+            got: meta.ip,
             username: session.username,
         });
         return res.status(401).end();
@@ -222,18 +273,39 @@ app.get("/check", checkLimiter, (req, res) => {
 
     // Refresh TTL on valid check
     session.expires = Date.now() + SESSION_TTL;
+    log("info", "audit.auth.check.success", {
+        ...meta,
+        username: session.username,
+    });
     res.status(200).end();
 });
 
 app.post("/logout", (req, res) => {
-    const ip = getClientIP(req);
     const signedToken = req.cookies?.monitoring_session;
+    const meta = getAuditMeta(req);
+
+    if (!signedToken) {
+        log("info", "audit.auth.logout", {
+            ...meta,
+            outcome: "no_cookie",
+        });
+    }
+
     const rawToken = verifyToken(signedToken);
 
     if (rawToken) {
         const session = sessions.get(rawToken);
-        log("info", "logout", { ip, username: session?.username });
+        log("info", "audit.auth.logout", {
+            ...meta,
+            outcome: session ? "session_revoked" : "token_not_found",
+            username: session?.username || "",
+        });
         sessions.delete(rawToken);
+    } else if (signedToken) {
+        log("warn", "audit.auth.logout", {
+            ...meta,
+            outcome: "invalid_cookie_signature",
+        });
     }
 
     res.clearCookie("monitoring_session", {

@@ -2,6 +2,7 @@
     'label' => null,
     'name' => null,
     'type' => 'text',
+    'autocomplete' => null,
     'required' => false,
     'placeholder' => null,
     'value' => null,
@@ -16,6 +17,18 @@
     $hasError = $error || (isset($errors) && $errors->has($name));
     $helpId = $help ? "{$inputId}-help" : null;
     $errorId = $hasError ? "{$inputId}-error" : null;
+    $autocompleteHints = [
+        'email' => 'email',
+        'name' => 'name',
+        'nickname' => 'name',
+        'username' => 'username',
+        'login_id' => 'username',
+        'current_password' => 'current-password',
+        'password_confirmation' => 'new-password',
+    ];
+    $resolvedAutocomplete = $autocomplete
+        ?? ($name ? ($autocompleteHints[$name] ?? null) : null)
+        ?? ($type === 'email' ? 'email' : null);
     
     $ariaDescribedBy = collect([$helpId, $errorId])->filter()->implode(' ');
     
@@ -48,6 +61,7 @@
             name="{{ $name }}"
             value="{{ $value ?? old($name) }}"
             placeholder="{{ $placeholder }}"
+            @if($resolvedAutocomplete) autocomplete="{{ $resolvedAutocomplete }}" @endif
             {{ $required ? 'required' : '' }}
             {{ $disabled ? 'disabled' : '' }}
             {{ $readonly ? 'readonly' : '' }}

@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Vite;
 use Symfony\Component\HttpFoundation\Response;
 
 class SecurityHeaders
@@ -13,6 +14,10 @@ class SecurityHeaders
      */
     public function handle(Request $request, Closure $next): Response
     {
+        $nonce = base64_encode(random_bytes(16));
+        $request->attributes->set('csp_nonce', $nonce);
+        Vite::useCspNonce($nonce);
+
         $response = $next($request);
         $response->headers->set('X-Frame-Options', 'DENY');
         $response->headers->set('X-Content-Type-Options', 'nosniff');
@@ -30,13 +35,13 @@ class SecurityHeaders
 
         // Allow Vite dev server in development
         $isDevelopment = app()->environment('local', 'development');
-        $viteDevServer = $isDevelopment 
-            ? ' http://localhost:5173 ws://localhost:5173' 
+        $viteDevServer = $isDevelopment
+            ? ' http://localhost:5173 ws://localhost:5173'
             : '';
 
         $csp = [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'" . $viteDevServer,
+            "script-src 'self' 'nonce-{$nonce}'" . $viteDevServer,
             "style-src 'self' 'unsafe-inline'" . $viteDevServer,
             "img-src 'self' data: https:",
             "font-src 'self' data:",

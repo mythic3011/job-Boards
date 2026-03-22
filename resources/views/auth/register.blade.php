@@ -67,6 +67,7 @@
                                 name="login_id"
                                 type="text"
                                 value="{{ old('login_id') }}"
+                                autocomplete="username"
                                 required
                                 class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all {{ $errors->has('login_id') ? 'border-red-300' : 'border-gray-300' }}"
                                 placeholder="Choose a unique username"
@@ -83,6 +84,7 @@
                                 name="nickname"
                                 type="text"
                                 value="{{ old('nickname') }}"
+                                autocomplete="name"
                                 required
                                 class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all {{ $errors->has('nickname') ? 'border-red-300' : 'border-gray-300' }}"
                                 placeholder="Your display name"

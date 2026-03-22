@@ -55,6 +55,7 @@
                     label="Display Name"
                     name="nickname"
                     value="{{ old('nickname', $user['nickname']) }}"
+                    autocomplete="name"
                     required
                     help="This is how your name will appear to others"
                 />
@@ -63,6 +64,7 @@
                     name="email"
                     type="email"
                     value="{{ old('email', $user['email']) }}"
+                    autocomplete="email"
                     required
                     help="Used for login and notifications"
                 />
@@ -97,13 +99,6 @@
             @csrf
             @method('DELETE')
         </form>
-        <script>
-        const deleteProfileImage = () => {
-            if (confirm('Are you sure you want to remove your profile image?')) {
-                document.getElementById('delete-image-form').submit();
-            }
-        };
-        </script>
     @endif
 </div>
 @endsection
