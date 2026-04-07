@@ -8,6 +8,8 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 
 ACTION="${1:-apply}"
 OBS_WAIT_TIMEOUT_SECONDS="${BT_OBS_WAIT_TIMEOUT_SECONDS:-90}"
+OBS_GENERATED_ENV_FILE="${BT_OBS_GENERATED_ENV_FILE:-${BT_RUNTIME_DIR}/obs.generated.env}"
+OBS_GENERATED_AUDIT_FILE="${BT_OBS_GENERATED_AUDIT_FILE:-${BT_RUNTIME_DIR}/obs.generated-secrets.jsonl}"
 obs_statuses=()
 
 run_obs_check() {
@@ -84,6 +86,118 @@ verify_obs_required_env() {
     [[ "${#missing[@]}" -eq 0 ]]
 }
 
+obs_prepare_runtime_artifacts() {
+    bt_mkdir "${BT_RUNTIME_DIR}"
+    if [[ "${BT_DRY_RUN}" == "1" ]]; then
+        bt_log "DRY-RUN prepare obs generated artifacts"
+        return 0
+    fi
+    touch "${OBS_GENERATED_ENV_FILE}" "${OBS_GENERATED_AUDIT_FILE}"
+    chmod 0600 "${OBS_GENERATED_ENV_FILE}" "${OBS_GENERATED_AUDIT_FILE}"
+}
+
+obs_load_generated_env() {
+    bt_export_env_file "${OBS_GENERATED_ENV_FILE}"
+}
+
+obs_emit_generated_audit() {
+    local target="$1"
+    local source="$2"
+    local mode="$3"
+    local deterministic="$4"
+    local user_action_required="$5"
+
+    local payload
+    payload="$(python3 - "${target}" "${source}" "${mode}" "${deterministic}" "${user_action_required}" "$(bt_now_utc)" "${BT_BUNDLE_VERSION}" <<'PY'
+import json
+import sys
+
+payload = {
+    "record_type": "generated_secret",
+    "generated_at": sys.argv[6],
+    "generated_by": sys.argv[7],
+    "target_field": sys.argv[1],
+    "source_field": sys.argv[2],
+    "mode": sys.argv[3],
+    "deterministic": sys.argv[4] == "true",
+    "user_action_required": sys.argv[5] == "true",
+}
+print(json.dumps(payload, separators=(",", ":")))
+PY
+)"
+    bt_append_json_record "${OBS_GENERATED_AUDIT_FILE}" "${payload}"
+}
+
+obs_set_generated_value() {
+    local key="$1"
+    local value="$2"
+    bt_upsert_env_file_value "${OBS_GENERATED_ENV_FILE}" "${key}" "${value}"
+    export "${key}=${value}"
+}
+
+obs_effective_env_value() {
+    local key="$1"
+    bt_env_value "${key}" || bt_env_file_value "${OBS_GENERATED_ENV_FILE}" "${key}"
+}
+
+obs_autofix_session_secret() {
+    local current
+    current="$(obs_effective_env_value "SESSION_SECRET" || true)"
+    if [[ -n "${current}" ]]; then
+        return 0
+    fi
+
+    local generated
+    generated="$(bt_generate_secret)"
+    obs_set_generated_value "SESSION_SECRET" "${generated}"
+    obs_emit_generated_audit "SESSION_SECRET" "random" "generated_secret" "false" "false"
+    bt_emit_check "obs.bootstrap.session_secret.generated" "obs" "${BT_STATUS_PASS}" "SESSION_SECRET was auto-generated for obs runtime." "Persist or rotate the generated secret according to operator policy."
+    obs_statuses+=("${BT_STATUS_PASS}")
+}
+
+obs_autofix_password_hash() {
+    local target_key="$1"
+    shift
+
+    local current
+    current="$(bt_normalize_compose_dollars "$(obs_effective_env_value "${target_key}" || true)")"
+    if [[ -n "${current}" ]]; then
+        return 0
+    fi
+
+    local source_key
+    local source_value=""
+    for source_key in "$@"; do
+        source_value="$(obs_effective_env_value "${source_key}" || true)"
+        [[ -n "${source_value}" ]] && break
+    done
+
+    if [[ -z "${source_value}" ]]; then
+        return 1
+    fi
+
+    local generated
+    generated="$(bt_bcrypt_hash "admin" "${source_value}")" || return 1
+    obs_set_generated_value "${target_key}" "${generated}"
+    obs_emit_generated_audit "${target_key}" "${source_key}" "derived_bcrypt" "true" "false"
+    bt_emit_check "obs.bootstrap.${target_key,,}.generated" "obs" "${BT_STATUS_PASS}" "${target_key} was auto-derived from ${source_key}." "Review generated env provenance if operator-managed rotation is required."
+    obs_statuses+=("${BT_STATUS_PASS}")
+    return 0
+}
+
+ensure_obs_runtime_secrets() {
+    obs_prepare_runtime_artifacts
+    obs_load_generated_env
+
+    local failed=0
+    obs_autofix_session_secret || failed=1
+    obs_autofix_password_hash "MONITORING_PASSWORD_HASH" "MONITORING_PASSWORD" || failed=1
+    obs_autofix_password_hash "PROMETHEUS_PASSWORD_HASH" "PROMETHEUS_PASSWORD" "LOKI_PASSWORD" || failed=1
+    obs_load_generated_env
+
+    return "${failed}"
+}
+
 apply_action() {
     if [[ "${BT_DRY_RUN}" == "1" ]]; then
         bt_emit_check "obs.bootstrap.dry_run" "obs" "${BT_STATUS_SKIPPED}" "Dry-run does not mutate obs-plane services." "Run without --dry-run to apply obs-plane changes."
@@ -92,7 +206,8 @@ apply_action() {
         return 0
     fi
 
-    run_obs_check "obs.bootstrap.required_env" "Obs bring-up secrets and required credentials are present." "Populate required obs-plane variables in .env before apply." verify_obs_required_env || {
+    ensure_obs_runtime_secrets || true
+    run_obs_check "obs.bootstrap.required_env" "Obs bring-up secrets and required credentials are present after audit/autofix." "Provide explicit values for secrets that cannot be safely derived." verify_obs_required_env || {
         emit_obs_summary "Obs bootstrap failed preflight."
         exit 1
     }
@@ -107,6 +222,7 @@ apply_action() {
 }
 
 verify_action() {
+    obs_load_generated_env
     run_obs_check "obs.grafana.healthy" "Grafana is healthy." "Inspect compose obs grafana service health." bt_compose_service_healthy "${BT_COMPOSE_OBS_FILE}" grafana || true
     run_obs_check "obs.loki.running" "Loki is running." "Inspect compose obs loki service state." bt_compose_service_running "${BT_COMPOSE_OBS_FILE}" loki || true
     run_obs_check "obs.promtail.running" "Promtail is running." "Inspect compose obs promtail service state." bt_compose_service_running "${BT_COMPOSE_OBS_FILE}" promtail || true

@@ -110,7 +110,10 @@ with open(path, "r", encoding="utf-8") as handle:
         line = line.strip()
         if not line:
             continue
-        record = json.loads(line)
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
         if record.get("record_type") == "plane_summary" and record.get("plane") == plane:
             status = record.get("status", status)
 print(status)

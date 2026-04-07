@@ -399,6 +399,165 @@ raise SystemExit(1)
 PY
 }
 
+bt_env_file_value() {
+    local env_file="$1"
+    local var_name="$2"
+
+    [[ -r "${env_file}" ]] || return 1
+
+    python3 - "${env_file}" "${var_name}" <<'PY'
+import sys
+
+env_file, wanted = sys.argv[1:]
+
+with open(env_file, "r", encoding="utf-8") as handle:
+    for raw_line in handle:
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[7:]
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        if key.strip() != wanted:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"\"", "'"}:
+            value = value[1:-1]
+        print(value)
+        raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+}
+
+bt_upsert_env_file_value() {
+    local env_file="$1"
+    local var_name="$2"
+    local value="$3"
+
+    if [[ "${BT_DRY_RUN}" == "1" ]]; then
+        bt_log "DRY-RUN set ${var_name} in ${env_file}"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "${env_file}")"
+
+    python3 - "${env_file}" "${var_name}" "${value}" <<'PY'
+from pathlib import Path
+import sys
+
+env_path = Path(sys.argv[1])
+target = sys.argv[2]
+value = sys.argv[3]
+
+lines = []
+replaced = False
+if env_path.exists():
+    lines = env_path.read_text(encoding="utf-8").splitlines()
+
+new_lines = []
+for line in lines:
+    stripped = line.strip()
+    payload = stripped[7:] if stripped.startswith("export ") else stripped
+    if payload and "=" in payload and payload.split("=", 1)[0].strip() == target:
+        new_lines.append(f"{target}={value}")
+        replaced = True
+    else:
+        new_lines.append(line)
+
+if not replaced:
+    new_lines.append(f"{target}={value}")
+
+env_path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+PY
+}
+
+bt_export_env_file() {
+    local env_file="$1"
+    local line
+    local key
+    local value
+
+    [[ -r "${env_file}" ]] || return 0
+
+    while IFS= read -r line; do
+        [[ -n "${line}" ]] || continue
+        [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+        line="${line#export }"
+        [[ "${line}" == *=* ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="${key#"${key%%[![:space:]]*}"}"
+        key="${key%"${key##*[![:space:]]}"}"
+        export "${key}=${value}"
+    done < "${env_file}"
+}
+
+bt_generate_secret() {
+    if command -v openssl >/dev/null 2>&1; then
+        openssl rand -hex 32
+        return 0
+    fi
+
+    python3 - <<'PY'
+import secrets
+print(secrets.token_hex(32))
+PY
+}
+
+bt_normalize_compose_dollars() {
+    local value="$1"
+    printf '%s' "${value//\$\$/\$}"
+}
+
+bt_escape_compose_dollars() {
+    local value="$1"
+    printf '%s' "${value//\$/\$\$}"
+}
+
+bt_bcrypt_hash() {
+    local user_name="$1"
+    local password="$2"
+
+    if command -v htpasswd >/dev/null 2>&1; then
+        htpasswd -nbB "${user_name}" "${password}" | cut -d: -f2-
+        return 0
+    fi
+
+    if python3 -c "import bcrypt" >/dev/null 2>&1; then
+        python3 - "${password}" <<'PY'
+import bcrypt
+import sys
+
+password = sys.argv[1].encode("utf-8")
+print(bcrypt.hashpw(password, bcrypt.gensalt(rounds=12)).decode("utf-8"))
+PY
+        return 0
+    fi
+
+    if command -v docker >/dev/null 2>&1; then
+        docker run --rm --entrypoint htpasswd httpd:2.4-alpine -nbB "${user_name}" "${password}" 2>/dev/null | cut -d: -f2-
+        return 0
+    fi
+
+    return 1
+}
+
+bt_append_json_record() {
+    local target_file="$1"
+    local json_payload="$2"
+
+    if [[ "${BT_DRY_RUN}" == "1" ]]; then
+        bt_log "DRY-RUN append JSON record to ${target_file}"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "${target_file}")"
+    printf '%s\n' "${json_payload}" >> "${target_file}"
+}
+
 bt_kernel_release() {
     uname -r
 }

@@ -18,6 +18,16 @@ Usage: $0 [apply|verify|rollback]
 EOF
 }
 
+ensure_sshd_runtime_dir() {
+    if [[ "${BT_DRY_RUN}" == "1" ]]; then
+        bt_log "DRY-RUN ensure /run/sshd"
+        return 0
+    fi
+
+    mkdir -p /run/sshd
+    chmod 0755 /run/sshd
+}
+
 validate_ssh_config() {
     if ! command -v sshd >/dev/null 2>&1; then
         bt_die "sshd is required but was not found."
@@ -28,6 +38,7 @@ validate_ssh_config() {
         return 0
     fi
 
+    ensure_sshd_runtime_dir
     sshd -t
 }
 
