@@ -117,12 +117,16 @@ services:
     prometheus:
         container_name: jobs-boards-prometheus
         image: prom/prometheus:latest
+        environment:
+            PROMETHEUS_PASSWORD_HASH: "${PROMETHEUS_PASSWORD_HASH:-}"
         volumes:
             - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+            - ${PROMETHEUS_WEB_CONFIG_FILE:-./docker/prometheus/web-config.yml}:/etc/prometheus/web-config.yml:ro
             - prometheus-data:/prometheus
         command:
             - "--config.file=/etc/prometheus/prometheus.yml"
             - "--storage.tsdb.retention.time=7d"
+            - "--web.config.file=/etc/prometheus/web-config.yml"
         networks:
             - sail
         restart: unless-stopped
@@ -227,6 +231,7 @@ services:
             XDEBUG_CONFIG: ${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}
             IGNITION_LOCAL_SITES_PATH: ${PWD}
             DB_HOST: postgres
+            DB_SSLMODE: ${DB_SSLMODE:-prefer}
             REDIS_HOST: redis
         volumes:
             - ".:/var/www/html"
@@ -262,6 +267,7 @@ services:
             WWWUSER: ${WWWUSER}
             LARAVEL_SAIL:
             DB_HOST: postgres
+            DB_SSLMODE: ${DB_SSLMODE:-prefer}
             REDIS_HOST: redis
         volumes:
             - ".:/var/www/html"
