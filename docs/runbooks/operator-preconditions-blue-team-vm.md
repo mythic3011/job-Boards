@@ -24,8 +24,10 @@ This is a reusable contract for future runs. It is not a historical log.
 
 - Obs bootstrap may auto-fix only when a safe source already exists.
 - `PROMETHEUS_PASSWORD_HASH` may be derived from `PROMETHEUS_PASSWORD`.
-- The current implementation also accepts `LOKI_PASSWORD` as a fallback source for `PROMETHEUS_PASSWORD_HASH`.
+- `GRAFANA_PASSWORD` is a plaintext source only. The final runtime contract for Grafana is `GRAFANA_PASSWORD_FILE`.
+- If `GRAFANA_PASSWORD_FILE` is not provided, obs bootstrap may materialize it from `GRAFANA_PASSWORD`.
 - If no safe source exists, obs bootstrap must fail closed instead of inventing credentials.
+- Generated obs runtime values override source-layer `.env` values for the same key during obs bootstrap.
 - Runner statuses remain `PASS | DEGRADED | FAIL | SKIPPED`; auto-fix provenance belongs in generated artifacts, not in new status values.
 
 ## Generated Runtime Artifacts
@@ -34,6 +36,7 @@ Obs bootstrap may materialize runtime artifacts under `/var/lib/blue-team-vm`:
 
 - generated env: `/var/lib/blue-team-vm/runtime/obs.generated.env`
 - generated secret audit: `/var/lib/blue-team-vm/runtime/obs.generated-secrets.jsonl`
+- generated Grafana admin password file: `/var/lib/blue-team-vm/runtime/grafana-admin-password`
 - rendered Prometheus web config: `/var/lib/blue-team-vm/rendered/prometheus.web-config.yml`
 
 Operator guidance:
@@ -61,6 +64,10 @@ ops/smoke/run-all.sh
 
 ## Config Contract Rules
 
+- Source-layer operator inputs and final runtime values are distinct:
+  - plaintext sources: `MONITORING_PASSWORD`, `GRAFANA_PASSWORD`, `PROMETHEUS_PASSWORD`
+  - final runtime values: `MONITORING_PASSWORD_HASH`, `GRAFANA_PASSWORD_FILE`, `PROMETHEUS_PASSWORD_HASH`, `SESSION_SECRET`
+- `compose.obs.yml` must consume final runtime values only. It must not bypass bootstrap by reading plaintext Grafana or Prometheus credentials directly.
 - Loki config changes must be validated against Loki's real config schema. Do not guess field names.
 - CrowdSec AppSec changes must keep acquisition and AppSec config contracts aligned. Do not infer bundle/config behavior from container startup alone.
 - Front-door and honeypot checks must verify the real serving path, not only static config text.
