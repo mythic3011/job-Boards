@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: "npm"
+    directory: "/docker/auth-service/frontend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
