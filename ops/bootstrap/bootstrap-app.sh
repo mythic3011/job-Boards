@@ -49,9 +49,27 @@ require_baseline_marker() {
 }
 
 verify_local_exposure() {
-    mapfile -t ports < <(bt_local_listen_ports)
     local allowed=("22" "80" "443")
     local port
+    local listeners=()
+
+    if command -v ss >/dev/null 2>&1; then
+        mapfile -t listeners < <(ss -tlnH | awk '{print $4}')
+    elif command -v netstat >/dev/null 2>&1; then
+        mapfile -t listeners < <(netstat -tln | awk 'NR>2 {print $4}')
+    else
+        return 1
+    fi
+
+    local ports=()
+    local listener
+    for listener in "${listeners[@]}"; do
+        if [[ "${listener}" =~ ^127\. ]] || [[ "${listener}" =~ ^\[::1\]: ]] || [[ "${listener}" =~ ^localhost: ]]; then
+            continue
+        fi
+        ports+=("${listener##*:}")
+    done
+
     for port in "${ports[@]}"; do
         [[ " ${allowed[*]} " == *" ${port} "* ]] || return 1
     done
@@ -107,7 +125,7 @@ apply_action() {
 
     "${SCRIPT_DIR}/../app/05-compose-up.sh"
 
-    bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" nginx running "${APP_WAIT_TIMEOUT_SECONDS}" || true
+    bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" nginx healthy "${APP_WAIT_TIMEOUT_SECONDS}" || true
     bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" laravel.test running "${APP_WAIT_TIMEOUT_SECONDS}" || true
     bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" postgres healthy "${APP_WAIT_TIMEOUT_SECONDS}" || true
     bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" redis healthy "${APP_WAIT_TIMEOUT_SECONDS}" || true

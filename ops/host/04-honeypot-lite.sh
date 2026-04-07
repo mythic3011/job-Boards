@@ -59,7 +59,7 @@ verify_integration() {
     [[ -f "${BT_HONEYPOT_SOURCE}" ]] || bt_die "Honeypot source artifact is missing: ${BT_HONEYPOT_SOURCE}"
     command -v docker >/dev/null 2>&1 || bt_die "docker is required for verify-integration."
     docker compose -f "${BT_COMPOSE_APP_FILE}" exec -T nginx nginx -t >/dev/null
-    docker compose -f "${BT_COMPOSE_APP_FILE}" exec -T nginx sh -c "nginx -T 2>/dev/null | grep -F '${BT_HONEYPOT_RUNTIME}' >/dev/null"
+    docker compose -f "${BT_COMPOSE_APP_FILE}" exec -T nginx sh -c "[ -f '${BT_HONEYPOT_RUNTIME}' ] && grep -F 'location = /.env' '${BT_HONEYPOT_RUNTIME}' >/dev/null"
     local status_code
     status_code="$(curl -k -sS -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" https://127.0.0.1/.env || true)"
     [[ "${status_code}" == "403" ]] || bt_die "Expected honeypot decoy path /.env to return 403, got ${status_code:-none}."

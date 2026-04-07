@@ -24,7 +24,7 @@ BT_ROOT_DIR="$(cd "${BT_LIB_DIR}/../.." && pwd)"
 : "${BT_COMPOSE_APP_FILE:=${BT_ROOT_DIR}/compose.app.yml}"
 : "${BT_COMPOSE_OBS_FILE:=${BT_ROOT_DIR}/compose.obs.yml}"
 : "${BT_HONEYPOT_SOURCE:=/opt/blue-team/nginx/includes/blue-team-honeypot.conf}"
-: "${BT_HONEYPOT_RUNTIME:=/etc/nginx/conf.d/blue-team-honeypot.conf}"
+: "${BT_HONEYPOT_RUNTIME:=/etc/nginx/includes/blue-team-honeypot.conf}"
 : "${BT_CROWDSEC_TIMEOUT_SECONDS:=5}"
 : "${BT_DRY_RUN:=0}"
 
