@@ -126,6 +126,8 @@ is_identifier_var() {
 # Derived vars: produced from other secrets, skip standard weak-check
 is_derived_var() {
     [[ "$1" == "MONITORING_PASSWORD_HASH" ]] && return 0
+    [[ "$1" == "PROMETHEUS_PASSWORD_HASH" ]] && return 0
+    [[ "$1" == "GRAFANA_PASSWORD_FILE" ]] && return 0
     return 1
 }
 
@@ -238,6 +240,7 @@ generate_for_var() {
         SESSION_SECRET)       new=$(gen_secret)   ;;
         MONITORING_PASSWORD)  new=$(gen_mon_pass) ;;
         GRAFANA_PASSWORD)     new=$(gen_mon_pass) ;;
+        PROMETHEUS_PASSWORD)  new=$(gen_mon_pass) ;;
         MONITORING_ADMIN_USERNAME)
             # Identifier: set to 'admin' only if currently empty; never randomize
             local cur
@@ -393,7 +396,7 @@ done < .env.example
 echo ""
 echo "── Monitoring credentials ──"
 
-for var in MONITORING_PASSWORD GRAFANA_PASSWORD; do
+for var in MONITORING_PASSWORD GRAFANA_PASSWORD PROMETHEUS_PASSWORD; do
     val=$(get_env "$var")
     if [[ "$MODE" == "production" ]] || is_weak "$val" "$var"; then
         set_env "$var" "$(gen_mon_pass)"
@@ -437,6 +440,36 @@ else
     else
         echo "  ✔ MONITORING_PASSWORD_HASH already valid"
     fi
+fi
+
+# Prometheus password hash — derive from explicit Prometheus plaintext source
+PROMETHEUS_PW=$(get_env PROMETHEUS_PASSWORD)
+if [[ -n "$PROMETHEUS_PW" ]]; then
+    EXISTING_PROM_HASH_RAW=$(get_env PROMETHEUS_PASSWORD_HASH)
+    EXISTING_PROM_HASH=$(normalize_compose_dollars "$EXISTING_PROM_HASH_RAW")
+    PROM_HASH_MISMATCH=false
+    if [[ -n "$EXISTING_PROM_HASH" ]] && is_valid_bcrypt "$EXISTING_PROM_HASH"; then
+        if ! bcrypt_matches "admin" "$PROMETHEUS_PW" "$EXISTING_PROM_HASH"; then
+            PROM_HASH_MISMATCH=true
+        fi
+    fi
+
+    if [[ -z "$EXISTING_PROM_HASH" ]] || ! is_valid_bcrypt "$EXISTING_PROM_HASH" || [[ "$MODE" == "production" ]] || [[ "$PROM_HASH_MISMATCH" == "true" ]]; then
+        echo "  Generating bcrypt hash for PROMETHEUS_PASSWORD_HASH..."
+        HASH=$(htpasswd_hash_only "admin" "$PROMETHEUS_PW") \
+            && set_env "PROMETHEUS_PASSWORD_HASH" "$(escape_compose_dollars "$HASH")" \
+            || echo "  ✘ bcrypt hash generation failed — set PROMETHEUS_PASSWORD_HASH manually"
+    else
+        EXPECTED_PROM_ESCAPED_HASH=$(escape_compose_dollars "$EXISTING_PROM_HASH")
+        if [[ "$EXISTING_PROM_HASH_RAW" != "$EXPECTED_PROM_ESCAPED_HASH" ]]; then
+            set_env "PROMETHEUS_PASSWORD_HASH" "$EXPECTED_PROM_ESCAPED_HASH"
+            echo "  ✔ PROMETHEUS_PASSWORD_HASH normalized for Docker Compose"
+        else
+            echo "  ✔ PROMETHEUS_PASSWORD_HASH already valid"
+        fi
+    fi
+else
+    echo "  ⚠ PROMETHEUS_PASSWORD not set — skipping PROMETHEUS_PASSWORD_HASH generation"
 fi
 
 # Session secret — server-side only, never exposed to frontend
@@ -535,6 +568,8 @@ audit_identifier MONITORING_ADMIN_USERNAME
 audit_secret MONITORING_PASSWORD
 audit_bcrypt  MONITORING_PASSWORD_HASH
 audit_secret GRAFANA_PASSWORD
+audit_secret PROMETHEUS_PASSWORD
+audit_bcrypt  PROMETHEUS_PASSWORD_HASH
 
 if [[ "$MODE" == "production" ]]; then
     echo ""

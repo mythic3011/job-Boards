@@ -11,6 +11,7 @@ OBS_WAIT_TIMEOUT_SECONDS="${BT_OBS_WAIT_TIMEOUT_SECONDS:-90}"
 OBS_GENERATED_ENV_FILE="${BT_OBS_GENERATED_ENV_FILE:-${BT_RUNTIME_DIR}/obs.generated.env}"
 OBS_GENERATED_AUDIT_FILE="${BT_OBS_GENERATED_AUDIT_FILE:-${BT_RUNTIME_DIR}/obs.generated-secrets.jsonl}"
 OBS_RENDERED_DIR="${BT_OBS_RENDERED_DIR:-${BT_STATE_DIR}/rendered}"
+OBS_GRAFANA_PASSWORD_FILE="${BT_GRAFANA_PASSWORD_FILE:-${BT_RUNTIME_DIR}/grafana-admin-password}"
 OBS_PROMETHEUS_WEB_CONFIG_FILE="${BT_PROMETHEUS_WEB_CONFIG_FILE:-${OBS_RENDERED_DIR}/prometheus.web-config.yml}"
 obs_statuses=()
 
@@ -73,14 +74,20 @@ verify_obs_required_env() {
         "MONITORING_ADMIN_USERNAME"
         "MONITORING_PASSWORD_HASH"
         "SESSION_SECRET"
-        "GRAFANA_PASSWORD"
+        "GRAFANA_PASSWORD_FILE"
         "PROMETHEUS_PASSWORD_HASH"
     )
     local var_name
     local missing=()
+    local value
 
     for var_name in "${required[@]}"; do
-        if [[ -z "$(bt_env_value "${var_name}" || true)" ]]; then
+        value="$(obs_effective_env_value "${var_name}" || true)"
+        if [[ -z "${value}" ]]; then
+            missing+=("${var_name}")
+            continue
+        fi
+        if [[ "${var_name}" == "GRAFANA_PASSWORD_FILE" ]] && [[ ! -r "${value}" ]]; then
             missing+=("${var_name}")
         fi
     done
@@ -157,7 +164,35 @@ obs_set_generated_value() {
 
 obs_effective_env_value() {
     local key="$1"
-    bt_env_value "${key}" || bt_env_file_value "${OBS_GENERATED_ENV_FILE}" "${key}"
+    bt_env_file_value "${OBS_GENERATED_ENV_FILE}" "${key}" || bt_env_value "${key}"
+}
+
+obs_materialize_secret_file() {
+    local target_key="$1"
+    local source_key="$2"
+    local default_path="$3"
+    local current_path
+    local source_value
+
+    current_path="$(obs_effective_env_value "${target_key}" || true)"
+    if [[ -n "${current_path}" ]]; then
+        [[ -r "${current_path}" ]] || return 1
+        return 0
+    fi
+
+    source_value="$(obs_effective_env_value "${source_key}" || true)"
+    [[ -n "${source_value}" ]] || return 1
+
+    bt_write_file "${default_path}" "${source_value}"
+    if [[ "${BT_DRY_RUN}" != "1" ]]; then
+        chmod 0600 "${default_path}"
+    fi
+
+    obs_set_generated_value "${target_key}" "${default_path}"
+    obs_emit_generated_audit "${target_key}" "${source_key}" "materialized_secret_file" "true" "false"
+    bt_emit_check "obs.bootstrap.${target_key,,}.generated" "obs" "${BT_STATUS_PASS}" "${target_key} was materialized from ${source_key}." "Review generated env provenance if operator-managed rotation is required."
+    obs_statuses+=("${BT_STATUS_PASS}")
+    return 0
 }
 
 obs_autofix_session_secret() {
@@ -212,7 +247,8 @@ ensure_obs_runtime_secrets() {
     local failed=0
     obs_autofix_session_secret || failed=1
     obs_autofix_password_hash "MONITORING_PASSWORD_HASH" "MONITORING_PASSWORD" || failed=1
-    obs_autofix_password_hash "PROMETHEUS_PASSWORD_HASH" "PROMETHEUS_PASSWORD" "LOKI_PASSWORD" || failed=1
+    obs_autofix_password_hash "PROMETHEUS_PASSWORD_HASH" "PROMETHEUS_PASSWORD" || failed=1
+    obs_materialize_secret_file "GRAFANA_PASSWORD_FILE" "GRAFANA_PASSWORD" "${OBS_GRAFANA_PASSWORD_FILE}" || failed=1
     obs_load_generated_env
     obs_render_prometheus_web_config || failed=1
 

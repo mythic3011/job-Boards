@@ -2,9 +2,9 @@ services:
   auth-service:
     build: ./docker/auth-service
     environment:
-      MONITORING_ADMIN_USERNAME: ${MONITORING_ADMIN_USERNAME}
-      MONITORING_PASSWORD_HASH: ${MONITORING_PASSWORD_HASH}
-      SESSION_SECRET: ${SESSION_SECRET}
+      MONITORING_ADMIN_USERNAME: ${MONITORING_ADMIN_USERNAME:?Set MONITORING_ADMIN_USERNAME before obs apply}
+      MONITORING_PASSWORD_HASH: ${MONITORING_PASSWORD_HASH:?Set MONITORING_PASSWORD_HASH before obs apply}
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET before obs apply}
     networks:
       - obs-plane
     restart: unless-stopped
@@ -18,7 +18,7 @@ services:
     container_name: jobs-boards-prometheus
     image: prom/prometheus:latest
     environment:
-      PROMETHEUS_PASSWORD_HASH: "${PROMETHEUS_PASSWORD_HASH}"
+      PROMETHEUS_PASSWORD_HASH: "${PROMETHEUS_PASSWORD_HASH:?Set PROMETHEUS_PASSWORD_HASH before obs apply}"
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ${PROMETHEUS_WEB_CONFIG_FILE:-./docker/prometheus/web-config.yml}:/etc/prometheus/web-config.yml:ro
@@ -73,11 +73,12 @@ services:
     container_name: jobs-boards-grafana
     image: grafana/grafana:latest
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD}"
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ${GRAFANA_PASSWORD_FILE:?Set GRAFANA_PASSWORD_FILE before obs apply}:/run/secrets/grafana_admin_password:ro
     networks:
       - obs-plane
     depends_on:
