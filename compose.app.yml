@@ -1,0 +1,207 @@
+services:
+  nginx:
+    container_name: jobs-boards-nginx
+    build:
+      context: ./docker/nginx
+      dockerfile: Dockerfile
+    ports:
+      - "${APP_PORT:-80}:80"
+      - "${APP_SSL_PORT:-443}:443"
+    environment:
+      MONITORING_PASSWORD: "${MONITORING_PASSWORD}"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/crowdsec-bouncer.conf.template:/etc/nginx/crowdsec-bouncer.conf.template:ro
+      - ./docker/nginx/errors:/usr/share/nginx/html:ro
+      - /opt/blue-team/nginx/includes/blue-team-honeypot.conf:/etc/nginx/conf.d/blue-team-honeypot.conf:ro
+      - nginx-ssl:/etc/nginx/ssl
+      - nginx-htpasswd:/etc/nginx/htpasswd
+      - nginx-logs:/var/log/nginx
+      - crowdsec-keys:/crowdsec-keys:ro
+    networks:
+      - app-plane
+    depends_on:
+      laravel.test:
+        condition: service_started
+      crowdsec:
+        condition: service_healthy
+      crowdsec-key-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -kfsS https://127.0.0.1/up || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  crowdsec:
+    container_name: jobs-boards-crowdsec
+    image: crowdsecurity/crowdsec:latest
+    volumes:
+      - ./docker/crowdsec/acquis.d/nginx.yaml:/etc/crowdsec/acquis.d/nginx.yaml:ro
+      - ./docker/crowdsec/acquis.d/fp-trap.yaml:/etc/crowdsec/acquis.d/fp-trap.yaml:ro
+      - ./docker/crowdsec/acquis.d/laravel.yaml:/etc/crowdsec/acquis.d/laravel.yaml:ro
+      - ./docker/crowdsec/acquis.d/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
+      - ./docker/crowdsec/parsers/s02-enrich/whitelists.yaml:/etc/crowdsec/parsers/s02-enrich/local-whitelists.yaml:ro
+      - ./docker/crowdsec/scenarios/laravel-bf.yaml:/etc/crowdsec/scenarios/laravel-bf.yaml:ro
+      - ./docker/crowdsec/scenarios/path-scanner.yaml:/etc/crowdsec/scenarios/path-scanner.yaml:ro
+      - nginx-logs:/var/log/nginx:ro
+      - ./storage/logs:/var/log/laravel:ro
+      - crowdsec-db:/var/lib/crowdsec/data
+      - crowdsec-config:/etc/crowdsec
+      - crowdsec-keys:/crowdsec-keys
+      - crowdsec-logs:/var/log/crowdsec
+    networks:
+      - app-plane
+    depends_on:
+      laravel.test:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /etc/crowdsec/config.yaml && cscli version || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  crowdsec-key-init:
+    container_name: jobs-boards-crowdsec-key-init
+    image: crowdsecurity/crowdsec:latest
+    entrypoint: ["/init-bouncer-key.sh"]
+    volumes:
+      - ./docker/crowdsec/init-bouncer-key.sh:/init-bouncer-key.sh:ro
+      - crowdsec-db:/var/lib/crowdsec/data
+      - crowdsec-config:/etc/crowdsec
+      - crowdsec-keys:/crowdsec-keys
+    networks:
+      - app-plane
+    depends_on:
+      crowdsec:
+        condition: service_healthy
+    restart: on-failure
+
+  laravel.test:
+    container_name: jobs-boards-laravel.test
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.sail
+      args:
+        WWWGROUP: ${WWWGROUP}
+        INSTALL_PLAYWRIGHT: "false"
+        INSTALL_BUN: "false"
+    image: sail-8.5/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:${VITE_PORT:-5173}:${VITE_PORT:-5173}"
+    environment:
+      WWWUSER: ${WWWUSER}
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    volumes:
+      - ".:/var/www/html"
+    networks:
+      - app-plane
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "php artisan route:list >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  queue-worker:
+    container_name: jobs-boards-queue-worker
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.sail
+      args:
+        WWWGROUP: ${WWWGROUP}
+        INSTALL_PLAYWRIGHT: "false"
+        INSTALL_BUN: "false"
+    image: sail-8.5/app
+    entrypoint: ["php", "artisan", "queue:work", "--sleep=1", "--tries=3", "--backoff=10", "--timeout=300"]
+    environment:
+      WWWUSER: ${WWWUSER}
+      DB_HOST: postgres
+      REDIS_HOST: redis
+    volumes:
+      - ".:/var/www/html"
+    networks:
+      - app-plane
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "ps aux | grep -q '[p]hp artisan queue:work' || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  postgres:
+    container_name: jobs-boards-postgres
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - sail-postgres:/var/lib/postgresql/data
+    networks:
+      - app-plane
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE} -h localhost || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    container_name: jobs-boards-redis
+    image: redis:alpine
+    volumes:
+      - sail-redis:/data
+    networks:
+      - app-plane
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+networks:
+  app-plane:
+    driver: bridge
+
+volumes:
+  sail-postgres:
+    driver: local
+  sail-redis:
+    driver: local
+  nginx-ssl:
+    driver: local
+  nginx-htpasswd:
+    driver: local
+  nginx-logs:
+    driver: local
+  crowdsec-db:
+    driver: local
+  crowdsec-config:
+    driver: local
+  crowdsec-keys:
+    driver: local
+  crowdsec-logs:
+    driver: local

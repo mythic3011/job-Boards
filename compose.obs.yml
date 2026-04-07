@@ -1,0 +1,106 @@
+services:
+  auth-service:
+    build: ./docker/auth-service
+    environment:
+      MONITORING_ADMIN_USERNAME: ${MONITORING_ADMIN_USERNAME}
+      MONITORING_PASSWORD_HASH: ${MONITORING_PASSWORD_HASH}
+      SESSION_SECRET: ${SESSION_SECRET}
+    networks:
+      - obs-plane
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  prometheus:
+    container_name: jobs-boards-prometheus
+    image: prom/prometheus:latest
+    environment:
+      PROMETHEUS_PASSWORD_HASH: "${PROMETHEUS_PASSWORD_HASH}"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus/web-config.yml:/etc/prometheus/web-config.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.config.file=/etc/prometheus/web-config.yml"
+    networks:
+      - obs-plane
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  loki:
+    container_name: jobs-boards-loki
+    image: grafana/loki:latest
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./docker/loki/local-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki-data:/loki
+    networks:
+      - obs-plane
+    restart: unless-stopped
+
+  promtail:
+    container_name: jobs-boards-promtail
+    image: grafana/promtail:latest
+    command: -config.file=/etc/promtail/config.yaml
+    volumes:
+      - ./docker/promtail/config.yaml:/etc/promtail/config.yaml:ro
+      - nginx-logs:/var/log/nginx:ro
+      - ./storage/logs:/var/log/laravel:ro
+      - crowdsec-logs:/var/log/crowdsec:ro
+      - promtail-positions:/var/lib/promtail
+    networks:
+      - obs-plane
+    depends_on:
+      loki:
+        condition: service_started
+    restart: unless-stopped
+
+  grafana:
+    container_name: jobs-boards-grafana
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_PASSWORD}"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+    networks:
+      - obs-plane
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+networks:
+  obs-plane:
+    driver: bridge
+
+volumes:
+  nginx-logs:
+    driver: local
+  crowdsec-logs:
+    driver: local
+  prometheus-data:
+    driver: local
+  loki-data:
+    driver: local
+  promtail-positions:
+    driver: local
+  grafana-data:
+    driver: local
