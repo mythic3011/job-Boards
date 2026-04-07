@@ -38,7 +38,12 @@ services:
   crowdsec:
     container_name: jobs-boards-crowdsec
     image: crowdsecurity/crowdsec:latest
+    entrypoint: ["/entrypoint.sh"]
+    environment:
+      CROWDSEC_REQUIRED_APPSEC_CONFIG: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"
+      CROWDSEC_REQUIRED_APPSEC_COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"
     volumes:
+      - ./docker/crowdsec/entrypoint.sh:/entrypoint.sh:ro
       - ./docker/crowdsec/acquis.d/nginx.yaml:/etc/crowdsec/acquis.d/nginx.yaml:ro
       - ./docker/crowdsec/acquis.d/fp-trap.yaml:/etc/crowdsec/acquis.d/fp-trap.yaml:ro
       - ./docker/crowdsec/acquis.d/laravel.yaml:/etc/crowdsec/acquis.d/laravel.yaml:ro
@@ -59,7 +64,7 @@ services:
         condition: service_started
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "test -f /etc/crowdsec/config.yaml && cscli version || exit 1"]
+      test: ["CMD-SHELL", "test -f /etc/crowdsec/config.yaml && wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -98,6 +103,7 @@ services:
     environment:
       WWWUSER: ${WWWUSER}
       DB_HOST: postgres
+      DB_SSLMODE: ${DB_SSLMODE:-prefer}
       REDIS_HOST: redis
     volumes:
       - ".:/var/www/html"
@@ -130,6 +136,7 @@ services:
     environment:
       WWWUSER: ${WWWUSER}
       DB_HOST: postgres
+      DB_SSLMODE: ${DB_SSLMODE:-prefer}
       REDIS_HOST: redis
     volumes:
       - ".:/var/www/html"

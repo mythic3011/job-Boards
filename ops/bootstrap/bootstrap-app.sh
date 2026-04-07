@@ -58,6 +58,24 @@ verify_local_exposure() {
     return 0
 }
 
+verify_frontdoor_ports_available_for_app() {
+    if bt_compose_service_running "${BT_COMPOSE_APP_FILE}" nginx; then
+        return 0
+    fi
+
+    local port
+    local listeners
+    for port in 80 443; do
+        listeners="$(ss -ltnpH "( sport = :${port} )" 2>/dev/null || true)"
+        [[ -z "${listeners}" ]] && continue
+        if printf '%s\n' "${listeners}" | grep -qv 'docker-proxy'; then
+            return 1
+        fi
+    done
+
+    return 0
+}
+
 verify_https_frontdoor() {
     curl -kfsS --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" https://127.0.0.1/up >/dev/null
 }
@@ -81,6 +99,11 @@ apply_action() {
     fi
 
     require_baseline_marker
+
+    run_app_check "app.frontdoor.host_port_conflicts" "${BT_STATUS_PASS}" "App front-door ports 80/443 are available for the app plane." "Stop or disable conflicting host listeners on 80/443 before starting app-plane nginx." verify_frontdoor_ports_available_for_app || {
+        emit_app_summary "App bootstrap halted before compose apply."
+        return 1
+    }
 
     "${SCRIPT_DIR}/../app/05-compose-up.sh"
 
