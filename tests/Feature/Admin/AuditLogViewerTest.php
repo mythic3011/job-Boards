@@ -4,32 +4,72 @@ namespace Tests\Feature\Admin;
 
 use App\Models\AuditLog;
 use App\Models\User;
-use Database\Seeders\RolePermissionSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Livewire\Volt\Volt;
+use Tests\Concerns\InteractsWithBrowserRequests;
 use Tests\TestCase;
+use Tests\Concerns\UsesInMemorySqlite;
 
+/**
+ * Verification path: sqlite-safe.
+ */
 class AuditLogViewerTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithBrowserRequests;
+    use UsesInMemorySqlite;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(RolePermissionSeeder::class);
+
+        $this->useInMemorySqlite();
+        $this->createUsersTable();
+        $this->createAuditLogsTable();
+        $this->createSettingsTable();
+        $this->createPermissionTables();
+
+        DB::table('roles')->insert([
+            ['name' => 'admin', 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'company', 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'individual', 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        DB::table('permissions')->insert([
+            ['name' => 'admin.system.view', 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        $adminRoleId = DB::table('roles')->where('name', 'admin')->value('id');
+        $adminPermissionId = DB::table('permissions')->where('name', 'admin.system.view')->value('id');
+        DB::table('role_has_permissions')->insert([
+            'role_id' => $adminRoleId,
+            'permission_id' => $adminPermissionId,
+        ]);
+
         app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     private function adminUser(): User
     {
-        $user = User::factory()->create(['user_type' => 'individual']);
+        $user = User::factory()->create([
+            'user_type' => 'admin',
+            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
+            'two_factor_confirmed_at' => now(),
+        ]);
+        $user->assignRole('admin');
         $user->givePermissionTo('admin.system.view');
+
         return $user;
     }
 
-    private function withBrowser(): static
+    private function adminUserWithoutTwoFactor(): User
     {
-        return $this->withHeader('User-Agent', 'Mozilla/5.0 (compatible; TestBrowser/1.0)');
+        $user = $this->adminUser();
+        $user->forceFill([
+            'two_factor_secret' => null,
+            'two_factor_confirmed_at' => null,
+        ])->save();
+
+        return $user;
     }
 
     public function test_guest_cannot_access_audit_logs(): void
@@ -45,7 +85,17 @@ class AuditLogViewerTest extends TestCase
         $this->withBrowser()
              ->actingAs($user)
              ->get(route('admin.audit-logs.index'))
-             ->assertForbidden();
+             ->assertNotFound();
+    }
+
+    public function test_admin_without_confirmed_two_factor_is_redirected_to_setup(): void
+    {
+        $admin = $this->adminUserWithoutTwoFactor();
+
+        $this->withBrowser()
+             ->actingAs($admin)
+             ->get(route('admin.audit-logs.index'))
+             ->assertRedirect(route('profile.two-factor'));
     }
 
     public function test_admin_can_view_audit_logs(): void

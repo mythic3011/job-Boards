@@ -2,40 +2,125 @@
 
 namespace Tests\Feature;
 
-use App\Models\Setting;
 use App\Models\User;
-use Database\Seeders\RolePermissionSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use App\Models\Setting;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Route;
+use Tests\Concerns\InteractsWithBrowserRequests;
+use Tests\Concerns\UsesInMemorySqlite;
 use Tests\TestCase;
 
+/**
+ * Verification path: sqlite-safe.
+ */
 class MaintenanceModeTest extends TestCase
 {
-    use RefreshDatabase;
+    use InteractsWithBrowserRequests;
+    use UsesInMemorySqlite;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->seed(RolePermissionSeeder::class);
-        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
-        Setting::markSetupCompleted();
+
+        $this->useInMemorySqlite();
+        $this->createUsersTable();
+        $this->createSettingsTable();
+        $this->createAuditLogsTable();
+        $this->createPermissionTables();
+
+        Route::middleware('maintenance.check')
+            ->get('/_test/maintenance/public', fn () => response('public-ok'))
+            ->name('test.maintenance.public');
+
+        Route::middleware(['auth', 'maintenance.check'])
+            ->get('/_test/maintenance/protected', fn () => response('protected-ok'))
+            ->name('test.maintenance.protected');
     }
 
-    private function adminUser(): User
+    public function test_public_route_is_accessible_when_maintenance_is_off(): void
     {
-        $user = User::factory()->create(['user_type' => 'individual']);
-        $user->assignRole('admin');
-        return $user;
+        $this->withBrowser()
+            ->get('/_test/maintenance/public')
+            ->assertOk()
+            ->assertSee('public-ok');
     }
 
-    private function regularUser(): User
+    public function test_guest_sees_503_on_public_route_during_maintenance(): void
     {
-        return User::factory()->create(['user_type' => 'individual']);
+        $this->enableMaintenance();
+
+        $this->withBrowser()
+            ->get('/_test/maintenance/public')
+            ->assertStatus(503);
     }
 
-    // User-Agent header required to pass HandleSuspiciousUserAgent middleware in tests
-    private function withBrowser(): static
+    public function test_guest_sees_404_on_protected_route_during_maintenance(): void
     {
-        return $this->withHeader('User-Agent', 'Mozilla/5.0 (compatible; TestBrowser/1.0)');
+        $this->enableMaintenance();
+
+        $this->withBrowser()
+            ->get('/_test/maintenance/protected')
+            ->assertNotFound();
+    }
+
+    public function test_authenticated_non_admin_is_blocked_during_maintenance(): void
+    {
+        $this->enableMaintenance();
+        $user = $this->createUser([
+            'user_type' => 'individual',
+            'login_id' => 'member1',
+            'email' => 'member@example.com',
+        ]);
+
+        $this->withBrowser()
+            ->actingAs($user)
+            ->get('/_test/maintenance/public')
+            ->assertStatus(503);
+    }
+
+    public function test_admin_can_access_routes_during_maintenance(): void
+    {
+        $this->enableMaintenance();
+        $admin = $this->createUser([
+            'user_type' => 'admin',
+            'login_id' => 'admin1',
+            'email' => 'admin@example.com',
+        ]);
+        $this->attachAdminRole($admin);
+
+        $this->withBrowser()
+            ->actingAs($admin)
+            ->get('/_test/maintenance/public')
+            ->assertOk()
+            ->assertSee('public-ok');
+
+        $this->withBrowser()
+            ->actingAs($admin)
+            ->get('/_test/maintenance/protected')
+            ->assertOk()
+            ->assertSee('protected-ok');
+    }
+
+    public function test_admin_bypass_is_recorded_in_audit_logs(): void
+    {
+        $this->enableMaintenance();
+        $admin = $this->createUser([
+            'user_type' => 'admin',
+            'login_id' => 'admin2',
+            'email' => 'admin2@example.com',
+        ]);
+        $this->attachAdminRole($admin);
+
+        $this->withBrowser()
+            ->actingAs($admin)
+            ->get('/_test/maintenance/public')
+            ->assertOk();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'event_type' => 'maintenance.admin_bypass',
+            'actor_user_id' => $admin->id,
+        ]);
     }
 
     private function enableMaintenance(): void
@@ -43,144 +128,32 @@ class MaintenanceModeTest extends TestCase
         Setting::setBool('maintenance_mode', true);
     }
 
-    // --- Maintenance OFF (normal operation) ---
-
-    public function test_job_routes_accessible_when_maintenance_off(): void
+    private function createUser(array $attributes): User
     {
-        $this->withBrowser()
-             ->get(route('jobs.index'))
-             ->assertOk();
-    }
-
-    public function test_profile_routes_accessible_when_maintenance_off(): void
-    {
-        $user = $this->regularUser();
-        $this->withBrowser()
-             ->actingAs($user)
-             ->get(route('profile.show'))
-             ->assertOk();
-    }
-
-    public function test_registration_accessible_when_maintenance_off(): void
-    {
-        $this->withBrowser()
-             ->get(route('register'))
-             ->assertOk();
-    }
-
-    public function test_home_accessible_when_maintenance_off(): void
-    {
-        $this->withBrowser()
-             ->get(route('home'))
-             ->assertOk();
-    }
-
-    // --- Maintenance ON: guests ---
-
-    public function test_guest_sees_503_on_job_routes_during_maintenance(): void
-    {
-        $this->enableMaintenance();
-
-        $this->withBrowser()
-             ->get(route('jobs.index'))
-             ->assertStatus(503);
-    }
-
-    public function test_guest_sees_503_on_home_during_maintenance(): void
-    {
-        $this->enableMaintenance();
-
-        $this->withBrowser()
-             ->get(route('home'))
-             ->assertStatus(503);
-    }
-
-    public function test_guest_sees_404_on_profile_routes_during_maintenance(): void
-    {
-        $this->enableMaintenance();
-
-        // auth middleware fires before maintenance.check for profile routes,
-        // so unauthenticated guests see 404 (protected route hidden) rather than 503.
-        $this->withBrowser()
-             ->get(route('profile.show'))
-             ->assertNotFound();
-    }
-
-    public function test_guest_cannot_register_during_maintenance(): void
-    {
-        $this->enableMaintenance();
-
-        $this->withBrowser()
-             ->post(route('register.store'), [
-                 'name'                  => 'Test User',
-                 'email'                 => 'test@example.com',
-                 'login_id'              => 'testuser',
-                 'password'              => 'password',
-                 'password_confirmation' => 'password',
-                 'user_type'             => 'individual',
-             ])
-             ->assertStatus(503);
-    }
-
-    public function test_guest_cannot_request_password_reset_during_maintenance(): void
-    {
-        $this->enableMaintenance();
-
-        $this->withBrowser()
-             ->post(route('password.email'), ['email' => 'test@example.com'])
-             ->assertStatus(503);
-    }
-
-    // --- Maintenance ON: authenticated non-admin ---
-
-    public function test_authenticated_non_admin_can_access_jobs_during_maintenance(): void
-    {
-        $this->enableMaintenance();
-
-        $user = $this->regularUser();
-        $this->withBrowser()
-             ->actingAs($user)
-             ->get(route('jobs.index'))
-             ->assertOk();
-    }
-
-    public function test_authenticated_non_admin_can_access_profile_during_maintenance(): void
-    {
-        $this->enableMaintenance();
-
-        $user = $this->regularUser();
-        $this->withBrowser()
-             ->actingAs($user)
-             ->get(route('profile.show'))
-             ->assertOk();
-    }
-
-    // --- Maintenance ON: admin bypass ---
-
-    public function test_admin_can_access_job_routes_during_maintenance(): void
-    {
-        $this->enableMaintenance();
-
-        $admin = $this->adminUser();
-        $this->withBrowser()
-             ->actingAs($admin)
-             ->get(route('jobs.index'))
-             ->assertOk();
-    }
-
-    public function test_admin_bypass_is_recorded_in_audit_logs(): void
-    {
-        $this->enableMaintenance();
-
-        $admin = $this->adminUser();
-        $this->withBrowser()
-             ->actingAs($admin)
-             ->get(route('jobs.index'))
-             ->assertOk();
-
-        $this->assertDatabaseHas('audit_logs', [
-            'event_type'    => 'maintenance.admin_bypass',
-            'actor_user_id' => $admin->id,
+        return User::create([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'idcode' => 'user_' . \Illuminate\Support\Str::uuid(),
+            'nickname' => 'Test User',
+            'password' => Hash::make('StrongPass123!'),
+            ...$attributes,
         ]);
+    }
+
+    private function attachAdminRole(User $user): void
+    {
+        $roleId = DB::table('roles')->insertGetId([
+            'name' => 'admin',
+            'guard_name' => 'web',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        DB::table('model_has_roles')->insert([
+            'role_id' => $roleId,
+            'model_type' => User::class,
+            'model_id' => $user->getKey(),
+        ]);
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

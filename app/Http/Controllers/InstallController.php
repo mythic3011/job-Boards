@@ -138,12 +138,11 @@ class InstallController extends Controller
                 'admin_email' => 'required|email|unique:users,email|max:255',
                 'admin_password' => 'required|string|min:12|max:255',
                 'two_factor_secret' => 'required|string|min:16',
+                'otp_code' => 'required|string|size:6',
             ]);
         }
 
-        if ($request->filled('otp_code')) {
-            $this->verifyInstallOtp($request);
-        }
+        $this->verifyInstallOtp($request);
 
         $this->checkSuspiciousActivity($request);
 
@@ -232,6 +231,7 @@ class InstallController extends Controller
             'admin_password' => 'required|string|min:12|max:255|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/',
             'admin_password_confirmation' => 'required|string|same:admin_password',
             'two_factor_secret' => 'required|string|regex:/^[A-Z2-7]{16,}$/i',
+            'otp_code' => 'required|string|size:6',
             'install_demo_data' => 'nullable|boolean',
             'demo' => 'nullable|boolean',
             'timestamp' => 'required|integer',

@@ -21,17 +21,13 @@ class EnsureSetupNotCompleted extends BaseSetupMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // If settings table doesn't exist yet, allow installation
-        if (!$this->hasSettingsTable()) {
-            return $next($request);
-        }
+        $hasSettingsTable = $this->hasSettingsTable();
 
         // Check if setup is already completed
-        if ($this->isSetupCompleted()) {
+        if ($hasSettingsTable && $this->isSetupCompleted()) {
             return $this->denyAccess($request);
         }
 
-        // Additional security checks
         $this->performSecurityChecks($request);
 
         return $next($request);
@@ -62,26 +58,40 @@ class EnsureSetupNotCompleted extends BaseSetupMiddleware
      */
     private function performSecurityChecks(Request $request): void
     {
-        // Check IP whitelist if configured
-        $allowedIps = config('app.install_allowed_ips', []);
-        if (!empty($allowedIps) && !in_array($request->ip(), $allowedIps)) {
-            $this->logSecurityEvent('Install access from non-whitelisted IP', [
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-            ]);
-
-            abort(403, 'Installation wizard is only accessible from authorized IP addresses.');
+        $guardEnabled = config('app.install_guard_enabled');
+        if ($guardEnabled === null) {
+            $guardEnabled = !app()->environment(['local', 'testing']);
         }
 
-        // Check for install token if configured
-        $installToken = config('app.install_token');
-        if ($installToken && $request->query('token') !== $installToken) {
-            $this->logSecurityEvent('Install access without valid token', [
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-            ]);
-
-            abort(403, 'Valid installation token is required. Add ?token=YOUR_TOKEN to the URL.');
+        if (!$guardEnabled) {
+            return;
         }
+
+        $allowedIps = array_values(array_filter(array_map('trim', config('app.install_allowed_ips', []))));
+        $installToken = trim((string) config('app.install_token', ''));
+        $requestIp = (string) $request->ip();
+        $providedToken = (string) ($request->query('token') ?? $request->header('X-Install-Token', ''));
+
+        if (!empty($allowedIps) && in_array($requestIp, $allowedIps, true)) {
+            return;
+        }
+
+        if ($installToken !== '' && hash_equals($installToken, $providedToken)) {
+            return;
+        }
+
+        $reason = empty($allowedIps) && $installToken === ''
+            ? 'Install guard is enabled but no bootstrap allowlist or token is configured.'
+            : 'Valid installation bootstrap authorization is required.';
+
+        $this->logSecurityEvent('Install access denied by bootstrap guard', [
+            'ip' => $requestIp,
+            'user_agent' => $request->userAgent(),
+            'guard_enabled' => (bool) $guardEnabled,
+            'has_allowed_ips' => !empty($allowedIps),
+            'has_install_token' => $installToken !== '',
+        ]);
+
+        abort(403, $reason);
     }
 }

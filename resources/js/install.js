@@ -113,6 +113,7 @@ $(() => {
                 confirm: "",
                 setup2fa: true,
                 twoFactorSecret: "",
+                verifiedOtpCode: "",
                 recoveryCodes: [],
                 app_name: "Jobs Board",
                 app_url: window.location.origin,
@@ -129,6 +130,8 @@ $(() => {
             try {
                 const secret = generateSecret();
                 this.data.twoFactorSecret = secret;
+                this.data.verifiedOtpCode = "";
+                this.otpVerified = false;
                 return secret;
             } catch (e) {
                 console.error("generateSecret failed", e);
@@ -845,6 +848,7 @@ $(() => {
                     const result = await verify({ token: code, secret });
                     if (result?.valid) {
                         this.otpVerified = true;
+                        this.data.verifiedOtpCode = code;
                         setResult("✓ Valid code! 2FA is working.", true);
                         // Update Continue button to enabled state
                         const $continueBtn = $(
@@ -862,9 +866,11 @@ $(() => {
                         $("#step3-warning").addClass("hidden");
                         $("#step3-success").removeClass("hidden");
                     } else {
+                        this.data.verifiedOtpCode = "";
                         setResult("Invalid code. Check your app.", false);
                     }
                 } catch (error) {
+                    this.data.verifiedOtpCode = "";
                     console.error("OTP verification error:", error);
                     setResult("Invalid code. Check your app.", false);
                 }
@@ -897,6 +903,7 @@ $(() => {
                     admin_password: this.data.password,
                     admin_password_confirmation: this.data.confirm,
                     two_factor_secret: this.data.twoFactorSecret,
+                    otp_code: this.data.verifiedOtpCode,
                     recovery_codes: this.data.recoveryCodes || [],
                     timestamp: Date.now(),
                     session: this.session,

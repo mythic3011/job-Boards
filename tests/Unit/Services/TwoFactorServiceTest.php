@@ -4,14 +4,17 @@ namespace Tests\Unit\Services;
 
 use App\Models\User;
 use App\Services\TwoFactorService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
 use PragmaRX\Google2FA\Google2FA;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
+use Tests\Concerns\UsesInMemorySqlite;
 
+/**
+ * Verification path: sqlite-safe.
+ */
 class TwoFactorServiceTest extends TestCase
 {
-    use RefreshDatabase;
+    use UsesInMemorySqlite;
 
     private TwoFactorService $service;
     private User $user;
@@ -20,17 +23,21 @@ class TwoFactorServiceTest extends TestCase
     {
         parent::setUp();
 
+        $this->useInMemorySqlite();
+        $this->createUsersTable();
+        $this->createAuditLogsTable();
+
         $this->user = User::factory()->create();
         $this->service = app(TwoFactorService::class);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_false_when_2fa_is_not_enabled()
     {
         $this->assertFalse($this->service->isEnabled($this->user));
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_true_when_2fa_is_enabled()
     {
         $this->user->forceFill([
@@ -41,7 +48,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertTrue($this->service->isEnabled($this->user));
     }
 
-    /** @test */
+    #[Test]
     public function it_detects_setup_in_progress()
     {
         $this->user->forceFill([
@@ -53,7 +60,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertFalse($this->service->isEnabled($this->user));
     }
 
-    /** @test */
+    #[Test]
     public function it_enables_2fa_for_user()
     {
         // Manually set up 2FA state to test the enable logic
@@ -67,7 +74,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertNull($this->user->two_factor_confirmed_at);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_enable_2fa_twice()
     {
         // Manually set up 2FA state
@@ -85,7 +92,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertEquals($firstSecret, $this->user->two_factor_secret);
     }
 
-    /** @test */
+    #[Test]
     public function it_confirms_2fa_with_valid_code()
     {
         // Manually set up 2FA state
@@ -110,7 +117,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertNotNull($this->user->two_factor_confirmed_at);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_confirm_2fa_with_invalid_code()
     {
         // Manually set up 2FA state
@@ -129,7 +136,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertNull($this->user->two_factor_confirmed_at);
     }
 
-    /** @test */
+    #[Test]
     public function it_verifies_valid_code()
     {
         // Manually set up 2FA state
@@ -145,7 +152,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertTrue($this->service->verifyCode($this->user, $validCode));
     }
 
-    /** @test */
+    #[Test]
     public function it_rejects_invalid_code()
     {
         // Manually set up 2FA state
@@ -159,7 +166,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertFalse($this->service->verifyCode($this->user, '000000'));
     }
 
-    /** @test */
+    #[Test]
     public function it_disables_2fa()
     {
         // Manually set up confirmed 2FA state
@@ -178,7 +185,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertNull($this->user->two_factor_confirmed_at);
     }
 
-    /** @test */
+    #[Test]
     public function it_cancels_setup_in_progress()
     {
         // Manually set up 2FA in progress state
@@ -197,7 +204,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertNull($this->user->two_factor_recovery_codes);
     }
 
-    /** @test */
+    #[Test]
     public function it_regenerates_recovery_codes()
     {
         // Manually set up confirmed 2FA state
@@ -214,7 +221,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertNotNull($this->user->two_factor_recovery_codes);
     }
 
-    /** @test */
+    #[Test]
     public function it_throws_exception_when_regenerating_codes_without_2fa_enabled()
     {
         $this->expectException(\RuntimeException::class);
@@ -223,7 +230,7 @@ class TwoFactorServiceTest extends TestCase
         $this->service->regenerateRecoveryCodes($this->user);
     }
 
-    /** @test */
+    #[Test]
     public function it_gets_recovery_codes()
     {
         // Manually set up confirmed 2FA state
@@ -239,7 +246,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertEquals($codes, $retrievedCodes);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_empty_array_when_no_recovery_codes()
     {
         $codes = $this->service->getRecoveryCodes($this->user);
@@ -248,7 +255,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertEmpty($codes);
     }
 
-    /** @test */
+    #[Test]
     public function it_gets_qr_code_svg()
     {
         // Manually set up 2FA state
@@ -262,7 +269,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertStringContainsString('svg', $svg);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_null_qr_code_when_no_secret()
     {
         $svg = $this->service->getQrCodeSvg($this->user);
@@ -270,7 +277,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertNull($svg);
     }
 
-    /** @test */
+    #[Test]
     public function it_gets_decrypted_secret()
     {
         // Manually set up 2FA state
@@ -286,7 +293,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertEquals($testSecret, $secret);
     }
 
-    /** @test */
+    #[Test]
     public function it_returns_null_secret_when_not_set()
     {
         $secret = $this->service->getSecret($this->user);
@@ -294,7 +301,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertNull($secret);
     }
 
-    /** @test */
+    #[Test]
     public function it_throws_validation_exception_for_invalid_code()
     {
         // Manually set up 2FA state
@@ -310,7 +317,7 @@ class TwoFactorServiceTest extends TestCase
         $this->service->verifyCodeOrFail($this->user, '000000');
     }
 
-    /** @test */
+    #[Test]
     public function it_throws_validation_exception_for_empty_code()
     {
         // Manually set up 2FA state
@@ -323,7 +330,7 @@ class TwoFactorServiceTest extends TestCase
         $this->service->verifyCodeOrFail($this->user, '');
     }
 
-    /** @test */
+    #[Test]
     public function it_consumes_a_recovery_code()
     {
         $codes = ['abcd-1234', 'efgh-5678', 'ijkl-9012'];
@@ -344,7 +351,7 @@ class TwoFactorServiceTest extends TestCase
         $this->assertContains('ijkl-9012', $remaining);
     }
 
-    /** @test */
+    #[Test]
     public function it_does_not_throw_exception_for_valid_code()
     {
         // Manually set up 2FA state
