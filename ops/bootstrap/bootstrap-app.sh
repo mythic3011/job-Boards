@@ -104,6 +104,11 @@ verify_app_health_frontdoor() {
     [[ "${code}" == "200" ]]
 }
 
+crowdsec_frontdoor_mode() {
+    curl -kfsSI --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" https://127.0.0.1/up \
+        | awk 'BEGIN{IGNORECASE=1} /^X-CrowdSec-Mode:/ {gsub("\r","",$2); print tolower($2); exit}'
+}
+
 verify_honeypot_integration() {
     "${SCRIPT_DIR}/../host/04-honeypot-lite.sh" verify-integration
 }
@@ -123,7 +128,13 @@ apply_action() {
         return 1
     }
 
-    "${SCRIPT_DIR}/../app/05-compose-up.sh"
+    if "${SCRIPT_DIR}/../app/05-compose-up.sh"; then
+        bt_emit_check "app.compose.apply" "app" "${BT_STATUS_PASS}" "App compose apply completed." "No action required."
+        app_statuses+=("${BT_STATUS_PASS}")
+    else
+        bt_emit_check "app.compose.apply" "app" "${BT_STATUS_DEGRADED}" "App compose apply completed with degraded optional services; continuing to verify front-door readiness." "Inspect optional service failures and confirm the front door remains available."
+        app_statuses+=("${BT_STATUS_DEGRADED}")
+    fi
 
     bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" nginx healthy "${APP_WAIT_TIMEOUT_SECONDS}" || true
     bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" laravel.test running "${APP_WAIT_TIMEOUT_SECONDS}" || true
@@ -142,6 +153,23 @@ verify_action() {
     run_app_check "app.frontdoor.health_response" "${BT_STATUS_PASS}" "App health is reachable through the front door." "Inspect front-door health endpoint routing." verify_app_health_frontdoor || true
     run_app_check "app.host.local_ports" "${BT_STATUS_PASS}" "Local host exposure is limited to 22/80/443." "Inspect local listeners and published ports." verify_local_exposure || true
     run_app_check "app.honeypot.integration" "${BT_STATUS_PASS}" "Serving-path honeypot integration is active." "Inspect nginx include mounts and decoy routing." verify_honeypot_integration || true
+
+    local crowdsec_mode
+    crowdsec_mode="$(crowdsec_frontdoor_mode || true)"
+    case "${crowdsec_mode}" in
+        active)
+            bt_emit_check "app.crowdsec.bouncer_mode" "app" "${BT_STATUS_PASS}" "CrowdSec bouncer is active in the front door request path." "No action required."
+            app_statuses+=("${BT_STATUS_PASS}")
+            ;;
+        degraded)
+            bt_emit_check "app.crowdsec.bouncer_mode" "app" "${BT_STATUS_DEGRADED}" "CrowdSec bouncer is running in degraded pass-through mode." "Inspect CrowdSec bouncer config, LAPI reachability, and request-path fallback state."
+            app_statuses+=("${BT_STATUS_DEGRADED}")
+            ;;
+        *)
+            bt_emit_check "app.crowdsec.bouncer_mode" "app" "${BT_STATUS_FAIL}" "CrowdSec bouncer mode is unavailable from the front door response." "Inspect nginx CrowdSec integration and front-door response headers."
+            app_statuses+=("${BT_STATUS_FAIL}")
+            ;;
+    esac
 
     if bt_compose_service_healthy "${BT_COMPOSE_APP_FILE}" crowdsec; then
         bt_emit_check "app.crowdsec.health" "app" "${BT_STATUS_PASS}" "CrowdSec is healthy." "No action required."

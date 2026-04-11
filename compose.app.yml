@@ -23,10 +23,6 @@ services:
     depends_on:
       laravel.test:
         condition: service_started
-      crowdsec:
-        condition: service_healthy
-      crowdsec-key-init:
-        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -kfsS https://127.0.0.1/up || exit 1"]
@@ -42,6 +38,9 @@ services:
     environment:
       CROWDSEC_REQUIRED_APPSEC_CONFIG: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"
       CROWDSEC_REQUIRED_APPSEC_COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"
+    dns:
+      - "${CROWDSEC_DNS_PRIMARY:-1.1.1.1}"
+      - "${CROWDSEC_DNS_SECONDARY:-8.8.8.8}"
     volumes:
       - ./docker/crowdsec/entrypoint.sh:/entrypoint.sh:ro
       - ./docker/crowdsec/acquis.d/nginx.yaml:/etc/crowdsec/acquis.d/nginx.yaml:ro

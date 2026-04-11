@@ -10,6 +10,11 @@ MODE="host"
 preflight_statuses=()
 REPO_CONTRACT_MESSAGE=""
 REPO_CONTRACT_REMEDIATION=""
+BT_LAST_RESOLVED_PLANE_STATUS=""
+BT_HOST_DNS_PRIMARY="${BT_HOST_DNS_PRIMARY:-1.1.1.1}"
+BT_HOST_DNS_SECONDARY="${BT_HOST_DNS_SECONDARY:-8.8.8.8}"
+BT_HOST_DNS_DROPIN_PATH="${BT_HOST_DNS_DROPIN_PATH:-/etc/systemd/resolved.conf.d/blue-team-vm-dns.conf}"
+BT_REQUIRED_DNS_HOSTS="${BT_REQUIRED_DNS_HOSTS:-registry-1.docker.io api.crowdsec.net}"
 
 usage() {
     cat <<EOF
@@ -120,6 +125,54 @@ print(status)
 PY
 }
 
+plane_summary_present() {
+    local output_file="$1"
+    local plane="$2"
+
+    python3 - "${output_file}" "${plane}" <<'PY'
+import json
+import sys
+
+path, plane = sys.argv[1:]
+
+with open(path, "r", encoding="utf-8") as handle:
+    for line in handle:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if record.get("record_type") == "plane_summary" and record.get("plane") == plane:
+            raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+}
+
+resolve_plane_status_with_fallback() {
+    local output_file="$1"
+    local plane="$2"
+    local child_exit="$3"
+    local child_label="$4"
+
+    if plane_summary_present "${output_file}" "${plane}"; then
+        BT_LAST_RESOLVED_PLANE_STATUS="$(extract_plane_summary_status "${output_file}" "${plane}")"
+        return 0
+    fi
+
+    local message
+    if [[ "${child_exit}" -eq 0 ]]; then
+        message="${child_label} completed without emitting a structured plane summary."
+    else
+        message="${child_label} exited before emitting a structured plane summary."
+    fi
+
+    bt_emit_plane_summary "${plane}" "${BT_STATUS_FAIL}" "${message}" "Inspect child bootstrap output and restore plane summary emission."
+    BT_LAST_RESOLVED_PLANE_STATUS="${BT_STATUS_FAIL}"
+}
+
 emit_skipped_plane() {
     local plane="$1"
     local message="$2"
@@ -183,6 +236,91 @@ verify_linux_kernel_support() {
     bt_kernel_version_ge "5.12.0"
 }
 
+verify_required_dns_resolution() {
+    local host
+    for host in ${BT_REQUIRED_DNS_HOSTS}; do
+        getent hosts "${host}" >/dev/null 2>&1 || return 1
+    done
+    return 0
+}
+
+can_auto_fix_dns_resolution() {
+    [[ "${EUID}" -eq 0 ]] || return 1
+    command -v systemctl >/dev/null 2>&1 || return 1
+    systemctl list-unit-files systemd-resolved.service >/dev/null 2>&1 || return 1
+}
+
+fallback_dns_servers_routable() {
+    command -v ip >/dev/null 2>&1 || return 1
+    ip route get "${BT_HOST_DNS_PRIMARY}" >/dev/null 2>&1 || return 1
+    ip route get "${BT_HOST_DNS_SECONDARY}" >/dev/null 2>&1 || return 1
+}
+
+default_route_interface() {
+    local iface
+    iface="$(ip route show default 2>/dev/null | awk 'NR == 1 {for (i = 1; i <= NF; i++) if ($i == "dev") {print $(i + 1); exit}}')"
+    if [[ -n "${iface}" ]]; then
+        printf '%s\n' "${iface}"
+        return 0
+    fi
+
+    if command -v resolvectl >/dev/null 2>&1; then
+        iface="$(
+            resolvectl dns 2>/dev/null | awk '
+                /^Link [0-9]+ \(/ {
+                    iface = $3
+                    gsub(/[():]/, "", iface)
+                    if (iface !~ /^(docker0|br-|veth)/) {
+                        print iface
+                        exit
+                    }
+                }
+            '
+        )"
+        if [[ -n "${iface}" ]]; then
+            printf '%s\n' "${iface}"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+apply_dns_fallback_dropin() {
+    local dns_values="${BT_HOST_DNS_PRIMARY} ${BT_HOST_DNS_SECONDARY}"
+    local iface=""
+
+    bt_log "Applying fallback host DNS servers: ${dns_values}"
+    bt_write_file "${BT_HOST_DNS_DROPIN_PATH}" "[Resolve]
+DNS=${dns_values}
+Domains=~.
+"
+
+    bt_run systemctl restart systemd-resolved
+    if command -v resolvectl >/dev/null 2>&1; then
+        iface="$(default_route_interface || true)"
+        if [[ -n "${iface}" ]]; then
+            bt_run resolvectl dns "${iface}" "${BT_HOST_DNS_PRIMARY}" "${BT_HOST_DNS_SECONDARY}"
+            bt_run resolvectl domain "${iface}" '~.' || true
+        fi
+        bt_run resolvectl flush-caches || true
+    fi
+}
+
+verify_or_fix_required_dns_resolution() {
+    if verify_required_dns_resolution; then
+        return 0
+    fi
+
+    can_auto_fix_dns_resolution || return 1
+    if ! fallback_dns_servers_routable; then
+        bt_warn "Fallback DNS servers ${BT_HOST_DNS_PRIMARY} and ${BT_HOST_DNS_SECONDARY} are not routable from this VM."
+        return 1
+    fi
+    apply_dns_fallback_dropin || return 1
+    verify_required_dns_resolution
+}
+
 repo_contract_paths_for_root() {
     local root_dir="$1"
     cat <<EOF
@@ -198,6 +336,17 @@ EOF
 
 verify_repo_contract_for_root() {
     local root_dir="$1"
+    local required_readable=(
+        "${root_dir}/ops/lib/common.sh"
+        "${root_dir}/compose.app.yml"
+        "${root_dir}/compose.obs.yml"
+    )
+    local required_executable=(
+        "${root_dir}/setup-blue-team-vm.sh"
+        "${root_dir}/ops/bootstrap/bootstrap-host.sh"
+        "${root_dir}/ops/bootstrap/bootstrap-app.sh"
+        "${root_dir}/ops/bootstrap/bootstrap-obs.sh"
+    )
     local required=(
         "${root_dir}/setup-blue-team-vm.sh"
         "${root_dir}/ops/lib/common.sh"
@@ -209,8 +358,36 @@ verify_repo_contract_for_root() {
     )
     local path
 
+    REPO_CONTRACT_FAILURE_DETAIL=""
+
+    [[ -d "${root_dir}" ]] || {
+        REPO_CONTRACT_FAILURE_DETAIL="${root_dir} is not a directory"
+        return 1
+    }
+    [[ -x "${root_dir}" && -r "${root_dir}" ]] || {
+        REPO_CONTRACT_FAILURE_DETAIL="${root_dir} is not accessible to the current user"
+        return 1
+    }
+
     for path in "${required[@]}"; do
-        [[ -e "${path}" ]] || return 1
+        [[ -e "${path}" ]] || {
+            REPO_CONTRACT_FAILURE_DETAIL="${path} is missing"
+            return 1
+        }
+    done
+
+    for path in "${required_readable[@]}"; do
+        [[ -r "${path}" ]] || {
+            REPO_CONTRACT_FAILURE_DETAIL="${path} is not readable by the current user"
+            return 1
+        }
+    done
+
+    for path in "${required_executable[@]}"; do
+        [[ -r "${path}" && -x "${path}" ]] || {
+            REPO_CONTRACT_FAILURE_DETAIL="${path} is not executable by the current user"
+            return 1
+        }
     done
 
     return 0
@@ -306,7 +483,11 @@ verify_repo_contract() {
     local resolved_root
 
     if ! resolved_root="$(search_repo_contract_root)"; then
-        REPO_CONTRACT_MESSAGE="Repo-managed bootstrap surfaces could not be resolved in this VM workspace."
+        if [[ -n "${REPO_CONTRACT_FAILURE_DETAIL:-}" ]]; then
+            REPO_CONTRACT_MESSAGE="Repo-managed bootstrap surfaces failed the workspace contract: ${REPO_CONTRACT_FAILURE_DETAIL}."
+        else
+            REPO_CONTRACT_MESSAGE="Repo-managed bootstrap surfaces could not be resolved in this VM workspace."
+        fi
         REPO_CONTRACT_REMEDIATION="Provide BT_PROJECT_ROOT_HINTS, mount the repo into the VM, or set BT_AUTO_CLONE_REMOTE_URL for auto-clone."
         return 1
     fi
@@ -343,6 +524,9 @@ run_preflight() {
     run_preflight_check "overall.runtime.docker_available" "Docker CLI is available in this runtime." "Install Docker in the target VM before running live bootstrap." verify_docker_available || true
     run_preflight_check "overall.runtime.git_available" "Git is available in this runtime." "Install Git in the target VM before running live bootstrap." verify_git_available || true
     run_preflight_check "overall.runtime.kernel_read_only_support" "Linux kernel is new enough for read-only mount validation." "Use a Linux VM with kernel 5.12 or newer for live smoke assertions." verify_linux_kernel_support || true
+    if [[ "${MODE}" == "app" || "${MODE}" == "obs" || "${MODE}" == "full" ]]; then
+        run_preflight_check "overall.runtime.host_dns_resolution" "Host DNS resolution is ready for external image and feed dependencies." "Run as root so the runner can apply fallback DNS servers 1.1.1.1 and 8.8.8.8, or repair the VM resolver before rerunning." verify_or_fix_required_dns_resolution || true
+    fi
     if verify_repo_contract; then
         emit_preflight_check "overall.runtime.repo_contract" "${BT_STATUS_PASS}" "${REPO_CONTRACT_MESSAGE}" "${REPO_CONTRACT_REMEDIATION}"
     else
@@ -359,41 +543,54 @@ run_preflight() {
 
 host_mode() {
     local tmp
+    local host_rc=0
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' RETURN
 
-    BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
-    BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" \
-    BT_MGMT_SSH_CIDR="${BT_MGMT_SSH_CIDR:-}" \
-    BT_ALLOW_SSH_ANYWHERE_FOR_DEMO="${BT_ALLOW_SSH_ANYWHERE_FOR_DEMO:-0}" \
-    BT_EXTERNAL_INGRESS_NIC="${BT_EXTERNAL_INGRESS_NIC:-}" \
-    BT_SSH_ALLOW_USER="${BT_SSH_ALLOW_USER:-}" \
-    BT_DRY_RUN="${BT_DRY_RUN}" \
-    run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" apply
+    if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
+        BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" \
+        BT_MGMT_SSH_CIDR="${BT_MGMT_SSH_CIDR:-}" \
+        BT_ALLOW_SSH_ANYWHERE_FOR_DEMO="${BT_ALLOW_SSH_ANYWHERE_FOR_DEMO:-0}" \
+        BT_EXTERNAL_INGRESS_NIC="${BT_EXTERNAL_INGRESS_NIC:-}" \
+        BT_SSH_ALLOW_USER="${BT_SSH_ALLOW_USER:-}" \
+        BT_DRY_RUN="${BT_DRY_RUN}" \
+        run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" apply; then
+        host_rc=$?
+    fi
 
     local host_status
-    host_status="$(extract_plane_summary_status "${tmp}" "host")"
+    resolve_plane_status_with_fallback "${tmp}" "host" "${host_rc}" "Host bootstrap apply"
+    host_status="${BT_LAST_RESOLVED_PLANE_STATUS}"
     emit_overall_from_statuses "${host_status}"
 }
 
 verify_mode() {
     local tmp tmp_app tmp_obs
+    local host_rc=0
+    local app_rc=0
+    local obs_rc=0
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' RETURN
 
-    BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
-    BT_DRY_RUN="${BT_DRY_RUN}" \
-    run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" verify || true
+    if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
+        BT_DRY_RUN="${BT_DRY_RUN}" \
+        run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" verify; then
+        host_rc=$?
+    fi
 
     local host_status
-    host_status="$(extract_plane_summary_status "${tmp}" "host")"
+    resolve_plane_status_with_fallback "${tmp}" "host" "${host_rc}" "Host bootstrap verify"
+    host_status="${BT_LAST_RESOLVED_PLANE_STATUS}"
     local app_status="${BT_STATUS_SKIPPED}"
     local obs_status="${BT_STATUS_SKIPPED}"
 
     if compose_any_service_running "${BT_COMPOSE_APP_FILE}" nginx laravel.test postgres redis crowdsec; then
         tmp_app="$(mktemp)"
-        BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" run_and_capture "${tmp_app}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" verify || true
-        app_status="$(extract_plane_summary_status "${tmp_app}" "app")"
+        if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" run_and_capture "${tmp_app}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" verify; then
+            app_rc=$?
+        fi
+        resolve_plane_status_with_fallback "${tmp_app}" "app" "${app_rc}" "App bootstrap verify"
+        app_status="${BT_LAST_RESOLVED_PLANE_STATUS}"
         rm -f "${tmp_app}"
     else
         emit_skipped_plane "app" "App verify is skipped because the app plane is not running."
@@ -401,8 +598,11 @@ verify_mode() {
 
     if compose_any_service_running "${BT_COMPOSE_OBS_FILE}" grafana loki promtail prometheus auth-service; then
         tmp_obs="$(mktemp)"
-        BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" run_and_capture "${tmp_obs}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" verify || true
-        obs_status="$(extract_plane_summary_status "${tmp_obs}" "obs")"
+        if ! BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" run_and_capture "${tmp_obs}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" verify; then
+            obs_rc=$?
+        fi
+        resolve_plane_status_with_fallback "${tmp_obs}" "obs" "${obs_rc}" "Obs bootstrap verify"
+        obs_status="${BT_LAST_RESOLVED_PLANE_STATUS}"
         rm -f "${tmp_obs}"
     else
         emit_skipped_plane "obs" "Obs verify is skipped because the obs plane is not running."
@@ -413,23 +613,31 @@ verify_mode() {
 
 rollback_mode() {
     local tmp
+    local host_rc=0
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' RETURN
 
-    BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" rollback
+    if ! BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" rollback; then
+        host_rc=$?
+    fi
     local host_status
-    host_status="$(extract_plane_summary_status "${tmp}" "host")"
+    resolve_plane_status_with_fallback "${tmp}" "host" "${host_rc}" "Host bootstrap rollback"
+    host_status="${BT_LAST_RESOLVED_PLANE_STATUS}"
     emit_overall_from_statuses "${host_status}"
 }
 
 app_mode() {
     local tmp
+    local app_rc=0
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' RETURN
 
-    BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" apply
+    if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" apply; then
+        app_rc=$?
+    fi
     local app_status
-    app_status="$(extract_plane_summary_status "${tmp}" "app")"
+    resolve_plane_status_with_fallback "${tmp}" "app" "${app_rc}" "App bootstrap apply"
+    app_status="${BT_LAST_RESOLVED_PLANE_STATUS}"
     emit_skipped_plane "host" "Host plane is not executed by app mode."
     emit_skipped_plane "obs" "Obs plane is out of scope for app mode."
     emit_overall_from_statuses "${BT_STATUS_SKIPPED}" "${app_status}" "${BT_STATUS_SKIPPED}"
@@ -437,12 +645,16 @@ app_mode() {
 
 obs_mode() {
     local tmp
+    local obs_rc=0
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' RETURN
 
-    BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" apply
+    if ! BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" apply; then
+        obs_rc=$?
+    fi
     local obs_status
-    obs_status="$(extract_plane_summary_status "${tmp}" "obs")"
+    resolve_plane_status_with_fallback "${tmp}" "obs" "${obs_rc}" "Obs bootstrap apply"
+    obs_status="${BT_LAST_RESOLVED_PLANE_STATUS}"
     emit_skipped_plane "host" "Host plane is not executed by obs mode."
     emit_skipped_plane "app" "App plane is out of scope for obs mode."
     emit_overall_from_statuses "${BT_STATUS_SKIPPED}" "${BT_STATUS_SKIPPED}" "${obs_status}"
@@ -450,27 +662,39 @@ obs_mode() {
 
 full_mode() {
     local tmp_host tmp_app tmp_obs
+    local host_rc=0
+    local app_rc=0
+    local obs_rc=0
     tmp_host="$(mktemp)"
     tmp_app="$(mktemp)"
     tmp_obs="$(mktemp)"
     trap 'rm -f "${tmp_host}" "${tmp_app}" "${tmp_obs}"' RETURN
 
-    BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
-    BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" \
-    BT_MGMT_SSH_CIDR="${BT_MGMT_SSH_CIDR:-}" \
-    BT_ALLOW_SSH_ANYWHERE_FOR_DEMO="${BT_ALLOW_SSH_ANYWHERE_FOR_DEMO:-0}" \
-    BT_EXTERNAL_INGRESS_NIC="${BT_EXTERNAL_INGRESS_NIC:-}" \
-    BT_SSH_ALLOW_USER="${BT_SSH_ALLOW_USER:-}" \
-    BT_DRY_RUN="${BT_DRY_RUN}" \
-    run_and_capture "${tmp_host}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" apply
+    if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
+        BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" \
+        BT_MGMT_SSH_CIDR="${BT_MGMT_SSH_CIDR:-}" \
+        BT_ALLOW_SSH_ANYWHERE_FOR_DEMO="${BT_ALLOW_SSH_ANYWHERE_FOR_DEMO:-0}" \
+        BT_EXTERNAL_INGRESS_NIC="${BT_EXTERNAL_INGRESS_NIC:-}" \
+        BT_SSH_ALLOW_USER="${BT_SSH_ALLOW_USER:-}" \
+        BT_DRY_RUN="${BT_DRY_RUN}" \
+        run_and_capture "${tmp_host}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" apply; then
+        host_rc=$?
+    fi
 
-    BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp_app}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" apply
-    BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp_obs}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" apply
+    if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp_app}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" apply; then
+        app_rc=$?
+    fi
+    if ! BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp_obs}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" apply; then
+        obs_rc=$?
+    fi
 
     local host_status app_status obs_status
-    host_status="$(extract_plane_summary_status "${tmp_host}" "host")"
-    app_status="$(extract_plane_summary_status "${tmp_app}" "app")"
-    obs_status="$(extract_plane_summary_status "${tmp_obs}" "obs")"
+    resolve_plane_status_with_fallback "${tmp_host}" "host" "${host_rc}" "Host bootstrap apply"
+    host_status="${BT_LAST_RESOLVED_PLANE_STATUS}"
+    resolve_plane_status_with_fallback "${tmp_app}" "app" "${app_rc}" "App bootstrap apply"
+    app_status="${BT_LAST_RESOLVED_PLANE_STATUS}"
+    resolve_plane_status_with_fallback "${tmp_obs}" "obs" "${obs_rc}" "Obs bootstrap apply"
+    obs_status="${BT_LAST_RESOLVED_PLANE_STATUS}"
 
     emit_overall_from_statuses "${host_status}" "${app_status}" "${obs_status}"
 }

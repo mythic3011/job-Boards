@@ -1,0 +1,51 @@
+name: Shell Scripts
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  shell-scripts:
+    name: Validate Shell Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install ShellCheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Syntax check all shell scripts
+        shell: bash
+        run: |
+          mapfile -t scripts < <(git ls-files '*.sh')
+          [ "${#scripts[@]}" -gt 0 ] || { echo "No shell scripts found"; exit 0; }
+
+          failed=0
+          for script in "${scripts[@]}"; do
+            first_line="$(head -n 1 "$script" || true)"
+            case "$first_line" in
+              *bash*)
+                bash -n "$script" || failed=1
+                ;;
+              *)
+                sh -n "$script" || failed=1
+                ;;
+            esac
+          done
+
+          [ "$failed" -eq 0 ]
+
+      - name: Lint all shell scripts
+        shell: bash
+        run: |
+          mapfile -t scripts < <(git ls-files '*.sh')
+          [ "${#scripts[@]}" -gt 0 ] || { echo "No shell scripts found"; exit 0; }
+          shellcheck "${scripts[@]}"

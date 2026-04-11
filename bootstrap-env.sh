@@ -27,11 +27,13 @@ get_env() {
 # contains /+=) and partial-write on crash (write tmp → os.replace is atomic).
 set_env() {
     local var="$1" val="$2"
-    python3 - <<PYEOF
+    BOOTSTRAP_ENV_SET_KEY="$var" \
+    BOOTSTRAP_ENV_SET_VALUE="$val" \
+    python3 - <<'PYEOF'
 import re, os, tempfile
 
-var  = ${var@Q}
-val  = ${val@Q}
+var = os.environ['BOOTSTRAP_ENV_SET_KEY']
+val = os.environ['BOOTSTRAP_ENV_SET_VALUE']
 path = '.env'
 
 with open(path, 'r') as f:

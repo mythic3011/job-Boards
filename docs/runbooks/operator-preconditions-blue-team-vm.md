@@ -79,8 +79,11 @@ ops/smoke/run-all.sh
   - final runtime values: `MONITORING_PASSWORD_HASH`, `GRAFANA_PASSWORD_FILE`, `PROMETHEUS_PASSWORD_HASH`, `SESSION_SECRET`
 - `compose.obs.yml` must consume final runtime values only. It must not bypass bootstrap by reading plaintext Grafana or Prometheus credentials directly.
 - Any change that affects live blue-team VM runtime truth must land in `compose.app.yml` or `compose.obs.yml` first.
+- Security-contract fixes for the blue-team VM must be validated against `compose.app.yml` and `compose.obs.yml`; updating `compose.yaml` alone is not runtime contract evidence.
 - Do not treat `compose.yaml` as evidence that the blue-team VM bootstrap contract has been updated.
+- If an operator, smoke, or verify command still references `compose.yaml`, treat that as drift and correct the split-file path instead of extending the combined file.
 - If local combined developer behavior needs to mirror the split-file security contract, open a dedicated `compose.yaml` reconcile slice instead of mixing it into bootstrap work.
+- In the split blue-team VM contract, the app plane does not promise `/monitoring/*` ingress through the app front door. Monitoring services remain obs-plane internal until a dedicated ingress bridge is designed and verified.
 - Loki config changes must be validated against Loki's real config schema. Do not guess field names.
 - CrowdSec AppSec changes must keep acquisition and AppSec config contracts aligned. Do not infer bundle/config behavior from container startup alone.
 - Front-door and honeypot checks must verify the real serving path, not only static config text.

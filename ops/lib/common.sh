@@ -517,6 +517,68 @@ bt_escape_compose_dollars() {
     printf '%s' "${value//\$/\$\$}"
 }
 
+bt_is_valid_bcrypt_hash() {
+    [[ "${1:-}" =~ ^\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}$ ]]
+}
+
+bt_bcrypt_hash_runtime_usable() {
+    local hash="${1:-}"
+    bt_is_valid_bcrypt_hash "${hash}" || return 1
+
+    if python3 -c "import bcrypt" >/dev/null 2>&1; then
+        python3 - "${hash}" <<'PY'
+import bcrypt
+import sys
+
+try:
+    bcrypt.checkpw(b"bootstrap-probe", sys.argv[1].encode("utf-8"))
+except ValueError:
+    raise SystemExit(1)
+raise SystemExit(0)
+PY
+        return $?
+    fi
+
+    if command -v php >/dev/null 2>&1; then
+        php -r '
+$hash = $argv[1];
+$info = password_get_info($hash);
+$algoName = $info["algoName"] ?? "";
+exit($algoName === "bcrypt" ? 0 : 1);
+' "${hash}"
+        return $?
+    fi
+
+    if command -v htpasswd >/dev/null 2>&1; then
+        local tmp rc
+        tmp="$(mktemp)"
+        printf '%s:%s\n' "admin" "${hash}" > "${tmp}"
+        set +e
+        htpasswd -vb "${tmp}" admin bootstrap-probe >/dev/null 2>&1
+        rc=$?
+        set -e
+        rm -f "${tmp}"
+        [[ "${rc}" -eq 0 || "${rc}" -eq 3 ]]
+        return $?
+    fi
+
+    if command -v docker >/dev/null 2>&1; then
+        local tmp rc
+        tmp="$(mktemp)"
+        printf '%s:%s\n' "admin" "${hash}" > "${tmp}"
+        set +e
+        docker run --rm -v "${tmp}:/tmp/htpasswd:ro" httpd:alpine \
+            htpasswd -vb /tmp/htpasswd admin bootstrap-probe >/dev/null 2>&1
+        rc=$?
+        set -e
+        rm -f "${tmp}"
+        [[ "${rc}" -eq 0 || "${rc}" -eq 3 ]]
+        return $?
+    fi
+
+    return 1
+}
+
 bt_bcrypt_hash() {
     local user_name="$1"
     local password="$2"

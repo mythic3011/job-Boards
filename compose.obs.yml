@@ -21,7 +21,7 @@ services:
       PROMETHEUS_PASSWORD_HASH: "${PROMETHEUS_PASSWORD_HASH:?Set PROMETHEUS_PASSWORD_HASH before obs apply}"
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ${PROMETHEUS_WEB_CONFIG_FILE:-./docker/prometheus/web-config.yml}:/etc/prometheus/web-config.yml:ro
+      - ${PROMETHEUS_WEB_CONFIG_FILE:?Set PROMETHEUS_WEB_CONFIG_FILE before obs apply}:/etc/prometheus/web-config.yml:ro
       - prometheus-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"

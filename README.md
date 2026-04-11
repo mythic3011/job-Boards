@@ -7,6 +7,43 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Test Verification Paths
+
+This project has two intentional test entrypoints:
+
+- `composer test`: full default verification path
+- `composer test:sqlite`: fast local sqlite-safe path
+
+Their coverage boundaries are different. Read [docs/runbooks/test-verification-paths.md](docs/runbooks/test-verification-paths.md) before treating sqlite results as full verification.
+
+## Anti-Bot Shadow Review
+
+The login and two-factor anti-bot surfaces currently remain shadow-only. To export review evidence without changing request flow, use:
+
+```bash
+php artisan anti-bot:shadow-review --hours=24 --json
+```
+
+If your host shell cannot reach the default PostgreSQL runtime, run it inside the compose-backed app container instead:
+
+```bash
+docker compose exec -T laravel.test php artisan anti-bot:shadow-review --hours=24 --json
+```
+
+Runbook:
+- [docs/runbooks/anti-bot-shadow-review.md](docs/runbooks/anti-bot-shadow-review.md)
+- [docs/runbooks/anti-bot-shadow-review-template.md](docs/runbooks/anti-bot-shadow-review-template.md)
+
+## Blue-Team VM Compose Truth
+
+For blue-team VM bootstrap, runtime contract truth lives in the split compose files:
+
+- `compose.app.yml`: app-plane runtime truth
+- `compose.obs.yml`: obs-plane runtime truth
+- `compose.yaml`: local/dev convenience only
+
+`compose.yaml` changes do not count as evidence that the blue-team VM runtime contract changed. If an operator, smoke, or verify path still depends on `compose.yaml`, treat that as drift and fix the split-file path instead.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

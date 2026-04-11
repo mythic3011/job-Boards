@@ -91,10 +91,13 @@ wait_for() {
 port_in_use() {
     local port="$1"
     if command -v ss &>/dev/null; then
-        ss -tlnp | grep -qE ":${port}([^0-9]|$)" && return 0
+        ss -tlnH 2>/dev/null | awk '{print $4}' | grep -qE "(^|[:.])${port}$" && return 0
+    fi
+    if command -v lsof &>/dev/null; then
+        lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1 && return 0
     fi
     if command -v netstat &>/dev/null; then
-        netstat -tlnp | grep -qE ":${port}([^0-9]|$)" && return 0
+        netstat -an 2>/dev/null | awk '/LISTEN/ {print $4}' | grep -qE "(^|[:.])${port}$" && return 0
     fi
     # Last resort: attempt TCP connection
     (echo >/dev/tcp/localhost/"$port") &>/dev/null && return 0

@@ -76,10 +76,13 @@ verify_obs_required_env() {
         "SESSION_SECRET"
         "GRAFANA_PASSWORD_FILE"
         "PROMETHEUS_PASSWORD_HASH"
+        "PROMETHEUS_WEB_CONFIG_FILE"
     )
     local var_name
     local missing=()
+    local invalid=()
     local value
+    local normalized
 
     for var_name in "${required[@]}"; do
         value="$(obs_effective_env_value "${var_name}" || true)"
@@ -87,12 +90,33 @@ verify_obs_required_env() {
             missing+=("${var_name}")
             continue
         fi
-        if [[ "${var_name}" == "GRAFANA_PASSWORD_FILE" ]] && [[ ! -r "${value}" ]]; then
-            missing+=("${var_name}")
-        fi
+
+        case "${var_name}" in
+            MONITORING_PASSWORD_HASH|PROMETHEUS_PASSWORD_HASH)
+                normalized="$(bt_normalize_compose_dollars "${value}")"
+                if ! bt_bcrypt_hash_runtime_usable "${normalized}"; then
+                    invalid+=("${var_name}")
+                fi
+                ;;
+            GRAFANA_PASSWORD_FILE|PROMETHEUS_WEB_CONFIG_FILE)
+                if [[ ! -r "${value}" ]]; then
+                    missing+=("${var_name}")
+                fi
+                ;;
+        esac
     done
 
-    [[ "${#missing[@]}" -eq 0 ]]
+    if [[ "${#missing[@]}" -gt 0 ]]; then
+        bt_warn "Obs required runtime values missing or unreadable: ${missing[*]}"
+        return 1
+    fi
+
+    if [[ "${#invalid[@]}" -gt 0 ]]; then
+        bt_warn "Obs required runtime hashes invalid or unusable: ${invalid[*]}"
+        return 1
+    fi
+
+    return 0
 }
 
 obs_prepare_runtime_artifacts() {
@@ -109,6 +133,7 @@ obs_prepare_runtime_artifacts() {
 
 obs_render_prometheus_web_config() {
     local password_hash
+    local current_path=""
     password_hash="$(bt_normalize_compose_dollars "$(obs_effective_env_value "PROMETHEUS_PASSWORD_HASH" || true)")"
     [[ -n "${password_hash}" ]] || return 1
 
@@ -120,7 +145,12 @@ EOF
     if [[ "${BT_DRY_RUN}" != "1" ]]; then
         chmod 0644 "${OBS_PROMETHEUS_WEB_CONFIG_FILE}"
     fi
-    export "PROMETHEUS_WEB_CONFIG_FILE=${OBS_PROMETHEUS_WEB_CONFIG_FILE}"
+
+    current_path="$(obs_effective_env_value "PROMETHEUS_WEB_CONFIG_FILE" || true)"
+    obs_set_generated_value "PROMETHEUS_WEB_CONFIG_FILE" "${OBS_PROMETHEUS_WEB_CONFIG_FILE}"
+    if [[ "${current_path}" != "${OBS_PROMETHEUS_WEB_CONFIG_FILE}" ]]; then
+        obs_emit_generated_audit "PROMETHEUS_WEB_CONFIG_FILE" "PROMETHEUS_PASSWORD_HASH" "rendered_runtime_config" "true" "false"
+    fi
 }
 
 obs_load_generated_env() {
@@ -217,7 +247,8 @@ obs_autofix_password_hash() {
     local current
     current="$(bt_normalize_compose_dollars "$(obs_effective_env_value "${target_key}" || true)")"
     if [[ -n "${current}" ]]; then
-        return 0
+        bt_bcrypt_hash_runtime_usable "${current}"
+        return $?
     fi
 
     local source_key
@@ -233,6 +264,7 @@ obs_autofix_password_hash() {
 
     local generated
     generated="$(bt_bcrypt_hash "admin" "${source_value}")" || return 1
+    bt_bcrypt_hash_runtime_usable "${generated}" || return 1
     obs_set_generated_value "${target_key}" "${generated}"
     obs_emit_generated_audit "${target_key}" "${source_key}" "derived_bcrypt" "true" "false"
     bt_emit_check "obs.bootstrap.${target_key,,}.generated" "obs" "${BT_STATUS_PASS}" "${target_key} was auto-derived from ${source_key}." "Review generated env provenance if operator-managed rotation is required."
@@ -263,7 +295,9 @@ apply_action() {
         return 0
     fi
 
-    ensure_obs_runtime_secrets || true
+    if ! ensure_obs_runtime_secrets; then
+        bt_warn "Obs runtime secret preparation did not complete cleanly."
+    fi
     run_obs_check "obs.bootstrap.required_env" "Obs bring-up secrets and required credentials are present after audit/autofix." "Provide explicit values for secrets that cannot be safely derived." verify_obs_required_env || {
         emit_obs_summary "Obs bootstrap failed preflight."
         exit 1
@@ -280,6 +314,7 @@ apply_action() {
 
 verify_action() {
     obs_load_generated_env
+    run_obs_check "obs.runtime.required_env" "Obs runtime secrets and generated auth artifacts remain present and usable." "Restore generated runtime artifacts or explicit obs runtime values before trusting obs verification." verify_obs_required_env || true
     run_obs_check "obs.grafana.healthy" "Grafana is healthy." "Inspect compose obs grafana service health." bt_compose_service_healthy "${BT_COMPOSE_OBS_FILE}" grafana || true
     run_obs_check "obs.loki.running" "Loki is running." "Inspect compose obs loki service state." bt_compose_service_running "${BT_COMPOSE_OBS_FILE}" loki || true
     run_obs_check "obs.promtail.running" "Promtail is running." "Inspect compose obs promtail service state." bt_compose_service_running "${BT_COMPOSE_OBS_FILE}" promtail || true

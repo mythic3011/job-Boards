@@ -1,0 +1,117 @@
+<?php
+
+namespace Tests\Feature;
+
+use PHPUnit\Framework\TestCase;
+use Symfony\Component\Process\Process;
+
+/**
+ * Verification path: sqlite-safe.
+ */
+class BootstrapEnvShellContractsTest extends TestCase
+{
+    private string $repoRoot;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->repoRoot = dirname(__DIR__, 2);
+    }
+
+    public function test_bootstrap_env_uses_portable_python_handoff_and_keeps_atomic_write(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringNotContainsString('@Q', $contents);
+        $this->assertStringContainsString('BOOTSTRAP_ENV_SET_KEY', $contents);
+        $this->assertStringContainsString('BOOTSTRAP_ENV_SET_VALUE', $contents);
+        $this->assertStringContainsString('os.replace', $contents);
+    }
+
+    public function test_set_env_preserves_special_character_semantics_with_portable_handoff(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        file_put_contents($tempRoot.'/.env', "EXISTING=old value\nKEEP=stable\n");
+
+        $helperPath = $tempRoot.'/exercise-set-env.sh';
+        $setEnvFunction = $this->extractSetEnvFunction();
+
+        $script = <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+{$setEnvFunction}
+
+cd "\$1"
+set_env "EXISTING" "\${VALUE_EXISTING}"
+set_env "SPACES" "\${VALUE_SPACES}"
+set_env "QUOTES" "\${VALUE_QUOTES}"
+set_env "DOLLARS" "\${VALUE_DOLLARS}"
+set_env "HASH_EQUALS" "\${VALUE_HASH_EQUALS}"
+set_env "EMPTY" ""
+BASH;
+
+        $this->writeExecutable($helperPath, $script);
+
+        $process = new Process(
+            [$helperPath, $tempRoot],
+            $tempRoot,
+            [
+                'VALUE_EXISTING' => ' updated value with spaces ',
+                'VALUE_SPACES' => '  leading and trailing  ',
+                'VALUE_QUOTES' => "\"double\" and 'single'",
+                'VALUE_DOLLARS' => '$alpha$$beta # tail',
+                'VALUE_HASH_EQUALS' => 'value#with=delimiters',
+            ],
+            null,
+            20,
+        );
+        $process->mustRun();
+
+        $contents = file_get_contents($tempRoot.'/.env');
+
+        $this->assertIsString($contents);
+        $this->assertSame(
+            "EXISTING= updated value with spaces \n".
+            "KEEP=stable\n".
+            "SPACES=  leading and trailing  \n".
+            "QUOTES=\"double\" and 'single'\n".
+            "DOLLARS=\$alpha\$\$beta # tail\n".
+            "HASH_EQUALS=value#with=delimiters\n".
+            "EMPTY=\n",
+            $contents,
+        );
+    }
+
+    private function extractSetEnvFunction(): string
+    {
+        $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
+        $this->assertIsString($contents);
+
+        if (! preg_match('/^set_env\\(\\) \\{\n.*?^\\}/ms', $contents, $matches)) {
+            $this->fail('Could not extract set_env() from bootstrap-env.sh');
+        }
+
+        return $matches[0];
+    }
+
+    private function makeTempDir(): string
+    {
+        $dir = sys_get_temp_dir().'/jobs-boards-bootstrap-env-'.bin2hex(random_bytes(8));
+        mkdir($dir, 0777, true);
+
+        return $dir;
+    }
+
+    private function writeExecutable(string $path, string $contents): void
+    {
+        $dir = dirname($path);
+        if (! is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+
+        file_put_contents($path, $contents);
+        chmod($path, 0755);
+    }
+}
