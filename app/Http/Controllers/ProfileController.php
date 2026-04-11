@@ -90,11 +90,9 @@ class ProfileController extends Controller
     public function showPasswordForm(): View
     {
         $user = Auth::user();
-        
-        return view('profile.password', [
-            'user' => $user,
-            'two_factor_enabled' => $this->twoFactorService->isEnabled($user),
-        ]);
+        $profileData = $this->profileService->getProfileData($user);
+
+        return view('profile.password', $profileData);
     }
 
     /**

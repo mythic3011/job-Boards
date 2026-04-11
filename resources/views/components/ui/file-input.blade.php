@@ -15,6 +15,7 @@
 @php
     $inputId = $name ?? 'file-' . uniqid();
     $previewId = $inputId . '-preview';
+    $fallbackId = $inputId . '-fallback-avatar';
     $hasError = $error || (isset($errors) && $errors->has($name));
     $helpId = $help ? "{$inputId}-help" : null;
     $errorId = $hasError ? "{$inputId}-error" : null;
@@ -39,14 +40,15 @@
                     @if($hasCurrentImage)
                         <img src="{{ $currentImage }}"
                              alt="Profile Image"
-                             class="w-full h-full object-cover transition-all duration-300 group-hover:scale-110"
+                             class="w-full h-full object-cover hidden transition-all duration-300 group-hover:scale-110"
                              id="{{ $inputId }}-current-image"
                              data-avatar-image
-                             data-avatar-input-id="{{ $inputId }}">
+                             data-avatar-input-id="{{ $inputId }}"
+                             data-avatar-fallback-id="{{ $fallbackId }}">
                     @endif
 
-                    <div class="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-400 to-sky-500 {{ $hasCurrentImage ? 'hidden' : '' }}"
-                         id="{{ $inputId }}-fallback-avatar">
+                    <div class="absolute inset-0 w-full h-full flex items-center justify-center bg-gradient-to-br from-indigo-400 to-sky-500"
+                         id="{{ $fallbackId }}">
                         <span class="text-4xl font-bold text-white">{{ $userInitial }}</span>
                     </div>
                 </div>

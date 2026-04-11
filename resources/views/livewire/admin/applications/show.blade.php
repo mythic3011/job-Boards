@@ -113,15 +113,12 @@ new class extends Component
             <div>
                 <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Applicant</h3>
                 <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    @if($application->applicantUser->profile_image_path)
-                        <img src="{{ route('images.profile', ['path' => \App\Services\ProfileImageService::encodePath($application->applicantUser->profile_image_path)]) }}"
-                             alt="{{ $application->applicantUser->nickname }}"
-                             class="w-14 h-14 rounded-full object-cover border-2 border-gray-200 bg-white shrink-0">
-                    @else
-                        <div class="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center border-2 border-indigo-200 shrink-0">
-                            <span class="text-xl font-bold text-indigo-600">{{ strtoupper(substr($application->applicantUser->nickname, 0, 1)) }}</span>
-                        </div>
-                    @endif
+                    <x-ui.avatar
+                        :src="$application->applicantUser->profile_image_path ? app(\App\Services\ProfileImageService::class)->getImageUrl($application->applicantUser->profile_image_path) : null"
+                        :name="$application->applicantUser->nickname"
+                        size="md"
+                        class="w-14 h-14 border-2 border-gray-200 bg-white shrink-0"
+                    />
                     <div>
                         <p class="font-semibold text-gray-900">{{ $application->applicantUser->nickname }}</p>
                         <p class="text-sm text-gray-500 mt-0.5">{{ $application->applicantUser->email }}</p>
