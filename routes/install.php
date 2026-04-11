@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware([
     EnsureSetupNotCompleted::class,
+    'anti-bot.install',
 ])->group(function () {
     Route::get('/install/status', [InstallController::class, 'status'])
         ->name('install.status');

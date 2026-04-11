@@ -136,7 +136,32 @@ return [
     |
     */
 
+    'install_guard_enabled' => env('INSTALL_GUARD_ENABLED'),
     'install_allowed_ips' => env('INSTALL_ALLOWED_IPS', '') ? explode(',', env('INSTALL_ALLOWED_IPS', '')) : [],
     'install_token' => env('INSTALL_TOKEN', null),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Trusted Proxies
+    |--------------------------------------------------------------------------
+    |
+    | Restrict which reverse proxies may supply forwarded headers.
+    | Use REMOTE_ADDR to trust only the direct upstream proxy connection.
+    |
+    */
+
+    'trusted_proxies' => (static function (): array {
+        $raw = trim((string) env('TRUSTED_PROXIES', ''));
+
+        if ($raw === '') {
+            return [];
+        }
+
+        return array_values(array_filter(
+            array_map('trim', explode(',', $raw)),
+            static fn (string $proxy): bool => $proxy !== ''
+        ));
+    })(),
+    'trusted_proxy_headers' => env('TRUSTED_PROXY_HEADERS', 'x_forwarded'),
 
 ];

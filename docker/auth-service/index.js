@@ -39,7 +39,12 @@ const USERS = {
 };
 
 const SESSION_TTL = 8 * 60 * 60 * 1000; // 8h
-const SESSION_SECRET = process.env.SESSION_SECRET || "";
+const SESSION_SECRET = process.env.SESSION_SECRET?.trim() || "";
+
+const failStartup = (message) => {
+    log("error", message);
+    throw new Error(message);
+};
 
 if (!process.env.MONITORING_ADMIN_USERNAME) {
     log("warn", "MONITORING_ADMIN_USERNAME not set — all logins will fail");
@@ -49,7 +54,7 @@ if (!USERS[process.env.MONITORING_ADMIN_USERNAME]) {
     log("warn", "MONITORING_PASSWORD_HASH not set — all logins will fail");
 }
 if (!SESSION_SECRET) {
-    log("warn", "SESSION_SECRET not set — session HMAC disabled");
+    failStartup("SESSION_SECRET is required - refusing to start");
 }
 
 // ── In-memory session store ───────────────────────────────────────────────────
@@ -74,7 +79,6 @@ setInterval(
 
 // ── HMAC token signing ────────────────────────────────────────────────────────
 const signToken = (token) => {
-    if (!SESSION_SECRET) return token;
     const hmac = crypto
         .createHmac("sha256", SESSION_SECRET)
         .update(token)
@@ -84,7 +88,6 @@ const signToken = (token) => {
 
 const verifyToken = (signed) => {
     if (!signed) return null;
-    if (!SESSION_SECRET) return signed; // unsigned mode
     const dot = signed.lastIndexOf(".");
     if (dot === -1) return null;
     const token = signed.slice(0, dot);

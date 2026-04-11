@@ -6,6 +6,8 @@ use App\Models\Application;
 use App\Models\JobPosting;
 use App\Policies\ApplicationPolicy;
 use App\Policies\JobPostingPolicy;
+use App\Services\AntiBot\ChallengeVerifier;
+use App\Services\AntiBot\NullChallengeVerifier;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\JobFailed;
@@ -32,7 +34,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(ChallengeVerifier::class, NullChallengeVerifier::class);
+        $this->app->alias(ChallengeVerifier::class, 'anti-bot.challenge-verifier');
     }
 
     /**

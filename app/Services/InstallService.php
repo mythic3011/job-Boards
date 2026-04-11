@@ -59,8 +59,7 @@ class InstallService
         }
 
         // Check HTTPS (except localhost)
-        if ($request->header('X-Forwarded-Proto') !== 'https' &&
-            !$request->secure() &&
+        if (!$request->secure() &&
             $request->getHost() !== 'localhost' &&
             !str_starts_with($request->getHost(), '127.')) {
             $issues[] = 'HTTPS required for installation';
