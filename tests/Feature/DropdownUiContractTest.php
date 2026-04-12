@@ -17,7 +17,15 @@ class DropdownUiContractTest extends TestCase
         $this->assertStringContainsString('data-dropdown-panel', $navigation);
         $this->assertStringContainsString('data-dropdown-panel', $header);
         $this->assertStringContainsString('Admin tools', $navigation);
+        $this->assertStringContainsString('data-admin-nav-trigger-summary', $navigation);
+        $this->assertStringNotContainsString('aria-label="Admin navigation"', $navigation);
         $this->assertStringContainsString('Signed in as', $header);
+        $this->assertStringContainsString('data-profile-dropdown-panel', $header);
+        $this->assertStringContainsString('Workspace', $header);
+        $this->assertStringContainsString('Security', $header);
+        $this->assertStringContainsString('Session', $header);
+        $this->assertStringContainsString('max-h-[min(75vh,32rem)]', $header);
+        $this->assertStringContainsString('overflow-y-auto', $header);
     }
 
     public function test_dropdown_javascript_coordinates_open_state_across_menus(): void

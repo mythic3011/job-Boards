@@ -16,21 +16,23 @@ new class extends Component
 {
     use WithPagination;
 
+    private const PAGE_SIZE = 15;
     public string $search = '';
     public string $companyFilter = '';
     public string $sort = 'latest';
+    public int $visibleCount = self::PAGE_SIZE;
 
     private const ALLOWED_SORTS = ['latest', 'oldest'];
 
-    public function updatedSearch(): void { $this->resetPage(); }
-    public function updatedCompanyFilter(): void { $this->resetPage(); }
+    public function updatedSearch(): void { $this->resetInfinitePagination(); }
+    public function updatedCompanyFilter(): void { $this->resetInfinitePagination(); }
 
     public function updatedSort(): void
     {
         if (!in_array($this->sort, self::ALLOWED_SORTS, true)) {
             $this->sort = 'latest';
         }
-        $this->resetPage();
+        $this->resetInfinitePagination();
     }
 
     public function clearFilters(): void
@@ -38,7 +40,7 @@ new class extends Component
         $this->search = '';
         $this->companyFilter = '';
         $this->sort = 'latest';
-        $this->resetPage();
+        $this->resetInfinitePagination();
     }
 
     public function deleteJob(string $jobId, DashboardService $dashboardService, AuditLogger $auditLogger): void
@@ -91,9 +93,20 @@ new class extends Component
             ->get(['id', 'nickname']);
 
         return [
-            'jobs'      => $query->paginate(15),
+            'jobs'      => $query->paginate($this->visibleCount),
             'companies' => $companies,
         ];
+    }
+
+    public function loadMore(): void
+    {
+        $this->visibleCount += self::PAGE_SIZE;
+    }
+
+    private function resetInfinitePagination(): void
+    {
+        $this->visibleCount = self::PAGE_SIZE;
+        $this->resetPage();
     }
 }; ?>
 
@@ -241,9 +254,12 @@ new class extends Component
             </table>
         </div>
 
-        <div class="border-t border-gray-100 px-6 py-4">
-            {{ $jobs->links() }}
-        </div>
+        <x-ui.infinite-scroll-pagination
+            :paginator="$jobs"
+            action="loadMore"
+            label="job"
+            key-name="admin-jobs"
+        />
     </div>
 
     <!-- Delete Confirmation Modal -->

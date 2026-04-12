@@ -13,7 +13,7 @@
 @endphp
 
 @if($errorMessage)
-    <p class="mt-1 text-sm text-red-600" role="alert" id="{{ $errorId }}">
+    <p class="mt-1 text-sm text-red-500" role="alert" id="{{ $errorId }}">
         {{ $errorMessage }}
     </p>
 @endif

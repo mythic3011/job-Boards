@@ -32,24 +32,24 @@
     ];
 @endphp
 
-<div class="mb-6 rounded-xl border border-gray-200 bg-white p-1.5 shadow-sm">
+<div class="theme-panel mb-6 rounded-xl border p-1.5 shadow-sm">
     <div class="flex flex-wrap gap-1.5">
         @foreach($items as $item)
             @php
                 $isActive = $active === $item['key'];
-                $baseClasses = 'inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors';
+                $baseClasses = 'theme-text-strong inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors';
                 $stateClasses = $isActive
-                    ? 'bg-indigo-600 text-white shadow-sm'
+                    ? 'theme-link-active-chip shadow-sm'
                     : ($item['enabled']
-                        ? 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                        : 'text-gray-400');
+                        ? 'theme-text-muted hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)]'
+                        : 'theme-text-muted opacity-60');
             @endphp
 
             @if($item['enabled'] && $item['href'])
                 <a href="{{ $item['href'] }}" class="{{ $baseClasses }} {{ $stateClasses }}">
                     <span>{{ $item['label'] }}</span>
                     @if($item['key'] === 'password' && $twoFactorEnabled)
-                        <span class="rounded-full {{ $isActive ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-700' }} px-2 py-0.5 text-[11px] font-semibold">2FA</span>
+                        <span class="theme-pill rounded-full px-2 py-0.5 text-[11px] font-semibold">2FA</span>
                     @endif
                 </a>
             @else

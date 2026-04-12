@@ -118,7 +118,7 @@ new class extends Component
         [
             'label' => 'Locked Accounts',
             'value' => $stats['locked_users'],
-            'tone' => $stats['locked_users'] > 0 ? 'text-amber-700' : 'text-gray-700',
+            'tone' => $stats['locked_users'] > 0 ? 'text-amber-700' : 'theme-text-strong',
             'description' => $stats['locked_users'] > 0 ? 'Some accounts are currently locked and may need review.' : 'No accounts are currently locked.',
         ],
     ];
@@ -158,15 +158,15 @@ new class extends Component
         <div class="mb-4 flex items-end justify-between gap-4">
             <div>
                 <x-ui.section-label class="mb-2">Command Center</x-ui.section-label>
-                <p class="text-sm text-gray-500">Move into the admin surface that maps to the current workload.</p>
+                <p class="theme-text-muted text-sm">Move into the admin surface that maps to the current workload.</p>
             </div>
         </div>
         <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
             @foreach($commandCenter as $item)
                 @if($item['can'])
-                    <a href="{{ $item['href'] }}" class="group rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-indigo-200 hover:shadow-md">
+                    <a href="{{ $item['href'] }}" class="theme-panel group rounded-2xl border p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[var(--app-accent-soft-border)] hover:shadow-md">
                         <div class="flex items-start justify-between gap-3">
-                            <span class="inline-flex h-11 w-11 items-center justify-center rounded-xl {{ $item['iconBg'] }}">
+                            <span class="theme-panel-subtle inline-flex h-11 w-11 items-center justify-center rounded-xl border {{ $item['iconBg'] }}">
                                 @if($item['icon'] === 'users')
                                     <x-heroicon-o-users class="h-5 w-5" />
                                 @elseif($item['icon'] === 'briefcase')
@@ -179,16 +179,16 @@ new class extends Component
                                     <x-heroicon-o-cog-6-tooth class="h-5 w-5" />
                                 @endif
                             </span>
-                            <span class="text-xs font-semibold uppercase tracking-[0.14em] text-gray-400 group-hover:text-indigo-500">Open</span>
+                            <span class="theme-text-muted text-xs font-semibold uppercase tracking-[0.14em] group-hover:text-[var(--app-link-accent)]">Open</span>
                         </div>
                         <div class="mt-4">
-                            <p class="text-base font-semibold text-gray-900">{{ $item['label'] }}</p>
-                            <p class="mt-1 text-sm leading-5 text-gray-500">{{ $item['description'] }}</p>
+                            <p class="theme-text-strong text-base font-semibold">{{ $item['label'] }}</p>
+                            <p class="theme-text-muted mt-1 text-sm leading-5">{{ $item['description'] }}</p>
                         </div>
                         <div class="mt-4 flex items-baseline gap-2">
-                            <span class="text-2xl font-semibold text-gray-900">{{ $item['value'] }}</span>
+                            <span class="theme-text-strong text-2xl font-semibold">{{ $item['value'] }}</span>
                             @if(isset($item['valueLabel']))
-                                <span class="text-xs font-medium uppercase tracking-[0.14em] text-gray-400">{{ $item['valueLabel'] }}</span>
+                                <span class="theme-text-muted text-xs font-medium uppercase tracking-[0.14em]">{{ $item['valueLabel'] }}</span>
                             @endif
                         </div>
                     </a>
@@ -203,7 +203,7 @@ new class extends Component
                 <div class="mb-4 flex items-end justify-between gap-4">
                     <div>
                         <x-ui.section-label class="mb-2">Platform Snapshot</x-ui.section-label>
-                        <p class="text-sm text-gray-500">Core population and marketplace counts across the platform.</p>
+                        <p class="theme-text-muted text-sm">Core population and marketplace counts across the platform.</p>
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
@@ -237,13 +237,13 @@ new class extends Component
                 <div class="mb-4 flex items-center justify-between">
                     <div>
                         <x-ui.section-label class="mb-2">Recent Activity</x-ui.section-label>
-                        <p class="text-sm text-gray-500">Latest events that changed the platform state.</p>
+                        <p class="theme-text-muted text-sm">Latest events that changed the platform state.</p>
                     </div>
                     @can('admin.system.view')
-                        <a href="{{ route('admin.audit-logs.index') }}" class="text-xs font-medium text-indigo-600 hover:text-indigo-800">View all audit logs →</a>
+                        <a href="{{ route('admin.audit-logs.index') }}" class="theme-link text-xs font-medium">View all audit logs →</a>
                     @endcan
                 </div>
-                <x-ui.card class="divide-y divide-gray-100">
+                <x-ui.card class="divide-y" style="border-color: var(--app-panel-border);">
                     @forelse($activity as $log)
                         <div class="flex items-start justify-between gap-4 px-1 py-3">
                             <div class="min-w-0 flex-1">
@@ -252,19 +252,19 @@ new class extends Component
                                         {{ $this->getActivityLabel($log->event_type) }}
                                     </span>
                                     @if($log->ip)
-                                        <span class="truncate font-mono text-[11px] text-gray-400">{{ $log->ip }}</span>
+                                        <span class="theme-text-muted truncate font-mono text-[11px]">{{ $log->ip }}</span>
                                     @endif
                                 </div>
-                                <p class="mt-2 text-sm text-gray-700">
+                                <p class="theme-text-strong mt-2 text-sm">
                                     {{ $log->actor?->nickname ?? $log->actor_type ?? 'guest' }}
                                 </p>
                             </div>
-                            <span class="shrink-0 text-xs text-gray-400" title="{{ $log->occurred_at->toDateTimeString() }}">
+                            <span class="theme-text-muted shrink-0 text-xs" title="{{ $log->occurred_at->toDateTimeString() }}">
                                 {{ $log->occurred_at->diffForHumans() }}
                             </span>
                         </div>
                     @empty
-                        <p class="py-8 text-center text-sm text-gray-400">No recent activity.</p>
+                        <p class="theme-text-muted py-8 text-center text-sm">No recent activity.</p>
                     @endforelse
                 </x-ui.card>
             </div>
@@ -274,16 +274,16 @@ new class extends Component
             <div>
                 <div class="mb-4">
                     <x-ui.section-label class="mb-2">Security Pulse</x-ui.section-label>
-                    <p class="text-sm text-gray-500">Auth and platform risk indicators from today’s audit stream.</p>
+                    <p class="theme-text-muted text-sm">Auth and platform risk indicators from today’s audit stream.</p>
                 </div>
                 <x-ui.card class="space-y-4">
                     @foreach($securityPulse as $item)
-                        <div class="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4">
+                        <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                             <div class="flex items-baseline justify-between gap-3">
-                                <p class="text-sm font-medium text-gray-700">{{ $item['label'] }}</p>
+                                <p class="theme-text-strong text-sm font-medium">{{ $item['label'] }}</p>
                                 <p class="text-2xl font-semibold {{ $item['tone'] }}">{{ number_format($item['value']) }}</p>
                             </div>
-                            <p class="mt-2 text-sm text-gray-500">{{ $item['description'] }}</p>
+                            <p class="theme-text-muted mt-2 text-sm">{{ $item['description'] }}</p>
                         </div>
                     @endforeach
                 </x-ui.card>
@@ -292,7 +292,7 @@ new class extends Component
             <div>
                 <div class="mb-4">
                     <x-ui.section-label class="mb-2">Today</x-ui.section-label>
-                    <p class="text-sm text-gray-500">Daily operational movement across users, jobs, and audits.</p>
+                    <p class="theme-text-muted text-sm">Daily operational movement across users, jobs, and audits.</p>
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
                     <x-ui.stat-card label="New Jobs Today" :value="$stats['new_jobs_today']" icon-color="text-purple-500">

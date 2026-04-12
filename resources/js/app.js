@@ -2,6 +2,8 @@
 import "./bootstrap";
 import "./components/toast";
 import "./components/dropdown";
+import "./components/theme";
+import "./components/infinite-pagination";
 import "./install";
 import "./register";
 import "./avatar";

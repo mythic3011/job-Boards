@@ -34,7 +34,7 @@
 
     <div class="flex flex-col items-center space-y-4">
         <div class="relative group">
-            <div class="relative w-32 h-32 rounded-full overflow-hidden border-4 {{ $hasError ? 'border-red-300' : 'border-gray-200' }} bg-gradient-to-br from-indigo-100 to-sky-100 shadow-lg"
+            <div class="relative w-32 h-32 rounded-full overflow-hidden border-4 {{ $hasError ? 'border-red-300' : 'border-[var(--app-panel-border)]' }} bg-gradient-to-br from-indigo-100 to-sky-100 shadow-lg"
                  id="{{ $inputId }}-container">
                 <div class="relative w-full h-full" id="{{ $inputId }}-current-avatar">
                     @if($hasCurrentImage)
@@ -99,10 +99,10 @@
         </div>
         
         <div class="text-center">
-            <p class="text-sm font-medium text-gray-900 mb-1">
+            <p class="theme-text-strong mb-1 text-sm font-medium">
                 {{ $disabled ? 'Upload disabled' : 'Click to update your photo' }}
             </p>
-            <p class="text-xs text-gray-500">
+            <p class="theme-text-muted text-xs">
                 JPG, PNG, WebP or GIF, up to 2MB
             </p>
         </div>
@@ -111,13 +111,13 @@
             <button type="button"
                     data-avatar-action="confirm"
                     data-avatar-target="{{ $inputId }}"
-                    class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+                    class="theme-button theme-button-primary rounded-lg px-4 py-2 text-sm font-medium shadow-sm">
                 Save Photo
             </button>
             <button type="button"
                     data-avatar-action="cancel"
                     data-avatar-target="{{ $inputId }}"
-                    class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors">
+                    class="theme-button theme-button-outline rounded-lg px-4 py-2 text-sm font-medium">
                 Cancel
             </button>
         </div>

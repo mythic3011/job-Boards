@@ -105,14 +105,14 @@ new class extends Component
     {{-- Page header --}}
     <div class="flex items-center justify-between gap-4 mb-5">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">
+            <h1 class="theme-text-strong text-2xl font-bold">
                 @if($isCompany)
                     {{ $jobIdcode ? 'Applications for Job' : 'All Applications' }}
                 @else
                     My Applications
                 @endif
             </h1>
-            <p class="text-sm text-gray-500 mt-1">{{ $applications->total() }} {{ Str::plural('application', $applications->total()) }}</p>
+            <p class="theme-text-muted mt-1 text-sm">{{ $applications->total() }} {{ Str::plural('application', $applications->total()) }}</p>
         </div>
     </div>
 
@@ -120,19 +120,19 @@ new class extends Component
     <div class="flex flex-wrap gap-3 mb-6">
         {{-- Search --}}
         <div class="relative flex-1 min-w-48">
-            <div class="flex items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-all duration-150 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
-                <svg style="width:18px;height:18px;flex-shrink:0;color:#9ca3af" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <div class="theme-input-shell flex items-center gap-3 rounded-lg border px-4 py-2.5 transition-all duration-150">
+                <svg class="theme-text-muted h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                 </svg>
                 <input
                     type="text"
                     wire:model.live.debounce.250ms="search"
                     placeholder="{{ $isCompany ? 'Search by job title or applicant…' : 'Search by job title…' }}"
-                    class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none min-w-0"
+                    class="theme-input flex-1 min-w-0 border-0 bg-transparent px-0 py-0 text-sm shadow-none outline-none"
                     autocomplete="off"
                 />
                 @if($search)
-                    <button wire:click="clearSearch" class="shrink-0 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors cursor-pointer" aria-label="Clear search">
+                    <button wire:click="clearSearch" class="theme-text-muted shrink-0 rounded-full p-0.5 transition-colors cursor-pointer hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)]" aria-label="Clear search">
                         <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                         </svg>
@@ -142,7 +142,7 @@ new class extends Component
         </div>
 
         {{-- Status filter --}}
-        <select wire:model.live="statusFilter" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+        <select wire:model.live="statusFilter" class="theme-input shrink-0 rounded-lg border px-3 py-2.5 text-sm shadow-sm outline-none transition-all duration-150 cursor-pointer">
             <option value="">All statuses</option>
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
@@ -150,7 +150,7 @@ new class extends Component
         </select>
 
         {{-- Sort --}}
-        <select wire:model.live="sort" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+        <select wire:model.live="sort" class="theme-input shrink-0 rounded-lg border px-3 py-2.5 text-sm shadow-sm outline-none transition-all duration-150 cursor-pointer">
             <option value="latest">Newest first</option>
             <option value="oldest">Oldest first</option>
         </select>
@@ -159,10 +159,10 @@ new class extends Component
     {{-- Active search label --}}
     @if($search)
         <div class="flex items-center gap-2 mb-4">
-            <span class="text-sm text-gray-500">Results for</span>
-            <span class="inline-flex items-center gap-1.5 rounded-full bg-indigo-50 border border-indigo-100 px-3 py-0.5 text-sm font-medium text-indigo-700">
+            <span class="theme-text-muted text-sm">Results for</span>
+            <span class="theme-pill inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-sm font-medium">
                 "{{ $search }}"
-                <button wire:click="clearSearch" class="hover:text-indigo-900 transition-colors cursor-pointer">
+                <button wire:click="clearSearch" class="transition-colors cursor-pointer hover:opacity-80">
                     <svg style="width:12px;height:12px" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
@@ -193,11 +193,11 @@ new class extends Component
                 };
             @endphp
 
-            <div class="group rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all duration-150">
+            <div class="theme-panel group rounded-lg border px-5 py-4 shadow-sm transition-all duration-150 hover:border-[var(--app-accent-soft-border)] hover:shadow-md">
                 <div class="flex items-start gap-4">
 
                     {{-- Avatar / company initials --}}
-                    <div class="flex shrink-0 items-center justify-center rounded-md border border-gray-100 bg-gray-50 font-bold text-gray-600 uppercase transition-colors group-hover:border-indigo-100 group-hover:bg-indigo-50 group-hover:text-indigo-700" style="width:48px;height:48px;font-size:13px">
+                    <div class="theme-icon-tile flex h-12 w-12 shrink-0 items-center justify-center rounded-md font-bold uppercase transition-colors group-hover:bg-[var(--app-accent-soft-bg)] group-hover:text-[var(--app-accent-soft-fg)]" style="font-size:13px">
                         @if($isCompany)
                             {{ Str::substr($application->applicantUser->nickname ?? '?', 0, 2) }}
                         @else
@@ -209,20 +209,20 @@ new class extends Component
                         {{-- Title row --}}
                         <div class="flex flex-wrap items-center gap-2">
                             @if($isCompany)
-                                <h2 class="text-base font-semibold text-gray-900">
+                                <h2 class="theme-text-strong text-base font-semibold">
                                     {{ $application->applicantUser->nickname }}
                                 </h2>
-                                <span class="text-sm text-gray-400">&middot;</span>
-                                <a href="{{ route('jobs.show', $application->jobPosting->idcode) }}" class="text-sm text-indigo-600 hover:text-indigo-800 hover:underline underline-offset-2 transition-colors">
+                                <span class="theme-text-muted text-sm opacity-50">&middot;</span>
+                                <a href="{{ route('jobs.show', $application->jobPosting->idcode) }}" class="theme-link text-sm transition-colors hover:underline underline-offset-2">
                                     {{ $application->jobPosting->title }}
                                 </a>
                             @else
-                                <h2 class="text-base font-semibold leading-snug">
-                                    <a href="{{ route('jobs.show', $application->jobPosting->idcode) }}" class="text-gray-900 hover:text-indigo-700 transition-colors">
+                                <h2 class="theme-text-strong text-base font-semibold leading-snug">
+                                    <a href="{{ route('jobs.show', $application->jobPosting->idcode) }}" class="transition-colors hover:text-[var(--app-link-accent)]">
                                         {{ $application->jobPosting->title }}
                                     </a>
                                 </h2>
-                                <span class="text-sm text-gray-500">{{ $application->jobPosting->companyUser?->nickname }}</span>
+                                <span class="theme-text-muted text-sm">{{ $application->jobPosting->companyUser?->nickname }}</span>
                             @endif
 
                             {{-- New message badge --}}
@@ -236,12 +236,12 @@ new class extends Component
 
                         {{-- Cover message snippet --}}
                         @if($application->message)
-                            <p class="mt-1.5 text-sm text-gray-600 leading-relaxed line-clamp-2">{{ $application->message }}</p>
+                            <p class="theme-text-muted mt-1.5 text-sm leading-relaxed line-clamp-2">{{ $application->message }}</p>
                         @endif
 
                         {{-- Footer meta --}}
                         <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
-                            <div class="flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                            <div class="theme-text-muted flex flex-wrap items-center gap-3 text-xs">
                                 {{-- Status badge --}}
                                 <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium {{ $statusClasses }}">
                                     <span class="w-1.5 h-1.5 rounded-full {{ $dotClasses }}"></span>
@@ -270,7 +270,7 @@ new class extends Component
                             {{-- Actions --}}
                             <div class="flex items-center gap-2">
                                 <a href="{{ route('applications.show', $application->idcode) }}"
-                                   class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-all duration-150 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 cursor-pointer">
+                                   class="theme-input inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-accent-soft-bg)] hover:text-[var(--app-accent-soft-fg)]">
                                     View details &rarr;
                                 </a>
                                 @if($application->cv_original_name)

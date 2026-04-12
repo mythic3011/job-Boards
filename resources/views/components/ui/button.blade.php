@@ -7,13 +7,14 @@
 ])
 
 @php
-    $baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer';
+    $baseClasses = 'theme-button inline-flex items-center justify-center rounded-lg border font-medium disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer';
     
     $variantClasses = [
-        'primary' => 'bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500 disabled:hover:bg-indigo-600',
-        'secondary' => 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500 disabled:hover:bg-gray-600',
-        'outline' => 'border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-indigo-500 disabled:hover:bg-white',
-        'danger' => 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 disabled:hover:bg-red-600',
+        'primary' => 'theme-button-primary',
+        'secondary' => 'theme-button-secondary',
+        'outline' => 'theme-button-outline',
+        'warning' => 'theme-button-warning',
+        'danger' => 'theme-button-danger',
     ];
     
     $sizeClasses = [
