@@ -22,11 +22,11 @@ new class extends Component
     public function getBadgeClass(string $eventType): string
     {
         return match (true) {
-            str_contains($eventType, 'failed') || str_contains($eventType, 'locked') => 'bg-red-100 text-red-700',
-            str_contains($eventType, 'suspicious') || str_contains($eventType, 'probe') => 'bg-orange-100 text-orange-700',
-            str_contains($eventType, 'login') => 'bg-green-100 text-green-700',
-            str_contains($eventType, 'setup') => 'bg-indigo-100 text-indigo-700',
-            default => 'bg-gray-100 text-gray-600',
+            str_contains($eventType, 'failed') || str_contains($eventType, 'locked') => 'theme-alert-error',
+            str_contains($eventType, 'suspicious') || str_contains($eventType, 'probe') => 'theme-alert-warning',
+            str_contains($eventType, 'login') => 'theme-alert-success',
+            str_contains($eventType, 'setup') => 'theme-alert-info',
+            default => 'theme-pill',
         };
     }
 
@@ -58,7 +58,6 @@ new class extends Component
             'label' => 'Users',
             'description' => 'Review accounts and moderation status.',
             'value' => number_format($stats['total_users']),
-            'iconBg' => 'bg-indigo-50 text-indigo-600',
             'icon' => 'users',
         ],
         [
@@ -67,7 +66,6 @@ new class extends Component
             'label' => 'Jobs',
             'description' => 'Check published roles and draft hygiene.',
             'value' => number_format($stats['total_jobs']),
-            'iconBg' => 'bg-violet-50 text-violet-600',
             'icon' => 'briefcase',
         ],
         [
@@ -77,7 +75,6 @@ new class extends Component
             'description' => 'Process inbound candidates and review queue.',
             'value' => number_format($stats['pending_applications']),
             'valueLabel' => 'pending',
-            'iconBg' => 'bg-amber-50 text-amber-600',
             'icon' => 'document',
         ],
         [
@@ -87,7 +84,6 @@ new class extends Component
             'description' => 'Inspect sign-in and system activity.',
             'value' => number_format($stats['events_today']),
             'valueLabel' => 'today',
-            'iconBg' => 'bg-slate-100 text-slate-600',
             'icon' => 'chart',
         ],
         [
@@ -97,7 +93,6 @@ new class extends Component
             'description' => 'Adjust platform controls and admin defaults.',
             'value' => 'Admin',
             'valueLabel' => 'controls',
-            'iconBg' => 'bg-emerald-50 text-emerald-600',
             'icon' => 'cog',
         ],
     ];
@@ -106,49 +101,49 @@ new class extends Component
         [
             'label' => 'Failed Sign-ins Today',
             'value' => $stats['failed_logins_today'],
-            'tone' => $stats['failed_logins_today'] > 0 ? 'text-red-700' : 'text-green-700',
+            'tone' => $stats['failed_logins_today'] > 0 ? 'theme-signal-danger' : 'theme-signal-success',
             'description' => $stats['failed_logins_today'] > 0 ? 'Review auth noise and verify it is expected.' : 'No failed sign-ins recorded today.',
         ],
         [
             'label' => 'Suspicious Events',
             'value' => $stats['suspicious_today'],
-            'tone' => $stats['suspicious_today'] > 0 ? 'text-orange-700' : 'text-green-700',
+            'tone' => $stats['suspicious_today'] > 0 ? 'theme-signal-warning' : 'theme-signal-success',
             'description' => $stats['suspicious_today'] > 0 ? 'Inspect anti-probe and suspicious-user-agent events.' : 'No suspicious events recorded today.',
         ],
         [
             'label' => 'Locked Accounts',
             'value' => $stats['locked_users'],
-            'tone' => $stats['locked_users'] > 0 ? 'text-amber-700' : 'theme-text-strong',
+            'tone' => $stats['locked_users'] > 0 ? 'theme-signal-warning' : 'theme-text-strong',
             'description' => $stats['locked_users'] > 0 ? 'Some accounts are currently locked and may need review.' : 'No accounts are currently locked.',
         ],
     ];
 @endphp
 
 <div class="space-y-8">
-    <div class="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8">
+    <div class="theme-hero-surface rounded-3xl border px-6 py-7 sm:px-8">
         <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div class="max-w-2xl">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-200/80">Admin Dashboard</p>
+                <p class="theme-hero-eyebrow text-xs font-semibold uppercase tracking-[0.18em]">Admin Dashboard</p>
                 <h1 class="mt-3 text-3xl font-semibold tracking-tight">Operational snapshot</h1>
-                <p class="mt-3 text-sm leading-6 text-slate-300">
+                <p class="theme-text-muted mt-3 text-sm leading-6">
                     Review pending applications, watch authentication risk, and jump straight into the admin surfaces that need action.
                 </p>
             </div>
             <div class="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:min-w-[540px]">
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                    <p class="text-xs uppercase tracking-[0.16em] text-slate-400">Pending Review</p>
+                <div class="theme-hero-card rounded-2xl border px-4 py-4">
+                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Pending Review</p>
                     <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['pending_applications']) }}</p>
-                    <p class="mt-2 text-sm text-slate-300">Applications waiting on a decision.</p>
+                    <p class="theme-text-muted mt-2 text-sm">Applications waiting on a decision.</p>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                    <p class="text-xs uppercase tracking-[0.16em] text-slate-400">Failed Sign-ins Today</p>
+                <div class="theme-hero-card rounded-2xl border px-4 py-4">
+                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Failed Sign-ins Today</p>
                     <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['failed_logins_today']) }}</p>
-                    <p class="mt-2 text-sm text-slate-300">Authentication failures captured since midnight.</p>
+                    <p class="theme-text-muted mt-2 text-sm">Authentication failures captured since midnight.</p>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                    <p class="text-xs uppercase tracking-[0.16em] text-slate-400">Suspicious Events</p>
+                <div class="theme-hero-card rounded-2xl border px-4 py-4">
+                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Suspicious Events</p>
                     <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['suspicious_today']) }}</p>
-                    <p class="mt-2 text-sm text-slate-300">Signals worth checking in the audit stream.</p>
+                    <p class="theme-text-muted mt-2 text-sm">Signals worth checking in the audit stream.</p>
                 </div>
             </div>
         </div>
@@ -166,7 +161,7 @@ new class extends Component
                 @if($item['can'])
                     <a href="{{ $item['href'] }}" class="theme-panel group rounded-2xl border p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[var(--app-accent-soft-border)] hover:shadow-md">
                         <div class="flex items-start justify-between gap-3">
-                            <span class="theme-panel-subtle inline-flex h-11 w-11 items-center justify-center rounded-xl border {{ $item['iconBg'] }}">
+                            <span class="theme-icon-tile-accent inline-flex h-11 w-11 items-center justify-center rounded-xl border">
                                 @if($item['icon'] === 'users')
                                     <x-heroicon-o-users class="h-5 w-5" />
                                 @elseif($item['icon'] === 'briefcase')
@@ -207,27 +202,27 @@ new class extends Component
                     </div>
                 </div>
                 <div class="grid grid-cols-2 gap-4 lg:grid-cols-3">
-                    <x-ui.stat-card label="Total Users" :value="$stats['total_users']" icon-color="text-indigo-600">
+                    <x-ui.stat-card label="Total Users" :value="$stats['total_users']" icon-color="theme-signal-accent">
                         <x-slot:icon><x-heroicon-o-users class="h-12 w-12" /></x-slot:icon>
                     </x-ui.stat-card>
 
-                    <x-ui.stat-card label="Companies" :value="$stats['total_companies']" icon-color="text-green-600">
+                    <x-ui.stat-card label="Companies" :value="$stats['total_companies']" icon-color="theme-signal-success">
                         <x-slot:icon><x-heroicon-o-building-office class="h-12 w-12" /></x-slot:icon>
                     </x-ui.stat-card>
 
-                    <x-ui.stat-card label="Job Seekers" :value="$stats['total_individuals']" icon-color="text-blue-600">
+                    <x-ui.stat-card label="Job Seekers" :value="$stats['total_individuals']" icon-color="theme-signal-info">
                         <x-slot:icon><x-heroicon-o-user class="h-12 w-12" /></x-slot:icon>
                     </x-ui.stat-card>
 
-                    <x-ui.stat-card label="Job Postings" :value="$stats['total_jobs']" icon-color="text-purple-600">
+                    <x-ui.stat-card label="Job Postings" :value="$stats['total_jobs']" icon-color="theme-signal-accent">
                         <x-slot:icon><x-heroicon-o-briefcase class="h-12 w-12" /></x-slot:icon>
                     </x-ui.stat-card>
 
-                    <x-ui.stat-card label="Applications" :value="$stats['total_applications']" icon-color="text-yellow-600">
+                    <x-ui.stat-card label="Applications" :value="$stats['total_applications']" icon-color="theme-signal-warning">
                         <x-slot:icon><x-heroicon-o-document-text class="h-12 w-12" /></x-slot:icon>
                     </x-ui.stat-card>
 
-                    <x-ui.stat-card label="New Users Today" :value="$stats['new_users_today']" icon-color="text-sky-600">
+                    <x-ui.stat-card label="New Users Today" :value="$stats['new_users_today']" icon-color="theme-signal-info">
                         <x-slot:icon><x-heroicon-o-user-plus class="h-12 w-12" /></x-slot:icon>
                     </x-ui.stat-card>
                 </div>
@@ -295,11 +290,11 @@ new class extends Component
                     <p class="theme-text-muted text-sm">Daily operational movement across users, jobs, and audits.</p>
                 </div>
                 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                    <x-ui.stat-card label="New Jobs Today" :value="$stats['new_jobs_today']" icon-color="text-purple-500">
+                    <x-ui.stat-card label="New Jobs Today" :value="$stats['new_jobs_today']" icon-color="theme-signal-accent">
                         <x-slot:icon><x-heroicon-o-plus-circle class="h-12 w-12" /></x-slot:icon>
                     </x-ui.stat-card>
 
-                    <x-ui.stat-card label="Audit Events Today" :value="$stats['events_today']" icon-color="text-gray-500">
+                    <x-ui.stat-card label="Audit Events Today" :value="$stats['events_today']" icon-color="theme-text-muted">
                         <x-slot:icon><x-heroicon-o-chart-bar class="h-12 w-12" /></x-slot:icon>
                     </x-ui.stat-card>
                 </div>

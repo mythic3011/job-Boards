@@ -4,17 +4,17 @@
 
 @section('content')
 <div class="max-w-5xl mx-auto">
-    <nav class="mb-4 flex items-center gap-2 text-sm text-gray-500">
-        <a href="{{ route('profile.show') }}" class="hover:text-indigo-600 transition-colors">Profile</a>
+    <nav class="theme-text-muted mb-4 flex items-center gap-2 text-sm">
+        <a href="{{ route('profile.show') }}" class="theme-link transition-colors">Profile</a>
         <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
         </svg>
-        <span class="text-gray-900 font-medium">Change Password</span>
+        <span class="theme-text-strong font-medium">Change Password</span>
     </nav>
 
     <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">Change Password</h1>
-        <p class="text-gray-600 mt-1">Update your password to keep your account secure</p>
+        <h1 class="theme-text-strong text-3xl font-bold">Change Password</h1>
+        <p class="theme-text-muted mt-1">Update your password to keep your account secure</p>
     </div>
 
     @include('profile.partials.workspace-nav', [
@@ -47,10 +47,10 @@
                 <x-ui.card>
                     <div class="mb-6 flex items-start justify-between gap-4">
                         <div>
-                            <h2 class="text-xl font-semibold text-gray-900">Password Security</h2>
-                            <p class="mt-1 text-sm text-gray-500">This flow requires your current password and a fresh 2FA code before the update is accepted.</p>
+                            <h2 class="theme-text-strong text-xl font-semibold">Password Security</h2>
+                            <p class="theme-text-muted mt-1 text-sm">This flow requires your current password and a fresh 2FA code before the update is accepted.</p>
                         </div>
-                        <span class="inline-flex items-center rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
+                        <span class="theme-alert-success inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium">
                             2FA protected
                         </span>
                     </div>
@@ -58,7 +58,7 @@
                     @if($two_factor_enabled)
                         <x-ui.alert type="info" class="mb-6">
                             <div class="flex items-start">
-                                <svg class="w-5 h-5 text-blue-400 mt-0.5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <svg class="theme-signal-info mt-0.5 mr-2 h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
                                 </svg>
                                 <div>
@@ -111,9 +111,9 @@
                         @endif
                     </div>
 
-                    <div class="mt-6 flex items-center justify-between border-t border-gray-200 pt-6">
+                    <div class="theme-table-divider mt-6 flex items-center justify-between border-t pt-6">
                         <a href="{{ route('profile.show') }}" 
-                           class="text-gray-600 hover:text-gray-800 font-medium">
+                           class="theme-link font-medium">
                             Back to Profile
                         </a>
                         
@@ -127,44 +127,44 @@
 
         <div class="space-y-6">
             <x-ui.card>
-                <h2 class="text-lg font-semibold text-gray-900">Security Status</h2>
+                <h2 class="theme-text-strong text-lg font-semibold">Security Status</h2>
                 <dl class="mt-4 space-y-3 text-sm">
                     <div class="flex items-start justify-between gap-3">
-                        <dt class="text-gray-500">Account</dt>
-                        <dd class="text-right font-medium text-gray-900">{{ $user['nickname'] }}</dd>
+                        <dt class="theme-text-muted">Account</dt>
+                        <dd class="theme-text-strong text-right font-medium">{{ $user['nickname'] }}</dd>
                     </div>
                     <div class="flex items-start justify-between gap-3">
-                        <dt class="text-gray-500">Login ID</dt>
-                        <dd class="font-medium text-gray-900">{{ $user['login_id'] }}</dd>
+                        <dt class="theme-text-muted">Login ID</dt>
+                        <dd class="theme-text-strong font-medium">{{ $user['login_id'] }}</dd>
                     </div>
                     <div class="flex items-start justify-between gap-3">
-                        <dt class="text-gray-500">Two-factor</dt>
-                        <dd class="font-medium text-green-700">Enabled</dd>
+                        <dt class="theme-text-muted">Two-factor</dt>
+                        <dd class="theme-signal-success font-medium">Enabled</dd>
                     </div>
                 </dl>
 
-                <div class="mt-4 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+                <div class="theme-alert-info mt-4 rounded-xl border px-4 py-3 text-sm">
                     Password changes are audited and require both your current password and a valid authenticator code.
                 </div>
             </x-ui.card>
 
             <x-ui.card>
-                <h2 class="text-lg font-semibold text-gray-900">Password Checklist</h2>
-                <ul class="mt-4 space-y-3 text-sm text-gray-600">
+                <h2 class="theme-text-strong text-lg font-semibold">Password Checklist</h2>
+                <ul class="theme-panel-subtle theme-text-muted mt-4 space-y-3 rounded-xl border px-4 py-4 text-sm">
                     <li class="flex items-start gap-3">
-                        <span class="mt-1 h-2 w-2 rounded-full bg-green-500"></span>
+                        <span class="theme-dot-success mt-1 h-2 w-2 rounded-full"></span>
                         <span>Use at least 12 characters.</span>
                     </li>
                     <li class="flex items-start gap-3">
-                        <span class="mt-1 h-2 w-2 rounded-full bg-green-500"></span>
+                        <span class="theme-dot-success mt-1 h-2 w-2 rounded-full"></span>
                         <span>Mix uppercase, lowercase, numbers, and symbols.</span>
                     </li>
                     <li class="flex items-start gap-3">
-                        <span class="mt-1 h-2 w-2 rounded-full bg-green-500"></span>
+                        <span class="theme-dot-success mt-1 h-2 w-2 rounded-full"></span>
                         <span>Avoid reusing passwords from email, banking, or work accounts.</span>
                     </li>
                     <li class="flex items-start gap-3">
-                        <span class="mt-1 h-2 w-2 rounded-full bg-green-500"></span>
+                        <span class="theme-dot-success mt-1 h-2 w-2 rounded-full"></span>
                         <span>Make sure your authenticator app is accessible before submitting.</span>
                     </li>
                 </ul>

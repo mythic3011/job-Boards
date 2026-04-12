@@ -137,7 +137,7 @@
                     </div>
                     <div class="flex items-start justify-between gap-3">
                         <dt class="theme-text-muted">2FA</dt>
-                        <dd class="{{ $two_factor_enabled ? 'text-green-700' : 'text-yellow-700' }} font-medium">
+                        <dd class="{{ $two_factor_enabled ? 'theme-signal-success' : 'theme-signal-warning' }} font-medium">
                             {{ $two_factor_enabled ? 'Enabled' : 'Not enabled' }}
                         </dd>
                     </div>
@@ -164,7 +164,7 @@
                             <span class="theme-link">Open</span>
                         </a>
                     @else
-                        <div class="rounded-xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800">
+                        <div class="theme-alert-warning rounded-xl border px-4 py-3 text-sm">
                             <p class="font-medium">Change Password is locked</p>
                             <p class="mt-1 text-xs">Enable two-factor authentication first to access the password change flow.</p>
                         </div>

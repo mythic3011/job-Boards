@@ -25,6 +25,26 @@
                         $dashboardLabel = auth()->user()->isAdmin()
                             ? 'Admin dashboard'
                             : (auth()->user()->isCompany() ? 'Hiring dashboard' : 'Career dashboard');
+                        $dashboardHref = auth()->user()->isAdmin()
+                            ? route('admin.dashboard')
+                            : route('home');
+                        $dashboardRoutePatterns = auth()->user()->isAdmin()
+                            ? ['admin.dashboard']
+                            : ['home'];
+                        $dropdownItemClasses = function (array $patterns) {
+                            $base = 'theme-dropdown-item theme-text-strong flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-colors';
+
+                            return request()->routeIs(...$patterns)
+                                ? $base.' theme-dropdown-item-active'
+                                : $base;
+                        };
+                        $dropdownIconClasses = function (array $patterns) {
+                            $base = 'inline-flex h-9 w-9 items-center justify-center rounded-xl';
+
+                            return request()->routeIs(...$patterns)
+                                ? 'theme-icon-tile-accent '.$base
+                                : 'theme-icon-tile '.$base;
+                        };
                     @endphp
                     <!-- Profile Dropdown (uses data-dropdown so resources/js/components/dropdown.js handles it) -->
                     <div class="relative z-10" id="profile-dropdown" data-dropdown data-open="false">
@@ -33,7 +53,7 @@
                                 :src="auth()->user()->profile_image_path ? app(\App\Services\ProfileImageService::class)->getImageUrl(auth()->user()->profile_image_path) : null"
                                 :name="auth()->user()->nickname"
                                 size="sm"
-                                class="border border-gray-200"
+                                class="border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)]"
                             />
                             <span class="max-w-24 truncate font-medium lg:max-w-32">{{ auth()->user()->nickname }}</span>
                             <span class="theme-pill rounded-full px-2 py-0.5 text-xs">{{ auth()->user()->getUserTypeLabel() }}</span>
@@ -50,7 +70,7 @@
                                         :src="auth()->user()->profile_image_path ? app(\App\Services\ProfileImageService::class)->getImageUrl(auth()->user()->profile_image_path) : null"
                                         :name="auth()->user()->nickname"
                                         size="sm"
-                                        class="border border-gray-200"
+                                        class="border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)]"
                                     />
                                     <div class="min-w-0">
                                         <p class="theme-text-strong truncate text-sm font-semibold">{{ auth()->user()->nickname }}</p>
@@ -67,8 +87,8 @@
                                 <section>
                                     <p class="theme-text-muted px-1 text-[11px] font-semibold uppercase tracking-[0.14em]">Workspace</p>
                                     <div class="mt-2 space-y-1">
-                                        <a href="{{ route('home') }}" class="theme-text-strong flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
-                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                                        <a href="{{ $dashboardHref }}" class="{{ $dropdownItemClasses($dashboardRoutePatterns) }}" data-dropdown-item aria-current="{{ request()->routeIs(...$dashboardRoutePatterns) ? 'page' : null }}">
+                                            <span class="{{ $dropdownIconClasses($dashboardRoutePatterns) }}">
                                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 12 12 4.5 20.25 12M5.25 10.636V19.5h13.5v-8.864" />
                                                 </svg>
@@ -78,8 +98,8 @@
                                                 <span class="theme-text-muted block text-xs">{{ $dashboardLabel }}</span>
                                             </span>
                                         </a>
-                                        <a href="{{ route('profile.show') }}" class="theme-text-strong flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
-                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                                        <a href="{{ route('profile.show') }}" class="{{ $dropdownItemClasses(['profile.show']) }}" data-dropdown-item aria-current="{{ request()->routeIs('profile.show') ? 'page' : null }}">
+                                            <span class="{{ $dropdownIconClasses(['profile.show']) }}">
                                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 6.75a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 19.5a7.5 7.5 0 0115 0" />
                                                 </svg>
@@ -89,8 +109,8 @@
                                                 <span class="theme-text-muted block text-xs">Identity snapshot and workspace overview.</span>
                                             </span>
                                         </a>
-                                        <a href="{{ route('profile.edit') }}" class="theme-text-strong flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
-                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
+                                        <a href="{{ route('profile.edit') }}" class="{{ $dropdownItemClasses(['profile.edit']) }}" data-dropdown-item aria-current="{{ request()->routeIs('profile.edit') ? 'page' : null }}">
+                                            <span class="{{ $dropdownIconClasses(['profile.edit']) }}">
                                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.862 4.487a2.25 2.25 0 113.182 3.182L8.25 19.463 3.75 20.25l.787-4.5L16.862 4.487z" />
                                                 </svg>
@@ -107,8 +127,8 @@
                                     <p class="theme-text-muted px-1 text-[11px] font-semibold uppercase tracking-[0.14em]">Security</p>
                                     <div class="mt-2 space-y-1">
                                         @if($twoFactorEnabled)
-                                            <a href="{{ route('profile.password') }}" class="theme-text-strong flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
-                                                <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
+                                            <a href="{{ route('profile.password') }}" class="{{ $dropdownItemClasses(['profile.password']) }}" data-dropdown-item aria-current="{{ request()->routeIs('profile.password') ? 'page' : null }}">
+                                                <span class="{{ $dropdownIconClasses(['profile.password']) }}">
                                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.5 10.5V7.875a4.125 4.125 0 10-8.25 0V10.5m-1.5 0h11.25A2.25 2.25 0 0120.25 12.75v6A2.25 2.25 0 0118 21H6a2.25 2.25 0 01-2.25-2.25v-6A2.25 2.25 0 016 10.5z" />
                                                     </svg>
@@ -117,11 +137,11 @@
                                                     <span class="block font-medium">Change Password</span>
                                                     <span class="theme-text-muted block text-xs">Protected password workflow is unlocked.</span>
                                                 </span>
-                                                <span class="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold text-green-700">2FA</span>
+                                                <span class="theme-alert-success inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold">2FA</span>
                                             </a>
                                         @else
                                             <span class="theme-text-muted flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm cursor-not-allowed" aria-disabled="true" title="Enable two-factor authentication to change your password.">
-                                                <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-yellow-50 text-yellow-600">
+                                                <span class="theme-icon-tile inline-flex h-9 w-9 items-center justify-center rounded-xl">
                                                     <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.5 10.5V7.875a4.125 4.125 0 10-8.25 0V10.5m-1.5 0h11.25A2.25 2.25 0 0120.25 12.75v6A2.25 2.25 0 0118 21H6a2.25 2.25 0 01-2.25-2.25v-6A2.25 2.25 0 016 10.5z" />
                                                     </svg>
@@ -130,11 +150,11 @@
                                                     <span class="block font-medium">Change Password</span>
                                                     <span class="block text-xs">Enable two-factor first to unlock this action.</span>
                                                 </span>
-                                                <span class="rounded-full bg-yellow-50 px-2 py-0.5 text-[11px] font-semibold text-yellow-700">Locked</span>
+                                                <span class="theme-alert-warning inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold">Locked</span>
                                             </span>
                                         @endif
-                                        <a href="{{ route('profile.two-factor') }}" class="theme-text-strong flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
-                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-600">
+                                        <a href="{{ route('profile.two-factor') }}" class="{{ $dropdownItemClasses(['profile.two-factor']) }}" data-dropdown-item aria-current="{{ request()->routeIs('profile.two-factor') ? 'page' : null }}">
+                                            <span class="{{ $dropdownIconClasses(['profile.two-factor']) }}">
                                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                                                 </svg>
@@ -152,15 +172,15 @@
                                     <div class="mt-2 border-t" style="border-color: var(--app-panel-border);"></div>
                                     <form method="POST" action="{{ route('logout') }}" class="mt-2 block" id="header-logout-form">
                                         @csrf
-                                        <button type="submit" class="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm text-red-600 transition-colors hover:bg-red-50" data-dropdown-item>
-                                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-red-50 text-red-500">
+                                        <button type="submit" class="theme-text-strong flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
+                                            <span class="theme-alert-error inline-flex h-9 w-9 items-center justify-center rounded-xl border">
                                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-7.5a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 006 21h7.5a2.25 2.25 0 002.25-2.25V15m-6-3h11.25m0 0-3-3m3 3-3 3" />
                                                 </svg>
                                             </span>
                                             <span class="min-w-0 flex-1">
                                                 <span class="block font-medium">Sign Out</span>
-                                                <span class="block text-xs text-red-400">End this session on the current device.</span>
+                                                <span class="theme-text-muted block text-xs">End this session on the current device.</span>
                                             </span>
                                         </button>
                                     </form>

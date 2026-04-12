@@ -111,6 +111,23 @@
     @auth
         @livewire('components.maintenance-alert')
     @endauth
+    <div class="theme-floating-stack" data-floating-controls>
+        <button
+            type="button"
+            class="theme-floating-action inline-flex items-center gap-2 rounded-full px-3 py-2.5 text-sm font-semibold"
+            data-back-to-top
+            data-visible="false"
+            aria-label="Back to top"
+            aria-controls="main-content"
+            title="Back to top"
+            tabindex="-1"
+        >
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m5 10 7-7 7 7M12 3v18" />
+            </svg>
+            <span class="hidden sm:inline">Back to top</span>
+        </button>
+    </div>
     <div id="modal-root" class="relative z-[9999]"></div>
 </body>
 </html>

@@ -55,7 +55,7 @@
             @else
                 <div class="{{ $baseClasses }} {{ $stateClasses }}" aria-disabled="true" title="Enable two-factor authentication first">
                     <span>{{ $item['label'] }}</span>
-                    <span class="rounded-full bg-yellow-50 px-2 py-0.5 text-[11px] font-semibold text-yellow-700">Locked</span>
+                    <span class="theme-alert-warning rounded-full border px-2 py-0.5 text-[11px] font-semibold">Locked</span>
                 </div>
             @endif
         @endforeach

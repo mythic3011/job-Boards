@@ -220,35 +220,35 @@ new class extends Component
 @endphp
 
 <div class="space-y-8">
-    <div class="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8">
+    <div class="theme-hero-surface rounded-3xl border px-6 py-7 sm:px-8">
         <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div class="max-w-2xl">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-200/80">Admin Users</p>
+                <p class="theme-hero-eyebrow text-xs font-semibold uppercase tracking-[0.18em]">Admin Users</p>
                 <h1 class="mt-3 text-3xl font-semibold tracking-tight">User operations</h1>
-                <p class="mt-3 text-sm leading-6 text-slate-300">
+                <p class="theme-text-muted mt-3 text-sm leading-6">
                     Search the user base, review access posture, and take account actions without leaving the directory.
                 </p>
             </div>
             <div class="grid grid-cols-2 gap-3 lg:min-w-[420px]">
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                    <p class="text-xs uppercase tracking-[0.16em] text-slate-400">Total Users</p>
+                <div class="theme-hero-card rounded-2xl border px-4 py-4">
+                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Total Users</p>
                     <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['total_users']) }}</p>
-                    <p class="mt-2 text-sm text-slate-300">All accounts currently on the platform.</p>
+                    <p class="theme-text-muted mt-2 text-sm">All accounts currently on the platform.</p>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                    <p class="text-xs uppercase tracking-[0.16em] text-slate-400">2FA Enabled</p>
+                <div class="theme-hero-card rounded-2xl border px-4 py-4">
+                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">2FA Enabled</p>
                     <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['two_factor_users']) }}</p>
-                    <p class="mt-2 text-sm text-slate-300">Accounts with confirmed authenticator setup.</p>
+                    <p class="theme-text-muted mt-2 text-sm">Accounts with confirmed authenticator setup.</p>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                    <p class="text-xs uppercase tracking-[0.16em] text-slate-400">Locked Accounts</p>
+                <div class="theme-hero-card rounded-2xl border px-4 py-4">
+                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Locked Accounts</p>
                     <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['locked_users']) }}</p>
-                    <p class="mt-2 text-sm text-slate-300">Users currently prevented from signing in.</p>
+                    <p class="theme-text-muted mt-2 text-sm">Users currently prevented from signing in.</p>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                    <p class="text-xs uppercase tracking-[0.16em] text-slate-400">Admin Accounts</p>
+                <div class="theme-hero-card rounded-2xl border px-4 py-4">
+                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Admin Accounts</p>
                     <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['admin_users']) }}</p>
-                    <p class="mt-2 text-sm text-slate-300">Accounts with elevated platform access.</p>
+                    <p class="theme-text-muted mt-2 text-sm">Accounts with elevated platform access.</p>
                 </div>
             </div>
         </div>
@@ -357,18 +357,18 @@ new class extends Component
                                         <div class="space-y-3">
                                             <div class="flex flex-wrap gap-1.5">
                                                 @foreach($user->roles as $role)
-                                                    <span class="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800">
+                                                    <span class="theme-pill inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium">
                                                         {{ $role->name }}
                                                     </span>
                                                 @endforeach
                                             </div>
                                             <div>
                                                 @if($user->isLocked())
-                                                    <span class="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+                                                    <span class="theme-alert-error inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium">
                                                         Locked
                                                     </span>
                                                 @else
-                                                    <span class="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+                                                    <span class="theme-alert-success inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium">
                                                         Active
                                                     </span>
                                                 @endif
@@ -378,12 +378,12 @@ new class extends Component
                                     <td class="px-6 py-4 align-top">
                                         <div class="space-y-2">
                                             @if($user->two_factor_confirmed_at)
-                                                <span class="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                                                <span class="theme-alert-success inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium">
                                                     <x-heroicon-o-shield-check class="h-4 w-4" />
                                                     Enabled
                                                 </span>
                                             @else
-                                                <span class="inline-flex items-center gap-1.5 rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-medium text-yellow-700">
+                                                <span class="theme-alert-warning inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium">
                                                     <x-heroicon-o-exclamation-triangle class="h-4 w-4" />
                                                     Not enabled
                                                 </span>
@@ -429,15 +429,15 @@ new class extends Component
                                                                 <span wire:loading wire:target="toggleLock('{{ $user->id }}')">Processing…</span>
                                                             </button>
                                                         @else
-                                                            <button
-                                                                type="button"
-                                                                wire:click="toggleLock('{{ $user->id }}')"
-                                                                wire:loading.attr="disabled"
-                                                                wire:target="toggleLock('{{ $user->id }}')"
-                                                                class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-amber-700 transition-colors hover:bg-amber-50/80 disabled:opacity-60"
-                                                            >
-                                                                <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Lock user</span>
-                                                                <span wire:loading wire:target="toggleLock('{{ $user->id }}')">Processing…</span>
+                                                        <button
+                                                            type="button"
+                                                            wire:click="toggleLock('{{ $user->id }}')"
+                                                            wire:loading.attr="disabled"
+                                                            wire:target="toggleLock('{{ $user->id }}')"
+                                                            class="theme-alert-warning flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95 disabled:opacity-60"
+                                                        >
+                                                            <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Lock user</span>
+                                                            <span wire:loading wire:target="toggleLock('{{ $user->id }}')">Processing…</span>
                                                             </button>
                                                         @endif
 
@@ -455,7 +455,7 @@ new class extends Component
                                                         <button
                                                             type="button"
                                                             wire:click="confirmUserDeletion('{{ $user->id }}')"
-                                                            class="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-red-600 transition-colors hover:bg-red-50"
+                                                            class="theme-alert-error flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95"
                                                         >
                                                             <span>Delete user</span>
                                                         </button>
@@ -503,7 +503,7 @@ new class extends Component
                     <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                         <div class="flex items-baseline justify-between gap-3">
                             <p class="theme-text-strong text-sm font-medium">2FA Enabled</p>
-                            <p class="text-2xl font-semibold text-green-700">{{ number_format($stats['two_factor_users']) }}</p>
+                            <p class="theme-text-strong text-2xl font-semibold">{{ number_format($stats['two_factor_users']) }}</p>
                         </div>
                         <p class="theme-text-muted mt-2 text-sm">Users who have confirmed authenticator-based sign-in protection.</p>
                     </div>
@@ -511,7 +511,7 @@ new class extends Component
                     <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                         <div class="flex items-baseline justify-between gap-3">
                             <p class="theme-text-strong text-sm font-medium">Locked Accounts</p>
-                            <p class="text-2xl font-semibold {{ $stats['locked_users'] > 0 ? 'text-amber-700' : 'theme-text-strong' }}">{{ number_format($stats['locked_users']) }}</p>
+                            <p class="text-2xl font-semibold {{ $stats['locked_users'] > 0 ? 'theme-signal-warning' : 'theme-text-strong' }}">{{ number_format($stats['locked_users']) }}</p>
                         </div>
                         <p class="theme-text-muted mt-2 text-sm">Accounts currently blocked from sign-in and likely needing moderation review.</p>
                     </div>
@@ -519,7 +519,7 @@ new class extends Component
                     <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                         <div class="flex items-baseline justify-between gap-3">
                             <p class="theme-text-strong text-sm font-medium">Admin Accounts</p>
-                            <p class="text-2xl font-semibold text-indigo-700">{{ number_format($stats['admin_users']) }}</p>
+                            <p class="theme-text-strong text-2xl font-semibold">{{ number_format($stats['admin_users']) }}</p>
                         </div>
                         <p class="theme-text-muted mt-2 text-sm">Accounts with elevated permissions on the platform.</p>
                     </div>
@@ -564,8 +564,8 @@ new class extends Component
         >
             <div class="space-y-4 px-6 py-6">
                 <div class="flex items-start gap-4">
-                    <div class="rounded-full bg-red-100 p-2 shrink-0">
-                        <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div class="theme-alert-error shrink-0 rounded-full border p-2">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                     </div>
@@ -573,10 +573,10 @@ new class extends Component
                         <h3 class="theme-text-strong text-lg font-medium">Confirm Deletion</h3>
                         <p class="theme-text-muted mt-2 text-sm">
                             Are you sure you want to delete this user? This action cannot be undone.
-                            <span class="block mt-2 font-medium text-red-600">All user data will be permanently removed.</span>
+                            <span class="theme-alert-error mt-2 inline-flex rounded-full border px-2 py-0.5 font-medium">All user data will be permanently removed.</span>
                         </p>
                         @error('delete') 
-                            <p class="mt-2 text-sm font-bold text-red-600">{{ $message }}</p> 
+                            <p class="theme-alert-error mt-2 inline-flex rounded-lg border px-3 py-2 text-sm font-bold">{{ $message }}</p> 
                         @enderror
                     </div>
                 </div>
@@ -616,8 +616,8 @@ new class extends Component
         >
             <div class="px-6 py-6 space-y-4">
                 <div class="flex items-start gap-4">
-                    <div class="rounded-full bg-blue-100 p-2 shrink-0">
-                        <svg class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div class="theme-alert-info shrink-0 rounded-full border p-2">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
                         </svg>
                     </div>
@@ -644,11 +644,11 @@ new class extends Component
                         class="theme-input shrink-0 min-w-[64px] rounded-lg border px-3 py-2 text-center text-xs font-medium transition-colors hover:bg-[var(--app-panel-subtle-bg)]"
                     >
                         <span x-show="!copied">Copy</span>
-                        <span x-show="copied" class="text-green-600">Copied!</span>
+                        <span x-show="copied" class="theme-text-strong">Copied!</span>
                     </button>
                 </div>
 
-                <p class="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                <p class="theme-alert-warning rounded-lg border px-3 py-2 text-xs">
                     This link bypasses email. Do not share it publicly.
                 </p>
             </div>

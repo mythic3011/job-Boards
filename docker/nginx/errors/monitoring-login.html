@@ -4,13 +4,14 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <title>Monitoring Access</title>
-        <link rel="stylesheet" href="/styles.css" />
+        <link rel="stylesheet" href="/_error/styles.css" />
     </head>
     <body>
-        <div class="card card--form">
+        <main class="surface card card--form">
             <div class="logo">
-                <h1>🛡️ Monitoring Access</h1>
-                <p>JobBoard Infrastructure</p>
+                <div class="pill pill--info">Protected monitoring</div>
+                <h1>Monitoring Access</h1>
+                <p>JobBoard infrastructure</p>
             </div>
 
             <div class="error" id="error"></div>
@@ -39,7 +40,7 @@
             <div class="footer footer--centered">
                 Restricted access · All attempts logged
             </div>
-        </div>
+        </main>
 
         <script>
             const params = new URLSearchParams(window.location.search);

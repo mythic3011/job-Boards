@@ -9,8 +9,8 @@
     $membershipAge = $createdAt->diffForHumans();
     $twoFactorStatusLabel = $two_factor_enabled ? 'Enabled' : 'Not enabled';
     $twoFactorStatusTone = $two_factor_enabled
-        ? 'bg-green-50 text-green-700 border-green-200'
-        : 'bg-yellow-50 text-yellow-700 border-yellow-200';
+        ? 'theme-alert-success'
+        : 'theme-alert-warning';
     $securitySummary = $two_factor_enabled
         ? 'Your account recovery flow is unlocked and password changes stay inside the secured workspace.'
         : 'Enable two-factor authentication to unlock the protected password workflow and stronger recovery coverage.';
@@ -25,21 +25,11 @@
         <span class="theme-text-strong font-medium">Profile</span>
     </nav>
 
-    <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-            <h1 class="theme-text-strong text-3xl font-bold tracking-tight">Workspace Overview</h1>
-            <p class="theme-text-muted mt-1 max-w-2xl text-sm leading-6">
-                Review your account identity, security readiness, and the fastest path back into editing and protected settings.
-            </p>
-        </div>
-        <div class="flex flex-wrap gap-2">
-            <span class="theme-pill inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold">
-                {{ $user['user_type_label'] }} account
-            </span>
-            <span class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold {{ $twoFactorStatusTone }}">
-                2FA {{ $twoFactorStatusLabel }}
-            </span>
-        </div>
+    <div class="mb-6">
+        <h1 class="theme-text-strong text-3xl font-bold tracking-tight">Workspace Overview</h1>
+        <p class="theme-text-muted mt-1 max-w-2xl text-sm leading-6">
+            Review your account identity, security readiness, and the fastest path back into editing and protected settings.
+        </p>
     </div>
 
     @include('profile.partials.workspace-nav', [
@@ -57,65 +47,40 @@
         </x-ui.alert>
     @endif
 
-    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1.35fr_0.95fr]">
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1.4fr_0.9fr]">
         <div class="space-y-6">
-            <x-ui.card padding="p-8">
-                <div class="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-                    <div class="flex min-w-0 items-start gap-4">
+            <div class="theme-hero-surface rounded-3xl border px-6 py-7 sm:px-8" data-profile-overview-hero>
+                <div class="min-w-0" data-profile-overview-identity>
+                    <div class="flex flex-col gap-5 sm:flex-row sm:items-start">
                         <x-ui.avatar
                             :src="$profile_image_url"
                             :name="$user['nickname']"
-                            size="lg"
+                            size="xl"
                             class="border-2 border-[var(--app-panel-border)] shadow-sm"
                         />
-                        <div class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <h2 class="theme-text-strong truncate text-2xl font-semibold">{{ $user['nickname'] }}</h2>
+                        <div class="min-w-0 flex-1">
+                            <p class="theme-hero-eyebrow text-xs font-semibold uppercase tracking-[0.18em]">Profile Workspace</p>
+                            <div class="mt-3 flex flex-wrap items-center gap-2.5">
+                                <h2 class="min-w-0 text-2xl font-semibold tracking-tight sm:text-3xl">{{ $user['nickname'] }}</h2>
                                 <span class="theme-pill inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]">
                                     {{ $user['user_type_label'] }}
                                 </span>
+                                <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] {{ $twoFactorStatusTone }}">
+                                    2FA {{ $twoFactorStatusLabel }}
+                                </span>
                             </div>
-                            <p class="theme-text-muted mt-1 text-sm">{{ $user['email'] }}</p>
-                            <p class="theme-text-muted mt-3 max-w-xl text-sm leading-6">
-                                This is your account control center. Use it to confirm identity details, review membership status, and jump into security-sensitive tasks.
+                            <p class="theme-text-muted mt-3 break-all text-sm leading-6">{{ $user['email'] }}</p>
+                            <p class="theme-text-muted mt-4 max-w-2xl text-sm leading-6">
+                                This page is the account/settings surface. Use the workspace tabs below to update identity details, review login truth, and move into protected security tasks when needed.
                             </p>
+                            <div class="theme-hero-card mt-5 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm">
+                                <span class="theme-text-muted text-xs font-semibold uppercase tracking-[0.14em]">Member since</span>
+                                <span class="theme-text-strong font-medium">{{ $memberSince }}</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="flex flex-wrap gap-2 md:justify-end">
-                        <x-ui.button href="{{ route('profile.edit') }}" variant="primary">
-                            Edit Profile
-                        </x-ui.button>
-                        <x-ui.button href="{{ route('profile.two-factor') }}" variant="outline">
-                            Security Settings
-                        </x-ui.button>
-                    </div>
                 </div>
-
-                <div class="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    <div class="theme-panel-subtle rounded-2xl border p-4">
-                        <p class="theme-text-muted text-xs font-semibold uppercase tracking-[0.14em]">Login ID</p>
-                        <p class="theme-text-strong mt-2 text-sm font-semibold">{{ $user['login_id'] }}</p>
-                        <p class="theme-text-muted mt-2 text-xs">Stable identifier used for sign-in and audit continuity.</p>
-                    </div>
-                    <div class="theme-panel-subtle rounded-2xl border p-4">
-                        <p class="theme-text-muted text-xs font-semibold uppercase tracking-[0.14em]">Member Since</p>
-                        <p class="theme-text-strong mt-2 text-sm font-semibold">{{ $memberSince }}</p>
-                        <p class="theme-text-muted mt-2 text-xs">Account created {{ $membershipAge }}.</p>
-                    </div>
-                    <div class="theme-panel-subtle rounded-2xl border p-4">
-                        <p class="theme-text-muted text-xs font-semibold uppercase tracking-[0.14em]">Account Role</p>
-                        <p class="theme-text-strong mt-2 text-sm font-semibold">{{ $user['user_type_label'] }}</p>
-                        <p class="theme-text-muted mt-2 text-xs">Determines navigation, permissions, and workflow entry points.</p>
-                    </div>
-                    <div class="theme-panel-subtle rounded-2xl border p-4">
-                        <p class="theme-text-muted text-xs font-semibold uppercase tracking-[0.14em]">Security Status</p>
-                        <p class="mt-2 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold {{ $twoFactorStatusTone }}">
-                            {{ $twoFactorStatusLabel }}
-                        </p>
-                        <p class="theme-text-muted mt-2 text-xs">Password change access is gated behind confirmed 2FA.</p>
-                    </div>
-                </div>
-            </x-ui.card>
+            </div>
 
             <x-ui.card padding="p-8">
                 <div class="mb-6 flex items-start justify-between gap-4">
@@ -139,7 +104,7 @@
                     </div>
                     <div class="theme-panel-subtle rounded-2xl border p-4">
                         <dt class="theme-text-muted text-xs font-semibold uppercase tracking-[0.14em]">Login ID</dt>
-                        <dd class="theme-text-strong mt-2 text-base font-semibold">{{ $user['login_id'] }}</dd>
+                        <dd class="theme-text-strong mt-2 break-all text-base font-semibold" data-profile-identity-login-id>{{ $user['login_id'] }}</dd>
                     </div>
                     <div class="theme-panel-subtle rounded-2xl border p-4">
                         <dt class="theme-text-muted text-xs font-semibold uppercase tracking-[0.14em]">Account Type</dt>
@@ -149,7 +114,7 @@
             </x-ui.card>
         </div>
 
-        <div class="space-y-6">
+        <div class="space-y-6 xl:sticky xl:top-24 xl:self-start">
             <x-ui.card padding="p-7">
                 <h2 class="theme-text-strong text-lg font-semibold">Security Posture</h2>
                 <p class="theme-text-muted mt-2 text-sm leading-6">{{ $securitySummary }}</p>
@@ -187,42 +152,6 @@
                     @else
                         <div class="theme-alert theme-alert-warning rounded-2xl border px-4 py-3 text-sm">
                             Enable two-factor authentication first to unlock password changes.
-                        </div>
-                    @endif
-                </div>
-            </x-ui.card>
-
-            <x-ui.card padding="p-7">
-                <h2 class="theme-text-strong text-lg font-semibold">Recommended Next Steps</h2>
-                <div class="mt-4 space-y-3">
-                    <a href="{{ route('profile.edit') }}" class="theme-panel-subtle group flex items-start justify-between gap-4 rounded-2xl border p-4 transition-colors hover:bg-[var(--app-panel-bg)]">
-                        <div>
-                            <p class="theme-text-strong text-sm font-semibold">Refresh your public profile</p>
-                            <p class="theme-text-muted mt-1 text-xs">Update display name, avatar, and account-facing details.</p>
-                        </div>
-                        <span class="theme-link text-sm font-medium">Open</span>
-                    </a>
-
-                    <a href="{{ route('profile.two-factor') }}" class="theme-panel-subtle group flex items-start justify-between gap-4 rounded-2xl border p-4 transition-colors hover:bg-[var(--app-panel-bg)]">
-                        <div>
-                            <p class="theme-text-strong text-sm font-semibold">Review security settings</p>
-                            <p class="theme-text-muted mt-1 text-xs">Check authenticator state and recovery readiness.</p>
-                        </div>
-                        <span class="theme-link text-sm font-medium">Open</span>
-                    </a>
-
-                    @if($two_factor_enabled)
-                        <a href="{{ route('profile.password') }}" class="theme-panel-subtle group flex items-start justify-between gap-4 rounded-2xl border p-4 transition-colors hover:bg-[var(--app-panel-bg)]">
-                            <div>
-                                <p class="theme-text-strong text-sm font-semibold">Rotate your password</p>
-                                <p class="theme-text-muted mt-1 text-xs">Use the protected password workflow to refresh your credentials.</p>
-                            </div>
-                            <span class="theme-link text-sm font-medium">Open</span>
-                        </a>
-                    @else
-                        <div class="theme-panel-subtle rounded-2xl border p-4">
-                            <p class="theme-text-strong text-sm font-semibold">Unlock protected password changes</p>
-                            <p class="theme-text-muted mt-1 text-xs">Enable 2FA first so the password workflow becomes available.</p>
                         </div>
                     @endif
                 </div>

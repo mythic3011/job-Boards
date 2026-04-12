@@ -28,6 +28,31 @@ class DropdownUiContractTest extends TestCase
         $this->assertStringContainsString('overflow-y-auto', $header);
     }
 
+    public function test_profile_dropdown_uses_theme_aware_icon_tiles_and_status_tokens(): void
+    {
+        $header = file_get_contents(dirname(__DIR__, 2).'/resources/views/components/layouts/header.blade.php');
+        $css = file_get_contents(dirname(__DIR__, 2).'/resources/css/app.css');
+
+        $this->assertIsString($header);
+        $this->assertIsString($css);
+        $this->assertStringContainsString('$dashboardHref = auth()->user()->isAdmin()', $header);
+        $this->assertStringContainsString("route('admin.dashboard')", $header);
+        $this->assertStringContainsString('href="{{ $dashboardHref }}"', $header);
+        $this->assertStringContainsString('theme-dropdown-item', $header);
+        $this->assertStringContainsString('theme-dropdown-item-active', $header);
+        $this->assertStringContainsString('aria-current="{{', $header);
+        $this->assertStringContainsString('theme-icon-tile', $header);
+        $this->assertStringContainsString('theme-alert-success', $header);
+        $this->assertStringContainsString('theme-alert-warning', $header);
+        $this->assertStringContainsString('.theme-dropdown-item {', $css);
+        $this->assertStringContainsString('.theme-dropdown-item-active {', $css);
+        $this->assertStringContainsString('.theme-dropdown-item-active .theme-text-muted', $css);
+        $this->assertStringNotContainsString('border-gray-200', $header);
+        $this->assertStringNotContainsString('bg-gray-100', $header);
+        $this->assertStringNotContainsString('bg-yellow-50', $header);
+        $this->assertStringNotContainsString('bg-green-50', $header);
+    }
+
     public function test_dropdown_javascript_coordinates_open_state_across_menus(): void
     {
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/js/components/dropdown.js');

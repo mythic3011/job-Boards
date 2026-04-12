@@ -112,10 +112,10 @@ new class extends Component
 
 <div x-data="{ showDeleteModal: false, pendingDeleteId: '' }">
     <!-- Page Header -->
-    <div class="mb-8 flex items-center justify-between">
+    <div class="theme-panel mb-8 flex items-center justify-between rounded-3xl border px-6 py-6">
         <div>
-            <h1 class="text-2xl font-bold text-gray-900">Job Postings Management</h1>
-            <p class="mt-1 text-sm text-gray-500">Manage and moderate all job postings on the platform</p>
+            <h1 class="theme-text-strong text-2xl font-bold">Job Postings Management</h1>
+            <p class="theme-text-muted mt-1 text-sm">Manage and moderate all job postings on the platform</p>
         </div>
     </div>
 
@@ -128,19 +128,19 @@ new class extends Component
     <!-- Search + filters -->
     <div class="mb-6 flex flex-wrap gap-3">
         <div class="relative flex-1 min-w-48">
-            <div class="flex items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-all duration-150 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
-                <svg style="width:18px;height:18px;flex-shrink:0;color:#9ca3af" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <div class="theme-input-shell flex items-center gap-3 rounded-lg border px-4 py-2.5 transition-all duration-150 focus-within:border-[var(--app-accent)]">
+                <svg class="theme-text-muted shrink-0" style="width:18px;height:18px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                 </svg>
                 <input
                     type="text"
                     wire:model.live.debounce.300ms="search"
                     placeholder="Search by title or requirements…"
-                    class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none min-w-0"
+                    class="theme-input flex-1 min-w-0 border-0 bg-transparent text-sm outline-none placeholder:text-[var(--app-text-muted)]"
                     autocomplete="off"
                 />
                 @if($search)
-                    <button wire:click="$set('search', '')" class="shrink-0 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors cursor-pointer" aria-label="Clear search">
+                    <button wire:click="$set('search', '')" class="theme-text-muted shrink-0 rounded-full p-0.5 transition-colors cursor-pointer hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)]" aria-label="Clear search">
                         <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                         </svg>
@@ -149,32 +149,32 @@ new class extends Component
             </div>
         </div>
 
-        <select wire:model.live="companyFilter" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+        <select wire:model.live="companyFilter" class="theme-input-shell theme-text-strong shrink-0 rounded-lg border px-3 py-2.5 text-sm outline-none transition-all duration-150 cursor-pointer focus:border-[var(--app-accent)]">
             <option value="">All companies</option>
             @foreach($companies as $company)
                 <option value="{{ $company->id }}">{{ $company->nickname }}</option>
             @endforeach
         </select>
 
-        <select wire:model.live="sort" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+        <select wire:model.live="sort" class="theme-input-shell theme-text-strong shrink-0 rounded-lg border px-3 py-2.5 text-sm outline-none transition-all duration-150 cursor-pointer focus:border-[var(--app-accent)]">
             <option value="latest">Newest first</option>
             <option value="oldest">Oldest first</option>
         </select>
 
         @if($search || $companyFilter || $sort !== 'latest')
-            <button wire:click="clearFilters" class="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-500 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-700 cursor-pointer">
+            <button wire:click="clearFilters" class="theme-button theme-button-outline shrink-0 rounded-lg border px-3 py-2.5 text-sm transition-colors cursor-pointer">
                 Clear all
             </button>
         @endif
     </div>
 
     <!-- Jobs Table -->
-    <div class="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div class="theme-table-shell overflow-hidden rounded-2xl border">
 
         <!-- Table Toolbar -->
-        <div class="flex items-center justify-between border-b border-gray-100 bg-gray-50/70 px-6 py-4">
-            <h2 class="text-sm font-semibold uppercase tracking-wider text-gray-600">All Job Listings</h2>
-            <span class="rounded-full border border-indigo-100 bg-indigo-50 px-3 py-0.5 text-xs font-semibold text-indigo-600">
+        <div class="theme-table-head theme-table-divider flex items-center justify-between border-b px-6 py-4">
+            <h2 class="theme-text-muted text-sm font-semibold uppercase tracking-wider">All Job Listings</h2>
+            <span class="theme-pill px-3 py-0.5 text-xs font-semibold rounded-full">
                 {{ $jobs->total() }} {{ \Illuminate\Support\Str::plural('job', $jobs->total()) }}
             </span>
         </div>
@@ -182,51 +182,51 @@ new class extends Component
         <div class="overflow-x-auto">
             <table class="min-w-full">
                 <thead>
-                    <tr class="border-b border-gray-100 bg-gray-50/40">
-                        <th class="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Title</th>
-                        <th class="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Company</th>
-                        <th class="px-6 py-3.5 text-center text-xs font-semibold uppercase tracking-wider text-gray-500">Applications</th>
-                        <th class="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Created</th>
-                        <th class="px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Actions</th>
+                    <tr class="theme-table-head theme-table-divider border-b">
+                        <th class="theme-text-muted px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Title</th>
+                        <th class="theme-text-muted px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Company</th>
+                        <th class="theme-text-muted px-6 py-3.5 text-center text-xs font-semibold uppercase tracking-wider">Applications</th>
+                        <th class="theme-text-muted px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Created</th>
+                        <th class="theme-text-muted px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-gray-100">
+                <tbody class="theme-table-divider divide-y">
                     @forelse($jobs as $job)
-                        <tr class="group transition-colors duration-150 hover:bg-slate-50/60">
+                        <tr class="group transition-colors duration-150 hover:bg-[var(--app-panel-subtle-bg)]/70">
                             <td class="px-6 py-4">
-                                <div class="text-sm font-semibold text-gray-900 transition-colors group-hover:text-indigo-700">{{ $job->title }}</div>
+                                <div class="theme-text-strong text-sm font-semibold transition-colors group-hover:text-[var(--app-link-accent)]">{{ $job->title }}</div>
                                 @if($job->salary)
-                                    <div class="mt-0.5 text-xs text-gray-500">{{ $job->salary }}</div>
+                                    <div class="theme-text-muted mt-0.5 text-xs">{{ $job->salary }}</div>
                                 @else
-                                    <div class="mt-0.5 text-xs text-gray-400">No salary stated</div>
+                                    <div class="theme-text-muted mt-0.5 text-xs opacity-80">No salary stated</div>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="text-sm text-gray-700">{{ $job->companyUser->nickname }}</span>
+                                <span class="theme-text-strong text-sm">{{ $job->companyUser->nickname }}</span>
                             </td>
                             <td class="px-6 py-4 text-center">
                                 @php $appCount = $job->applications()->count(); @endphp
                                 <a href="{{ route('admin.applications.index', ['companyFilter' => $job->company_user_id]) }}"
-                                   class="inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold transition-colors cursor-pointer {{ $appCount > 0 ? 'bg-violet-100 text-violet-700 hover:bg-violet-200' : 'bg-gray-100 text-gray-400' }}">
+                                   class="inline-flex min-w-[2rem] items-center justify-center rounded-full px-2 py-0.5 text-xs font-bold transition-colors cursor-pointer {{ $appCount > 0 ? 'theme-pill hover:brightness-105' : 'theme-panel-subtle theme-text-muted border' }}">
                                     {{ $appCount }}
                                 </a>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <td class="theme-text-muted px-6 py-4 whitespace-nowrap text-sm">
                                 {{ $job->created_at->diffForHumans() }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <div class="flex items-center justify-end gap-2">
                                     <a href="{{ route('jobs.show', $job->idcode) }}"
-                                       class="inline-flex items-center rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition-all duration-150 hover:border-gray-300 hover:bg-gray-50 cursor-pointer">
+                                       class="theme-button theme-button-outline inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer">
                                         View
                                     </a>
                                     <a href="{{ route('admin.jobs.edit', $job->idcode) }}"
-                                       class="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all duration-150 hover:border-blue-300 hover:bg-blue-100 cursor-pointer">
+                                       class="theme-alert-info inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer hover:brightness-105">
                                         Edit
                                     </a>
                                     <button
                                         @click="pendingDeleteId = '{{ $job->id }}'; showDeleteModal = true"
-                                        class="inline-flex items-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-600 transition-all duration-150 hover:border-red-300 hover:bg-red-100 cursor-pointer"
+                                        class="theme-alert-error inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-semibold transition-all duration-150 cursor-pointer hover:brightness-105"
                                     >
                                         Delete
                                     </button>
@@ -237,14 +237,14 @@ new class extends Component
                         <tr>
                             <td colspan="5" class="px-6 py-20 text-center">
                                 <div class="flex flex-col items-center gap-3">
-                                    <div class="rounded-full bg-gray-100 p-4">
-                                        <svg class="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <div class="theme-empty-icon rounded-full p-4">
+                                        <svg class="theme-text-muted h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                         </svg>
                                     </div>
-                                    <p class="text-sm font-semibold text-gray-500">No job postings found</p>
+                                    <p class="theme-text-muted text-sm font-semibold">No job postings found</p>
                                     @if($search || $companyFilter)
-                                        <p class="text-xs text-gray-400">Try adjusting your search or filters</p>
+                                        <p class="theme-text-muted text-xs opacity-80">Try adjusting your search or filters</p>
                                     @endif
                                 </div>
                             </td>
@@ -278,7 +278,7 @@ new class extends Component
         x-transition:leave-end="opacity-0"
     >
         <div
-            class="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-black/5"
+            class="theme-modal-surface w-full max-w-md rounded-2xl"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0 scale-95"
             x-transition:enter-end="opacity-100 scale-100"
@@ -289,31 +289,31 @@ new class extends Component
         >
             <div class="px-6 py-6">
                 <div class="flex items-start gap-4">
-                    <div class="shrink-0 rounded-full bg-red-100 p-3">
-                        <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div class="theme-alert-error shrink-0 rounded-full border p-3">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                     </div>
                     <div class="min-w-0">
-                        <h3 class="text-lg font-semibold text-gray-900">Delete Job Posting</h3>
-                        <p class="mt-1.5 text-sm text-gray-600">
-                            Are you sure you want to delete this job posting? This action <span class="font-semibold text-gray-800">cannot be undone</span>.
+                        <h3 class="theme-text-strong text-lg font-semibold">Delete Job Posting</h3>
+                        <p class="theme-text-muted mt-1.5 text-sm">
+                            Are you sure you want to delete this job posting? This action <span class="theme-text-strong font-semibold">cannot be undone</span>.
                         </p>
-                        <div class="mt-3 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
-                            <svg class="mt-0.5 h-4 w-4 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="theme-alert-error mt-3 flex items-start gap-2 rounded-xl border px-4 py-3">
+                            <svg class="mt-0.5 h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01" />
                             </svg>
-                            <p class="text-xs font-medium text-red-700">All related applications will be permanently removed.</p>
+                            <p class="text-xs font-medium">All related applications will be permanently removed.</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="flex justify-end gap-3 rounded-b-2xl border-t border-gray-100 bg-gray-50/70 px-6 py-4">
+            <div class="theme-panel-subtle theme-table-divider flex justify-end gap-3 rounded-b-2xl border-t px-6 py-4">
                 <button
                     type="button"
                     x-on:click="showDeleteModal = false"
-                    class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 cursor-pointer"
+                    class="theme-button theme-button-outline rounded-lg border px-4 py-2 text-sm font-medium transition-colors cursor-pointer"
                 >
                     Cancel
                 </button>
@@ -322,7 +322,7 @@ new class extends Component
                     @click="$wire.deleteJob(pendingDeleteId)"
                     wire:loading.attr="disabled"
                     wire:target="deleteJob"
-                    class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 active:bg-red-800 disabled:opacity-60 cursor-pointer"
+                    class="theme-button theme-button-danger rounded-lg border px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-60 cursor-pointer"
                 >
                     <span wire:loading.remove wire:target="deleteJob">Delete Job</span>
                     <span wire:loading wire:target="deleteJob">Deleting…</span>

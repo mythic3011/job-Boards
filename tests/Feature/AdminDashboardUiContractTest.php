@@ -33,10 +33,21 @@ class AdminDashboardUiContractTest extends TestCase
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/dashboard.blade.php');
 
         $this->assertIsString($contents);
+        $this->assertStringContainsString('theme-hero-surface', $contents);
+        $this->assertStringContainsString('theme-hero-card', $contents);
+        $this->assertStringContainsString('theme-hero-eyebrow', $contents);
         $this->assertStringContainsString('theme-text-strong', $contents);
         $this->assertStringContainsString('theme-text-muted', $contents);
         $this->assertStringContainsString('theme-panel-subtle', $contents);
+        $this->assertStringContainsString('theme-icon-tile-accent', $contents);
+        $this->assertStringContainsString('theme-alert-warning', $contents);
+        $this->assertStringContainsString('theme-signal-warning', $contents);
         $this->assertStringNotContainsString('bg-white p-4', $contents);
         $this->assertStringNotContainsString('text-gray-900', $contents);
+        $this->assertStringNotContainsString('bg-white/5', $contents);
+        $this->assertStringNotContainsString('border-white/10', $contents);
+        $this->assertStringNotContainsString('bg-red-100 text-red-700', $contents);
+        $this->assertStringNotContainsString('bg-green-100 text-green-700', $contents);
+        $this->assertStringNotContainsString('bg-indigo-100 text-indigo-700', $contents);
     }
 }

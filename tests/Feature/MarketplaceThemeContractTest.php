@@ -46,4 +46,17 @@ class MarketplaceThemeContractTest extends TestCase
         $this->assertStringNotContainsString('text-gray-900', $contents);
         $this->assertStringNotContainsString('border-gray-200', $contents);
     }
+
+    public function test_job_create_page_uses_theme_aware_compose_and_salary_surfaces(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/jobs/create.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('theme-text-strong', $contents);
+        $this->assertStringContainsString('theme-text-muted', $contents);
+        $this->assertStringContainsString('theme-panel-subtle', $contents);
+        $this->assertStringContainsString('theme-link', $contents);
+        $this->assertStringNotContainsString('text-gray-900', $contents);
+        $this->assertStringNotContainsString('ring-gray-300', $contents);
+    }
 }

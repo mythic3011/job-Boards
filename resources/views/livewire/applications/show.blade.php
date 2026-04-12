@@ -55,17 +55,17 @@ new class extends Component
 <div class="max-w-4xl mx-auto" x-data="{ showApprove: false, showReject: false }">
 
     {{-- Breadcrumb --}}
-    <nav class="mb-4 flex items-center gap-2 text-sm text-gray-500">
-        <a href="{{ route('my.applications.index') }}" class="hover:text-indigo-600 transition-colors">Applications</a>
+    <nav class="theme-text-muted mb-4 flex items-center gap-2 text-sm">
+        <a href="{{ route('my.applications.index') }}" class="theme-link transition-colors">Applications</a>
         <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
         </svg>
-        <span class="text-gray-900 font-medium truncate">{{ $application->jobPosting->title }}</span>
+        <span class="theme-text-strong truncate font-medium">{{ $application->jobPosting->title }}</span>
     </nav>
 
     {{-- Page header --}}
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-2xl font-bold text-gray-900">Application Details</h1>
+        <h1 class="theme-text-strong text-2xl font-bold">Application Details</h1>
         <div class="flex items-center gap-2">
             @if($isJobOwner)
                 @if($application->status->value === 'pending')
@@ -88,7 +88,7 @@ new class extends Component
                 @endif
             @endif
             <a href="{{ route('my.applications.index') }}"
-               class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 cursor-pointer">
+               class="theme-button theme-button-outline inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium cursor-pointer">
                 <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
                 </svg>
@@ -112,7 +112,7 @@ new class extends Component
             x-on:keydown.escape.window="showApprove = false"
         >
             <div
-                class="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-black/5"
+                class="theme-modal-surface w-full max-w-md rounded-2xl"
                 x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 scale-95"
                 x-transition:enter-end="opacity-100 scale-100"
@@ -122,35 +122,35 @@ new class extends Component
                 @click.outside="showApprove = false"
             >
                 <div class="flex items-start gap-4 px-6 pt-6 pb-4">
-                    <div class="shrink-0 rounded-full bg-green-100 p-3">
+                    <div class="theme-alert-success shrink-0 rounded-full border p-3">
                         <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m4.5 12.75 6 6 9-13.5" />
                         </svg>
                     </div>
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">Approve Application</h2>
-                        <p class="mt-1 text-sm text-gray-500">Optionally leave a message for the applicant.</p>
+                        <h2 class="theme-text-strong text-lg font-semibold">Approve Application</h2>
+                        <p class="theme-text-muted mt-1 text-sm">Optionally leave a message for the applicant.</p>
                     </div>
                 </div>
                 <form method="POST" action="{{ route('applications.approve', $application->idcode) }}">
                     @csrf
                     <div class="px-6 pb-4">
-                        <label for="decision_message_approve" class="block text-sm font-medium text-gray-700 mb-1.5">Message (Optional)</label>
+                        <label for="decision_message_approve" class="theme-text-strong mb-1.5 block text-sm font-medium">Message (Optional)</label>
                         <textarea
                             id="decision_message_approve"
                             name="decision_message"
                             rows="4"
-                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                            class="theme-input w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all focus:ring-2 focus:ring-[var(--app-focus-ring)]"
                             placeholder="e.g., We are excited to move forward with your application…"
                         ></textarea>
                     </div>
-                    <div class="flex justify-end gap-3 rounded-b-2xl border-t border-gray-100 bg-gray-50/70 px-6 py-4">
+                    <div class="theme-panel-subtle theme-table-divider flex justify-end gap-3 rounded-b-2xl border-t px-6 py-4">
                         <button type="button" x-on:click="showApprove = false"
-                            class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 cursor-pointer">
+                            class="theme-button theme-button-outline rounded-lg border px-4 py-2 text-sm font-medium cursor-pointer">
                             Cancel
                         </button>
                         <button type="submit"
-                            class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-700 cursor-pointer">
+                            class="theme-button theme-button-primary rounded-lg border px-4 py-2 text-sm font-semibold cursor-pointer">
                             Confirm Approve
                         </button>
                     </div>
@@ -172,7 +172,7 @@ new class extends Component
             x-on:keydown.escape.window="showReject = false"
         >
             <div
-                class="w-full max-w-md rounded-2xl bg-white shadow-2xl ring-1 ring-black/5"
+                class="theme-modal-surface w-full max-w-md rounded-2xl"
                 x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 scale-95"
                 x-transition:enter-end="opacity-100 scale-100"
@@ -182,35 +182,35 @@ new class extends Component
                 @click.outside="showReject = false"
             >
                 <div class="flex items-start gap-4 px-6 pt-6 pb-4">
-                    <div class="shrink-0 rounded-full bg-red-100 p-3">
+                    <div class="theme-alert-error shrink-0 rounded-full border p-3">
                         <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12" />
                         </svg>
                     </div>
                     <div>
-                        <h2 class="text-lg font-semibold text-gray-900">Reject Application</h2>
-                        <p class="mt-1 text-sm text-gray-500">Optionally leave a message for the applicant.</p>
+                        <h2 class="theme-text-strong text-lg font-semibold">Reject Application</h2>
+                        <p class="theme-text-muted mt-1 text-sm">Optionally leave a message for the applicant.</p>
                     </div>
                 </div>
                 <form method="POST" action="{{ route('applications.reject', $application->idcode) }}">
                     @csrf
                     <div class="px-6 pb-4">
-                        <label for="decision_message_reject" class="block text-sm font-medium text-gray-700 mb-1.5">Message (Optional)</label>
+                        <label for="decision_message_reject" class="theme-text-strong mb-1.5 block text-sm font-medium">Message (Optional)</label>
                         <textarea
                             id="decision_message_reject"
                             name="decision_message"
                             rows="4"
-                            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all"
+                            class="theme-input w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all focus:ring-2 focus:ring-[var(--app-focus-ring)]"
                             placeholder="e.g., We decided to proceed with other candidates…"
                         ></textarea>
                     </div>
-                    <div class="flex justify-end gap-3 rounded-b-2xl border-t border-gray-100 bg-gray-50/70 px-6 py-4">
+                    <div class="theme-panel-subtle theme-table-divider flex justify-end gap-3 rounded-b-2xl border-t px-6 py-4">
                         <button type="button" x-on:click="showReject = false"
-                            class="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 cursor-pointer">
+                            class="theme-button theme-button-outline rounded-lg border px-4 py-2 text-sm font-medium cursor-pointer">
                             Cancel
                         </button>
                         <button type="submit"
-                            class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 cursor-pointer">
+                            class="theme-button theme-button-danger rounded-lg border px-4 py-2 text-sm font-semibold cursor-pointer">
                             Confirm Reject
                         </button>
                     </div>
@@ -221,9 +221,9 @@ new class extends Component
 
     <x-ui.card padding="p-8">
         {{-- Job title + status --}}
-        <div class="border-b border-gray-200 pb-6 mb-6">
-            <h2 class="text-2xl font-bold text-gray-900 mb-3">
-                <a href="{{ route('jobs.show', $application->jobPosting->idcode) }}" class="hover:text-indigo-700 transition-colors">
+        <div class="theme-table-divider mb-6 border-b pb-6">
+            <h2 class="theme-text-strong mb-3 text-2xl font-bold">
+                <a href="{{ route('jobs.show', $application->jobPosting->idcode) }}" class="theme-link transition-colors">
                     {{ $application->jobPosting->title }}
                 </a>
             </h2>
@@ -235,9 +235,9 @@ new class extends Component
                     default    => 'Pending review',
                 };
                 $statusClasses = match($statusValue) {
-                    'approved' => 'bg-green-50 text-green-700 border-green-200',
-                    'rejected' => 'bg-red-50 text-red-700 border-red-200',
-                    default    => 'bg-yellow-50 text-yellow-700 border-yellow-200',
+                    'approved' => 'theme-alert-success border',
+                    'rejected' => 'theme-alert-error border',
+                    default    => 'theme-alert-warning border',
                 };
                 $dotClass = match($statusValue) {
                     'approved' => 'bg-green-500',
@@ -245,7 +245,7 @@ new class extends Component
                     default    => 'bg-yellow-500',
                 };
             @endphp
-            <div class="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+            <div class="theme-text-muted flex flex-wrap items-center gap-3 text-sm">
                 <span class="flex items-center gap-1.5">
                     <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -262,18 +262,18 @@ new class extends Component
         <div class="space-y-6">
             {{-- Applicant --}}
             <div>
-                <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Applicant</h3>
-                <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <h3 class="theme-text-muted mb-3 text-sm font-semibold uppercase tracking-wider">Applicant</h3>
+                <div class="theme-panel-subtle flex items-center gap-4 rounded-xl border p-4">
                     <x-ui.avatar
                         :src="$application->applicantUser->profile_image_path ? app(\App\Services\ProfileImageService::class)->getImageUrl($application->applicantUser->profile_image_path) : null"
                         :name="$application->applicantUser->nickname"
                         size="md"
-                        class="w-14 h-14 border-2 border-gray-200 bg-white shrink-0"
+                        class="h-14 w-14 shrink-0 border-2 border-[var(--app-panel-border)] bg-[var(--app-panel-bg)]"
                     />
                     <div>
-                        <p class="font-semibold text-gray-900">{{ $application->applicantUser->nickname }}</p>
+                        <p class="theme-text-strong font-semibold">{{ $application->applicantUser->nickname }}</p>
                         @if($isJobOwner)
-                            <p class="text-sm text-gray-500 mt-0.5">{{ $application->applicantUser->email }}</p>
+                            <p class="theme-text-muted mt-0.5 text-sm">{{ $application->applicantUser->email }}</p>
                         @endif
                     </div>
                 </div>
@@ -281,12 +281,12 @@ new class extends Component
 
             {{-- Cover message --}}
             <div>
-                <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Cover Message</h3>
-                <div class="text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm leading-relaxed">
+                <h3 class="theme-text-muted mb-3 text-sm font-semibold uppercase tracking-wider">Cover Message</h3>
+                <div class="theme-panel-subtle theme-text-muted rounded-xl border p-4 text-sm leading-relaxed">
                     @if($application->message)
                         {!! nl2br(e($application->message)) !!}
                     @else
-                        <span class="text-gray-400">No message provided.</span>
+                        <span class="theme-text-muted opacity-80">No message provided.</span>
                     @endif
                 </div>
             </div>
@@ -294,8 +294,8 @@ new class extends Component
             {{-- Company decision message --}}
             @if($application->decision_message)
                 <div>
-                    <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Company Message</h3>
-                    <div class="text-gray-700 bg-indigo-50 p-4 rounded-xl border border-indigo-100 text-sm leading-relaxed">
+                    <h3 class="theme-text-muted mb-3 text-sm font-semibold uppercase tracking-wider">Company Message</h3>
+                    <div class="theme-alert-info rounded-xl border p-4 text-sm leading-relaxed">
                         {!! nl2br(e($application->decision_message)) !!}
                     </div>
                 </div>
@@ -303,18 +303,18 @@ new class extends Component
 
             {{-- CV --}}
             <div>
-                <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Resume / CV</h3>
-                <div class="flex items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <h3 class="theme-text-muted mb-3 text-sm font-semibold uppercase tracking-wider">Resume / CV</h3>
+                <div class="theme-panel-subtle flex items-center justify-between rounded-xl border p-4">
                     <div class="flex items-center gap-3">
-                        <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-white border border-gray-200 shrink-0">
-                            <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <div class="theme-panel flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border">
+                            <svg class="theme-text-muted h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                             </svg>
                         </div>
                         <div>
-                            <p class="text-sm font-medium text-gray-900">{{ $application->cv_original_name }}</p>
+                            <p class="theme-text-strong text-sm font-medium">{{ $application->cv_original_name }}</p>
                             @if($application->cv_size_bytes)
-                                <p class="text-xs text-gray-500 mt-0.5">{{ number_format($application->cv_size_bytes / 1024, 2) }} KB</p>
+                                <p class="theme-text-muted mt-0.5 text-xs">{{ number_format($application->cv_size_bytes / 1024, 2) }} KB</p>
                             @endif
                         </div>
                     </div>

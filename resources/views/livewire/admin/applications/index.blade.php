@@ -118,35 +118,35 @@ new class extends Component
 @endphp
 
 <div class="space-y-8">
-    <div class="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-7 text-white shadow-xl shadow-slate-900/10 sm:px-8">
+    <div class="theme-hero-surface rounded-3xl border px-6 py-7 sm:px-8">
         <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div class="max-w-2xl">
-                <p class="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-200/80">Admin Applications</p>
+                <p class="theme-hero-eyebrow text-xs font-semibold uppercase tracking-[0.18em]">Admin Applications</p>
                 <h1 class="mt-3 text-3xl font-semibold tracking-tight">Application queue</h1>
-                <p class="mt-3 text-sm leading-6 text-slate-300">
+                <p class="theme-text-muted mt-3 text-sm leading-6">
                     Search submitted applications, triage review posture, and move from applicant context to detail review without losing the queue.
                 </p>
             </div>
             <div class="grid grid-cols-2 gap-3 lg:min-w-[420px]">
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                    <p class="text-xs uppercase tracking-[0.16em] text-slate-400">Total Applications</p>
+                <div class="theme-hero-card rounded-2xl border px-4 py-4">
+                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Total Applications</p>
                     <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['total_applications']) }}</p>
-                    <p class="mt-2 text-sm text-slate-300">All submissions currently in the review system.</p>
+                    <p class="theme-text-muted mt-2 text-sm">All submissions currently in the review system.</p>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                    <p class="text-xs uppercase tracking-[0.16em] text-slate-400">Pending Review</p>
+                <div class="theme-hero-card rounded-2xl border px-4 py-4">
+                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Pending Review</p>
                     <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['pending_applications']) }}</p>
-                    <p class="mt-2 text-sm text-slate-300">Applicants still waiting for a review decision.</p>
+                    <p class="theme-text-muted mt-2 text-sm">Applicants still waiting for a review decision.</p>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                    <p class="text-xs uppercase tracking-[0.16em] text-slate-400">CV Attached</p>
+                <div class="theme-hero-card rounded-2xl border px-4 py-4">
+                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">CV Attached</p>
                     <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['cv_attached']) }}</p>
-                    <p class="mt-2 text-sm text-slate-300">Applications with a downloadable resume on file.</p>
+                    <p class="theme-text-muted mt-2 text-sm">Applications with a downloadable resume on file.</p>
                 </div>
-                <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                    <p class="text-xs uppercase tracking-[0.16em] text-slate-400">Approved</p>
+                <div class="theme-hero-card rounded-2xl border px-4 py-4">
+                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Approved</p>
                     <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['approved_applications']) }}</p>
-                    <p class="mt-2 text-sm text-slate-300">Applications already accepted by the company side.</p>
+                    <p class="theme-text-muted mt-2 text-sm">Applications already accepted by the company side.</p>
                 </div>
             </div>
         </div>
@@ -254,14 +254,14 @@ new class extends Component
                                 default    => 'Pending',
                             };
                             $statusClasses = match($statusValue) {
-                                'approved' => 'bg-green-50 text-green-700 border-green-200',
-                                'rejected' => 'bg-red-50 text-red-700 border-red-200',
-                                default    => 'bg-yellow-50 text-yellow-700 border-yellow-200',
+                                'approved' => 'theme-alert-success',
+                                'rejected' => 'theme-alert-error',
+                                default    => 'theme-alert-warning',
                             };
                             $dotClasses = match($statusValue) {
-                                'approved' => 'bg-green-500',
-                                'rejected' => 'bg-red-500',
-                                default    => 'bg-yellow-500',
+                                'approved' => 'bg-[var(--app-success-fg)]',
+                                'rejected' => 'bg-[var(--app-danger-fg)]',
+                                default    => 'bg-[var(--app-warning-fg)]',
                             };
                         @endphp
                         <tr class="group transition-colors duration-150 hover:bg-[var(--app-panel-subtle-bg)]">
@@ -314,7 +314,7 @@ new class extends Component
                             <td class="px-6 py-4">
                                 <div class="flex flex-col items-end gap-2">
                                     <a href="{{ route('admin.applications.show', $application->idcode) }}"
-                                       class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white transition-colors duration-150 hover:bg-slate-800 cursor-pointer">
+                                       class="theme-button theme-button-primary inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer">
                                         <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" />
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" />
@@ -373,7 +373,7 @@ new class extends Component
                     <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                         <div class="flex items-baseline justify-between gap-3">
                             <p class="theme-text-strong text-sm font-medium">Pending Review</p>
-                            <p class="text-2xl font-semibold {{ $stats['pending_applications'] > 0 ? 'text-amber-700' : 'theme-text-strong' }}">{{ number_format($stats['pending_applications']) }}</p>
+                            <p class="text-2xl font-semibold {{ $stats['pending_applications'] > 0 ? 'theme-signal-warning' : 'theme-text-strong' }}">{{ number_format($stats['pending_applications']) }}</p>
                         </div>
                         <p class="theme-text-muted mt-2 text-sm">Applications still waiting for first-pass review or a company-side decision.</p>
                     </div>
@@ -381,7 +381,7 @@ new class extends Component
                     <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                         <div class="flex items-baseline justify-between gap-3">
                             <p class="theme-text-strong text-sm font-medium">CV Attached</p>
-                            <p class="text-2xl font-semibold text-indigo-700">{{ number_format($stats['cv_attached']) }}</p>
+                            <p class="theme-signal-info text-2xl font-semibold">{{ number_format($stats['cv_attached']) }}</p>
                         </div>
                         <p class="theme-text-muted mt-2 text-sm">Submissions with a downloadable resume available to operators and reviewers.</p>
                     </div>
@@ -389,7 +389,7 @@ new class extends Component
                     <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                         <div class="flex items-baseline justify-between gap-3">
                             <p class="theme-text-strong text-sm font-medium">Approved</p>
-                            <p class="text-2xl font-semibold text-green-700">{{ number_format($stats['approved_applications']) }}</p>
+                            <p class="theme-signal-success text-2xl font-semibold">{{ number_format($stats['approved_applications']) }}</p>
                         </div>
                         <p class="theme-text-muted mt-2 text-sm">Applications that already cleared review and moved forward with the employer.</p>
                     </div>

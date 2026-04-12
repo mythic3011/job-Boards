@@ -19,6 +19,20 @@ class ThemeUiContractTest extends TestCase
         $this->assertStringContainsString('jobs-board.theme.accent', $contents);
     }
 
+    public function test_base_layout_includes_a_global_back_to_top_control(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/components/layouts/base.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('data-floating-controls', $contents);
+        $this->assertStringContainsString('theme-floating-stack', $contents);
+        $this->assertStringContainsString('data-back-to-top', $contents);
+        $this->assertStringContainsString('aria-label="Back to top"', $contents);
+        $this->assertStringContainsString('aria-controls="main-content"', $contents);
+        $this->assertStringContainsString('theme-floating-action', $contents);
+        $this->assertStringContainsString('Back to top', $contents);
+    }
+
     public function test_theme_switcher_surfaces_appearance_and_palette_controls(): void
     {
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/components/ui/theme-switcher.blade.php');
@@ -68,6 +82,27 @@ class ThemeUiContractTest extends TestCase
         $this->assertStringContainsString("theme:changed", $contents);
     }
 
+    public function test_app_javascript_bootstraps_the_back_to_top_controller(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/js/app.js');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('./components/back-to-top', $contents);
+    }
+
+    public function test_back_to_top_javascript_tracks_scroll_state_and_requests_smooth_scroll(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/js/components/back-to-top.js');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('data-back-to-top', $contents);
+        $this->assertStringContainsString('data-visible', $contents);
+        $this->assertStringContainsString('window.scrollTo', $contents);
+        $this->assertStringContainsString('prefers-reduced-motion: reduce', $contents);
+        $this->assertStringContainsString('behavior: prefersReducedMotion ? "auto" : "smooth"', $contents);
+        $this->assertStringContainsString('requestAnimationFrame', $contents);
+    }
+
     public function test_stylesheet_defines_light_dark_and_palette_theme_tokens(): void
     {
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/css/app.css');
@@ -78,6 +113,8 @@ class ThemeUiContractTest extends TestCase
         $this->assertStringContainsString('html[data-theme-accent="graphite"]', $contents);
         $this->assertStringContainsString('html[data-theme-accent="forest"]', $contents);
         $this->assertStringContainsString('.theme-switcher-option[data-active="true"]', $contents);
+        $this->assertStringContainsString('.theme-floating-stack', $contents);
+        $this->assertStringContainsString('.theme-floating-action', $contents);
     }
 
     public function test_dark_graphite_and_forest_themes_promote_readable_link_contrast(): void

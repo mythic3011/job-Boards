@@ -5,19 +5,20 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="robots" content="noindex, nofollow" />
         <title>Access Denied</title>
-        <link rel="stylesheet" href="/styles.css" />
+        <link rel="stylesheet" href="/_error/styles.css" />
     </head>
     <body>
-        <div class="card">
+        <main class="surface card">
+            <div class="pill pill--danger">CrowdSec block</div>
             <div class="code code--error">403</div>
             <h1>Access Denied</h1>
             <p>
                 Your IP has been blocked by CrowdSec due to suspicious activity.
                 If you believe this is an error, contact the administrator.
             </p>
-            <div class="badge">BLOCKED BY CROWDSEC</div>
+            <div class="badge pill pill--danger">Blocked by CrowdSec</div>
             <p class="footer">All access attempts are logged and reviewed</p>
-        </div>
+        </main>
 
         <!-- static honeypot links -->
         <div class="honeypot" aria-hidden="true">

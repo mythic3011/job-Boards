@@ -2,6 +2,7 @@
 import "./bootstrap";
 import "./components/toast";
 import "./components/dropdown";
+import "./components/back-to-top";
 import "./components/theme";
 import "./components/infinite-pagination";
 import "./install";
