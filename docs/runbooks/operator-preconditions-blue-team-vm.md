@@ -83,6 +83,7 @@ ops/smoke/run-all.sh
 - the reusable clean-room proof workflow is defined in [docs/plans/2026-04-13-clean-vm-proof-plan.md](/Users/mythic3014/PhpstormProjects/jobs-borads/docs/plans/2026-04-13-clean-vm-proof-plan.md)
 - an operational clean-room run may use per-run TOFU SSH trust
 - a proof-grade clean-room run must use pinned SSH host identity
+- the guest SSH user must satisfy `sudo -n true` and `sudo -n docker info` before split-plane proof execution can proceed
 - the host orchestrator owns the final clean-room `result.json`
 - guest proof scripts may emit logs and fragments, but they do not own final overall proof authority
 
@@ -90,6 +91,7 @@ Observable grading contract:
 
 - `result.json` is the operator-visible grading artifact for the clean-room proof workflow
 - `guest-output/obs-runtime-metadata.json` is the operator-visible projection for obs runtime artifact evidence
+- `guest-output/10-os-release.txt`, `11-uname.txt`, `12-docker-version.txt`, `13-docker-compose-version.txt`, `14-compose-app-ps.txt`, `15-compose-obs-ps.txt`, and `16-systemctl-docker.txt` are the fixed guest evidence files for OS, Docker, and compose state
 - `ssh_identity_mode=tofu` maps to `assurance_level=operational`
 - `ssh_identity_mode=pinned` maps to `assurance_level=proof-grade`
 - a proof-grade pass requires pinned host identity and a passing `proof_status`

@@ -114,10 +114,22 @@ The host-authored clean-room `result.json` is the grading surface. At minimum it
 - `restore_status`
 - `overall_status`
 
+Guest-side proof execution now assumes a sudo-capable SSH user and fails fast if the VM cannot satisfy:
+
+- `sudo -n true`
+- `sudo -n docker info`
+
 The host proof bundle now collects metadata-safe guest evidence under `guest-output/`, including:
 
 - `guest-output/guest-fragment.json`
 - `guest-output/obs-runtime-metadata.json`
+- `guest-output/10-os-release.txt`
+- `guest-output/11-uname.txt`
+- `guest-output/12-docker-version.txt`
+- `guest-output/13-docker-compose-version.txt`
+- `guest-output/14-compose-app-ps.txt`
+- `guest-output/15-compose-obs-ps.txt`
+- `guest-output/16-systemctl-docker.txt`
 
 Raw VM-local obs runtime files such as `obs.generated.env` and `obs.generated-secrets.jsonl` remain inside the guest and must not be copied into the host bundle.
 
