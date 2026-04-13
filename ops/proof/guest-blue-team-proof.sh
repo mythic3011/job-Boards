@@ -24,6 +24,14 @@ log() {
     printf '%s\n' "$*" | tee -a "${BT_PROOF_LOG_FILE}"
 }
 
+run_privileged() {
+    sudo -n env \
+        BT_STATE_DIR="${BT_PROOF_STATE_DIR}" \
+        BT_PROOF_OUTPUT_DIR="${BT_PROOF_OUTPUT_DIR}" \
+        BT_PROOF_SEQUENCE_LOG="${BT_PROOF_SEQUENCE_LOG}" \
+        "$@"
+}
+
 prepare_dirs() {
     rm -rf "${BT_PROOF_WORKDIR}" "${BT_PROOF_OUTPUT_DIR}"
     mkdir -p "${BT_PROOF_REPO_DIR}" "${BT_PROOF_LOG_ROOT}"
@@ -74,6 +82,24 @@ extract_archive() {
     tar -xzf "${BT_PROOF_ARCHIVE_PATH}" -C "${BT_PROOF_REPO_DIR}"
 }
 
+require_non_interactive_sudo() {
+    if sudo -n true >/dev/null 2>&1; then
+        return 0
+    fi
+
+    log "ERROR [sudo_non_interactive_required] Guest proof runner requires non-interactive sudo."
+    exit 1
+}
+
+require_docker_daemon_access() {
+    if sudo -n docker info >/dev/null 2>&1; then
+        return 0
+    fi
+
+    log "ERROR [docker_daemon_access_required] Guest proof runner requires sudo-backed Docker daemon access."
+    exit 1
+}
+
 run_step() {
     local label="$1"
     local log_name="$2"
@@ -82,6 +108,30 @@ run_step() {
     local log_path="${BT_PROOF_LOG_ROOT}/${log_name}"
     "$@" >"${log_path}" 2>&1
     COMPLETED_STEPS+=("${label}")
+}
+
+run_step_privileged() {
+    local label="$1"
+    local log_name="$2"
+    shift 2
+
+    local log_path="${BT_PROOF_LOG_ROOT}/${log_name}"
+    run_privileged "$@" >"${log_path}" 2>&1
+    COMPLETED_STEPS+=("${label}")
+}
+
+capture_output() {
+    local file_name="$1"
+    shift
+
+    "$@" >"${BT_PROOF_OUTPUT_DIR}/${file_name}" 2>&1
+}
+
+capture_privileged_output() {
+    local file_name="$1"
+    shift
+
+    run_privileged "$@" >"${BT_PROOF_OUTPUT_DIR}/${file_name}" 2>&1
 }
 
 write_fragment() {
@@ -203,22 +253,37 @@ metadata_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", e
 PY
 }
 
+collect_system_evidence() {
+    capture_output "10-os-release.txt" cat /etc/os-release
+    capture_output "11-uname.txt" uname -a
+    capture_privileged_output "12-docker-version.txt" docker version
+    capture_privileged_output "13-docker-compose-version.txt" docker compose version
+    capture_privileged_output "14-compose-app-ps.txt" docker compose -f "${BT_PROOF_REPO_DIR}/compose.app.yml" ps
+    capture_privileged_output "15-compose-obs-ps.txt" docker compose -f "${BT_PROOF_REPO_DIR}/compose.obs.yml" ps
+    capture_privileged_output "16-systemctl-docker.txt" systemctl status docker --no-pager
+}
+
 main() {
     prepare_dirs
     prepare_logging
     export BT_PROOF_SEQUENCE_LOG
     export BT_PROOF_OUTPUT_DIR
+    export BT_STATE_DIR="${BT_PROOF_STATE_DIR}"
 
+    require_non_interactive_sudo
     verify_archive_hash
     extract_archive
 
     run_step "guest-install-deps" "10-guest-install-deps.log" "${BT_PROOF_INSTALLER_PATH}"
-    run_step "setup-blue-team-vm.sh host" "20-bootstrap-host.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" host
-    run_step "setup-blue-team-vm.sh app" "30-bootstrap-app.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" app
-    run_step "setup-blue-team-vm.sh obs" "40-bootstrap-obs.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" obs
-    run_step "ops/smoke/run-all.sh" "50-smoke.log" "${BT_PROOF_REPO_DIR}/ops/smoke/run-all.sh"
-    run_step "setup-blue-team-vm.sh verify" "60-verify.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" verify
+    require_docker_daemon_access
 
+    run_step_privileged "setup-blue-team-vm.sh host" "20-bootstrap-host.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" host
+    run_step_privileged "setup-blue-team-vm.sh app" "30-bootstrap-app.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" app
+    run_step_privileged "setup-blue-team-vm.sh obs" "40-bootstrap-obs.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" obs
+    run_step "ops/smoke/run-all.sh" "50-smoke.log" "${BT_PROOF_REPO_DIR}/ops/smoke/run-all.sh"
+    run_step_privileged "setup-blue-team-vm.sh verify" "60-verify.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" verify
+
+    collect_system_evidence
     project_obs_runtime_metadata
     write_fragment
     log "Guest proof runner completed."

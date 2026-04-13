@@ -267,6 +267,7 @@ class CleanVmProofShellContractsTest extends TestCase
         ], JSON_THROW_ON_ERROR));
         $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sshLog);
         $this->writeFakeRuntimeScp($fakeBin.'/scp', $scpLog);
+        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
 
         $process = $this->runHostProof(
             $tempRoot,
@@ -303,6 +304,13 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->assertSame($headCommit, $result['resolved_commit_sha'] ?? null);
         $this->assertSame($manifest['archive_sha256'] ?? null, $result['archive_sha256'] ?? null);
         $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/guest-fragment.json');
+        $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/10-os-release.txt');
+        $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/11-uname.txt');
+        $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/12-docker-version.txt');
+        $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/13-docker-compose-version.txt');
+        $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/14-compose-app-ps.txt');
+        $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/15-compose-obs-ps.txt');
+        $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/16-systemctl-docker.txt');
         $this->assertStringContainsString('BatchMode=yes', $sshOutput);
         $this->assertStringContainsString('StrictHostKeyChecking=accept-new', $sshOutput);
         $this->assertStringContainsString('UserKnownHostsFile='.$outputDir.'/slice-d-tofu/ssh-known_hosts', $sshOutput);
@@ -310,6 +318,67 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->assertStringContainsString('snapshot-switch Ubuntu Server 22.04.5 LTS-test-cleanvm --id {snapshot-1} --skip-resume', $prlctlOutput);
         $this->assertStringContainsString('start Ubuntu Server 22.04.5 LTS-test-cleanvm', $prlctlOutput);
         $this->assertStringContainsString('stop Ubuntu Server 22.04.5 LTS-test-cleanvm --kill', $prlctlOutput);
+    }
+
+    public function test_host_proof_stages_guest_helpers_from_the_resolved_repo_ref_not_the_current_workspace(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $sandbox = $this->makeTempDir();
+        $fakeBin = $sandbox.'/fake-bin';
+        $remoteRoot = $sandbox.'/remote-proof';
+        $outputDir = $sandbox.'/artifacts';
+        $prlctlLog = $sandbox.'/prlctl.log';
+
+        $this->installHostProofScript($tempRoot);
+        file_put_contents($tempRoot.'/ops/proof/guest-install-deps.sh', (string) file_get_contents($tempRoot.'/ops/proof/guest-install-deps.sh')."\n# helper-version: ref-v1\n");
+        file_put_contents($tempRoot.'/ops/proof/guest-blue-team-proof.sh', (string) file_get_contents($tempRoot.'/ops/proof/guest-blue-team-proof.sh')."\n# helper-version: ref-v1\n");
+        $firstCommit = $this->initializeRuntimeProofRepo($tempRoot, 'success');
+
+        file_put_contents($tempRoot.'/ops/proof/guest-install-deps.sh', (string) file_get_contents($tempRoot.'/ops/proof/guest-install-deps.sh')."# helper-version: workspace-v2\n");
+        file_put_contents($tempRoot.'/ops/proof/guest-blue-team-proof.sh', (string) file_get_contents($tempRoot.'/ops/proof/guest-blue-team-proof.sh')."# helper-version: workspace-v2\n");
+        $this->mustRun(['git', 'add', 'ops/proof/guest-install-deps.sh', 'ops/proof/guest-blue-team-proof.sh'], $tempRoot);
+        $this->mustRun(['git', 'commit', '-m', 'Change proof helper markers'], $tempRoot);
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($remoteRoot, 0777, true);
+
+        $this->writeFakeRuntimePrlctl($fakeBin.'/prlctl', $prlctlLog, json_encode([
+            ['name' => 'base-os-ssh', 'id' => '{snapshot-1}'],
+        ], JSON_THROW_ON_ERROR));
+        $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sandbox.'/ssh.log');
+        $this->writeFakeRuntimeScp($fakeBin.'/scp', $sandbox.'/scp.log');
+        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
+
+        $process = $this->runHostProof(
+            $tempRoot,
+            $fakeBin,
+            [
+                '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
+                '--snapshot-name', 'base-os-ssh',
+                '--ssh-host', '192.0.2.10',
+                '--ssh-user', 'ubuntu',
+                '--remote-proof-root', $remoteRoot,
+                '--output-dir', $outputDir,
+                '--run-id', 'slice-d-pure-ref',
+                '--repo-ref', $firstCommit,
+            ],
+            [
+                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_SSH_WAIT_ATTEMPTS' => '1',
+                'BT_SSH_WAIT_DELAY_SECONDS' => '0',
+            ],
+        );
+
+        $remoteInstaller = (string) file_get_contents($remoteRoot.'/input/guest-install-deps.sh');
+        $remoteProofRunner = (string) file_get_contents($remoteRoot.'/input/guest-blue-team-proof.sh');
+        $manifest = $this->readJsonFile($outputDir.'/slice-d-pure-ref/manifest.json');
+
+        $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $this->assertSame($firstCommit, $manifest['resolved_commit_sha'] ?? null);
+        $this->assertStringContainsString('# helper-version: ref-v1', $remoteInstaller);
+        $this->assertStringContainsString('# helper-version: ref-v1', $remoteProofRunner);
+        $this->assertStringNotContainsString('# helper-version: workspace-v2', $remoteInstaller);
+        $this->assertStringNotContainsString('# helper-version: workspace-v2', $remoteProofRunner);
     }
 
     public function test_host_proof_passes_guest_state_dir_and_collects_obs_runtime_projection(): void
@@ -351,6 +420,7 @@ class CleanVmProofShellContractsTest extends TestCase
         ], JSON_THROW_ON_ERROR));
         $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sshLog);
         $this->writeFakeRuntimeScp($fakeBin.'/scp', $sandbox.'/scp.log');
+        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
 
         $process = $this->runHostProof(
             $tempRoot,
@@ -408,6 +478,7 @@ class CleanVmProofShellContractsTest extends TestCase
         ], JSON_THROW_ON_ERROR));
         $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sshLog);
         $this->writeFakeRuntimeScp($fakeBin.'/scp', $sandbox.'/scp.log');
+        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
         $this->writeFakeKeyscan($fakeBin.'/ssh-keyscan', $keyscanLog, "192.0.2.10 ssh-ed25519 AAAATESTKEY\n");
         $this->writeFakeKeygen($fakeBin.'/ssh-keygen', 'SHA256:pinnedfingerprint');
 
@@ -465,6 +536,7 @@ class CleanVmProofShellContractsTest extends TestCase
         ], JSON_THROW_ON_ERROR));
         $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sandbox.'/ssh.log');
         $this->writeFakeRuntimeScp($fakeBin.'/scp', $sandbox.'/scp.log');
+        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
         $this->writeFakeKeyscan($fakeBin.'/ssh-keyscan', $sandbox.'/keyscan.log', '', 0);
         $this->writeFakeKeygen($fakeBin.'/ssh-keygen', 'SHA256:pinnedfingerprint');
 
@@ -547,6 +619,7 @@ class CleanVmProofShellContractsTest extends TestCase
         );
         $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sandbox.'/ssh.log');
         $this->writeFakeRuntimeScp($fakeBin.'/scp', $sandbox.'/scp.log');
+        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
 
         $process = $this->runHostProof(
             $tempRoot,
@@ -711,7 +784,7 @@ command_string="${@: -1}"
 if [[ "${command_string}" == "__bt_ping__" ]]; then
   exit 0
 fi
-PATH="${BT_FAKE_REMOTE_PATH:-/usr/bin:/bin}" bash -lc "${command_string}"
+PATH="${BT_FAKE_REMOTE_PATH:-/usr/bin:/bin}" bash -c "${command_string}"
 BASH);
 
         $contents = (string) file_get_contents($path);
@@ -791,6 +864,92 @@ BASH);
 #!/usr/bin/env bash
 set -euo pipefail
 printf '256 %s comment (ED25519)\n' "{$fingerprint}"
+BASH);
+    }
+
+    private function writeProofPrivilegeToolchain(
+        string $binDir,
+        string $sudoLogPath,
+        bool $allowSudoTrue = true,
+        bool $allowDockerInfo = true,
+    ): void {
+        $allowSudoTrueFlag = $allowSudoTrue ? '1' : '0';
+        $allowDockerInfoFlag = $allowDockerInfo ? '1' : '0';
+
+        $this->writeExecutable($binDir.'/sudo', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$sudoLogPath}"
+if [[ "\${1:-}" != "-n" ]]; then
+  exit 91
+fi
+shift
+if [[ "{$allowSudoTrueFlag}" != "1" && "\${1:-}" == "true" ]]; then
+  exit 92
+fi
+"\$@"
+BASH);
+
+        $this->writeExecutable($binDir.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+case "\${1:-}" in
+  info)
+    if [[ "{$allowDockerInfoFlag}" != "1" ]]; then
+      exit 93
+    fi
+    printf 'Server: Docker Engine\\n'
+    exit 0
+    ;;
+  version)
+    printf 'Docker version 26.1.0\\n'
+    exit 0
+    ;;
+  compose)
+    if [[ "\${2:-}" == "version" ]]; then
+      printf 'Docker Compose version v2.27.0\\n'
+      exit 0
+    fi
+    if [[ "\${2:-}" == "-f" && "\${4:-}" == "ps" ]]; then
+      printf 'NAME STATUS\\nproof running\\n'
+      exit 0
+    fi
+    exit 0
+    ;;
+esac
+exit 0
+BASH);
+
+        $this->writeExecutable($binDir.'/systemctl', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "status" && "${2:-}" == "docker" && "${3:-}" == "--no-pager" ]]; then
+  printf 'docker.service - Docker Application Container Engine\n'
+  exit 0
+fi
+exit 0
+BASH);
+
+        $this->writeExecutable($binDir.'/sha256sum', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+shasum -a 256 "${1:-}"
+BASH);
+
+        $this->writeExecutable($binDir.'/uname', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'Linux clean-vm 5.15.0-test #1 SMP\n'
+BASH);
+
+        $this->writeExecutable($binDir.'/cat', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "/etc/os-release" ]]; then
+  printf 'NAME="Ubuntu"\nVERSION="22.04.5 LTS"\n'
+  exit 0
+fi
+/bin/cat "$@"
 BASH);
     }
 

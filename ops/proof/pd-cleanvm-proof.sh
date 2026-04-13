@@ -36,6 +36,8 @@ SSH_KNOWN_HOSTS_PATH=""
 REMOTE_INPUT_DIR=""
 REMOTE_WORKDIR=""
 REMOTE_OUTPUT_DIR=""
+STAGED_GUEST_INSTALLER_PATH=""
+STAGED_GUEST_PROOF_RUNNER_PATH=""
 
 RESOLVED_COMMIT_SHA=""
 SNAPSHOT_ID=""
@@ -138,6 +140,8 @@ PY
     ARCHIVE_PATH="${ARTIFACT_DIR}/repo.tgz"
     GUEST_OUTPUT_DIR="${ARTIFACT_DIR}/guest-output"
     SSH_KNOWN_HOSTS_PATH="${ARTIFACT_DIR}/ssh-known_hosts"
+    STAGED_GUEST_INSTALLER_PATH="${ARTIFACT_DIR}/guest-install-deps.sh"
+    STAGED_GUEST_PROOF_RUNNER_PATH="${ARTIFACT_DIR}/guest-blue-team-proof.sh"
 
     rm -rf "${ARTIFACT_DIR}"
     mkdir -p "${ARTIFACT_DIR}"
@@ -392,6 +396,19 @@ create_archive() {
     ARCHIVE_SHA256="$(shasum -a 256 "${ARCHIVE_PATH}" | awk '{print $1}')" || fail "preflight" "archive_hash_failed" "Unable to hash archive ${ARCHIVE_PATH}."
 }
 
+stage_helper_from_ref() {
+    local ref_path="$1"
+    local destination_path="$2"
+
+    git show "${RESOLVED_COMMIT_SHA}:${ref_path}" > "${destination_path}" || fail "preflight" "helper_stage_failed" "Unable to stage ${ref_path} from ${RESOLVED_COMMIT_SHA}."
+    chmod 0755 "${destination_path}" || fail "preflight" "helper_stage_failed" "Unable to chmod staged helper ${destination_path}."
+}
+
+stage_guest_helpers() {
+    stage_helper_from_ref "ops/proof/guest-install-deps.sh" "${STAGED_GUEST_INSTALLER_PATH}"
+    stage_helper_from_ref "ops/proof/guest-blue-team-proof.sh" "${STAGED_GUEST_PROOF_RUNNER_PATH}"
+}
+
 write_manifest() {
     MANIFEST_PATH="${MANIFEST_PATH}" \
     RUN_ID="${RUN_ID}" \
@@ -566,8 +583,8 @@ copy_inputs() {
 
     run_scp "${ARCHIVE_PATH}" "${target}:${REMOTE_INPUT_DIR}/repo.tgz" || fail "execution" "remote_copy_failed" "Unable to copy repo archive to remote input."
     run_scp "${MANIFEST_PATH}" "${target}:${REMOTE_INPUT_DIR}/manifest.json" || fail "execution" "remote_copy_failed" "Unable to copy manifest to remote input."
-    run_scp "${REPO_ROOT}/ops/proof/guest-install-deps.sh" "${target}:${REMOTE_INPUT_DIR}/guest-install-deps.sh" || fail "execution" "remote_copy_failed" "Unable to copy guest installer to remote input."
-    run_scp "${REPO_ROOT}/ops/proof/guest-blue-team-proof.sh" "${target}:${REMOTE_INPUT_DIR}/guest-blue-team-proof.sh" || fail "execution" "remote_copy_failed" "Unable to copy guest proof runner to remote input."
+    run_scp "${STAGED_GUEST_INSTALLER_PATH}" "${target}:${REMOTE_INPUT_DIR}/guest-install-deps.sh" || fail "execution" "remote_copy_failed" "Unable to copy guest installer to remote input."
+    run_scp "${STAGED_GUEST_PROOF_RUNNER_PATH}" "${target}:${REMOTE_INPUT_DIR}/guest-blue-team-proof.sh" || fail "execution" "remote_copy_failed" "Unable to copy guest proof runner to remote input."
 }
 
 run_remote_proof() {
@@ -633,6 +650,7 @@ main() {
     resolve_commit
     resolve_snapshot_id
     create_archive
+    stage_guest_helpers
     write_manifest
 
     if [[ "${DRY_RUN}" == "1" ]]; then

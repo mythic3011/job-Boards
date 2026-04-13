@@ -28,6 +28,7 @@ class GuestBlueTeamProofRunnerContractsTest extends TestCase
         $workDir = $sandbox.'/workdir';
         $outputDir = $sandbox.'/output/current';
         $fakeBin = $sandbox.'/fake-bin';
+        $sudoLog = $sandbox.'/sudo.log';
 
         mkdir($inputDir, 0777, true);
         mkdir($workDir, 0777, true);
@@ -47,10 +48,12 @@ set -euo pipefail
 printf 'installer\n' >> "${BT_PROOF_SEQUENCE_LOG}"
 BASH);
         $this->writeFakeSha256sum($fakeBin.'/sha256sum', $archiveHash);
+        $this->writeProofPrivilegeToolchain($fakeBin, $sudoLog);
 
         $process = $this->runProofRunner($sandbox, $inputDir, $workDir, $outputDir, $fakeBin);
         $sequence = (string) file_get_contents($outputDir.'/sequence.log');
         $fragment = $this->readJsonFile($outputDir.'/guest-fragment.json');
+        $sudoOutput = (string) file_get_contents($sudoLog);
 
         $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
         $this->assertFileExists($inputDir.'/sentinel.txt');
@@ -69,6 +72,20 @@ BASH);
             'setup-blue-team-vm.sh verify',
         ], $fragment['steps'] ?? null);
         $this->assertFileDoesNotExist($outputDir.'/result.json');
+        $this->assertStringContainsString('true', $sudoOutput);
+        $this->assertStringContainsString('docker info', $sudoOutput);
+        $this->assertStringContainsString('setup-blue-team-vm.sh host', $sudoOutput);
+        $this->assertStringContainsString('setup-blue-team-vm.sh app', $sudoOutput);
+        $this->assertStringContainsString('setup-blue-team-vm.sh obs', $sudoOutput);
+        $this->assertStringContainsString('setup-blue-team-vm.sh verify', $sudoOutput);
+        $this->assertStringNotContainsString('ops/smoke/run-all.sh', $sudoOutput);
+        $this->assertFileExists($outputDir.'/10-os-release.txt');
+        $this->assertFileExists($outputDir.'/11-uname.txt');
+        $this->assertFileExists($outputDir.'/12-docker-version.txt');
+        $this->assertFileExists($outputDir.'/13-docker-compose-version.txt');
+        $this->assertFileExists($outputDir.'/14-compose-app-ps.txt');
+        $this->assertFileExists($outputDir.'/15-compose-obs-ps.txt');
+        $this->assertFileExists($outputDir.'/16-systemctl-docker.txt');
     }
 
     public function test_guest_proof_runner_fails_on_archive_hash_mismatch_before_extract_or_execution(): void
@@ -91,6 +108,7 @@ set -euo pipefail
 printf 'installer\n' >> "${BT_PROOF_SEQUENCE_LOG}"
 BASH);
         $this->writeFakeSha256sum($fakeBin.'/sha256sum', $archiveHash);
+        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
 
         $process = $this->runProofRunner($sandbox, $inputDir, $workDir, $outputDir, $fakeBin);
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
@@ -99,6 +117,69 @@ BASH);
         $this->assertStringContainsString('archive_hash_mismatch', $combinedOutput);
         $this->assertFileDoesNotExist($workDir.'/repo/setup-blue-team-vm.sh');
         $this->assertFileDoesNotExist($outputDir.'/sequence.log');
+    }
+
+    public function test_guest_proof_runner_fails_fast_when_non_interactive_sudo_is_unavailable(): void
+    {
+        $sandbox = $this->makeTempDir();
+        $inputDir = $sandbox.'/input';
+        $workDir = $sandbox.'/workdir';
+        $outputDir = $sandbox.'/output/current';
+        $fakeBin = $sandbox.'/fake-bin';
+
+        mkdir($inputDir, 0777, true);
+        mkdir($fakeBin, 0777, true);
+
+        $this->installGuestProofRunner($sandbox);
+        $archiveHash = $this->writeInputArchive($sandbox, $inputDir);
+        $this->writeManifest($inputDir.'/manifest.json', $archiveHash);
+        $this->writeExecutable($inputDir.'/guest-install-deps.sh', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'installer\n' >> "${BT_PROOF_SEQUENCE_LOG}"
+BASH);
+        $this->writeFakeSha256sum($fakeBin.'/sha256sum', $archiveHash);
+        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log', allowSudoTrue: false);
+
+        $process = $this->runProofRunner($sandbox, $inputDir, $workDir, $outputDir, $fakeBin);
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+
+        $this->assertNotSame(0, $process->getExitCode());
+        $this->assertStringContainsString('sudo_non_interactive_required', $combinedOutput);
+        $this->assertFileDoesNotExist($outputDir.'/sequence.log');
+        $this->assertFileDoesNotExist($workDir.'/repo/setup-blue-team-vm.sh');
+    }
+
+    public function test_guest_proof_runner_fails_fast_when_docker_daemon_access_is_unavailable(): void
+    {
+        $sandbox = $this->makeTempDir();
+        $inputDir = $sandbox.'/input';
+        $workDir = $sandbox.'/workdir';
+        $outputDir = $sandbox.'/output/current';
+        $fakeBin = $sandbox.'/fake-bin';
+
+        mkdir($inputDir, 0777, true);
+        mkdir($fakeBin, 0777, true);
+
+        $this->installGuestProofRunner($sandbox);
+        $archiveHash = $this->writeInputArchive($sandbox, $inputDir);
+        $this->writeManifest($inputDir.'/manifest.json', $archiveHash);
+        $this->writeExecutable($inputDir.'/guest-install-deps.sh', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'installer\n' >> "${BT_PROOF_SEQUENCE_LOG}"
+BASH);
+        $this->writeFakeSha256sum($fakeBin.'/sha256sum', $archiveHash);
+        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log', allowDockerInfo: false);
+
+        $process = $this->runProofRunner($sandbox, $inputDir, $workDir, $outputDir, $fakeBin);
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+
+        $this->assertNotSame(0, $process->getExitCode());
+        $this->assertStringContainsString('docker_daemon_access_required', $combinedOutput);
+        $this->assertSame("installer\n", (string) file_get_contents($outputDir.'/sequence.log'));
+        $this->assertFileExists($workDir.'/repo/setup-blue-team-vm.sh');
+        $this->assertFileDoesNotExist($outputDir.'/20-bootstrap-host.log');
     }
 
     public function test_guest_proof_runner_uses_sha256sum_not_shasum(): void
@@ -136,6 +217,7 @@ set -euo pipefail
 printf 'installer\n' >> "${BT_PROOF_SEQUENCE_LOG}"
 BASH);
         $this->writeFakeSha256sum($fakeBin.'/sha256sum', $archiveHash);
+        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
 
         file_put_contents($stateDir.'/runtime/grafana-admin-password', "not-for-export\n");
         file_put_contents($stateDir.'/rendered/prometheus.web-config.yml', "basic_auth_users:\n  admin: \"hidden\"\n");
@@ -205,6 +287,8 @@ BASH);
     {
         $repoDir = $sandbox.'/repo-src';
         mkdir($repoDir.'/ops/smoke', 0777, true);
+        file_put_contents($repoDir.'/compose.app.yml', "services: {}\n");
+        file_put_contents($repoDir.'/compose.obs.yml', "services: {}\n");
 
         $this->writeExecutable($repoDir.'/setup-blue-team-vm.sh', <<<'BASH'
 #!/usr/bin/env bash
@@ -237,6 +321,86 @@ BASH);
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s  %s\n' "{$archiveHash}" "\${1:-}"
+BASH);
+    }
+
+    private function writeProofPrivilegeToolchain(
+        string $binDir,
+        string $sudoLogPath,
+        bool $allowSudoTrue = true,
+        bool $allowDockerInfo = true,
+    ): void {
+        $allowSudoTrueFlag = $allowSudoTrue ? '1' : '0';
+        $allowDockerInfoFlag = $allowDockerInfo ? '1' : '0';
+
+        $this->writeExecutable($binDir.'/sudo', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$sudoLogPath}"
+if [[ "\${1:-}" != "-n" ]]; then
+  exit 91
+fi
+shift
+if [[ "{$allowSudoTrueFlag}" != "1" && "\${1:-}" == "true" ]]; then
+  exit 92
+fi
+"\$@"
+BASH);
+
+        $this->writeExecutable($binDir.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+case "\${1:-}" in
+  info)
+    if [[ "{$allowDockerInfoFlag}" != "1" ]]; then
+      exit 93
+    fi
+    printf 'Server: Docker Engine\\n'
+    exit 0
+    ;;
+  version)
+    printf 'Docker version 26.1.0\\n'
+    exit 0
+    ;;
+  compose)
+    if [[ "\${2:-}" == "version" ]]; then
+      printf 'Docker Compose version v2.27.0\\n'
+      exit 0
+    fi
+    if [[ "\${2:-}" == "-f" && "\${4:-}" == "ps" ]]; then
+      printf 'NAME STATUS\\nproof running\\n'
+      exit 0
+    fi
+    exit 0
+    ;;
+esac
+exit 0
+BASH);
+
+        $this->writeExecutable($binDir.'/systemctl', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "status" && "${2:-}" == "docker" && "${3:-}" == "--no-pager" ]]; then
+  printf 'docker.service - Docker Application Container Engine\n'
+  exit 0
+fi
+exit 0
+BASH);
+
+        $this->writeExecutable($binDir.'/uname', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'Linux clean-vm 5.15.0-test #1 SMP\n'
+BASH);
+
+        $this->writeExecutable($binDir.'/cat', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "/etc/os-release" ]]; then
+  printf 'NAME="Ubuntu"\nVERSION="22.04.5 LTS"\n'
+  exit 0
+fi
+/bin/cat "$@"
 BASH);
     }
 
