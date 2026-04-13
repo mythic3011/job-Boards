@@ -12,6 +12,10 @@ set -euo pipefail
 
 SETUP_MODE="${1:-full}"
 ENV_MODE="${2:-dev}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_BT_STATE_DIR="${INSTALL_BT_STATE_DIR:-${ROOT_DIR}/.blue-team-vm}"
+INSTALL_COMPOSE_FILE="${INSTALL_COMPOSE_FILE:-${ROOT_DIR}/compose.yaml}"
+export BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE:-${ROOT_DIR}/docker/nginx/includes/blue-team-honeypot.conf}"
 
 [[ "$SETUP_MODE" != "full" && "$SETUP_MODE" != "demo" && "$SETUP_MODE" != "quick" && "$SETUP_MODE" != "skip" && "$SETUP_MODE" != "setupAdmin" && "$SETUP_MODE" != "test" ]] && {
     echo "Usage: $0 [full|demo|quick|skip|setupAdmin|test] [dev|production]"
@@ -21,6 +25,8 @@ ENV_MODE="${2:-dev}"
     echo "Usage: $0 [full|demo|quick|skip|setupAdmin|test] [dev|production]"
     exit 1
 }
+
+cd "$ROOT_DIR"
 
 # ── Container name ────────────────────────────────────────────────────────────
 CONTAINER="jobs-boards-laravel.test"
@@ -35,7 +41,56 @@ LAST_ASSIGNED_PORT=3000
 # ── Helpers ───────────────────────────────────────────────────────────────────
 # -T: non-TTY safe for CI/CD environments
 app() { docker exec -T "$CONTAINER" "$@"; }
+compose_local() { docker compose -f "$INSTALL_COMPOSE_FILE" "$@"; }
 err() { echo "$*" >&2; }
+
+normalized_choice() {
+    printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]'
+}
+
+is_choice_yes() {
+    [[ "$(normalized_choice "${1:-}")" == "y" ]]
+}
+
+is_choice_no() {
+    [[ "$(normalized_choice "${1:-}")" == "n" ]]
+}
+
+export_env_file() {
+    local env_file="$1"
+    local line
+    local key
+    local value
+
+    [[ -r "${env_file}" ]] || return 1
+
+    while IFS= read -r line; do
+        [[ -n "${line}" ]] || continue
+        [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+        line="${line#export }"
+        [[ "${line}" == *=* ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="${key#"${key%%[![:space:]]*}"}"
+        key="${key%"${key##*[![:space:]]}"}"
+        export "${key}=${value}"
+    done < "${env_file}"
+}
+
+prepare_obs_runtime() {
+    local state_dir="${INSTALL_BT_STATE_DIR}"
+    local runtime_dir="${state_dir}/runtime"
+    local generated_env="${runtime_dir}/obs.generated.env"
+
+    echo "Preparing obs runtime artifacts..."
+    # Keep artifact preparation aligned with the split obs-plane contract.
+    BT_STATE_DIR="${state_dir}" \
+    BT_RUNTIME_DIR="${runtime_dir}" \
+    BT_COMPOSE_OBS_FILE="${ROOT_DIR}/compose.obs.yml" \
+    "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" prepare
+
+    export_env_file "${generated_env}"
+}
 
 check_deps() {
     local missing=()
@@ -161,7 +216,7 @@ check_ports() {
     done
     echo ""
     read -r -p "Auto-assign free ports in range 3001-9001? [Y/n] " _ans
-    if [[ "${_ans,,}" == "n" ]]; then
+    if is_choice_no "${_ans}"; then
         err "Aborted. Free the ports or update APP_PORT / APP_SSL_PORT in .env manually."
         exit 1
     fi
@@ -186,10 +241,11 @@ start_containers() {
     if ! docker exec -T "$CONTAINER" true &>/dev/null; then
         check_ports
         echo "Building laravel.test image..."
-        docker compose build laravel.test
+        compose_local build laravel.test
         echo "Starting containers..."
-        docker compose down --remove-orphans 2>/dev/null || true
-        docker compose up -d
+        # Keep the local convenience path from tearing down split-plane services
+        # that may already be running under the same project namespace.
+        compose_local up -d
         wait_for "Container starting" 30 docker exec -T "$CONTAINER" true
         echo "Installing composer dependencies..."
         app composer install --no-interaction --prefer-dist
@@ -202,7 +258,7 @@ build_assets() {
     # composer install already run in start_containers — skip duplicate
     app npm install
     app npm run build
-    docker compose restart laravel.test
+    docker restart "$CONTAINER" >/dev/null
     wait_for "Container ready" 60 app php artisan --version
 }
 
@@ -214,7 +270,7 @@ check_existing_install() {
         echo ""
         echo "WARNING: Existing installation detected. migrate:fresh will destroy all data."
         read -r -p "Continue and wipe existing data? [y/N] " _confirm
-        [[ "${_confirm,,}" == "y" ]] || { echo "Aborted."; exit 0; }
+        is_choice_yes "${_confirm}" || { echo "Aborted."; exit 0; }
     fi
 }
 
@@ -250,7 +306,7 @@ prompt_admin_info() {
     echo "======================================="
     read -r -p "Use default admin info? [Y/n] " _use_defaults
 
-    if [[ "${_use_defaults,,}" == "n" ]]; then
+    if is_choice_no "${_use_defaults}"; then
         read -r -p "  Email [$default_email]: " _input_email
         _PROMPT_EMAIL="${_input_email:-$default_email}"
 
@@ -435,8 +491,8 @@ print_summary() {
     echo "  App:        $app_url"
     echo "  Monitoring: $app_url/monitoring/grafana/"
     echo ""
-    echo "  docker compose ps   — check service health"
-    echo "  docker compose logs — view logs"
+    echo "  docker compose -f compose.yaml ps   — check service health"
+    echo "  docker compose -f compose.yaml logs — view logs"
     echo ""
 }
 
@@ -445,6 +501,7 @@ if [[ "$SETUP_MODE" == "full" || "$SETUP_MODE" == "demo" ]]; then
     if ! ./bootstrap-env.sh "$ENV_MODE"; then
         err "WARNING: bootstrap-env.sh reported an error — continuing, but verify .env is correct."
     fi
+    prepare_obs_runtime
 fi
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -471,7 +528,7 @@ case "$SETUP_MODE" in
         echo ""
         err "WARNING: 'quick' mode runs migrate:fresh -- ALL existing data will be wiped."
         read -r -p "Continue? [y/N] " _confirm
-        [[ "${_confirm,,}" == "y" ]] || { echo "Aborted."; exit 0; }
+        is_choice_yes "${_confirm}" || { echo "Aborted."; exit 0; }
         wait_for "Container ready" 60 app php artisan --version
         build_assets
         app php artisan migrate:fresh --force
@@ -507,11 +564,12 @@ case "$SETUP_MODE" in
             echo "======================================="
             echo " Production Checklist"
             echo "======================================="
-            echo "  1. Verify docker compose ps -- all services healthy"
-            echo "  2. Set CROWDSEC_ENROLL_KEY if using CrowdSec Console"
-            echo "  3. Delete /tmp/admin-*.txt after saving credentials"
-            echo "  4. Delete /tmp/monitoring-*.txt after saving credentials"
-            echo "  5. Confirm monitoring accessible via Tailscale only"
+            echo "  1. Verify local docker compose -f compose.yaml ps -- all services healthy"
+            echo "  2. If this is blue-team VM proof work, run the split-plane verifiers instead of treating compose.yaml as runtime evidence"
+            echo "  3. Set CROWDSEC_ENROLL_KEY if using CrowdSec Console"
+            echo "  4. Delete /tmp/admin-*.txt after saving credentials"
+            echo "  5. Delete /tmp/monitoring-*.txt after saving credentials"
+            echo "  6. Confirm monitoring accessible via Tailscale only"
         fi
         print_summary "$SETUP_MODE"
         ;;

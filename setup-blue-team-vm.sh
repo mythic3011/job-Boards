@@ -236,6 +236,19 @@ verify_linux_kernel_support() {
     bt_kernel_version_ge "5.12.0"
 }
 
+linux_kernel_support_remediation() {
+    if [[ "${MODE}" == "verify" && "$(uname -s)" != "Linux" ]]; then
+        cat <<'EOF'
+Use a Linux VM with kernel 5.12 or newer for top-level verify. For local split-plane readiness evidence, run ./ops/bootstrap/bootstrap-app.sh verify and ./ops/bootstrap/bootstrap-obs.sh verify.
+EOF
+        return 0
+    fi
+
+    cat <<'EOF'
+Use a Linux VM with kernel 5.12 or newer for live smoke assertions.
+EOF
+}
+
 verify_required_dns_resolution() {
     local host
     for host in ${BT_REQUIRED_DNS_HOSTS}; do
@@ -523,7 +536,7 @@ run_preflight() {
 
     run_preflight_check "overall.runtime.docker_available" "Docker CLI is available in this runtime." "Install Docker in the target VM before running live bootstrap." verify_docker_available || true
     run_preflight_check "overall.runtime.git_available" "Git is available in this runtime." "Install Git in the target VM before running live bootstrap." verify_git_available || true
-    run_preflight_check "overall.runtime.kernel_read_only_support" "Linux kernel is new enough for read-only mount validation." "Use a Linux VM with kernel 5.12 or newer for live smoke assertions." verify_linux_kernel_support || true
+    run_preflight_check "overall.runtime.kernel_read_only_support" "Linux kernel is new enough for read-only mount validation." "$(linux_kernel_support_remediation)" verify_linux_kernel_support || true
     if [[ "${MODE}" == "app" || "${MODE}" == "obs" || "${MODE}" == "full" ]]; then
         run_preflight_check "overall.runtime.host_dns_resolution" "Host DNS resolution is ready for external image and feed dependencies." "Run as root so the runner can apply fallback DNS servers 1.1.1.1 and 8.8.8.8, or repair the VM resolver before rerunning." verify_or_fix_required_dns_resolution || true
     fi

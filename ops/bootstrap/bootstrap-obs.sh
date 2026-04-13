@@ -44,6 +44,10 @@ emit_obs_summary() {
     [[ "${status}" != "${BT_STATUS_FAIL}" ]]
 }
 
+obs_check_id_suffix() {
+    printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]'
+}
+
 verify_obs_logs() {
     bt_compose "${BT_COMPOSE_OBS_FILE}" exec -T promtail sh -c 'test -r /var/log/nginx/access.log || test -r /var/log/nginx/error.log'
 }
@@ -203,6 +207,7 @@ obs_materialize_secret_file() {
     local default_path="$3"
     local current_path
     local source_value
+    local check_suffix
 
     current_path="$(obs_effective_env_value "${target_key}" || true)"
     if [[ -n "${current_path}" ]]; then
@@ -220,7 +225,8 @@ obs_materialize_secret_file() {
 
     obs_set_generated_value "${target_key}" "${default_path}"
     obs_emit_generated_audit "${target_key}" "${source_key}" "materialized_secret_file" "true" "false"
-    bt_emit_check "obs.bootstrap.${target_key,,}.generated" "obs" "${BT_STATUS_PASS}" "${target_key} was materialized from ${source_key}." "Review generated env provenance if operator-managed rotation is required."
+    check_suffix="$(obs_check_id_suffix "${target_key}")"
+    bt_emit_check "obs.bootstrap.${check_suffix}.generated" "obs" "${BT_STATUS_PASS}" "${target_key} was materialized from ${source_key}." "Review generated env provenance if operator-managed rotation is required."
     obs_statuses+=("${BT_STATUS_PASS}")
     return 0
 }
@@ -253,6 +259,7 @@ obs_autofix_password_hash() {
 
     local source_key
     local source_value=""
+    local check_suffix
     for source_key in "$@"; do
         source_value="$(obs_effective_env_value "${source_key}" || true)"
         [[ -n "${source_value}" ]] && break
@@ -267,7 +274,8 @@ obs_autofix_password_hash() {
     bt_bcrypt_hash_runtime_usable "${generated}" || return 1
     obs_set_generated_value "${target_key}" "${generated}"
     obs_emit_generated_audit "${target_key}" "${source_key}" "derived_bcrypt" "true" "false"
-    bt_emit_check "obs.bootstrap.${target_key,,}.generated" "obs" "${BT_STATUS_PASS}" "${target_key} was auto-derived from ${source_key}." "Review generated env provenance if operator-managed rotation is required."
+    check_suffix="$(obs_check_id_suffix "${target_key}")"
+    bt_emit_check "obs.bootstrap.${check_suffix}.generated" "obs" "${BT_STATUS_PASS}" "${target_key} was auto-derived from ${source_key}." "Review generated env provenance if operator-managed rotation is required."
     obs_statuses+=("${BT_STATUS_PASS}")
     return 0
 }
@@ -285,6 +293,26 @@ ensure_obs_runtime_secrets() {
     obs_render_prometheus_web_config || failed=1
 
     return "${failed}"
+}
+
+prepare_action() {
+    if [[ "${BT_DRY_RUN}" == "1" ]]; then
+        bt_emit_check "obs.bootstrap.prepare.dry_run" "obs" "${BT_STATUS_SKIPPED}" "Dry-run does not materialize obs runtime artifacts." "Run without --dry-run to prepare obs runtime artifacts."
+        obs_statuses+=("${BT_STATUS_SKIPPED}")
+        emit_obs_summary "Obs runtime artifact prepare dry-run completed."
+        return 0
+    fi
+
+    if ! ensure_obs_runtime_secrets; then
+        bt_warn "Obs runtime secret preparation did not complete cleanly."
+    fi
+
+    run_obs_check "obs.bootstrap.required_env" "Obs runtime artifacts and required credentials are present after prepare." "Provide explicit values for secrets that cannot be safely derived." verify_obs_required_env || {
+        emit_obs_summary "Obs runtime artifact preparation failed."
+        exit 1
+    }
+
+    emit_obs_summary "Obs runtime artifacts prepared."
 }
 
 apply_action() {
@@ -332,6 +360,7 @@ rollback_action() {
 }
 
 case "${ACTION}" in
+    prepare) prepare_action ;;
     apply) apply_action ;;
     verify) verify_action ;;
     rollback) rollback_action ;;

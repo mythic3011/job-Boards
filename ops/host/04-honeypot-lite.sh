@@ -8,6 +8,7 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 
 ACTION="${1:-manage-source}"
 HONEYPOT_BACKUP_FILE="${BT_BACKUP_DIR}/honeypot/blue-team-honeypot.conf.bak"
+HONEYPOT_TEMPLATE_FILE="${SCRIPT_DIR}/../../docker/nginx/includes/blue-team-honeypot.conf"
 
 usage() {
     cat <<EOF
@@ -16,37 +17,8 @@ EOF
 }
 
 honeypot_content() {
-    cat <<EOF
-location = /.env {
-    set \$blue_team_trap_name env_probe;
-    access_log /var/log/nginx/fp-trap.log blue_team_honeypot;
-    return 403;
-}
-
-location = /.git/config {
-    set \$blue_team_trap_name git_probe;
-    access_log /var/log/nginx/fp-trap.log blue_team_honeypot;
-    return 403;
-}
-
-location = /phpmyadmin {
-    set \$blue_team_trap_name phpmyadmin_probe;
-    access_log /var/log/nginx/fp-trap.log blue_team_honeypot;
-    return 403;
-}
-
-location = /wp-login.php {
-    set \$blue_team_trap_name wp_probe;
-    access_log /var/log/nginx/fp-trap.log blue_team_honeypot;
-    return 403;
-}
-
-location = /admin-old {
-    set \$blue_team_trap_name admin_old_probe;
-    access_log /var/log/nginx/fp-trap.log blue_team_honeypot;
-    return 403;
-}
-EOF
+    [[ -f "${HONEYPOT_TEMPLATE_FILE}" ]] || bt_die "Honeypot template is missing: ${HONEYPOT_TEMPLATE_FILE}"
+    cat "${HONEYPOT_TEMPLATE_FILE}"
 }
 
 manage_source() {
