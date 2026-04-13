@@ -46,6 +46,15 @@ Operator guidance:
 - clear or rotate them when credentials rotate, the VM is being reset, or a fresh bootstrap provenance chain is required
 - do not treat generated artifacts as a substitute for long-term secret management
 
+Clean-room proof export policy:
+
+- these files are VM-local runtime artifacts, not automatic host proof-bundle exports
+- a clean-room proof bundle must not copy raw `obs.generated.env`
+- a clean-room proof bundle must not copy raw `obs.generated-secrets.jsonl`
+- proof export may include only allowlisted or redacted metadata projections of secret-bearing obs artifacts
+- the current proof workflow exports that metadata-safe projection as `guest-output/obs-runtime-metadata.json`
+- if a proof run needs final host evidence, the host orchestrator is responsible for projecting and collecting that evidence safely
+
 Local repository note:
 
 - blue-team VM host runs default to `/var/lib/blue-team-vm`
@@ -68,6 +77,23 @@ ops/smoke/run-all.sh
 
 - `smoke` proves the behavioral contracts.
 - `verify` proves the structured cross-plane status contract.
+
+## Clean-Room Proof Grading
+
+- the reusable clean-room proof workflow is defined in [docs/plans/2026-04-13-clean-vm-proof-plan.md](/Users/mythic3014/PhpstormProjects/jobs-borads/docs/plans/2026-04-13-clean-vm-proof-plan.md)
+- an operational clean-room run may use per-run TOFU SSH trust
+- a proof-grade clean-room run must use pinned SSH host identity
+- the host orchestrator owns the final clean-room `result.json`
+- guest proof scripts may emit logs and fragments, but they do not own final overall proof authority
+
+Observable grading contract:
+
+- `result.json` is the operator-visible grading artifact for the clean-room proof workflow
+- `guest-output/obs-runtime-metadata.json` is the operator-visible projection for obs runtime artifact evidence
+- `ssh_identity_mode=tofu` maps to `assurance_level=operational`
+- `ssh_identity_mode=pinned` maps to `assurance_level=proof-grade`
+- a proof-grade pass requires pinned host identity and a passing `proof_status`
+- operators should read `proof_status`, `artifact_status`, `restore_status`, and `overall_status` separately rather than collapsing everything into one pass/fail label
 
 ## Config Contract Rules
 

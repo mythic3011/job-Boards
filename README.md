@@ -95,6 +95,32 @@ BT_STATE_DIR="$(pwd)/.blue-team-vm" \
 
 On non-Linux local runtimes, `bootstrap-app.sh verify` will mark `app.host.local_ports` as `SKIPPED`. That is expected. Only the top-level `./setup-blue-team-vm.sh verify` flow is meant to prove host-kernel and host-port constraints inside the actual Linux blue-team VM.
 
+## Clean VM Proof Planning
+
+The clean-room proof workflow is specified in [docs/plans/2026-04-13-clean-vm-proof-plan.md](/Users/mythic3014/PhpstormProjects/jobs-borads/docs/plans/2026-04-13-clean-vm-proof-plan.md). That plan is intentionally stricter than local bring-up:
+
+- proof source is a commit-only archive, not the current mutable workspace
+- host and guest responsibilities are split; the host owns snapshot control and final `result.json`
+- proof bundles must export only metadata-safe projections of generated obs artifacts
+- an operational run may use TOFU SSH trust, but a proof-grade pass requires pinned SSH host identity
+
+The host-authored clean-room `result.json` is the grading surface. At minimum it records:
+
+- `ssh_identity_mode`
+- `ssh_host_key_algorithm`
+- `assurance_level`
+- `proof_status`
+- `artifact_status`
+- `restore_status`
+- `overall_status`
+
+The host proof bundle now collects metadata-safe guest evidence under `guest-output/`, including:
+
+- `guest-output/guest-fragment.json`
+- `guest-output/obs-runtime-metadata.json`
+
+Raw VM-local obs runtime files such as `obs.generated.env` and `obs.generated-secrets.jsonl` remain inside the guest and must not be copied into the host bundle.
+
 ## Deployment Notes
 
 - Security-contract fixes for the blue-team VM must land in `compose.app.yml` or `compose.obs.yml` first.
