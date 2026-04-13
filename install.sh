@@ -41,7 +41,10 @@ LAST_ASSIGNED_PORT=3000
 # ── Helpers ───────────────────────────────────────────────────────────────────
 # -T: non-TTY safe for CI/CD environments
 app() { docker exec -T "$CONTAINER" "$@"; }
-compose_local() { docker compose -f "$INSTALL_COMPOSE_FILE" "$@"; }
+compose_local() {
+    preload_compose_env
+    docker compose -f "$INSTALL_COMPOSE_FILE" "$@"
+}
 err() { echo "$*" >&2; }
 
 normalized_choice() {
@@ -73,6 +76,83 @@ export_env_file() {
         value="${line#*=}"
         key="${key#"${key%%[![:space:]]*}"}"
         key="${key%"${key##*[![:space:]]}"}"
+        export "${key}=${value}"
+    done < "${env_file}"
+}
+
+preload_compose_env() {
+    local generated_env="${INSTALL_BT_STATE_DIR}/runtime/obs.generated.env"
+    local preserved_env_keys
+
+    preserved_env_keys="$(env | cut -d= -f1)"
+
+    if [[ -r "${ROOT_DIR}/.env" ]]; then
+        export_env_file_if_unset "${ROOT_DIR}/.env"
+    fi
+
+    export BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE:-${ROOT_DIR}/docker/nginx/includes/blue-team-honeypot.conf}"
+
+    if [[ -r "${generated_env}" ]]; then
+        export_env_file_unless_preserved "${generated_env}" "${preserved_env_keys}"
+    fi
+}
+
+export_env_file_if_unset() {
+    local env_file="$1"
+    local line
+    local key
+    local value
+
+    [[ -r "${env_file}" ]] || return 0
+
+    while IFS= read -r line; do
+        [[ -n "${line}" ]] || continue
+        [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+        line="${line#export }"
+        [[ "${line}" == *=* ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="${key#"${key%%[![:space:]]*}"}"
+        key="${key%"${key##*[![:space:]]}"}"
+
+        if [[ -n "${!key+x}" ]]; then
+            continue
+        fi
+
+        export "${key}=${value}"
+    done < "${env_file}"
+}
+
+env_snapshot_has_key() {
+    local snapshot="$1"
+    local key="$2"
+
+    grep -Fqx -- "${key}" <<< "${snapshot}"
+}
+
+export_env_file_unless_preserved() {
+    local env_file="$1"
+    local preserved_env_keys="$2"
+    local line
+    local key
+    local value
+
+    [[ -r "${env_file}" ]] || return 0
+
+    while IFS= read -r line; do
+        [[ -n "${line}" ]] || continue
+        [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+        line="${line#export }"
+        [[ "${line}" == *=* ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="${key#"${key%%[![:space:]]*}"}"
+        key="${key%"${key##*[![:space:]]}"}"
+
+        if env_snapshot_has_key "${preserved_env_keys}" "${key}"; then
+            continue
+        fi
+
         export "${key}=${value}"
     done < "${env_file}"
 }
@@ -588,7 +668,7 @@ case "$SETUP_MODE" in
 
         echo ""
         echo "Testing environment ready."
-        echo "Run tests with: docker exec jobs-boards-laravel.test php artisan test"
+        echo "Run full PostgreSQL tests with: docker exec jobs-boards-laravel.test composer test"
         ;;
 
 esac

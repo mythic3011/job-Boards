@@ -168,6 +168,178 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString(': "${BT_HONEYPOT_SOURCE:=/opt/blue-team/nginx/includes/blue-team-honeypot.conf}"', $contents);
     }
 
+    public function test_common_bt_compose_exports_obs_generated_env_before_running_docker_compose(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $dockerEnvLog = $tempRoot.'/docker-env.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/lib', 0777, true);
+        mkdir($tempRoot.'/state/runtime', 0777, true);
+
+        $this->writeExecutable(
+            $tempRoot.'/ops/lib/common.sh',
+            (string) file_get_contents($this->repoRoot.'/ops/lib/common.sh'),
+        );
+
+        file_put_contents(
+            $tempRoot.'/state/runtime/obs.generated.env',
+            "PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml\n".
+            "GRAFANA_PASSWORD_FILE={$tempRoot}/state/runtime/grafana-admin-password\n"
+        );
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "\${1:-}" == "compose" ]]; then
+  printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_PASSWORD_FILE=%s\n' "\${GRAFANA_PASSWORD_FILE:-}" >> "{$dockerEnvLog}"
+  exit 7
+fi
+exit 0
+BASH);
+
+        $process = new Process(
+            ['bash', '-c', 'source ./ops/lib/common.sh && bt_compose ./compose.obs.yml ps'],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_STATE_DIR' => $tempRoot.'/state',
+                'BT_RUNTIME_DIR' => $tempRoot.'/state/runtime',
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $dockerEnvOutput = (string) @file_get_contents($dockerEnvLog);
+
+        $this->assertSame(7, $process->getExitCode());
+        $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_PASSWORD_FILE={$tempRoot}/state/runtime/grafana-admin-password", $dockerEnvOutput);
+    }
+
+    public function test_common_bt_compose_does_not_override_explicit_runtime_env_exports(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $dockerEnvLog = $tempRoot.'/docker-env.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+        $explicitPrometheusPath = $tempRoot.'/explicit/prometheus.web-config.yml';
+        $explicitGrafanaPath = $tempRoot.'/explicit/grafana-admin-password';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/lib', 0777, true);
+        mkdir($tempRoot.'/state/runtime', 0777, true);
+
+        $this->writeExecutable(
+            $tempRoot.'/ops/lib/common.sh',
+            (string) file_get_contents($this->repoRoot.'/ops/lib/common.sh'),
+        );
+
+        file_put_contents(
+            $tempRoot.'/state/runtime/obs.generated.env',
+            "PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml\n".
+            "GRAFANA_PASSWORD_FILE={$tempRoot}/state/runtime/grafana-admin-password\n"
+        );
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "\${1:-}" == "compose" ]]; then
+  printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_PASSWORD_FILE=%s\n' "\${GRAFANA_PASSWORD_FILE:-}" >> "{$dockerEnvLog}"
+  exit 7
+fi
+exit 0
+BASH);
+
+        $process = new Process(
+            ['bash', '-c', 'source ./ops/lib/common.sh && bt_compose ./compose.obs.yml ps'],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_STATE_DIR' => $tempRoot.'/state',
+                'BT_RUNTIME_DIR' => $tempRoot.'/state/runtime',
+                'PROMETHEUS_WEB_CONFIG_FILE' => $explicitPrometheusPath,
+                'GRAFANA_PASSWORD_FILE' => $explicitGrafanaPath,
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $dockerEnvOutput = (string) @file_get_contents($dockerEnvLog);
+
+        $this->assertSame(7, $process->getExitCode());
+        $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$explicitPrometheusPath}", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_PASSWORD_FILE={$explicitGrafanaPath}", $dockerEnvOutput);
+    }
+
+    public function test_common_bt_compose_prefers_generated_obs_runtime_values_over_repo_env_defaults(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $dockerEnvLog = $tempRoot.'/docker-env.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+        $repoEnvPrometheusPath = $tempRoot.'/repo-env/prometheus.web-config.yml';
+        $repoEnvGrafanaPath = $tempRoot.'/repo-env/grafana-admin-password';
+        $generatedPrometheusPath = $tempRoot.'/state/rendered/prometheus.web-config.yml';
+        $generatedGrafanaPath = $tempRoot.'/state/runtime/grafana-admin-password';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/lib', 0777, true);
+        mkdir($tempRoot.'/state/runtime', 0777, true);
+
+        $this->writeExecutable(
+            $tempRoot.'/ops/lib/common.sh',
+            (string) file_get_contents($this->repoRoot.'/ops/lib/common.sh'),
+        );
+
+        file_put_contents(
+            $tempRoot.'/.env',
+            "PROMETHEUS_WEB_CONFIG_FILE={$repoEnvPrometheusPath}\n".
+            "GRAFANA_PASSWORD_FILE={$repoEnvGrafanaPath}\n"
+        );
+
+        file_put_contents(
+            $tempRoot.'/state/runtime/obs.generated.env',
+            "PROMETHEUS_WEB_CONFIG_FILE={$generatedPrometheusPath}\n".
+            "GRAFANA_PASSWORD_FILE={$generatedGrafanaPath}\n"
+        );
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "\${1:-}" == "compose" ]]; then
+  printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_PASSWORD_FILE=%s\n' "\${GRAFANA_PASSWORD_FILE:-}" >> "{$dockerEnvLog}"
+  exit 7
+fi
+exit 0
+BASH);
+
+        $process = new Process(
+            ['bash', '-c', 'source ./ops/lib/common.sh && bt_compose ./compose.obs.yml ps'],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_STATE_DIR' => $tempRoot.'/state',
+                'BT_RUNTIME_DIR' => $tempRoot.'/state/runtime',
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $dockerEnvOutput = (string) @file_get_contents($dockerEnvLog);
+
+        $this->assertSame(7, $process->getExitCode());
+        $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$generatedPrometheusPath}", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_PASSWORD_FILE={$generatedGrafanaPath}", $dockerEnvOutput);
+        $this->assertStringNotContainsString("PROMETHEUS_WEB_CONFIG_FILE={$repoEnvPrometheusPath}", $dockerEnvOutput);
+        $this->assertStringNotContainsString("GRAFANA_PASSWORD_FILE={$repoEnvGrafanaPath}", $dockerEnvOutput);
+    }
+
     public function test_app_verify_extracts_crowdsec_mode_without_gnu_awk_case_insensitive_extensions(): void
     {
         $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-app.sh');

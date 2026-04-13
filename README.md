@@ -56,12 +56,14 @@ This project has two intentional test entrypoints:
 
 `composer test:sqlite` is not evidence that the full default or PostgreSQL path passed. Read [docs/runbooks/test-verification-paths.md](docs/runbooks/test-verification-paths.md) before treating sqlite-safe output as full verification.
 
+For a running local stack, prefer `docker exec jobs-boards-laravel.test composer test` over bare `docker compose exec ...`; it avoids re-interpolating the combined compose file when obs runtime artifacts are already mounted. When project shell wrappers do invoke Compose, explicit shell exports win, generated obs runtime artifacts override source-layer `.env`, and source-layer `.env` only fills missing values.
+
 ## Verification
 
 SQLite-safe anti-bot shadow review:
 
 ```bash
-docker compose exec -T laravel.test php artisan anti-bot:shadow-review --hours=24 --json
+docker exec jobs-boards-laravel.test php artisan anti-bot:shadow-review --hours=24 --json
 ```
 
 Runbooks:
