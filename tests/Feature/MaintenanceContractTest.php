@@ -43,14 +43,14 @@ class MaintenanceContractTest extends TestCase
     public function test_guest_cannot_register_during_maintenance(): void
     {
         $this->withBrowser()
-            ->post(route('register.store'), [
+            ->post(route('register.store'), $this->honeypotFormPayload([
                 'name' => 'Test User',
                 'email' => 'test@example.com',
                 'login_id' => 'testuser',
                 'password' => 'StrongPass123!',
                 'password_confirmation' => 'StrongPass123!',
                 'user_type' => 'individual',
-            ])
+            ]))
             ->assertStatus(503);
     }
 
@@ -64,7 +64,9 @@ class MaintenanceContractTest extends TestCase
     public function test_guest_cannot_request_password_reset_during_maintenance(): void
     {
         $this->withBrowser()
-            ->post(route('password.email'), ['email' => 'test@example.com'])
+            ->post(route('password.email'), $this->honeypotFormPayload([
+                'email' => 'test@example.com',
+            ]))
             ->assertStatus(503);
     }
 
@@ -103,10 +105,10 @@ class MaintenanceContractTest extends TestCase
         ]);
 
         $this->withBrowser()
-            ->post(route('login.store'), [
+            ->post(route('login.store'), $this->honeypotFormPayload([
                 'login_id' => $user->login_id,
                 'password' => 'StrongPass123!',
-            ])
+            ]))
             ->assertStatus(503);
 
         $this->assertGuest();
@@ -122,10 +124,10 @@ class MaintenanceContractTest extends TestCase
         $this->attachAdminRole($admin);
 
         $this->withBrowser()
-            ->post(route('login.store'), [
+            ->post(route('login.store'), $this->honeypotFormPayload([
                 'login_id' => $admin->login_id,
                 'password' => 'StrongPass123!',
-            ])
+            ]))
             ->assertRedirect(route('admin.dashboard'));
 
         $this->assertAuthenticatedAs($admin);

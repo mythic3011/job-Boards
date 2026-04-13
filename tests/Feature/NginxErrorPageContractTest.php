@@ -17,6 +17,8 @@ class NginxErrorPageContractTest extends TestCase
         $this->assertStringContainsString('error_page 500 502 503 504 520 521 522 523 524 /50x.html;', $contents);
         $this->assertStringContainsString('location = /_error/styles.css {', $contents);
         $this->assertStringContainsString('alias /usr/share/nginx/html/styles.css;', $contents);
+        $this->assertStringContainsString('location = /_error/banned-page.js {', $contents);
+        $this->assertStringContainsString('alias /usr/share/nginx/html/banned-page.js;', $contents);
     }
 
     public function test_static_nginx_error_pages_share_the_themed_stylesheet_contract(): void
