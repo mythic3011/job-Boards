@@ -3,7 +3,6 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -12,22 +11,6 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $trustedProxyHeaders = match (config('app.trusted_proxy_headers', 'x_forwarded')) {
-            'forwarded' => SymfonyRequest::HEADER_FORWARDED,
-            'aws_elb' => SymfonyRequest::HEADER_X_FORWARDED_AWS_ELB,
-            'traefik' => SymfonyRequest::HEADER_X_FORWARDED_TRAEFIK,
-            default => SymfonyRequest::HEADER_X_FORWARDED_FOR
-                | SymfonyRequest::HEADER_X_FORWARDED_HOST
-                | SymfonyRequest::HEADER_X_FORWARDED_PORT
-                | SymfonyRequest::HEADER_X_FORWARDED_PROTO,
-        };
-
-        // Trust only configured reverse proxies for forwarded headers.
-        $middleware->trustProxies(
-            at: config('app.trusted_proxies', []),
-            headers: $trustedProxyHeaders,
-        );
-
         // Global middleware (runs on all requests)
         $middleware->web(prepend: [
             \App\Http\Middleware\RequestId::class,
