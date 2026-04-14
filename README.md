@@ -99,6 +99,8 @@ On non-Linux local runtimes, `bootstrap-app.sh verify` will mark `app.host.local
 
 The clean-room proof workflow is specified in [docs/plans/2026-04-13-clean-vm-proof-plan.md](/Users/mythic3014/PhpstormProjects/jobs-borads/docs/plans/2026-04-13-clean-vm-proof-plan.md). That plan is intentionally stricter than local bring-up:
 
+- the only public operator entrypoint is `ops/proof/pd-cleanvm-proof.sh`
+- `guest-install-deps.sh` and `guest-blue-team-proof.sh` are staged internal helpers from the resolved commit only
 - proof source is a commit-only archive, not the current mutable workspace
 - host and guest responsibilities are split; the host owns snapshot control and final `result.json`
 - proof bundles must export only metadata-safe projections of generated obs artifacts
