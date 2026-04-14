@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+#
+# Internal staged helper for pd-cleanvm-proof.sh and guest-blue-team-proof.sh.
+# This script is not a public operator entrypoint.
 
 set -euo pipefail
 

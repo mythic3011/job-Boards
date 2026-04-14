@@ -314,6 +314,8 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->assertStringContainsString('BatchMode=yes', $sshOutput);
         $this->assertStringContainsString('StrictHostKeyChecking=accept-new', $sshOutput);
         $this->assertStringContainsString('UserKnownHostsFile='.$outputDir.'/slice-d-tofu/ssh-known_hosts', $sshOutput);
+        $this->assertStringContainsString($remoteRoot.'/input/guest-blue-team-proof.sh', $sshOutput);
+        $this->assertStringNotContainsString('&& '.$remoteRoot.'/input/guest-install-deps.sh', $sshOutput);
         $this->assertStringContainsString('ubuntu@192.0.2.10:'.$remoteRoot.'/input/repo.tgz', $scpOutput);
         $this->assertStringContainsString('snapshot-switch Ubuntu Server 22.04.5 LTS-test-cleanvm --id {snapshot-1} --skip-resume', $prlctlOutput);
         $this->assertStringContainsString('start Ubuntu Server 22.04.5 LTS-test-cleanvm', $prlctlOutput);

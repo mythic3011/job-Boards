@@ -1,4 +1,8 @@
 #!/usr/bin/env bash
+#
+# Public operator entrypoint for the clean-vm blue-team proof workflow.
+# Guest helper scripts are staged from the resolved commit and remain internal
+# implementation details of this orchestrated run.
 
 set -euo pipefail
 
@@ -55,6 +59,10 @@ FINAL_EXIT_CODE=0
 usage() {
     cat <<'EOF'
 Usage: pd-cleanvm-proof.sh [options]
+
+Public operator entrypoint for the clean-vm blue-team proof workflow.
+Guest helper scripts are staged internal helpers and must not be run directly
+by operators as standalone proof commands.
 
 Required options:
   --vm-name <name>

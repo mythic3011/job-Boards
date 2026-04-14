@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+#
+# Internal staged helper executed by pd-cleanvm-proof.sh inside the guest.
+# Operators should invoke the host orchestrator only.
 
 set -euo pipefail
 
