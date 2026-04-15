@@ -61,6 +61,7 @@ Local repository note:
 - local repo workflows may override `BT_STATE_DIR` to `${REPO_ROOT}/.blue-team-vm`
 - when local developers start `compose.obs.yml` manually, they must export both source-layer `.env` values and `${BT_STATE_DIR}/runtime/obs.generated.env`
 - a missing `PROMETHEUS_WEB_CONFIG_FILE` or `GRAFANA_ADMIN_SECRET_FILE` during local `docker compose` interpolation is a runtime artifact preparation failure, not by itself proof that the obs deployment contract is wrong
+
 ## Startup Gating Versus Functional Proof
 
 - `depends_on` and Compose healthchecks are startup gates only.
@@ -111,8 +112,18 @@ Observable grading contract:
   - `./setup-blue-team-vm.sh app` uses `compose.app.yml`
   - `./setup-blue-team-vm.sh obs` uses `compose.obs.yml`
   - `./setup-blue-team-vm.sh verify` evaluates app and obs state through those split files
-  - app smokes default to `compose.app.yml`
-  - obs isolation smoke defaults to `compose.obs.yml`
+- app smokes default to `compose.app.yml`
+- obs isolation smoke defaults to `compose.obs.yml`
+- Manual local compose commands must mirror that split truth:
+  - export `.env` and a repo-local `BT_HONEYPOT_SOURCE` before `docker compose -f compose.app.yml ...`
+  - export `.env` and `${BT_STATE_DIR}/runtime/obs.generated.env` before `docker compose -f compose.obs.yml ...`
+- `install.sh full dev` is a local convenience path only:
+  - it uses `docker compose -f compose.yaml ...` for the combined local stack
+  - it must not be treated as blue-team VM runtime contract evidence
+  - it intentionally avoids `down --remove-orphans` so it does not tear down split-plane services that may already be running in the same workspace
+- Non-Linux local runtimes may use the child plane verifiers for app/obs readiness evidence, but host-kernel and host-port proofs remain Linux-VM-only:
+  - `./ops/bootstrap/bootstrap-app.sh verify` may emit `app.host.local_ports = SKIPPED`
+  - `./setup-blue-team-vm.sh verify` still requires the actual Linux VM runtime and may fail preflight outside it
 - Source-layer operator inputs and final runtime values are distinct:
   - plaintext sources: `MONITORING_PASSWORD`, `GRAFANA_PASSWORD`, `PROMETHEUS_PASSWORD`
   - final runtime values: `MONITORING_PASSWORD_HASH`, `GRAFANA_ADMIN_SECRET_FILE`, `PROMETHEUS_PASSWORD_HASH`, `SESSION_SECRET`

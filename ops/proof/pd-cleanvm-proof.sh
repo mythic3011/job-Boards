@@ -619,7 +619,7 @@ run_remote_proof() {
 
 collect_artifacts() {
     mkdir -p "${GUEST_OUTPUT_DIR}"
-    if ! run_scp_recursive "$(ssh_target):${REMOTE_OUTPUT_DIR}" "${GUEST_OUTPUT_DIR}"; then
+    if ! run_scp_recursive "$(ssh_target):${REMOTE_OUTPUT_DIR}/." "${GUEST_OUTPUT_DIR}"; then
         fail "artifact" "artifact_collection_failed" "Unable to collect guest proof output."
     fi
 

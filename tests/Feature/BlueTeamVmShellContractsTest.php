@@ -24,8 +24,8 @@ class BlueTeamVmShellContractsTest extends TestCase
         $tempDir = $this->makeTempDir();
         $dockerLog = $tempDir.'/docker.log';
         $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
-        $grafanaSecretFile = $tempDir.'/grafana-admin-secret';
-        file_put_contents($grafanaSecretFile, "grafana-secret\n");
+        $grafanaPasswordFile = $tempDir.'/grafana-admin-secret';
+        file_put_contents($grafanaPasswordFile, "grafana-secret\n");
         file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
 
         $process = $this->runScript(
@@ -38,11 +38,11 @@ class BlueTeamVmShellContractsTest extends TestCase
                 'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
                 'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
-                'BT_GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
+                'BT_GRAFANA_ADMIN_SECRET_FILE' => $grafanaPasswordFile,
                 'MONITORING_ADMIN_USERNAME' => 'admin',
                 'MONITORING_PASSWORD_HASH' => 'not-a-valid-bcrypt',
                 'SESSION_SECRET' => str_repeat('a', 64),
-                'GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
+                'GRAFANA_ADMIN_SECRET_FILE' => $grafanaPasswordFile,
                 'PROMETHEUS_PASSWORD_HASH' => password_hash('prometheus-secret', PASSWORD_BCRYPT),
             ],
         );
@@ -82,15 +82,15 @@ class BlueTeamVmShellContractsTest extends TestCase
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
         $generatedEnv = @file_get_contents($tempDir.'/state/runtime/obs.generated.env') ?: '';
         $renderedConfig = $tempDir.'/state/rendered/prometheus.web-config.yml';
-        $grafanaSecretFile = $tempDir.'/state/runtime/grafana-admin-secret';
+        $grafanaPasswordFile = $tempDir.'/state/runtime/grafana-admin-secret';
 
         $this->assertSame(0, $process->getExitCode());
         $this->assertStringContainsString('"check_id":"obs.bootstrap.required_env"', $combinedOutput);
         $this->assertStringContainsString('"status":"PASS"', $combinedOutput);
         $this->assertStringContainsString('PROMETHEUS_WEB_CONFIG_FILE='.$renderedConfig, $generatedEnv);
-        $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.$grafanaSecretFile, $generatedEnv);
+        $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.$grafanaPasswordFile, $generatedEnv);
         $this->assertFileExists($renderedConfig);
-        $this->assertFileExists($grafanaSecretFile);
+        $this->assertFileExists($grafanaPasswordFile);
         $this->assertStringNotContainsString('compose -f', @file_get_contents($dockerLog) ?: '');
     }
 
@@ -99,8 +99,8 @@ class BlueTeamVmShellContractsTest extends TestCase
         $tempDir = $this->makeTempDir();
         $dockerLog = $tempDir.'/docker.log';
         $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
-        $grafanaSecretFile = $tempDir.'/grafana-admin-secret';
-        file_put_contents($grafanaSecretFile, "grafana-secret\n");
+        $grafanaPasswordFile = $tempDir.'/grafana-admin-secret';
+        file_put_contents($grafanaPasswordFile, "grafana-secret\n");
         file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
         file_put_contents($tempDir.'/rendered-blocker', 'not-a-directory');
 
@@ -114,11 +114,11 @@ class BlueTeamVmShellContractsTest extends TestCase
                 'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
                 'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/rendered-blocker',
-                'BT_GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
+                'BT_GRAFANA_ADMIN_SECRET_FILE' => $grafanaPasswordFile,
                 'MONITORING_ADMIN_USERNAME' => 'admin',
                 'MONITORING_PASSWORD_HASH' => password_hash('monitoring-secret', PASSWORD_BCRYPT),
                 'SESSION_SECRET' => str_repeat('b', 64),
-                'GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
+                'GRAFANA_ADMIN_SECRET_FILE' => $grafanaPasswordFile,
                 'PROMETHEUS_PASSWORD_HASH' => password_hash('prometheus-secret', PASSWORD_BCRYPT),
             ],
         );
@@ -410,6 +410,7 @@ BASH);
         $this->assertSame('FAIL', $planeSummary['status'] ?? null);
         $this->assertArrayHasKey('message', $planeSummary);
         $this->assertArrayHasKey('remediation_hint', $planeSummary);
+        $this->assertStringContainsString('exited before emitting a structured plane summary', $planeSummary['message'] ?? '');
         $this->assertSame('overall_summary', $overallSummary['record_type'] ?? null);
         $this->assertSame('overall', $overallSummary['plane'] ?? null);
         $this->assertSame('FAIL', $overallSummary['status'] ?? null);
