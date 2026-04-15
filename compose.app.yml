@@ -13,13 +13,14 @@ services:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/nginx/crowdsec-bouncer.conf.template:/etc/nginx/crowdsec-bouncer.conf.template:ro
       - ./docker/nginx/errors:/usr/share/nginx/html:ro
-      - /opt/blue-team/nginx/includes/blue-team-honeypot.conf:/etc/nginx/includes/blue-team-honeypot.conf:ro
+      - ${BT_HONEYPOT_SOURCE:?Set BT_HONEYPOT_SOURCE before app apply}:/etc/nginx/includes/blue-team-honeypot.conf:ro
       - nginx-ssl:/etc/nginx/ssl
       - nginx-htpasswd:/etc/nginx/htpasswd
       - nginx-logs:/var/log/nginx
       - crowdsec-keys:/crowdsec-keys:ro
     networks:
-      - app-plane
+      app-plane:
+        ipv4_address: 172.29.0.20
     depends_on:
       laravel.test:
         condition: service_started
@@ -102,6 +103,8 @@ services:
       DB_HOST: postgres
       DB_SSLMODE: ${DB_SSLMODE:-prefer}
       REDIS_HOST: redis
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.29.0.20}
+      TRUSTED_PROXY_HEADERS: ${TRUSTED_PROXY_HEADERS:-x_forwarded}
     volumes:
       - ".:/var/www/html"
     networks:
@@ -189,6 +192,9 @@ services:
 networks:
   app-plane:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24
 
 volumes:
   sail-postgres:

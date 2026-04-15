@@ -52,17 +52,21 @@ verify_local_exposure() {
     local allowed=("22" "80" "443")
     local port
     local listeners=()
+    local listener
 
     if command -v ss >/dev/null 2>&1; then
-        mapfile -t listeners < <(ss -tlnH | awk '{print $4}')
+        while IFS= read -r listener; do
+            [[ -n "${listener}" ]] && listeners+=("${listener}")
+        done < <(ss -tlnH | awk '{print $4}')
     elif command -v netstat >/dev/null 2>&1; then
-        mapfile -t listeners < <(netstat -tln | awk 'NR>2 {print $4}')
+        while IFS= read -r listener; do
+            [[ -n "${listener}" ]] && listeners+=("${listener}")
+        done < <(netstat -tln | awk 'NR>2 {print $4}')
     else
         return 1
     fi
 
     local ports=()
-    local listener
     for listener in "${listeners[@]}"; do
         if [[ "${listener}" =~ ^127\. ]] || [[ "${listener}" =~ ^\[::1\]: ]] || [[ "${listener}" =~ ^localhost: ]]; then
             continue
@@ -74,6 +78,10 @@ verify_local_exposure() {
         [[ " ${allowed[*]} " == *" ${port} "* ]] || return 1
     done
     return 0
+}
+
+host_port_exposure_evidence_available() {
+    [[ "$(uname -s)" == "Linux" ]]
 }
 
 verify_frontdoor_ports_available_for_app() {
@@ -106,7 +114,10 @@ verify_app_health_frontdoor() {
 
 crowdsec_frontdoor_mode() {
     curl -kfsSI --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" https://127.0.0.1/up \
-        | awk 'BEGIN{IGNORECASE=1} /^X-CrowdSec-Mode:/ {gsub("\r","",$2); print tolower($2); exit}'
+        | grep -i '^x-crowdsec-mode:' \
+        | head -n 1 \
+        | sed -E 's/^[^:]+:[[:space:]]*//; s/\r$//' \
+        | tr '[:upper:]' '[:lower:]'
 }
 
 verify_honeypot_integration() {
@@ -151,7 +162,12 @@ verify_action() {
     run_app_check "app.redis.healthy" "${BT_STATUS_PASS}" "Redis is healthy." "Inspect compose app redis service health." bt_compose_service_healthy "${BT_COMPOSE_APP_FILE}" redis || true
     run_app_check "app.frontdoor.https_response" "${BT_STATUS_PASS}" "HTTPS front door returns a successful application response." "Inspect nginx TLS/front-door configuration and upstream routing." verify_https_frontdoor || true
     run_app_check "app.frontdoor.health_response" "${BT_STATUS_PASS}" "App health is reachable through the front door." "Inspect front-door health endpoint routing." verify_app_health_frontdoor || true
-    run_app_check "app.host.local_ports" "${BT_STATUS_PASS}" "Local host exposure is limited to 22/80/443." "Inspect local listeners and published ports." verify_local_exposure || true
+    if host_port_exposure_evidence_available; then
+        run_app_check "app.host.local_ports" "${BT_STATUS_PASS}" "Local host exposure is limited to 22/80/443." "Inspect local listeners and published ports." verify_local_exposure || true
+    else
+        bt_emit_check "app.host.local_ports" "app" "${BT_STATUS_SKIPPED}" "Linux VM host exposure evidence is unavailable in this runtime." "Run app verification inside the target Linux VM to prove host port exposure constraints."
+        app_statuses+=("${BT_STATUS_SKIPPED}")
+    fi
     run_app_check "app.honeypot.integration" "${BT_STATUS_PASS}" "Serving-path honeypot integration is active." "Inspect nginx include mounts and decoy routing." verify_honeypot_integration || true
 
     local crowdsec_mode
