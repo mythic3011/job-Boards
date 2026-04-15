@@ -600,6 +600,108 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->assertSame('host_key_fingerprint_mismatch', $mismatchResult['primary_failure_code'] ?? null);
     }
 
+    public function test_host_proof_pinned_identity_failures_are_recorded_as_preflight_and_block_remote_staging(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $sandbox = $this->makeTempDir();
+        $fakeBin = $sandbox.'/fake-bin';
+        $remoteRoot = $sandbox.'/remote-proof';
+        $outputDir = $sandbox.'/artifacts';
+        $prlctlLog = $sandbox.'/prlctl.log';
+        $sshLog = $sandbox.'/ssh.log';
+        $scpLog = $sandbox.'/scp.log';
+
+        $this->installHostProofScript($tempRoot);
+        $this->initializeRuntimeProofRepo($tempRoot, 'success');
+        mkdir($fakeBin, 0777, true);
+        mkdir($remoteRoot, 0777, true);
+
+        $this->writeFakeRuntimePrlctl($fakeBin.'/prlctl', $prlctlLog, json_encode([
+            ['name' => 'base-os-ssh', 'id' => '{snapshot-1}'],
+        ], JSON_THROW_ON_ERROR));
+        $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sshLog);
+        $this->writeFakeRuntimeScp($fakeBin.'/scp', $scpLog);
+        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
+        $this->writeFakeKeyscan($fakeBin.'/ssh-keyscan', $sandbox.'/keyscan.log', '', 0);
+        $this->writeFakeKeygen($fakeBin.'/ssh-keygen', 'SHA256:pinnedfingerprint');
+
+        $fetchFailure = $this->runHostProof(
+            $tempRoot,
+            $fakeBin,
+            [
+                '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
+                '--snapshot-name', 'base-os-ssh',
+                '--ssh-host', '192.0.2.10',
+                '--ssh-user', 'ubuntu',
+                '--remote-proof-root', $remoteRoot,
+                '--output-dir', $outputDir,
+                '--run-id', 'slice-d-pinned-prestart-fetch',
+                '--expected-host-key-algorithm', 'ed25519',
+                '--expected-host-fingerprint', 'SHA256:pinnedfingerprint',
+            ],
+            [
+                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_SSH_WAIT_ATTEMPTS' => '1',
+                'BT_SSH_WAIT_DELAY_SECONDS' => '0',
+                'BT_HOST_KEY_FETCH_ATTEMPTS' => '1',
+                'BT_HOST_KEY_FETCH_DELAY_SECONDS' => '0',
+            ],
+        );
+
+        $fetchResult = $this->readJsonFile($outputDir.'/slice-d-pinned-prestart-fetch/result.json');
+        $fetchPrlctlOutput = (string) file_get_contents($prlctlLog);
+        $fetchSshOutput = (string) (@file_get_contents($sshLog) ?: '');
+        $fetchScpOutput = (string) (@file_get_contents($scpLog) ?: '');
+
+        $this->assertNotSame(0, $fetchFailure->getExitCode());
+        $this->assertSame('preflight', $fetchResult['primary_failure_phase'] ?? null);
+        $this->assertSame('host_key_fetch_failed', $fetchResult['primary_failure_code'] ?? null);
+        $this->assertStringContainsString('start Ubuntu Server 22.04.5 LTS-test-cleanvm', $fetchPrlctlOutput);
+        $this->assertStringNotContainsString($remoteRoot.'/input/guest-blue-team-proof.sh', $fetchSshOutput);
+        $this->assertStringNotContainsString($remoteRoot.'/input/repo.tgz', $fetchScpOutput);
+
+        file_put_contents($prlctlLog, '');
+        file_put_contents($sshLog, '');
+        file_put_contents($scpLog, '');
+        $this->writeFakeKeyscan($fakeBin.'/ssh-keyscan', $sandbox.'/keyscan.log', "192.0.2.10 ssh-ed25519 AAAATESTKEY\n", 0);
+        $this->writeFakeKeygen($fakeBin.'/ssh-keygen', 'SHA256:wrongfingerprint');
+
+        $mismatch = $this->runHostProof(
+            $tempRoot,
+            $fakeBin,
+            [
+                '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
+                '--snapshot-name', 'base-os-ssh',
+                '--ssh-host', '192.0.2.10',
+                '--ssh-user', 'ubuntu',
+                '--remote-proof-root', $remoteRoot,
+                '--output-dir', $outputDir,
+                '--run-id', 'slice-d-pinned-prestart-mismatch',
+                '--expected-host-key-algorithm', 'ed25519',
+                '--expected-host-fingerprint', 'SHA256:pinnedfingerprint',
+            ],
+            [
+                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_SSH_WAIT_ATTEMPTS' => '1',
+                'BT_SSH_WAIT_DELAY_SECONDS' => '0',
+                'BT_HOST_KEY_FETCH_ATTEMPTS' => '1',
+                'BT_HOST_KEY_FETCH_DELAY_SECONDS' => '0',
+            ],
+        );
+
+        $mismatchResult = $this->readJsonFile($outputDir.'/slice-d-pinned-prestart-mismatch/result.json');
+        $mismatchPrlctlOutput = (string) file_get_contents($prlctlLog);
+        $mismatchSshOutput = (string) (@file_get_contents($sshLog) ?: '');
+        $mismatchScpOutput = (string) (@file_get_contents($scpLog) ?: '');
+
+        $this->assertNotSame(0, $mismatch->getExitCode());
+        $this->assertSame('preflight', $mismatchResult['primary_failure_phase'] ?? null);
+        $this->assertSame('host_key_fingerprint_mismatch', $mismatchResult['primary_failure_code'] ?? null);
+        $this->assertStringContainsString('start Ubuntu Server 22.04.5 LTS-test-cleanvm', $mismatchPrlctlOutput);
+        $this->assertStringNotContainsString($remoteRoot.'/input/guest-blue-team-proof.sh', $mismatchSshOutput);
+        $this->assertStringNotContainsString($remoteRoot.'/input/repo.tgz', $mismatchScpOutput);
+    }
+
     public function test_host_proof_preserves_primary_failure_when_proof_fails_and_restore_also_fails(): void
     {
         $tempRoot = $this->makeTempDir();

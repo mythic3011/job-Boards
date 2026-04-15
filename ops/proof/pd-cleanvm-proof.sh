@@ -544,12 +544,12 @@ fetch_pinned_host_key() {
     done
 
     if [[ -z "${keyscan_output}" ]]; then
-        fail "execution" "host_key_fetch_failed" "Unable to fetch SSH host key for ${SSH_HOST}."
+        fail "preflight" "host_key_fetch_failed" "Unable to fetch SSH host key for ${SSH_HOST}."
     fi
 
-    actual_fingerprint="$(ssh-keygen -lf "${known_hosts_source}" -E sha256 | awk 'NR==1 {print $2}')" || fail "execution" "host_key_fetch_failed" "Unable to fingerprint fetched SSH host key for ${SSH_HOST}."
+    actual_fingerprint="$(ssh-keygen -lf "${known_hosts_source}" -E sha256 | awk 'NR==1 {print $2}')" || fail "preflight" "host_key_fetch_failed" "Unable to fingerprint fetched SSH host key for ${SSH_HOST}."
     if [[ "${actual_fingerprint}" != "${EXPECTED_HOST_FINGERPRINT}" ]]; then
-        fail "execution" "host_key_fingerprint_mismatch" "SSH host key fingerprint mismatch for ${SSH_HOST}."
+        fail "preflight" "host_key_fingerprint_mismatch" "SSH host key fingerprint mismatch for ${SSH_HOST}."
     fi
 
     cp "${known_hosts_source}" "${SSH_KNOWN_HOSTS_PATH}"
