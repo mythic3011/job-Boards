@@ -183,9 +183,9 @@ new class extends Component
                             <td class="px-6 py-4">
                                 <div class="text-sm font-semibold text-gray-900 transition-colors group-hover:text-indigo-700">{{ $job->title }}</div>
                                 @if($job->salary)
-                                    <div class="mt-0.5 text-xs text-gray-500">{{ $job->salary }}</div>
+                                    <div class="mt-0.5 text-xs text-gray-500">HK$ {{ $job->salary }}</div>
                                 @else
-                                    <div class="mt-0.5 text-xs text-gray-400">No salary stated</div>
+                                    <div class="mt-0.5 text-xs italic text-gray-400">No salary stated</div>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
@@ -231,7 +231,7 @@ new class extends Component
                                     </div>
                                     <p class="text-sm font-semibold text-gray-500">No job postings found</p>
                                     @if($search || $companyFilter)
-                                        <p class="text-xs text-gray-400">Try adjusting your search or filters</p>
+                                        <p class="text-xs text-gray-400">Try adjusting your search term</p>
                                     @endif
                                 </div>
                             </td>
