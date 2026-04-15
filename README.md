@@ -44,7 +44,7 @@ Obs bootstrap renders and materializes final runtime artifacts before `compose.o
 If those files are missing locally, regenerate them with:
 
 ```bash
-BT_STATE_DIR="$(pwd)/.blue-team-vm" BT_COMPOSE_OBS_FILE="$(pwd)/compose.obs.yml" ops/bootstrap/bootstrap-obs.sh prepare
+BT_STATE_DIR="$(pwd)/.blue-team-vm" BT_COMPOSE_OBS_FILE="$(pwd)/compose.obs.yml" ./ops/bootstrap/bootstrap-obs.sh prepare
 ```
 
 ## Test Verification Paths
@@ -97,7 +97,7 @@ On non-Linux local runtimes, `bootstrap-app.sh verify` will mark `app.host.local
 
 ## Clean VM Proof Planning
 
-The clean-room proof workflow is specified in [docs/plans/2026-04-13-clean-vm-proof-plan.md](/Users/mythic3014/PhpstormProjects/jobs-borads/docs/plans/2026-04-13-clean-vm-proof-plan.md). That plan is intentionally stricter than local bring-up:
+The clean-room proof workflow is specified in [docs/plans/2026-04-13-clean-vm-proof-plan.md](docs/plans/2026-04-13-clean-vm-proof-plan.md). That plan is intentionally stricter than local bring-up:
 
 - the only public operator entrypoint is `ops/proof/pd-cleanvm-proof.sh`
 - `guest-install-deps.sh` and `guest-blue-team-proof.sh` are staged internal helpers from the resolved commit only
