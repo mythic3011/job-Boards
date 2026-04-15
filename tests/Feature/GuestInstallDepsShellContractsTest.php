@@ -45,7 +45,7 @@ class GuestInstallDepsShellContractsTest extends TestCase
         $this->assertSame('', @file_get_contents($aptLog) ?: '');
     }
 
-    public function test_guest_install_uses_noninteractive_sudo_apt_chain_and_verifies_sha256sum(): void
+    public function test_guest_install_uses_a_privilege_appropriate_apt_chain_and_verifies_sha256sum(): void
     {
         $tempRoot = $this->makeTempDir();
         $fakeBin = $tempRoot.'/fake-bin';
@@ -139,11 +139,29 @@ BASH);
         $this->assertStringContainsString('Guest dependency toolchain ready.', $combinedOutput);
         $this->assertStringContainsString('DEBIAN_FRONTEND=noninteractive CMD=update', $aptOutput);
         $this->assertStringContainsString('DEBIAN_FRONTEND=noninteractive CMD=install -y ca-certificates coreutils curl docker.io docker-compose-plugin git jq python3', $aptOutput);
-        $this->assertStringContainsString('-n apt-get update', $sudoOutput);
-        $this->assertStringContainsString('-n apt-get install -y ca-certificates coreutils curl docker.io docker-compose-plugin git jq python3', $sudoOutput);
-        $this->assertStringContainsString('-n groupadd -f docker', $sudoOutput);
-        $this->assertStringContainsString('-n usermod -aG docker proof-user', $sudoOutput);
+
+        if ((function_exists('posix_geteuid') ? posix_geteuid() : null) === 0) {
+            $this->assertSame('', $sudoOutput);
+        } else {
+            $this->assertStringContainsString('-n apt-get update', $sudoOutput);
+            $this->assertStringContainsString('-n apt-get install -y ca-certificates coreutils curl docker.io docker-compose-plugin git jq python3', $sudoOutput);
+            $this->assertStringContainsString('-n groupadd -f docker', $sudoOutput);
+            $this->assertStringContainsString('-n usermod -aG docker proof-user', $sudoOutput);
+        }
+
         $this->assertFileExists($logFile);
+    }
+
+    public function test_guest_install_script_retains_direct_root_and_noninteractive_sudo_branches(): void
+    {
+        $scriptPath = $this->repoRoot.'/ops/proof/guest-install-deps.sh';
+        $this->assertFileExists($scriptPath);
+
+        $script = (string) file_get_contents($scriptPath);
+
+        $this->assertStringContainsString('if [[ "${EUID}" -eq 0 ]]; then', $script);
+        $this->assertStringContainsString('sudo -n "$@"', $script);
+        $this->assertStringContainsString('sudo -n "$@" 2>&1 | tee -a "${BT_PROOF_LOG_FILE}"', $script);
     }
 
     public function test_guest_install_fails_loud_when_required_toolchain_is_still_missing_after_install(): void
