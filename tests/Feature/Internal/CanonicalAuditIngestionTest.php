@@ -156,6 +156,38 @@ class CanonicalAuditIngestionTest extends TestCase
         $this->assertSame(0, AuditLog::query()->count());
     }
 
+    public function test_signed_ingestion_fails_closed_when_no_ip_allowlist_is_configured(): void
+    {
+        config([
+            'canonical_audit_ingestion.callers' => [
+                'auth-service-key' => [
+                    'secret' => 'ingestion-shared-secret',
+                    'source' => 'auth-service',
+                    'caller_identity' => 'auth-service',
+                    'allowed_ips' => [],
+                    'allowed_cidrs' => [],
+                ],
+            ],
+        ]);
+
+        $payload = [
+            'event_type' => 'audit.auth.verify.denied',
+            'request_id' => (string) Str::uuid(),
+            'source' => 'auth-service',
+            'outcome' => 'denied',
+            'actor_type' => 'guest',
+            'target_type' => 'monitoring_account',
+            'target_identifier' => 'monitoring-admin',
+            'occurred_at' => now()->subMinute()->toIso8601String(),
+        ];
+
+        $this->withServerVariables(['REMOTE_ADDR' => '127.0.0.1'])
+            ->postJson('/api/internal/canonical-audit/events', $payload, $this->signatureHeaders($payload))
+            ->assertStatus(403);
+
+        $this->assertSame(0, AuditLog::query()->count());
+    }
+
     public function test_payload_larger_than_limit_is_rejected(): void
     {
         config(['canonical_audit_ingestion.max_request_bytes' => 64]);

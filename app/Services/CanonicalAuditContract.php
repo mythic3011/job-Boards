@@ -15,7 +15,11 @@ class CanonicalAuditContract
     {
         $contractPath = $path ?? base_path('config/contracts/canonical-audit.v1.json');
 
-        $raw = @file_get_contents($contractPath);
+        if (! is_file($contractPath) || ! is_readable($contractPath)) {
+            throw new RuntimeException("Unable to read canonical audit contract at [{$contractPath}].");
+        }
+
+        $raw = file_get_contents($contractPath);
         if ($raw === false) {
             throw new RuntimeException("Unable to read canonical audit contract at [{$contractPath}].");
         }

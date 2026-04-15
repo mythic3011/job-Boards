@@ -87,6 +87,11 @@ class CanonicalAuditIngestionController extends Controller
         $allowedIps = $caller['allowed_ips'] ?? [];
         /** @var array<int, string> $allowedCidrs */
         $allowedCidrs = $caller['allowed_cidrs'] ?? [];
+
+        if ($allowedIps === [] && $allowedCidrs === []) {
+            return null;
+        }
+
         $remoteIp = (string) $request->ip();
 
         $matchesExactIp = $allowedIps !== [] && in_array($remoteIp, $allowedIps, true);
