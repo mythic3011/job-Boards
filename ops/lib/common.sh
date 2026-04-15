@@ -130,7 +130,6 @@ bt_status_rank() {
 
 bt_aggregate_statuses() {
     local statuses=("$@")
-    local saw_pass=0
     local saw_degraded=0
     local saw_fail=0
     local saw_non_skipped=0
@@ -146,7 +145,6 @@ bt_aggregate_statuses() {
                 saw_non_skipped=1
                 ;;
             "${BT_STATUS_PASS}")
-                saw_pass=1
                 saw_non_skipped=1
                 ;;
             "${BT_STATUS_SKIPPED}")

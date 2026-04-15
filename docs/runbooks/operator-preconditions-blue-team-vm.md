@@ -80,7 +80,7 @@ ops/smoke/run-all.sh
 
 ## Clean-Room Proof Grading
 
-- the reusable clean-room proof workflow is defined in [docs/plans/2026-04-13-clean-vm-proof-plan.md](/Users/mythic3014/PhpstormProjects/jobs-borads/docs/plans/2026-04-13-clean-vm-proof-plan.md)
+- the reusable clean-room proof workflow is defined in [docs/plans/2026-04-13-clean-vm-proof-plan.md](../plans/2026-04-13-clean-vm-proof-plan.md)
 - `ops/proof/pd-cleanvm-proof.sh` is the only public operator entrypoint for that workflow
 - `ops/proof/guest-install-deps.sh` and `ops/proof/guest-blue-team-proof.sh` are staged internal helpers, not standalone operator commands
 - an operational clean-room run may use per-run TOFU SSH trust

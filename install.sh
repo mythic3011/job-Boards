@@ -17,6 +17,9 @@ INSTALL_BT_STATE_DIR="${INSTALL_BT_STATE_DIR:-${ROOT_DIR}/.blue-team-vm}"
 INSTALL_COMPOSE_FILE="${INSTALL_COMPOSE_FILE:-${ROOT_DIR}/compose.yaml}"
 export BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE:-${ROOT_DIR}/docker/nginx/includes/blue-team-honeypot.conf}"
 
+# shellcheck source=ops/lib/common.sh
+source "${ROOT_DIR}/ops/lib/common.sh"
+
 [[ "$SETUP_MODE" != "full" && "$SETUP_MODE" != "demo" && "$SETUP_MODE" != "quick" && "$SETUP_MODE" != "skip" && "$SETUP_MODE" != "setupAdmin" && "$SETUP_MODE" != "test" ]] && {
     echo "Usage: $0 [full|demo|quick|skip|setupAdmin|test] [dev|production]"
     exit 1
@@ -42,8 +45,10 @@ LAST_ASSIGNED_PORT=3000
 # -T: non-TTY safe for CI/CD environments
 app() { docker exec -T "$CONTAINER" "$@"; }
 compose_local() {
-    preload_compose_env
-    docker compose -f "$INSTALL_COMPOSE_FILE" "$@"
+    BT_STATE_DIR="${INSTALL_BT_STATE_DIR}" \
+    BT_RUNTIME_DIR="${INSTALL_BT_STATE_DIR}/runtime" \
+    BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE}" \
+    bt_compose "$INSTALL_COMPOSE_FILE" "$@"
 }
 err() { echo "$*" >&2; }
 
@@ -80,81 +85,15 @@ export_env_file() {
     done < "${env_file}"
 }
 
-preload_compose_env() {
-    local generated_env="${INSTALL_BT_STATE_DIR}/runtime/obs.generated.env"
-    local preserved_env_keys
+compose_file_display() {
+    local compose_file="${INSTALL_COMPOSE_FILE}"
 
-    preserved_env_keys="$(env | cut -d= -f1)"
-
-    if [[ -r "${ROOT_DIR}/.env" ]]; then
-        export_env_file_if_unset "${ROOT_DIR}/.env"
+    if [[ "${compose_file}" == "${ROOT_DIR}/"* ]]; then
+        printf './%s\n' "${compose_file#${ROOT_DIR}/}"
+        return 0
     fi
 
-    export BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE:-${ROOT_DIR}/docker/nginx/includes/blue-team-honeypot.conf}"
-
-    if [[ -r "${generated_env}" ]]; then
-        export_env_file_unless_preserved "${generated_env}" "${preserved_env_keys}"
-    fi
-}
-
-export_env_file_if_unset() {
-    local env_file="$1"
-    local line
-    local key
-    local value
-
-    [[ -r "${env_file}" ]] || return 0
-
-    while IFS= read -r line; do
-        [[ -n "${line}" ]] || continue
-        [[ "${line}" =~ ^[[:space:]]*# ]] && continue
-        line="${line#export }"
-        [[ "${line}" == *=* ]] || continue
-        key="${line%%=*}"
-        value="${line#*=}"
-        key="${key#"${key%%[![:space:]]*}"}"
-        key="${key%"${key##*[![:space:]]}"}"
-
-        if [[ -n "${!key+x}" ]]; then
-            continue
-        fi
-
-        export "${key}=${value}"
-    done < "${env_file}"
-}
-
-env_snapshot_has_key() {
-    local snapshot="$1"
-    local key="$2"
-
-    grep -Fqx -- "${key}" <<< "${snapshot}"
-}
-
-export_env_file_unless_preserved() {
-    local env_file="$1"
-    local preserved_env_keys="$2"
-    local line
-    local key
-    local value
-
-    [[ -r "${env_file}" ]] || return 0
-
-    while IFS= read -r line; do
-        [[ -n "${line}" ]] || continue
-        [[ "${line}" =~ ^[[:space:]]*# ]] && continue
-        line="${line#export }"
-        [[ "${line}" == *=* ]] || continue
-        key="${line%%=*}"
-        value="${line#*=}"
-        key="${key#"${key%%[![:space:]]*}"}"
-        key="${key%"${key##*[![:space:]]}"}"
-
-        if env_snapshot_has_key "${preserved_env_keys}" "${key}"; then
-            continue
-        fi
-
-        export "${key}=${value}"
-    done < "${env_file}"
+    printf '%s\n' "${compose_file}"
 }
 
 prepare_obs_runtime() {
@@ -367,7 +306,8 @@ print_monitoring_credentials() {
     [[ -n "$grafana_pwd" ]] && echo "  Grafana:    ${grafana_pwd}"
     echo ""
 
-    local cred_file="/tmp/monitoring-$(date +%Y%m%d-%H%M%S).txt"
+    local cred_file
+    cred_file="/tmp/monitoring-$(date +%Y%m%d-%H%M%S).txt"
     {
         echo "Monitoring: ${mon_pwd}"
         echo "Grafana:    ${grafana_pwd}"
@@ -555,9 +495,10 @@ use Illuminate\Support\Facades\Hash;
 
 print_summary() {
     local mode="$1"
-    local ssl_port app_url
+    local ssl_port app_url compose_file
     ssl_port=$(grep -E '^APP_SSL_PORT=' .env 2>/dev/null | cut -d'=' -f2- || echo "443")
     ssl_port="${ssl_port:-443}"
+    compose_file="$(compose_file_display)"
     if [[ "$ssl_port" == "443" ]]; then
         app_url="https://localhost"
     else
@@ -571,8 +512,8 @@ print_summary() {
     echo "  App:        $app_url"
     echo "  Monitoring: $app_url/monitoring/grafana/"
     echo ""
-    echo "  docker compose -f compose.yaml ps   — check service health"
-    echo "  docker compose -f compose.yaml logs — view logs"
+    echo "  docker compose -f ${compose_file} ps   — check service health"
+    echo "  docker compose -f ${compose_file} logs — view logs"
     echo ""
 }
 
@@ -640,12 +581,13 @@ case "$SETUP_MODE" in
         seed_admin
 
         if [[ "$ENV_MODE" == "production" ]]; then
+            compose_file="$(compose_file_display)"
             echo ""
             echo "======================================="
             echo " Production Checklist"
             echo "======================================="
-            echo "  1. Verify local docker compose -f compose.yaml ps -- all services healthy"
-            echo "  2. If this is blue-team VM proof work, run the split-plane verifiers instead of treating compose.yaml as runtime evidence"
+            echo "  1. Verify local docker compose -f ${compose_file} ps -- all services healthy"
+            echo "  2. If this is blue-team VM proof work, run the split-plane verifiers instead of treating ${compose_file} as runtime evidence"
             echo "  3. Set CROWDSEC_ENROLL_KEY if using CrowdSec Console"
             echo "  4. Delete /tmp/admin-*.txt after saving credentials"
             echo "  5. Delete /tmp/monitoring-*.txt after saving credentials"
