@@ -38,11 +38,11 @@ class BlueTeamVmShellContractsTest extends TestCase
                 'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
                 'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
-                'BT_GRAFANA_SECRET_FILE' => $grafanaSecretFile,
+                'BT_GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
                 'MONITORING_ADMIN_USERNAME' => 'admin',
                 'MONITORING_PASSWORD_HASH' => 'not-a-valid-bcrypt',
                 'SESSION_SECRET' => str_repeat('a', 64),
-                'GRAFANA_SECRET_FILE' => $grafanaSecretFile,
+                'GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
                 'PROMETHEUS_PASSWORD_HASH' => password_hash('prometheus-secret', PASSWORD_BCRYPT),
             ],
         );
@@ -88,7 +88,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('"check_id":"obs.bootstrap.required_env"', $combinedOutput);
         $this->assertStringContainsString('"status":"PASS"', $combinedOutput);
         $this->assertStringContainsString('PROMETHEUS_WEB_CONFIG_FILE='.$renderedConfig, $generatedEnv);
-        $this->assertStringContainsString('GRAFANA_SECRET_FILE='.$grafanaSecretFile, $generatedEnv);
+        $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.$grafanaSecretFile, $generatedEnv);
         $this->assertFileExists($renderedConfig);
         $this->assertFileExists($grafanaSecretFile);
         $this->assertStringNotContainsString('compose -f', @file_get_contents($dockerLog) ?: '');
@@ -114,11 +114,11 @@ class BlueTeamVmShellContractsTest extends TestCase
                 'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
                 'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/rendered-blocker',
-                'BT_GRAFANA_SECRET_FILE' => $grafanaSecretFile,
+                'BT_GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
                 'MONITORING_ADMIN_USERNAME' => 'admin',
                 'MONITORING_PASSWORD_HASH' => password_hash('monitoring-secret', PASSWORD_BCRYPT),
                 'SESSION_SECRET' => str_repeat('b', 64),
-                'GRAFANA_SECRET_FILE' => $grafanaSecretFile,
+                'GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
                 'PROMETHEUS_PASSWORD_HASH' => password_hash('prometheus-secret', PASSWORD_BCRYPT),
             ],
         );
@@ -186,7 +186,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml\n".
-            "GRAFANA_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret\n"
+            "GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret\n"
         );
 
         $this->writeExecutable($fakeBin.'/docker', <<<BASH
@@ -194,7 +194,7 @@ class BlueTeamVmShellContractsTest extends TestCase
 set -euo pipefail
 if [[ "\${1:-}" == "compose" ]]; then
   printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
-  printf 'GRAFANA_SECRET_FILE=%s\n' "\${GRAFANA_SECRET_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_ADMIN_SECRET_FILE=%s\n' "\${GRAFANA_ADMIN_SECRET_FILE:-}" >> "{$dockerEnvLog}"
   exit 7
 fi
 exit 0
@@ -217,7 +217,7 @@ BASH);
 
         $this->assertSame(7, $process->getExitCode());
         $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml", $dockerEnvOutput);
-        $this->assertStringContainsString("GRAFANA_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret", $dockerEnvOutput);
     }
 
     public function test_common_bt_compose_does_not_override_explicit_runtime_env_exports(): void
@@ -240,7 +240,7 @@ BASH);
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml\n".
-            "GRAFANA_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret\n"
+            "GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret\n"
         );
 
         $this->writeExecutable($fakeBin.'/docker', <<<BASH
@@ -248,7 +248,7 @@ BASH);
 set -euo pipefail
 if [[ "\${1:-}" == "compose" ]]; then
   printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
-  printf 'GRAFANA_SECRET_FILE=%s\n' "\${GRAFANA_SECRET_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_ADMIN_SECRET_FILE=%s\n' "\${GRAFANA_ADMIN_SECRET_FILE:-}" >> "{$dockerEnvLog}"
   exit 7
 fi
 exit 0
@@ -262,7 +262,7 @@ BASH);
                 'BT_STATE_DIR' => $tempRoot.'/state',
                 'BT_RUNTIME_DIR' => $tempRoot.'/state/runtime',
                 'PROMETHEUS_WEB_CONFIG_FILE' => $explicitPrometheusPath,
-                'GRAFANA_SECRET_FILE' => $explicitGrafanaPath,
+                'GRAFANA_ADMIN_SECRET_FILE' => $explicitGrafanaPath,
             ],
             null,
             20,
@@ -273,7 +273,7 @@ BASH);
 
         $this->assertSame(7, $process->getExitCode());
         $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$explicitPrometheusPath}", $dockerEnvOutput);
-        $this->assertStringContainsString("GRAFANA_SECRET_FILE={$explicitGrafanaPath}", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$explicitGrafanaPath}", $dockerEnvOutput);
     }
 
     public function test_common_bt_compose_prefers_generated_obs_runtime_values_over_repo_env_defaults(): void
@@ -298,13 +298,13 @@ BASH);
         file_put_contents(
             $tempRoot.'/.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$repoEnvPrometheusPath}\n".
-            "GRAFANA_SECRET_FILE={$repoEnvGrafanaPath}\n"
+            "GRAFANA_ADMIN_SECRET_FILE={$repoEnvGrafanaPath}\n"
         );
 
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$generatedPrometheusPath}\n".
-            "GRAFANA_SECRET_FILE={$generatedGrafanaPath}\n"
+            "GRAFANA_ADMIN_SECRET_FILE={$generatedGrafanaPath}\n"
         );
 
         $this->writeExecutable($fakeBin.'/docker', <<<BASH
@@ -312,7 +312,7 @@ BASH);
 set -euo pipefail
 if [[ "\${1:-}" == "compose" ]]; then
   printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
-  printf 'GRAFANA_SECRET_FILE=%s\n' "\${GRAFANA_SECRET_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_ADMIN_SECRET_FILE=%s\n' "\${GRAFANA_ADMIN_SECRET_FILE:-}" >> "{$dockerEnvLog}"
   exit 7
 fi
 exit 0
@@ -335,9 +335,9 @@ BASH);
 
         $this->assertSame(7, $process->getExitCode());
         $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$generatedPrometheusPath}", $dockerEnvOutput);
-        $this->assertStringContainsString("GRAFANA_SECRET_FILE={$generatedGrafanaPath}", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$generatedGrafanaPath}", $dockerEnvOutput);
         $this->assertStringNotContainsString("PROMETHEUS_WEB_CONFIG_FILE={$repoEnvPrometheusPath}", $dockerEnvOutput);
-        $this->assertStringNotContainsString("GRAFANA_SECRET_FILE={$repoEnvGrafanaPath}", $dockerEnvOutput);
+        $this->assertStringNotContainsString("GRAFANA_ADMIN_SECRET_FILE={$repoEnvGrafanaPath}", $dockerEnvOutput);
     }
 
     public function test_app_verify_extracts_crowdsec_mode_without_gnu_awk_case_insensitive_extensions(): void

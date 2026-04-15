@@ -421,13 +421,13 @@ class CleanVmProofShellContractsTest extends TestCase
                 'SESSION_SECRET=session-fixture-marker',
                 'MONITORING_PASSWORD_HASH=$2y$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
                 'PROMETHEUS_PASSWORD_HASH=$2y$12$bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-                'GRAFANA_SECRET_FILE='.$stateDir.'/runtime/grafana-admin-secret',
+                'GRAFANA_ADMIN_SECRET_FILE='.$stateDir.'/runtime/grafana-admin-secret',
                 'PROMETHEUS_WEB_CONFIG_FILE='.$stateDir.'/rendered/prometheus.web-config.yml',
             ])."\n",
         );
         file_put_contents($stateDir.'/runtime/obs.generated-secrets.jsonl', implode("\n", [
             '{"record_type":"generated_secret","generated_at":"2026-04-14T00:00:00Z","generated_by":"blue-team-bootstrap","target_field":"SESSION_SECRET","source_field":"random","mode":"generated_secret","deterministic":false,"user_action_required":false}',
-            '{"record_type":"generated_secret","generated_at":"2026-04-14T00:00:01Z","generated_by":"blue-team-bootstrap","target_field":"GRAFANA_SECRET_FILE","source_field":"GRAFANA_PASSWORD","mode":"materialized_secret_file","deterministic":true,"user_action_required":false}',
+            '{"record_type":"generated_secret","generated_at":"2026-04-14T00:00:01Z","generated_by":"blue-team-bootstrap","target_field":"GRAFANA_ADMIN_SECRET_FILE","source_field":"GRAFANA_PASSWORD","mode":"materialized_secret_file","deterministic":true,"user_action_required":false}',
         ])."\n");
 
         $this->writeFakeRuntimePrlctl($hostBin.'/prlctl', $prlctlLog, json_encode([

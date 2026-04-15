@@ -194,7 +194,7 @@ services:
         volumes:
             - grafana-data:/var/lib/grafana
             - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
-            - ${GRAFANA_SECRET_FILE:?Set GRAFANA_SECRET_FILE before docker compose up}:/run/secrets/grafana_admin_secret:ro
+            - ${GRAFANA_ADMIN_SECRET_FILE:?Set GRAFANA_ADMIN_SECRET_FILE before docker compose up}:/run/secrets/grafana_admin_secret:ro
         networks:
             - sail
         depends_on:
