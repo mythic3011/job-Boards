@@ -31,14 +31,14 @@ Obs plane:
 zsh -lc 'set -a; source .env; source .blue-team-vm/runtime/obs.generated.env; set +a; docker compose -f compose.obs.yml up -d'
 ```
 
-The obs plane depends on final runtime values such as `GRAFANA_PASSWORD_FILE` and `PROMETHEUS_WEB_CONFIG_FILE`. A bare `docker compose` invocation without `.blue-team-vm/runtime/obs.generated.env` will fail interpolation and should be treated as missing runtime preparation, not as proof that the deployment contract is broken.
+The obs plane depends on final runtime values such as `GRAFANA_ADMIN_SECRET_FILE` and `PROMETHEUS_WEB_CONFIG_FILE`. A bare `docker compose` invocation without `.blue-team-vm/runtime/obs.generated.env` will fail interpolation and should be treated as missing runtime preparation, not as proof that the deployment contract is broken.
 
 ## Runtime Artifact Contract
 
 Obs bootstrap renders and materializes final runtime artifacts before `compose.obs.yml` can be trusted:
 
 - `.blue-team-vm/runtime/obs.generated.env`
-- `.blue-team-vm/runtime/grafana-admin-password`
+- `.blue-team-vm/runtime/grafana-admin-secret`
 - `.blue-team-vm/rendered/prometheus.web-config.yml`
 
 If those files are missing locally, regenerate them with:

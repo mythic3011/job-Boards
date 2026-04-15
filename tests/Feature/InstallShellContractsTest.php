@@ -34,7 +34,7 @@ set -euo pipefail
 mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
 cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
 PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
-GRAFANA_PASSWORD_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-password
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
 EOF
 exit 0
 BASH);
@@ -111,7 +111,7 @@ printf 'BT_COMPOSE_OBS_FILE=%s\n' "\${BT_COMPOSE_OBS_FILE:-}" >> "{$bootstrapLog
 mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
 cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
 PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
-GRAFANA_PASSWORD_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-password
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
 EOF
 exit 0
 BASH);
@@ -127,7 +127,7 @@ if [[ "\${1:-}" == "exec" ]]; then
 fi
 if [[ "\${1:-}" == "compose" && ( "\${2:-}" == "build" || ( "\${2:-}" == "-f" && "\${4:-}" == "build" ) ) ]]; then
   printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
-  printf 'GRAFANA_PASSWORD_FILE=%s\n' "\${GRAFANA_PASSWORD_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_ADMIN_SECRET_FILE=%s\n' "\${GRAFANA_ADMIN_SECRET_FILE:-}" >> "{$dockerEnvLog}"
   exit 7
 fi
 exit 0
@@ -153,7 +153,7 @@ BASH);
         $this->assertStringContainsString("BT_RUNTIME_DIR={$tempRoot}/.blue-team-vm/runtime", $bootstrapOutput);
         $this->assertStringContainsString("BT_COMPOSE_OBS_FILE={$tempRoot}/compose.obs.yml", $bootstrapOutput);
         $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml", $dockerEnvOutput);
-        $this->assertStringContainsString("GRAFANA_PASSWORD_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-password", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret", $dockerEnvOutput);
     }
 
     public function test_install_full_prefers_generated_obs_runtime_values_over_repo_env_defaults_during_compose_calls(): void
@@ -170,7 +170,7 @@ BASH);
 APP_PORT=8080
 APP_SSL_PORT=8443
 PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/repo-env/prometheus.web-config.yml
-GRAFANA_PASSWORD_FILE={$tempRoot}/repo-env/grafana-admin-password
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/repo-env/grafana-admin-secret
 ENV);
 
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
@@ -180,7 +180,7 @@ set -euo pipefail
 mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
 cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
 PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
-GRAFANA_PASSWORD_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-password
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
 EOF
 exit 0
 BASH);
@@ -196,7 +196,7 @@ if [[ "\${1:-}" == "exec" ]]; then
 fi
 if [[ "\${1:-}" == "compose" && ( "\${2:-}" == "build" || ( "\${2:-}" == "-f" && "\${4:-}" == "build" ) ) ]]; then
   printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
-  printf 'GRAFANA_PASSWORD_FILE=%s\n' "\${GRAFANA_PASSWORD_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_ADMIN_SECRET_FILE=%s\n' "\${GRAFANA_ADMIN_SECRET_FILE:-}" >> "{$dockerEnvLog}"
   exit 7
 fi
 exit 0
@@ -217,9 +217,9 @@ BASH);
 
         $this->assertSame(7, $process->getExitCode());
         $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml", $dockerEnvOutput);
-        $this->assertStringContainsString("GRAFANA_PASSWORD_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-password", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret", $dockerEnvOutput);
         $this->assertStringNotContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/repo-env/prometheus.web-config.yml", $dockerEnvOutput);
-        $this->assertStringNotContainsString("GRAFANA_PASSWORD_FILE={$tempRoot}/repo-env/grafana-admin-password", $dockerEnvOutput);
+        $this->assertStringNotContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/repo-env/grafana-admin-secret", $dockerEnvOutput);
     }
 
     public function test_install_full_exports_repo_local_honeypot_source_before_docker_compose_build(): void
@@ -242,7 +242,7 @@ set -euo pipefail
 mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
 cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
 PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
-GRAFANA_PASSWORD_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-password
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
 EOF
 exit 0
 BASH);
@@ -298,7 +298,7 @@ set -euo pipefail
 mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
 cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
 PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
-GRAFANA_PASSWORD_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-password
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
 EOF
 exit 0
 BASH);
@@ -443,8 +443,8 @@ BASH);
         $this->assertStringContainsString('${SESSION_SECRET:?Set SESSION_SECRET before docker compose up}', $contents);
         $this->assertStringContainsString('${PROMETHEUS_PASSWORD_HASH:?Set PROMETHEUS_PASSWORD_HASH before docker compose up}', $contents);
         $this->assertStringContainsString('${PROMETHEUS_WEB_CONFIG_FILE:?Set PROMETHEUS_WEB_CONFIG_FILE before docker compose up}', $contents);
-        $this->assertStringContainsString('${GRAFANA_PASSWORD_FILE:?Set GRAFANA_PASSWORD_FILE before docker compose up}', $contents);
-        $this->assertStringContainsString('GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password', $contents);
+        $this->assertStringContainsString('${GRAFANA_ADMIN_SECRET_FILE:?Set GRAFANA_ADMIN_SECRET_FILE before docker compose up}', $contents);
+        $this->assertStringContainsString('GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_secret', $contents);
         $this->assertStringNotContainsString('${PROMETHEUS_WEB_CONFIG_FILE:-./docker/prometheus/web-config.yml}', $contents);
         $this->assertStringNotContainsString('GF_SECURITY_ADMIN_PASSWORD:', $contents);
     }

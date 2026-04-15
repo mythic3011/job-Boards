@@ -177,7 +177,7 @@ services:
         container_name: jobs-boards-grafana
         image: grafana/grafana:latest
         environment:
-            GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+            GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_secret
             GF_USERS_ALLOW_SIGN_UP: "false"
             GF_SERVER_ROOT_URL: "https://%(domain)s/monitoring/grafana/"
             GF_SERVER_SERVE_FROM_SUB_PATH: "true"
@@ -194,7 +194,7 @@ services:
         volumes:
             - grafana-data:/var/lib/grafana
             - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
-            - ${GRAFANA_PASSWORD_FILE:?Set GRAFANA_PASSWORD_FILE before docker compose up}:/run/secrets/grafana_admin_password:ro
+            - ${GRAFANA_ADMIN_SECRET_FILE:?Set GRAFANA_ADMIN_SECRET_FILE before docker compose up}:/run/secrets/grafana_admin_secret:ro
         networks:
             - sail
         depends_on:
