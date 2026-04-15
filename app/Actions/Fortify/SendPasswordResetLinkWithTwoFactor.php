@@ -119,11 +119,8 @@ class SendPasswordResetLinkWithTwoFactor
             RateLimiter::clear($key);
 
             Log::debug('Password reset token generated (LOCAL ONLY)', [
-                'email' => $user->email,
-                'reset_url' => route('password.reset', [
-                    'token' => $token,
-                    'email' => $user->email,
-                ]),
+                'token_generated' => true,
+                'user_id' => $user->id,
             ]);
 
             $this->auditLogger->logSecurityEvent(
