@@ -32,6 +32,7 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->installHostProofScript($tempRoot);
         $this->initializeGitRepo($tempRoot);
         mkdir($fakeBin, 0777, true);
+        $this->writePreflightOnlyHostTransportToolchain($fakeBin);
 
         file_put_contents($tempRoot.'/tracked.txt', "dirty\n");
         $this->writeFakePrlctl($fakeBin, $prlctlLog, json_encode([
@@ -73,6 +74,7 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->installHostProofScript($tempRoot);
         $this->initializeGitRepo($tempRoot);
         mkdir($fakeBin, 0777, true);
+        $this->writePreflightOnlyHostTransportToolchain($fakeBin);
 
         $this->writeFakePrlctl($fakeBin, $prlctlLog, json_encode([], JSON_THROW_ON_ERROR));
 
@@ -111,6 +113,7 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->installHostProofScript($tempRoot);
         $this->initializeGitRepo($tempRoot);
         mkdir($fakeBin, 0777, true);
+        $this->writePreflightOnlyHostTransportToolchain($fakeBin);
 
         $this->writeFakePrlctl($fakeBin, $prlctlLog, json_encode([
             ['name' => 'base-os-ssh', 'id' => '{snapshot-1}'],
@@ -152,6 +155,7 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->installHostProofScript($tempRoot);
         $headCommit = $this->initializeGitRepo($tempRoot);
         mkdir($fakeBin, 0777, true);
+        $this->writePreflightOnlyHostTransportToolchain($fakeBin);
 
         $this->writeFakePrlctl($fakeBin, $prlctlLog, json_encode([
             ['name' => 'base-os-ssh', 'id' => '{snapshot-1}'],
@@ -218,6 +222,7 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->initializeGitRepo($tempRoot);
         mkdir($fakeBin, 0777, true);
         mkdir($tmpDir, 0777, true);
+        $this->writePreflightOnlyHostTransportToolchain($fakeBin);
 
         $this->writeFakePrlctl($fakeBin, $prlctlLog, json_encode([
             ['name' => 'base-os-ssh', 'id' => '{snapshot-1}'],
@@ -250,7 +255,8 @@ class CleanVmProofShellContractsTest extends TestCase
     {
         $tempRoot = $this->makeTempDir();
         $sandbox = $this->makeTempDir();
-        $fakeBin = $sandbox.'/fake-bin';
+        $hostBin = $sandbox.'/host-bin';
+        $remoteBin = $sandbox.'/remote-bin';
         $remoteRoot = $sandbox.'/remote-proof';
         $outputDir = $sandbox.'/artifacts';
         $prlctlLog = $sandbox.'/prlctl.log';
@@ -259,19 +265,21 @@ class CleanVmProofShellContractsTest extends TestCase
 
         $this->installHostProofScript($tempRoot);
         $headCommit = $this->initializeRuntimeProofRepo($tempRoot, 'success');
-        mkdir($fakeBin, 0777, true);
+        mkdir($hostBin, 0777, true);
+        mkdir($remoteBin, 0777, true);
         mkdir($remoteRoot, 0777, true);
 
-        $this->writeFakeRuntimePrlctl($fakeBin.'/prlctl', $prlctlLog, json_encode([
+        $this->writeFakeRuntimePrlctl($hostBin.'/prlctl', $prlctlLog, json_encode([
             ['name' => 'base-os-ssh', 'id' => '{snapshot-1}'],
         ], JSON_THROW_ON_ERROR));
-        $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sshLog);
-        $this->writeFakeRuntimeScp($fakeBin.'/scp', $scpLog);
-        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
+        $this->writeFakeRuntimeSsh($hostBin.'/ssh', $sshLog);
+        $this->writeFakeRuntimeScp($hostBin.'/scp', $scpLog);
+        $this->writeProofPrivilegeToolchain($remoteBin, $sandbox.'/sudo.log');
+        $this->writeGuestDependencyToolchain($remoteBin);
 
         $process = $this->runHostProof(
             $tempRoot,
-            $fakeBin,
+            $hostBin,
             [
                 '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
                 '--snapshot-name', 'base-os-ssh',
@@ -282,7 +290,7 @@ class CleanVmProofShellContractsTest extends TestCase
                 '--run-id', 'slice-d-tofu',
             ],
             [
-                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_FAKE_REMOTE_PATH' => $remoteBin.':/usr/bin:/bin',
                 'BT_SSH_WAIT_ATTEMPTS' => '1',
                 'BT_SSH_WAIT_DELAY_SECONDS' => '0',
             ],
@@ -326,7 +334,8 @@ class CleanVmProofShellContractsTest extends TestCase
     {
         $tempRoot = $this->makeTempDir();
         $sandbox = $this->makeTempDir();
-        $fakeBin = $sandbox.'/fake-bin';
+        $hostBin = $sandbox.'/host-bin';
+        $remoteBin = $sandbox.'/remote-bin';
         $remoteRoot = $sandbox.'/remote-proof';
         $outputDir = $sandbox.'/artifacts';
         $prlctlLog = $sandbox.'/prlctl.log';
@@ -341,19 +350,21 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->mustRun(['git', 'add', 'ops/proof/guest-install-deps.sh', 'ops/proof/guest-blue-team-proof.sh'], $tempRoot);
         $this->mustRun(['git', 'commit', '-m', 'Change proof helper markers'], $tempRoot);
 
-        mkdir($fakeBin, 0777, true);
+        mkdir($hostBin, 0777, true);
+        mkdir($remoteBin, 0777, true);
         mkdir($remoteRoot, 0777, true);
 
-        $this->writeFakeRuntimePrlctl($fakeBin.'/prlctl', $prlctlLog, json_encode([
+        $this->writeFakeRuntimePrlctl($hostBin.'/prlctl', $prlctlLog, json_encode([
             ['name' => 'base-os-ssh', 'id' => '{snapshot-1}'],
         ], JSON_THROW_ON_ERROR));
-        $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sandbox.'/ssh.log');
-        $this->writeFakeRuntimeScp($fakeBin.'/scp', $sandbox.'/scp.log');
-        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
+        $this->writeFakeRuntimeSsh($hostBin.'/ssh', $sandbox.'/ssh.log');
+        $this->writeFakeRuntimeScp($hostBin.'/scp', $sandbox.'/scp.log');
+        $this->writeProofPrivilegeToolchain($remoteBin, $sandbox.'/sudo.log');
+        $this->writeGuestDependencyToolchain($remoteBin);
 
         $process = $this->runHostProof(
             $tempRoot,
-            $fakeBin,
+            $hostBin,
             [
                 '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
                 '--snapshot-name', 'base-os-ssh',
@@ -365,7 +376,7 @@ class CleanVmProofShellContractsTest extends TestCase
                 '--repo-ref', $firstCommit,
             ],
             [
-                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_FAKE_REMOTE_PATH' => $remoteBin.':/usr/bin:/bin',
                 'BT_SSH_WAIT_ATTEMPTS' => '1',
                 'BT_SSH_WAIT_DELAY_SECONDS' => '0',
             ],
@@ -387,7 +398,8 @@ class CleanVmProofShellContractsTest extends TestCase
     {
         $tempRoot = $this->makeTempDir();
         $sandbox = $this->makeTempDir();
-        $fakeBin = $sandbox.'/fake-bin';
+        $hostBin = $sandbox.'/host-bin';
+        $remoteBin = $sandbox.'/remote-bin';
         $remoteRoot = $sandbox.'/remote-proof';
         $stateDir = $remoteRoot.'/state';
         $outputDir = $sandbox.'/artifacts';
@@ -396,7 +408,8 @@ class CleanVmProofShellContractsTest extends TestCase
 
         $this->installHostProofScript($tempRoot);
         $this->initializeRuntimeProofRepo($tempRoot, 'success');
-        mkdir($fakeBin, 0777, true);
+        mkdir($hostBin, 0777, true);
+        mkdir($remoteBin, 0777, true);
         mkdir($stateDir.'/runtime', 0777, true);
         mkdir($stateDir.'/rendered', 0777, true);
 
@@ -417,16 +430,17 @@ class CleanVmProofShellContractsTest extends TestCase
             '{"record_type":"generated_secret","generated_at":"2026-04-14T00:00:01Z","generated_by":"blue-team-bootstrap","target_field":"GRAFANA_SECRET_FILE","source_field":"GRAFANA_PASSWORD","mode":"materialized_secret_file","deterministic":true,"user_action_required":false}',
         ])."\n");
 
-        $this->writeFakeRuntimePrlctl($fakeBin.'/prlctl', $prlctlLog, json_encode([
+        $this->writeFakeRuntimePrlctl($hostBin.'/prlctl', $prlctlLog, json_encode([
             ['name' => 'base-os-ssh', 'id' => '{snapshot-1}'],
         ], JSON_THROW_ON_ERROR));
-        $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sshLog);
-        $this->writeFakeRuntimeScp($fakeBin.'/scp', $sandbox.'/scp.log');
-        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
+        $this->writeFakeRuntimeSsh($hostBin.'/ssh', $sshLog);
+        $this->writeFakeRuntimeScp($hostBin.'/scp', $sandbox.'/scp.log');
+        $this->writeProofPrivilegeToolchain($remoteBin, $sandbox.'/sudo.log');
+        $this->writeGuestDependencyToolchain($remoteBin);
 
         $process = $this->runHostProof(
             $tempRoot,
-            $fakeBin,
+            $hostBin,
             [
                 '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
                 '--snapshot-name', 'base-os-ssh',
@@ -437,7 +451,7 @@ class CleanVmProofShellContractsTest extends TestCase
                 '--run-id', 'slice-e-projection',
             ],
             [
-                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_FAKE_REMOTE_PATH' => $remoteBin.':/usr/bin:/bin',
                 'BT_SSH_WAIT_ATTEMPTS' => '1',
                 'BT_SSH_WAIT_DELAY_SECONDS' => '0',
                 'BT_STATE_DIR' => $stateDir,
@@ -463,7 +477,8 @@ class CleanVmProofShellContractsTest extends TestCase
     {
         $tempRoot = $this->makeTempDir();
         $sandbox = $this->makeTempDir();
-        $fakeBin = $sandbox.'/fake-bin';
+        $hostBin = $sandbox.'/host-bin';
+        $remoteBin = $sandbox.'/remote-bin';
         $remoteRoot = $sandbox.'/remote-proof';
         $outputDir = $sandbox.'/artifacts';
         $prlctlLog = $sandbox.'/prlctl.log';
@@ -472,21 +487,23 @@ class CleanVmProofShellContractsTest extends TestCase
 
         $this->installHostProofScript($tempRoot);
         $this->initializeRuntimeProofRepo($tempRoot, 'success');
-        mkdir($fakeBin, 0777, true);
+        mkdir($hostBin, 0777, true);
+        mkdir($remoteBin, 0777, true);
         mkdir($remoteRoot, 0777, true);
 
-        $this->writeFakeRuntimePrlctl($fakeBin.'/prlctl', $prlctlLog, json_encode([
+        $this->writeFakeRuntimePrlctl($hostBin.'/prlctl', $prlctlLog, json_encode([
             ['name' => 'base-os-ssh', 'id' => '{snapshot-1}'],
         ], JSON_THROW_ON_ERROR));
-        $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sshLog);
-        $this->writeFakeRuntimeScp($fakeBin.'/scp', $sandbox.'/scp.log');
-        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
-        $this->writeFakeKeyscan($fakeBin.'/ssh-keyscan', $keyscanLog, "192.0.2.10 ssh-ed25519 AAAATESTKEY\n");
-        $this->writeFakeKeygen($fakeBin.'/ssh-keygen', 'SHA256:pinnedfingerprint');
+        $this->writeFakeRuntimeSsh($hostBin.'/ssh', $sshLog);
+        $this->writeFakeRuntimeScp($hostBin.'/scp', $sandbox.'/scp.log');
+        $this->writeProofPrivilegeToolchain($remoteBin, $sandbox.'/sudo.log');
+        $this->writeGuestDependencyToolchain($remoteBin);
+        $this->writeFakeKeyscan($hostBin.'/ssh-keyscan', $keyscanLog, "192.0.2.10 ssh-ed25519 AAAATESTKEY\n");
+        $this->writeFakeKeygen($hostBin.'/ssh-keygen', 'SHA256:pinnedfingerprint');
 
         $process = $this->runHostProof(
             $tempRoot,
-            $fakeBin,
+            $hostBin,
             [
                 '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
                 '--snapshot-name', 'base-os-ssh',
@@ -499,7 +516,7 @@ class CleanVmProofShellContractsTest extends TestCase
                 '--expected-host-fingerprint', 'SHA256:pinnedfingerprint',
             ],
             [
-                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_FAKE_REMOTE_PATH' => $remoteBin.':/usr/bin:/bin',
                 'BT_SSH_WAIT_ATTEMPTS' => '1',
                 'BT_SSH_WAIT_DELAY_SECONDS' => '0',
                 'BT_HOST_KEY_FETCH_ATTEMPTS' => '1',
@@ -524,27 +541,30 @@ class CleanVmProofShellContractsTest extends TestCase
     {
         $tempRoot = $this->makeTempDir();
         $sandbox = $this->makeTempDir();
-        $fakeBin = $sandbox.'/fake-bin';
+        $hostBin = $sandbox.'/host-bin';
+        $remoteBin = $sandbox.'/remote-bin';
         $remoteRoot = $sandbox.'/remote-proof';
         $outputDir = $sandbox.'/artifacts';
 
         $this->installHostProofScript($tempRoot);
         $this->initializeRuntimeProofRepo($tempRoot, 'success');
-        mkdir($fakeBin, 0777, true);
+        mkdir($hostBin, 0777, true);
+        mkdir($remoteBin, 0777, true);
         mkdir($remoteRoot, 0777, true);
 
-        $this->writeFakeRuntimePrlctl($fakeBin.'/prlctl', $sandbox.'/prlctl.log', json_encode([
+        $this->writeFakeRuntimePrlctl($hostBin.'/prlctl', $sandbox.'/prlctl.log', json_encode([
             ['name' => 'base-os-ssh', 'id' => '{snapshot-1}'],
         ], JSON_THROW_ON_ERROR));
-        $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sandbox.'/ssh.log');
-        $this->writeFakeRuntimeScp($fakeBin.'/scp', $sandbox.'/scp.log');
-        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
-        $this->writeFakeKeyscan($fakeBin.'/ssh-keyscan', $sandbox.'/keyscan.log', '', 0);
-        $this->writeFakeKeygen($fakeBin.'/ssh-keygen', 'SHA256:pinnedfingerprint');
+        $this->writeFakeRuntimeSsh($hostBin.'/ssh', $sandbox.'/ssh.log');
+        $this->writeFakeRuntimeScp($hostBin.'/scp', $sandbox.'/scp.log');
+        $this->writeProofPrivilegeToolchain($remoteBin, $sandbox.'/sudo.log');
+        $this->writeGuestDependencyToolchain($remoteBin);
+        $this->writeFakeKeyscan($hostBin.'/ssh-keyscan', $sandbox.'/keyscan.log', '', 0);
+        $this->writeFakeKeygen($hostBin.'/ssh-keygen', 'SHA256:pinnedfingerprint');
 
         $fetchFailure = $this->runHostProof(
             $tempRoot,
-            $fakeBin,
+            $hostBin,
             [
                 '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
                 '--snapshot-name', 'base-os-ssh',
@@ -557,7 +577,7 @@ class CleanVmProofShellContractsTest extends TestCase
                 '--expected-host-fingerprint', 'SHA256:pinnedfingerprint',
             ],
             [
-                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_FAKE_REMOTE_PATH' => $remoteBin.':/usr/bin:/bin',
                 'BT_SSH_WAIT_ATTEMPTS' => '1',
                 'BT_SSH_WAIT_DELAY_SECONDS' => '0',
                 'BT_HOST_KEY_FETCH_ATTEMPTS' => '1',
@@ -569,12 +589,12 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->assertNotSame(0, $fetchFailure->getExitCode());
         $this->assertSame('host_key_fetch_failed', $fetchResult['primary_failure_code'] ?? null);
 
-        $this->writeFakeKeyscan($fakeBin.'/ssh-keyscan', $sandbox.'/keyscan.log', "192.0.2.10 ssh-ed25519 AAAATESTKEY\n", 0);
-        $this->writeFakeKeygen($fakeBin.'/ssh-keygen', 'SHA256:wrongfingerprint');
+        $this->writeFakeKeyscan($hostBin.'/ssh-keyscan', $sandbox.'/keyscan.log', "192.0.2.10 ssh-ed25519 AAAATESTKEY\n", 0);
+        $this->writeFakeKeygen($hostBin.'/ssh-keygen', 'SHA256:wrongfingerprint');
 
         $mismatch = $this->runHostProof(
             $tempRoot,
-            $fakeBin,
+            $hostBin,
             [
                 '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
                 '--snapshot-name', 'base-os-ssh',
@@ -587,7 +607,7 @@ class CleanVmProofShellContractsTest extends TestCase
                 '--expected-host-fingerprint', 'SHA256:pinnedfingerprint',
             ],
             [
-                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_FAKE_REMOTE_PATH' => $remoteBin.':/usr/bin:/bin',
                 'BT_SSH_WAIT_ATTEMPTS' => '1',
                 'BT_SSH_WAIT_DELAY_SECONDS' => '0',
                 'BT_HOST_KEY_FETCH_ATTEMPTS' => '1',
@@ -604,7 +624,8 @@ class CleanVmProofShellContractsTest extends TestCase
     {
         $tempRoot = $this->makeTempDir();
         $sandbox = $this->makeTempDir();
-        $fakeBin = $sandbox.'/fake-bin';
+        $hostBin = $sandbox.'/host-bin';
+        $remoteBin = $sandbox.'/remote-bin';
         $remoteRoot = $sandbox.'/remote-proof';
         $outputDir = $sandbox.'/artifacts';
         $prlctlLog = $sandbox.'/prlctl.log';
@@ -613,21 +634,23 @@ class CleanVmProofShellContractsTest extends TestCase
 
         $this->installHostProofScript($tempRoot);
         $this->initializeRuntimeProofRepo($tempRoot, 'success');
-        mkdir($fakeBin, 0777, true);
+        mkdir($hostBin, 0777, true);
+        mkdir($remoteBin, 0777, true);
         mkdir($remoteRoot, 0777, true);
 
-        $this->writeFakeRuntimePrlctl($fakeBin.'/prlctl', $prlctlLog, json_encode([
+        $this->writeFakeRuntimePrlctl($hostBin.'/prlctl', $prlctlLog, json_encode([
             ['name' => 'base-os-ssh', 'id' => '{snapshot-1}'],
         ], JSON_THROW_ON_ERROR));
-        $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sshLog);
-        $this->writeFakeRuntimeScp($fakeBin.'/scp', $scpLog);
-        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
-        $this->writeFakeKeyscan($fakeBin.'/ssh-keyscan', $sandbox.'/keyscan.log', '', 0);
-        $this->writeFakeKeygen($fakeBin.'/ssh-keygen', 'SHA256:pinnedfingerprint');
+        $this->writeFakeRuntimeSsh($hostBin.'/ssh', $sshLog);
+        $this->writeFakeRuntimeScp($hostBin.'/scp', $scpLog);
+        $this->writeProofPrivilegeToolchain($remoteBin, $sandbox.'/sudo.log');
+        $this->writeGuestDependencyToolchain($remoteBin);
+        $this->writeFakeKeyscan($hostBin.'/ssh-keyscan', $sandbox.'/keyscan.log', '', 0);
+        $this->writeFakeKeygen($hostBin.'/ssh-keygen', 'SHA256:pinnedfingerprint');
 
         $fetchFailure = $this->runHostProof(
             $tempRoot,
-            $fakeBin,
+            $hostBin,
             [
                 '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
                 '--snapshot-name', 'base-os-ssh',
@@ -640,7 +663,7 @@ class CleanVmProofShellContractsTest extends TestCase
                 '--expected-host-fingerprint', 'SHA256:pinnedfingerprint',
             ],
             [
-                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_FAKE_REMOTE_PATH' => $remoteBin.':/usr/bin:/bin',
                 'BT_SSH_WAIT_ATTEMPTS' => '1',
                 'BT_SSH_WAIT_DELAY_SECONDS' => '0',
                 'BT_HOST_KEY_FETCH_ATTEMPTS' => '1',
@@ -663,12 +686,12 @@ class CleanVmProofShellContractsTest extends TestCase
         file_put_contents($prlctlLog, '');
         file_put_contents($sshLog, '');
         file_put_contents($scpLog, '');
-        $this->writeFakeKeyscan($fakeBin.'/ssh-keyscan', $sandbox.'/keyscan.log', "192.0.2.10 ssh-ed25519 AAAATESTKEY\n", 0);
-        $this->writeFakeKeygen($fakeBin.'/ssh-keygen', 'SHA256:wrongfingerprint');
+        $this->writeFakeKeyscan($hostBin.'/ssh-keyscan', $sandbox.'/keyscan.log', "192.0.2.10 ssh-ed25519 AAAATESTKEY\n", 0);
+        $this->writeFakeKeygen($hostBin.'/ssh-keygen', 'SHA256:wrongfingerprint');
 
         $mismatch = $this->runHostProof(
             $tempRoot,
-            $fakeBin,
+            $hostBin,
             [
                 '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
                 '--snapshot-name', 'base-os-ssh',
@@ -681,7 +704,7 @@ class CleanVmProofShellContractsTest extends TestCase
                 '--expected-host-fingerprint', 'SHA256:pinnedfingerprint',
             ],
             [
-                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_FAKE_REMOTE_PATH' => $remoteBin.':/usr/bin:/bin',
                 'BT_SSH_WAIT_ATTEMPTS' => '1',
                 'BT_SSH_WAIT_DELAY_SECONDS' => '0',
                 'BT_HOST_KEY_FETCH_ATTEMPTS' => '1',
@@ -706,28 +729,31 @@ class CleanVmProofShellContractsTest extends TestCase
     {
         $tempRoot = $this->makeTempDir();
         $sandbox = $this->makeTempDir();
-        $fakeBin = $sandbox.'/fake-bin';
+        $hostBin = $sandbox.'/host-bin';
+        $remoteBin = $sandbox.'/remote-bin';
         $remoteRoot = $sandbox.'/remote-proof';
         $outputDir = $sandbox.'/artifacts';
 
         $this->installHostProofScript($tempRoot);
         $this->initializeRuntimeProofRepo($tempRoot, 'fail-host');
-        mkdir($fakeBin, 0777, true);
+        mkdir($hostBin, 0777, true);
+        mkdir($remoteBin, 0777, true);
         mkdir($remoteRoot, 0777, true);
 
         $this->writeFakeRuntimePrlctl(
-            $fakeBin.'/prlctl',
+            $hostBin.'/prlctl',
             $sandbox.'/prlctl.log',
             json_encode([['name' => 'base-os-ssh', 'id' => '{snapshot-1}']], JSON_THROW_ON_ERROR),
             true
         );
-        $this->writeFakeRuntimeSsh($fakeBin.'/ssh', $sandbox.'/ssh.log');
-        $this->writeFakeRuntimeScp($fakeBin.'/scp', $sandbox.'/scp.log');
-        $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
+        $this->writeFakeRuntimeSsh($hostBin.'/ssh', $sandbox.'/ssh.log');
+        $this->writeFakeRuntimeScp($hostBin.'/scp', $sandbox.'/scp.log');
+        $this->writeProofPrivilegeToolchain($remoteBin, $sandbox.'/sudo.log');
+        $this->writeGuestDependencyToolchain($remoteBin);
 
         $process = $this->runHostProof(
             $tempRoot,
-            $fakeBin,
+            $hostBin,
             [
                 '--vm-name', 'Ubuntu Server 22.04.5 LTS-test-cleanvm',
                 '--snapshot-name', 'base-os-ssh',
@@ -738,7 +764,7 @@ class CleanVmProofShellContractsTest extends TestCase
                 '--run-id', 'slice-e-fail',
             ],
             [
-                'BT_FAKE_REMOTE_PATH' => $fakeBin.':/usr/bin:/bin',
+                'BT_FAKE_REMOTE_PATH' => $remoteBin.':/usr/bin:/bin',
                 'BT_SSH_WAIT_ATTEMPTS' => '1',
                 'BT_SSH_WAIT_DELAY_SECONDS' => '0',
             ],
@@ -851,6 +877,13 @@ JSON
 fi
 exit 0
 BASH);
+    }
+
+    private function writePreflightOnlyHostTransportToolchain(string $binDir): void
+    {
+        foreach (['ssh', 'scp'] as $tool) {
+            $this->writeExecutable($binDir.'/'.$tool, "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        }
     }
 
     private function writeFakeRuntimePrlctl(string $path, string $logPath, string $snapshotJson, bool $failSecondSnapshotSwitch = false): void
@@ -1081,6 +1114,13 @@ if [[ "${1:-}" == "/etc/os-release" ]]; then
 fi
 /bin/cat "$@"
 BASH);
+    }
+
+    private function writeGuestDependencyToolchain(string $binDir): void
+    {
+        foreach (['git', 'curl', 'jq'] as $tool) {
+            $this->writeExecutable($binDir.'/'.$tool, "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        }
     }
 
     /**
