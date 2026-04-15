@@ -121,6 +121,12 @@ Guest-side proof execution now assumes a sudo-capable SSH user and fails fast if
 - `sudo -n true`
 - `sudo -n docker info`
 
+The guest-side flow also normalizes the smoke/runtime boundary:
+
+- `guest-install-deps.sh` prepares the current SSH user for non-root smoke execution through the `docker` group
+- `ops/smoke/run-all.sh` is executed from the extracted repo root with explicit `RUNNER`, `APP_COMPOSE_FILE`, and `OBS_COMPOSE_FILE`
+- compose state evidence is collected through `ops/lib/common.sh` / `bt_compose`, not by bypassing the split-plane runtime env contract with raw `docker compose`
+
 The host proof bundle now collects metadata-safe guest evidence under `guest-output/`, including:
 
 - `guest-output/guest-fragment.json`
