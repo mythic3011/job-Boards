@@ -27,6 +27,10 @@ log() {
     printf '%s\n' "$*" | tee -a "${BT_PROOF_LOG_FILE}"
 }
 
+q() {
+    printf '%q' "$1"
+}
+
 run_privileged() {
     sudo -n env \
         BT_STATE_DIR="${BT_PROOF_STATE_DIR}" \
@@ -135,6 +139,25 @@ capture_privileged_output() {
     shift
 
     run_privileged "$@" >"${BT_PROOF_OUTPUT_DIR}/${file_name}" 2>&1
+}
+
+capture_privileged_repo_command() {
+    local file_name="$1"
+    local command_string="$2"
+
+    run_privileged bash -c "${command_string}" >"${BT_PROOF_OUTPUT_DIR}/${file_name}" 2>&1
+}
+
+capture_privileged_compose_ps() {
+    local file_name="$1"
+    local compose_file="$2"
+    local command_string
+
+    command_string="cd $(q "${BT_PROOF_REPO_DIR}") && "
+    command_string+="source $(q "${BT_PROOF_REPO_DIR}/ops/lib/common.sh") && "
+    command_string+="bt_compose $(q "${compose_file}") ps"
+
+    capture_privileged_repo_command "${file_name}" "${command_string}"
 }
 
 write_fragment() {
@@ -261,9 +284,41 @@ collect_system_evidence() {
     capture_output "11-uname.txt" uname -a
     capture_privileged_output "12-docker-version.txt" docker version
     capture_privileged_output "13-docker-compose-version.txt" docker compose version
-    capture_privileged_output "14-compose-app-ps.txt" docker compose -f "${BT_PROOF_REPO_DIR}/compose.app.yml" ps
-    capture_privileged_output "15-compose-obs-ps.txt" docker compose -f "${BT_PROOF_REPO_DIR}/compose.obs.yml" ps
+    capture_privileged_compose_ps "14-compose-app-ps.txt" "${BT_PROOF_REPO_DIR}/compose.app.yml"
+    capture_privileged_compose_ps "15-compose-obs-ps.txt" "${BT_PROOF_REPO_DIR}/compose.obs.yml"
     capture_privileged_output "16-systemctl-docker.txt" systemctl status docker --no-pager
+}
+
+run_smoke_step() {
+    local log_path="${BT_PROOF_LOG_ROOT}/50-smoke.log"
+    local smoke_script="${BT_PROOF_REPO_DIR}/ops/smoke/run-all.sh"
+    local runner_path="${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh"
+    local app_compose_file="${BT_PROOF_REPO_DIR}/compose.app.yml"
+    local obs_compose_file="${BT_PROOF_REPO_DIR}/compose.obs.yml"
+    local command_string
+
+    command_string="cd $(q "${BT_PROOF_REPO_DIR}") && "
+    command_string+="env "
+    command_string+="BT_STATE_DIR=$(q "${BT_PROOF_STATE_DIR}") "
+    command_string+="RUNNER=$(q "${runner_path}") "
+    command_string+="APP_COMPOSE_FILE=$(q "${app_compose_file}") "
+    command_string+="OBS_COMPOSE_FILE=$(q "${obs_compose_file}") "
+    command_string+="$(q "${smoke_script}")"
+
+    if docker info >/dev/null 2>&1; then
+        bash -c "${command_string}" >"${log_path}" 2>&1
+        COMPLETED_STEPS+=("ops/smoke/run-all.sh")
+        return 0
+    fi
+
+    if command -v sg >/dev/null 2>&1; then
+        sg docker -c "${command_string}" >"${log_path}" 2>&1
+        COMPLETED_STEPS+=("ops/smoke/run-all.sh")
+        return 0
+    fi
+
+    log "ERROR [smoke_docker_access_required] Non-root smoke execution requires direct Docker access or sg docker fallback."
+    exit 1
 }
 
 main() {
@@ -283,7 +338,7 @@ main() {
     run_step_privileged "setup-blue-team-vm.sh host" "20-bootstrap-host.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" host
     run_step_privileged "setup-blue-team-vm.sh app" "30-bootstrap-app.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" app
     run_step_privileged "setup-blue-team-vm.sh obs" "40-bootstrap-obs.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" obs
-    run_step "ops/smoke/run-all.sh" "50-smoke.log" "${BT_PROOF_REPO_DIR}/ops/smoke/run-all.sh"
+    run_smoke_step
     run_step_privileged "setup-blue-team-vm.sh verify" "60-verify.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" verify
 
     collect_system_evidence

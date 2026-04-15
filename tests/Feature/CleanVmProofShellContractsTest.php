@@ -695,7 +695,10 @@ class CleanVmProofShellContractsTest extends TestCase
     private function initializeRuntimeProofRepo(string $tempRoot, string $setupMode): string
     {
         mkdir($tempRoot.'/ops/smoke', 0777, true);
+        mkdir($tempRoot.'/ops/lib', 0777, true);
         file_put_contents($tempRoot.'/tracked.txt', "baseline\n");
+        file_put_contents($tempRoot.'/compose.app.yml', "services: {}\n");
+        file_put_contents($tempRoot.'/compose.obs.yml', "services: {}\n");
 
         $setupScript = <<<'BASH'
 #!/usr/bin/env bash
@@ -708,6 +711,15 @@ BASH;
         }
 
         $this->writeExecutable($tempRoot.'/setup-blue-team-vm.sh', $setupScript);
+        $this->writeExecutable($tempRoot.'/ops/lib/common.sh', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+bt_compose() {
+  local compose_file="$1"
+  shift
+  docker compose -f "${compose_file}" "$@"
+}
+BASH);
         $this->writeExecutable($tempRoot.'/ops/smoke/run-all.sh', <<<'BASH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -889,7 +901,18 @@ shift
 if [[ "{$allowSudoTrueFlag}" != "1" && "\${1:-}" == "true" ]]; then
   exit 92
 fi
-"\$@"
+BT_FAKE_DOCKER_CONTEXT=sudo "\$@"
+BASH);
+
+        $this->writeExecutable($binDir.'/sg', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+group_name="${1:-}"
+flag="${2:-}"
+command_string="${3:-}"
+[[ "${group_name}" == "docker" ]] || exit 95
+[[ "${flag}" == "-c" ]] || exit 96
+BT_FAKE_DOCKER_CONTEXT=sg bash -c "${command_string}"
 BASH);
 
         $this->writeExecutable($binDir.'/docker', <<<BASH
@@ -898,6 +921,9 @@ set -euo pipefail
 case "\${1:-}" in
   info)
     if [[ "{$allowDockerInfoFlag}" != "1" ]]; then
+      exit 93
+    fi
+    if [[ "\${BT_FAKE_DOCKER_CONTEXT:-}" != "sudo" && "\${BT_FAKE_DOCKER_CONTEXT:-}" != "sg" ]]; then
       exit 93
     fi
     printf 'Server: Docker Engine\\n'

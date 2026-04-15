@@ -57,6 +57,15 @@ class GuestInstallDepsShellContractsTest extends TestCase
         mkdir($fakeBin, 0777, true);
         mkdir($installBin, 0777, true);
         $this->installGuestScript($tempRoot);
+        $this->writeExecutable($fakeBin.'/id', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "-un" ]]; then
+  printf 'proof-user\n'
+  exit 0
+fi
+exit 94
+BASH);
         $this->writeExecutable($fakeBin.'/sudo', <<<BASH
 #!/usr/bin/env bash
 set -euo pipefail
@@ -67,6 +76,8 @@ fi
 shift
 "\$@"
 BASH);
+        $this->writeExecutable($fakeBin.'/groupadd', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        $this->writeExecutable($fakeBin.'/usermod', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
         $this->writeExecutable($fakeBin.'/apt-get', <<<BASH
 #!/usr/bin/env bash
 set -euo pipefail
@@ -130,6 +141,8 @@ BASH);
         $this->assertStringContainsString('DEBIAN_FRONTEND=noninteractive CMD=install -y ca-certificates coreutils curl docker.io docker-compose-plugin git jq python3', $aptOutput);
         $this->assertStringContainsString('-n apt-get update', $sudoOutput);
         $this->assertStringContainsString('-n apt-get install -y ca-certificates coreutils curl docker.io docker-compose-plugin git jq python3', $sudoOutput);
+        $this->assertStringContainsString('-n groupadd -f docker', $sudoOutput);
+        $this->assertStringContainsString('-n usermod -aG docker proof-user', $sudoOutput);
         $this->assertFileExists($logFile);
     }
 
@@ -141,7 +154,18 @@ BASH);
 
         mkdir($fakeBin, 0777, true);
         $this->installGuestScript($tempRoot);
+        $this->writeExecutable($fakeBin.'/id', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "-un" ]]; then
+  printf 'proof-user\n'
+  exit 0
+fi
+exit 94
+BASH);
         $this->writeExecutable($fakeBin.'/sudo', "#!/usr/bin/env bash\nset -euo pipefail\nif [[ \"\${1:-}\" != \"-n\" ]]; then exit 91; fi\nshift\n\"\$@\"\n");
+        $this->writeExecutable($fakeBin.'/groupadd', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        $this->writeExecutable($fakeBin.'/usermod', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
         $this->writeExecutable($fakeBin.'/apt-get', <<<BASH
 #!/usr/bin/env bash
 set -euo pipefail

@@ -39,6 +39,18 @@ prepare_logging() {
     chmod 0644 "${BT_PROOF_LOG_FILE}"
 }
 
+prepare_current_user_docker_access() {
+    local current_user
+
+    current_user="$(id -un)"
+    if [[ "${current_user}" == "root" ]]; then
+        return 0
+    fi
+
+    run_logged_privileged groupadd -f docker
+    run_logged_privileged usermod -aG docker "${current_user}"
+}
+
 command_ready() {
     local command_name="$1"
 
@@ -100,6 +112,7 @@ main() {
 
     log "Installing guest proof dependencies."
     install_packages
+    prepare_current_user_docker_access
 
     if ! verify_toolchain; then
         log "Guest dependency toolchain verification failed after install."
