@@ -24,8 +24,8 @@ This is a reusable contract for future runs. It is not a historical log.
 
 - Obs bootstrap may auto-fix only when a safe source already exists.
 - `PROMETHEUS_PASSWORD_HASH` may be derived from `PROMETHEUS_PASSWORD`.
-- `GRAFANA_PASSWORD` is a plaintext source only. The final runtime contract for Grafana is `GRAFANA_SECRET_FILE`.
-- If `GRAFANA_SECRET_FILE` is not provided, obs bootstrap may materialize it from `GRAFANA_PASSWORD`.
+- `GRAFANA_PASSWORD` is a plaintext source only. The final runtime contract for Grafana is `GRAFANA_ADMIN_SECRET_FILE`.
+- If `GRAFANA_ADMIN_SECRET_FILE` is not provided, obs bootstrap may materialize it from `GRAFANA_PASSWORD`.
 - If no safe source exists, obs bootstrap must fail closed instead of inventing credentials.
 - Generated obs runtime values override source-layer `.env` values for the same key during obs bootstrap.
 - Runner statuses remain `PASS | DEGRADED | FAIL | SKIPPED`; auto-fix provenance belongs in generated artifacts, not in new status values.
@@ -60,7 +60,7 @@ Local repository note:
 - blue-team VM host runs default to `/var/lib/blue-team-vm`
 - local repo workflows may override `BT_STATE_DIR` to `${REPO_ROOT}/.blue-team-vm`
 - when local developers start `compose.obs.yml` manually, they must export both source-layer `.env` values and `${BT_STATE_DIR}/runtime/obs.generated.env`
-- a missing `PROMETHEUS_WEB_CONFIG_FILE` or `GRAFANA_SECRET_FILE` during local `docker compose` interpolation is a runtime artifact preparation failure, not by itself proof that the obs deployment contract is wrong
+- a missing `PROMETHEUS_WEB_CONFIG_FILE` or `GRAFANA_ADMIN_SECRET_FILE` during local `docker compose` interpolation is a runtime artifact preparation failure, not by itself proof that the obs deployment contract is wrong
 ## Startup Gating Versus Functional Proof
 
 - `depends_on` and Compose healthchecks are startup gates only.
@@ -115,7 +115,7 @@ Observable grading contract:
   - obs isolation smoke defaults to `compose.obs.yml`
 - Source-layer operator inputs and final runtime values are distinct:
   - plaintext sources: `MONITORING_PASSWORD`, `GRAFANA_PASSWORD`, `PROMETHEUS_PASSWORD`
-  - final runtime values: `MONITORING_PASSWORD_HASH`, `GRAFANA_SECRET_FILE`, `PROMETHEUS_PASSWORD_HASH`, `SESSION_SECRET`
+  - final runtime values: `MONITORING_PASSWORD_HASH`, `GRAFANA_ADMIN_SECRET_FILE`, `PROMETHEUS_PASSWORD_HASH`, `SESSION_SECRET`
 - `compose.obs.yml` must consume final runtime values only. It must not bypass bootstrap by reading plaintext Grafana or Prometheus credentials directly.
 - Any change that affects live blue-team VM runtime truth must land in `compose.app.yml` or `compose.obs.yml` first.
 - Security-contract fixes for the blue-team VM must be validated against `compose.app.yml` and `compose.obs.yml`; updating `compose.yaml` alone is not runtime contract evidence.
