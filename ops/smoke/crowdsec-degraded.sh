@@ -15,8 +15,6 @@ FRONTDOOR_URL="${FRONTDOOR_URL:-https://127.0.0.1/up}"
 RESTORE_TIMEOUT_SECONDS="${RESTORE_TIMEOUT_SECONDS:-60}"
 restored=0
 
-BT_COMPOSE_APP_FILE="${APP_COMPOSE_FILE}"
-
 require_cmd curl docker python3
 
 compose_service_container_id() {

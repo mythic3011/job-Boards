@@ -130,7 +130,6 @@ bt_status_rank() {
 
 bt_aggregate_statuses() {
     local statuses=("$@")
-    local saw_pass=0
     local saw_degraded=0
     local saw_fail=0
     local saw_non_skipped=0
@@ -146,7 +145,6 @@ bt_aggregate_statuses() {
                 saw_non_skipped=1
                 ;;
             "${BT_STATUS_PASS}")
-                saw_pass=1
                 saw_non_skipped=1
                 ;;
             "${BT_STATUS_SKIPPED}")
@@ -286,7 +284,24 @@ bt_invalidate_marker() {
 bt_compose() {
     local compose_file="$1"
     shift
+    bt_preload_compose_env
     docker compose -f "${compose_file}" "$@"
+}
+
+bt_preload_compose_env() {
+    local root_env_file="${BT_ROOT_DIR}/.env"
+    local obs_generated_env_file="${BT_OBS_GENERATED_ENV_FILE:-${BT_RUNTIME_DIR}/obs.generated.env}"
+    local preserved_env_keys
+
+    preserved_env_keys="$(env | cut -d= -f1)"
+
+    if [[ -r "${root_env_file}" ]]; then
+        bt_export_env_file_if_unset "${root_env_file}"
+    fi
+
+    if [[ -r "${obs_generated_env_file}" ]]; then
+        bt_export_env_file_unless_preserved "${obs_generated_env_file}" "${preserved_env_keys}"
+    fi
 }
 
 bt_compose_service_container_id() {
@@ -491,6 +506,66 @@ bt_export_env_file() {
         value="${line#*=}"
         key="${key#"${key%%[![:space:]]*}"}"
         key="${key%"${key##*[![:space:]]}"}"
+        export "${key}=${value}"
+    done < "${env_file}"
+}
+
+bt_export_env_file_if_unset() {
+    local env_file="$1"
+    local line
+    local key
+    local value
+
+    [[ -r "${env_file}" ]] || return 0
+
+    while IFS= read -r line; do
+        [[ -n "${line}" ]] || continue
+        [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+        line="${line#export }"
+        [[ "${line}" == *=* ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="${key#"${key%%[![:space:]]*}"}"
+        key="${key%"${key##*[![:space:]]}"}"
+
+        if [[ -n "${!key+x}" ]]; then
+            continue
+        fi
+
+        export "${key}=${value}"
+    done < "${env_file}"
+}
+
+bt_env_snapshot_has_key() {
+    local snapshot="$1"
+    local key="$2"
+
+    grep -Fqx -- "${key}" <<< "${snapshot}"
+}
+
+bt_export_env_file_unless_preserved() {
+    local env_file="$1"
+    local preserved_env_keys="$2"
+    local line
+    local key
+    local value
+
+    [[ -r "${env_file}" ]] || return 0
+
+    while IFS= read -r line; do
+        [[ -n "${line}" ]] || continue
+        [[ "${line}" =~ ^[[:space:]]*# ]] && continue
+        line="${line#export }"
+        [[ "${line}" == *=* ]] || continue
+        key="${line%%=*}"
+        value="${line#*=}"
+        key="${key#"${key%%[![:space:]]*}"}"
+        key="${key%"${key##*[![:space:]]}"}"
+
+        if bt_env_snapshot_has_key "${preserved_env_keys}" "${key}"; then
+            continue
+        fi
+
         export "${key}=${value}"
     done < "${env_file}"
 }
