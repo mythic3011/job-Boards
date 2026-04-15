@@ -129,7 +129,7 @@ is_identifier_var() {
 is_derived_var() {
     [[ "$1" == "MONITORING_PASSWORD_HASH" ]] && return 0
     [[ "$1" == "PROMETHEUS_PASSWORD_HASH" ]] && return 0
-    [[ "$1" == "GRAFANA_SECRET_FILE" ]] && return 0
+    [[ "$1" == "GRAFANA_PASSWORD_FILE" ]] && return 0
     return 1
 }
 

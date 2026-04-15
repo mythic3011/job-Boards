@@ -219,7 +219,7 @@ BASH);
         $this->writeFakeSha256sum($fakeBin.'/sha256sum', $archiveHash);
         $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
 
-        file_put_contents($stateDir.'/runtime/grafana-admin-secret', "not-for-export\n");
+        file_put_contents($stateDir.'/runtime/grafana-admin-password', "not-for-export\n");
         file_put_contents($stateDir.'/rendered/prometheus.web-config.yml', "basic_auth_users:\n  admin: \"hidden\"\n");
         file_put_contents(
             $stateDir.'/runtime/obs.generated.env',
@@ -227,13 +227,13 @@ BASH);
                 'SESSION_SECRET=session-fixture-marker',
                 'MONITORING_PASSWORD_HASH=$2y$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
                 'PROMETHEUS_PASSWORD_HASH=$2y$12$bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-                'GRAFANA_SECRET_FILE='.$stateDir.'/runtime/grafana-admin-secret',
+                'GRAFANA_PASSWORD_FILE='.$stateDir.'/runtime/grafana-admin-password',
                 'PROMETHEUS_WEB_CONFIG_FILE='.$stateDir.'/rendered/prometheus.web-config.yml',
             ])."\n",
         );
         file_put_contents($stateDir.'/runtime/obs.generated-secrets.jsonl', implode("\n", [
             '{"record_type":"generated_secret","generated_at":"2026-04-14T00:00:00Z","generated_by":"blue-team-bootstrap","target_field":"SESSION_SECRET","source_field":"random","mode":"generated_secret","deterministic":false,"user_action_required":false}',
-            '{"record_type":"generated_secret","generated_at":"2026-04-14T00:00:01Z","generated_by":"blue-team-bootstrap","target_field":"GRAFANA_SECRET_FILE","source_field":"GRAFANA_PASSWORD","mode":"materialized_secret_file","deterministic":true,"user_action_required":false}',
+            '{"record_type":"generated_secret","generated_at":"2026-04-14T00:00:01Z","generated_by":"blue-team-bootstrap","target_field":"GRAFANA_PASSWORD_FILE","source_field":"GRAFANA_PASSWORD","mode":"materialized_secret_file","deterministic":true,"user_action_required":false}',
         ])."\n");
 
         $process = $this->runProofRunner(
@@ -254,7 +254,7 @@ BASH);
         $this->assertSame('present', $projection['generated_env']['status'] ?? null);
         $this->assertSame('present', $projection['generated_secret_audit']['status'] ?? null);
         $this->assertTrue($projection['generated_env']['keys']['SESSION_SECRET']['present'] ?? false);
-        $this->assertSame('grafana-admin-secret', $projection['generated_env']['keys']['GRAFANA_SECRET_FILE']['basename'] ?? null);
+        $this->assertSame('grafana-admin-password', $projection['generated_env']['keys']['GRAFANA_PASSWORD_FILE']['basename'] ?? null);
         $this->assertTrue($projection['generated_env']['keys']['PROMETHEUS_WEB_CONFIG_FILE']['readable'] ?? false);
         $this->assertSame(2, $projection['generated_secret_audit']['record_count'] ?? null);
         $this->assertSame('SESSION_SECRET', $projection['generated_secret_audit']['records'][0]['target_field'] ?? null);
@@ -262,7 +262,7 @@ BASH);
         $this->assertStringNotContainsString('not-for-export', $serializedProjection);
         $this->assertFileDoesNotExist($outputDir.'/obs.generated.env');
         $this->assertFileDoesNotExist($outputDir.'/obs.generated-secrets.jsonl');
-        $this->assertFileDoesNotExist($outputDir.'/grafana-admin-secret');
+        $this->assertFileDoesNotExist($outputDir.'/grafana-admin-password');
     }
 
     public function test_guest_proof_runner_executes_smoke_from_repo_root_with_explicit_paths_and_non_root_docker_context(): void
