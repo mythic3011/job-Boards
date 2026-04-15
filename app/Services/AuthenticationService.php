@@ -4,9 +4,10 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 class AuthenticationService
@@ -97,19 +98,24 @@ class AuthenticationService
      */
     private function handleFailedAuthentication(?User $user, Request $request, string $username): void
     {
+        $auditUsername = $this->trimAuditUsername($username);
+
         if ($user) {
             $this->trackFailedAttempt($user, $request);
         }
+
+        $targetType = $user ? 'user' : 'login_identifier';
+        $targetIdcode = $user?->idcode ?? $this->canonicalUnknownLoginIdentifier($auditUsername);
 
         // Audit log failed login
         $this->auditLogger->logRequestEvent(
             eventType: 'audit.auth.verify.denied',
             request: $request,
             statusCode: 422,
-            targetType: $user ? 'user' : null,
-            targetIdcode: $user?->idcode,
+            targetType: $targetType,
+            targetIdcode: $targetIdcode,
             meta: [
-                'username' => $username,
+                'username' => $auditUsername,
                 'reason' => $user ? 'invalid_password' : 'user_not_found',
             ],
             actorUserId: $user?->id,
@@ -117,7 +123,7 @@ class AuthenticationService
         );
 
         Log::warning('Authentication failed', [
-            'username' => $username,
+            'username' => $auditUsername,
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'reason' => $user ? 'invalid_password' : 'user_not_found',
@@ -257,6 +263,24 @@ class AuthenticationService
     private function getFailedAttemptsKey(User $user, Request $request): string
     {
         return 'login_attempts:' . $user->login_id . ':' . $request->ip();
+    }
+
+    private function trimAuditUsername(string $username): string
+    {
+        $sanitized = preg_replace('/[\x00-\x1F\x7F]/', '', $username);
+
+        return trim($sanitized ?? '');
+    }
+
+    private function canonicalUnknownLoginIdentifier(string $username): string
+    {
+        $normalized = Str::transliterate(Str::lower($username));
+
+        if ($normalized === '') {
+            return 'login_unknown';
+        }
+
+        return 'login_' . hash('sha256', $normalized);
     }
 
     /**

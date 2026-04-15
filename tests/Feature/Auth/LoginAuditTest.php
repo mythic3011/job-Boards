@@ -95,6 +95,34 @@ class LoginAuditTest extends TestCase
         ]);
     }
 
+    public function test_unknown_user_failed_login_still_uses_non_null_canonical_target(): void
+    {
+        $this->from(route('login'))
+            ->withBrowser()
+            ->post(route('login.store'), [
+                'login_id' => ' MissingUser@Example.com ',
+                'password' => 'WrongPass123!',
+            ])
+            ->assertRedirect(route('login'));
+
+        $log = \App\Models\AuditLog::query()
+            ->where('event_type', 'audit.auth.verify.denied')
+            ->latest('occurred_at')
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertSame('denied', $log->outcome);
+        $this->assertSame('guest', $log->actor_type);
+        $this->assertSame(422, $log->status_code);
+        $this->assertSame('login_identifier', $log->target_type);
+        $this->assertSame(
+            'login_'.hash('sha256', 'missinguser@example.com'),
+            $log->target_idcode,
+        );
+        $this->assertSame('user_not_found', $log->meta['reason'] ?? null);
+        $this->assertSame('missinguser@example.com', $log->meta['username'] ?? null);
+    }
+
     public function test_lockout_threshold_creates_canonical_locked_event(): void
     {
         Config::set('auth.max_login_attempts', 3);
