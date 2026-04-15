@@ -8,6 +8,11 @@ use Illuminate\Support\Str;
 
 class AuditLogger
 {
+    public function __construct(
+        private readonly CanonicalAuditContract $canonicalAuditContract,
+    ) {
+    }
+
     /**
      * Log a security-related event.
      */
@@ -16,7 +21,9 @@ class AuditLogger
         Request $request,
         ?string $userId = null,
         array $meta = [],
-        int $statusCode = 200
+        int $statusCode = 200,
+        ?string $actorUserId = null,
+        ?string $actorType = null,
     ): void {
         $this->createAuditLog(
             eventType: $eventType,
@@ -24,7 +31,9 @@ class AuditLogger
             statusCode: $statusCode,
             targetType: $userId ? 'user' : null,
             targetIdcode: $userId,
-            meta: $meta
+            meta: $meta,
+            actorUserId: $actorUserId,
+            actorType: $actorType,
         );
     }
 
@@ -37,9 +46,11 @@ class AuditLogger
         int $statusCode,
         ?string $targetType = null,
         ?string $targetIdcode = null,
-        array $meta = []
+        array $meta = [],
+        ?string $actorUserId = null,
+        ?string $actorType = null,
     ): void {
-        $this->createAuditLog($eventType, $request, $statusCode, $targetType, $targetIdcode, $meta);
+        $this->createAuditLog($eventType, $request, $statusCode, $targetType, $targetIdcode, $meta, $actorUserId, $actorType);
     }
 
     /**
@@ -50,10 +61,12 @@ class AuditLogger
         Request $request,
         ?string $targetType = null,
         ?string $targetIdcode = null,
-        array $meta = []
+        array $meta = [],
+        ?string $actorUserId = null,
+        ?string $actorType = null,
     ): void {
         // Business events are typically successful
-        $this->createAuditLog($eventType, $request, 200, $targetType, $targetIdcode, $meta);
+        $this->createAuditLog($eventType, $request, 200, $targetType, $targetIdcode, $meta, $actorUserId, $actorType);
     }
 
     /**
@@ -65,38 +78,49 @@ class AuditLogger
         int $statusCode,
         ?string $targetType,
         ?string $targetIdcode,
-        array $meta
+        array $meta,
+        ?string $actorUserId = null,
+        ?string $actorType = null,
     ): void {
         $user = $request->user();
-
-        AuditLog::create([
+        $resolvedActorUserId = $actorUserId ?? $user?->id;
+        $resolvedActorType = $actorType ?? ($user ? 'user' : 'guest');
+        $requestId = (string) $request->attributes->get('request_id', (string) Str::uuid());
+        $attributes = [
+            'source' => 'laravel',
+            'request_id' => $requestId,
+            'event_type' => $eventType,
+            'outcome' => $this->canonicalOutcome($eventType, $statusCode),
+            'target_idcode' => $targetIdcode,
+        ];
+        $values = [
             'id' => (string) Str::uuid(),
             'occurred_at' => now(),
-            'request_id' => $request->attributes->get('request_id', (string) Str::uuid()),
-
-            'actor_user_id' => $user?->id,
-            'actor_type' => $user ? 'user' : 'guest',
-
-            'event_type' => $eventType,
-
+            'admitted_at' => now(),
+            'actor_user_id' => $resolvedActorUserId,
+            'actor_type' => $resolvedActorType,
             'method' => $request->method(),
             'path' => $request->path(),
             'status_code' => $statusCode,
-
             'ip' => $request->ip(),
             'user_agent' => $this->truncateUserAgent($request->userAgent()),
-
             'target_type' => $targetType,
-            'target_idcode' => $targetIdcode,
+            'meta' => $this->sanitize($meta, $eventType),
+        ];
 
-            'meta' => $this->sanitize($meta),
-        ]);
+        if ($this->canonicalAuditContract->isAdmissibleEvent($eventType)) {
+            AuditLog::query()->createOrFirst($attributes, $values);
+
+            return;
+        }
+
+        AuditLog::query()->create($attributes + $values);
     }
 
     /**
      * Sanitize meta data to prevent log injection and remove sensitive fields.
      */
-    private function sanitize(array $meta): array
+    private function sanitize(array $meta, string $eventType): array
     {
         // Remove sensitive fields (OWASP A09 recommendation)
         $blocked = [
@@ -130,7 +154,69 @@ class AuditLogger
             $sanitized[$key] = $value;
         }
 
+        if ($this->canonicalAuditContract->isAdmissibleEvent($eventType)) {
+            return $this->sanitizeCanonicalMetadata($sanitized);
+        }
+
         return $sanitized;
+    }
+
+    /**
+     * Canonical events must stay within the shared contract metadata boundary.
+     */
+    private function sanitizeCanonicalMetadata(array $meta): array
+    {
+        $allowedKeys = array_flip($this->canonicalAuditContract->allowedMetadataKeys());
+        $maxKeys = $this->canonicalAuditContract->metadataKeyLimit();
+        $maxValueLength = $this->canonicalAuditContract->metadataValueLengthLimit();
+        $sanitized = [];
+
+        foreach ($meta as $key => $value) {
+            if (count($sanitized) >= $maxKeys) {
+                break;
+            }
+
+            if (! is_string($key) || ! array_key_exists($key, $allowedKeys)) {
+                continue;
+            }
+
+            if (is_array($value) || is_object($value)) {
+                continue;
+            }
+
+            $normalized = preg_replace('/[\x00-\x1F\x7F]/', '', (string) $value);
+            $normalized = trim($normalized ?? '');
+
+            if ($normalized === '') {
+                continue;
+            }
+
+            $sanitized[$key] = substr($normalized, 0, $maxValueLength);
+        }
+
+        return $sanitized;
+    }
+
+    private function canonicalOutcome(string $eventType, int $statusCode): string
+    {
+        $contractOutcome = $this->canonicalAuditContract->eventOutcome($eventType);
+        if ($contractOutcome !== null) {
+            return $contractOutcome;
+        }
+
+        if ($eventType === 'audit.auth.logout' || str_contains($eventType, 'logout')) {
+            return 'logout';
+        }
+
+        if ($statusCode === 429) {
+            return 'rate_limited';
+        }
+
+        if ($statusCode >= 400) {
+            return 'denied';
+        }
+
+        return 'success';
     }
 
     /**

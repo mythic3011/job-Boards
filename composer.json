@@ -60,7 +60,7 @@
         ],
         "test": [
             "@php artisan config:clear --ansi",
-            "@php artisan test"
+            "vendor/bin/phpunit"
         ],
         "test:sqlite": [
             "@php artisan config:clear --ansi",

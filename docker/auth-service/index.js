@@ -1,35 +1,51 @@
 "use strict";
 
-const express = require("express");
-const bcrypt = require("bcrypt");
 const crypto = require("crypto");
-const cookieParser = require("cookie-parser");
-const rateLimit = require("express-rate-limit");
-
-const app = express();
-app.set("trust proxy", 1); // trust nginx X-Forwarded-For
-app.use(express.json());
-app.use(cookieParser());
-
-// serve built frontend assets if present
+const fs = require("fs");
 const path = require("path");
-app.use(express.static(path.join(__dirname, "public")));
+const { createCanonicalAuditMirror } = require("./canonical-audit");
 
-// fallback for client-side routing (login page)
-app.get(["/", "/login"], (_req, res) => {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
-});
+const AUTH_SERVICE_LOG_FILE = process.env.AUTH_SERVICE_LOG_FILE?.trim() || "";
+
+if (AUTH_SERVICE_LOG_FILE) {
+    try {
+        fs.mkdirSync(path.dirname(AUTH_SERVICE_LOG_FILE), { recursive: true });
+    } catch (error) {
+        process.stderr.write(
+            `[auth-service] failed to prepare log path: ${error.message}\n`,
+        );
+    }
+}
 
 // ── Logger ────────────────────────────────────────────────────────────────────
+const writeLog = (level, msg, meta = {}) => {
+    const line = JSON.stringify({
+        ts: new Date().toISOString(),
+        level,
+        msg,
+        ...meta,
+    });
+
+    console.log(line);
+
+    if (AUTH_SERVICE_LOG_FILE) {
+        fs.appendFile(AUTH_SERVICE_LOG_FILE, `${line}\n`, (error) => {
+            if (error) {
+                process.stderr.write(
+                    `[auth-service] failed to append log file: ${error.message}\n`,
+                );
+            }
+        });
+    }
+};
+
+const canonicalAuditMirror = createCanonicalAuditMirror({
+    logger: writeLog,
+});
+
 const log = (level, msg, meta = {}) => {
-    console.log(
-        JSON.stringify({
-            ts: new Date().toISOString(),
-            level,
-            msg,
-            ...meta,
-        }),
-    );
+    writeLog(level, msg, meta);
+    void canonicalAuditMirror.mirror(msg, meta);
 };
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -56,6 +72,24 @@ if (!USERS[process.env.MONITORING_ADMIN_USERNAME]) {
 if (!SESSION_SECRET) {
     failStartup("SESSION_SECRET is required - refusing to start");
 }
+
+const express = require("express");
+const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+const rateLimit = require("express-rate-limit");
+
+const app = express();
+app.set("trust proxy", 1); // trust nginx X-Forwarded-For
+app.use(express.json());
+app.use(cookieParser());
+
+// serve built frontend assets if present
+app.use(express.static(path.join(__dirname, "public")));
+
+// fallback for client-side routing (login page)
+app.get(["/", "/login"], (_req, res) => {
+    res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 // ── In-memory session store ───────────────────────────────────────────────────
 // Structure: token → { username, expires, ip, ua }
@@ -113,8 +147,10 @@ const verifyLimiter = rateLimit({
     legacyHeaders: false,
     keyGenerator: (req) => req.headers["x-real-ip"] || req.ip,
     handler: (req, res) => {
-        log("warn", "rate limit hit on /verify", {
-            ip: req.headers["x-real-ip"] || req.ip,
+        log("warn", "audit.auth.rate_limit.triggered", {
+            ...getAuditMeta(req),
+            rateLimitBucket: "verify",
+            reason: "verify_rate_limit_exceeded",
         });
         res.status(429).json({ error: "Too many attempts. Try again later." });
     },
@@ -129,8 +165,10 @@ const checkLimiter = rateLimit({
     keyGenerator: (req) => req.headers["x-real-ip"] || req.ip,
     skipSuccessfulRequests: true, // only count failures
     handler: (req, res) => {
-        log("warn", "rate limit hit on /check", {
-            ip: req.headers["x-real-ip"] || req.ip,
+        log("warn", "audit.auth.rate_limit.triggered", {
+            ...getAuditMeta(req),
+            rateLimitBucket: "check",
+            reason: "check_rate_limit_exceeded",
         });
         res.status(429).end();
     },
@@ -157,7 +195,12 @@ const normalizeBcryptHash = (hash) => {
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) =>
-    res.json({ status: "ok", sessions: sessions.size }),
+    res.json({
+        status: "ok",
+        sessions: sessions.size,
+        canonicalAuditMirrorDrops:
+            canonicalAuditMirror.getDroppedAdmissibleCount(),
+    }),
 );
 
 app.post("/verify", verifyLimiter, async (req, res) => {

@@ -51,7 +51,7 @@ BT_STATE_DIR="$(pwd)/.blue-team-vm" BT_COMPOSE_OBS_FILE="$(pwd)/compose.obs.yml"
 
 This project has two intentional test entrypoints:
 
-- `composer test`: full default verification path
+- `composer test`: full default verification path, using direct PHPUnit
 - `composer test:sqlite`: fast local sqlite-safe path
 
 `composer test:sqlite` is not evidence that the full default or PostgreSQL path passed. Read [docs/runbooks/test-verification-paths.md](docs/runbooks/test-verification-paths.md) before treating sqlite-safe output as full verification.

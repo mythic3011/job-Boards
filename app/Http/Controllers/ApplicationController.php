@@ -34,7 +34,13 @@ class ApplicationController extends Controller
 
         // Additional policy check (defense in depth)
         if (!$user->can('downloadCv', $application)) {
-            $this->logUnauthorizedAttempt($idcode, $user);
+            $this->logApplicationAuthorizationDenied(
+                application: $application,
+                user: $user,
+                policy: 'downloadCv',
+                eventType: 'audit.application.download_cv.denied',
+                request: request(),
+            );
             abort(403, 'You are not authorized to download this CV.');
         }
 
@@ -86,12 +92,32 @@ class ApplicationController extends Controller
     /**
      * Log unauthorized download attempt.
      */
-    private function logUnauthorizedAttempt(string $idcode, $user): void
+    private function logApplicationAuthorizationDenied(
+        Application $application,
+        $user,
+        string $policy,
+        string $eventType,
+        Request $request,
+    ): void
     {
+        $this->auditLogger->logRequestEvent(
+            eventType: $eventType,
+            request: $request,
+            statusCode: 403,
+            targetType: 'application',
+            targetIdcode: $application->idcode,
+            meta: [
+                'policy' => $policy,
+            ],
+            actorUserId: $user?->id,
+            actorType: $user ? 'user' : 'guest',
+        );
+
         Log::warning('Unauthorized CV download attempt', [
             'user_id' => $user?->id,
-            'application_idcode' => $idcode,
-            'ip' => request()->ip(),
+            'application_idcode' => $application->idcode,
+            'policy' => $policy,
+            'ip' => $request->ip(),
         ]);
     }
 
@@ -234,7 +260,16 @@ class ApplicationController extends Controller
     public function approve(Request $request, string $idcode, AuditLogger $auditLogger)
     {
         $application = Application::byIdcode($idcode)->firstOrFail();
-        $this->authorize('approve', $application);
+        if (!$request->user()?->can('approve', $application)) {
+            $this->logApplicationAuthorizationDenied(
+                application: $application,
+                user: $request->user(),
+                policy: 'approve',
+                eventType: 'audit.application.approve.denied',
+                request: $request,
+            );
+            abort(403, 'You are not authorized to approve this application.');
+        }
 
         if ($application->status->value === 'approved') {
             return back()->with('info', 'This application has already been approved.');
@@ -273,7 +308,16 @@ class ApplicationController extends Controller
     public function reject(Request $request, string $idcode, AuditLogger $auditLogger)
     {
         $application = Application::byIdcode($idcode)->firstOrFail();
-        $this->authorize('reject', $application);
+        if (!$request->user()?->can('reject', $application)) {
+            $this->logApplicationAuthorizationDenied(
+                application: $application,
+                user: $request->user(),
+                policy: 'reject',
+                eventType: 'audit.application.reject.denied',
+                request: $request,
+            );
+            abort(403, 'You are not authorized to reject this application.');
+        }
 
         if ($application->status->value === 'rejected') {
             return back()->with('info', 'This application has already been rejected.');

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Services\AuditLogger;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +18,17 @@ use Illuminate\Support\Facades\Route;
 
 // Explicit logout: redirect to login with success message (handles sign out from web.php test-nav and header)
 Route::post('/logout', function (Request $request) {
+    $user = $request->user();
+
+    if ($user !== null) {
+        app(AuditLogger::class)->logBusinessEvent(
+            eventType: 'audit.auth.logout',
+            request: $request,
+            targetType: 'user',
+            targetIdcode: $user->idcode,
+        );
+    }
+
     auth()->logout();
     $request->session()->invalidate();
     $request->session()->regenerateToken();

@@ -4,9 +4,10 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 
 class AuthenticationService
@@ -79,14 +80,16 @@ class AuthenticationService
         ]);
 
         $this->auditLogger->logBusinessEvent(
-            eventType: 'user_login',
+            eventType: 'audit.auth.verify.success',
             request: $request,
             targetType: 'user',
             targetIdcode: $user->idcode,
             meta: [
                 'username' => $user->login_id,
                 'email' => $user->email,
-            ]
+            ],
+            actorUserId: $user->id,
+            actorType: 'user',
         );
     }
 
@@ -95,25 +98,32 @@ class AuthenticationService
      */
     private function handleFailedAuthentication(?User $user, Request $request, string $username): void
     {
+        $auditUsername = $this->trimAuditUsername($username);
+
         if ($user) {
             $this->trackFailedAttempt($user, $request);
         }
 
+        $targetType = $user ? 'user' : 'login_identifier';
+        $targetIdcode = $user?->idcode ?? $this->canonicalUnknownLoginIdentifier($auditUsername);
+
         // Audit log failed login
         $this->auditLogger->logRequestEvent(
-            eventType: 'login_failed',
+            eventType: 'audit.auth.verify.denied',
             request: $request,
             statusCode: 422,
-            targetType: $user ? 'user' : null,
-            targetIdcode: $user?->idcode,
+            targetType: $targetType,
+            targetIdcode: $targetIdcode,
             meta: [
-                'username' => $username,
+                'username' => $auditUsername,
                 'reason' => $user ? 'invalid_password' : 'user_not_found',
-            ]
+            ],
+            actorUserId: $user?->id,
+            actorType: $user ? 'user' : 'guest',
         );
 
         Log::warning('Authentication failed', [
-            'username' => $username,
+            'username' => $auditUsername,
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'reason' => $user ? 'invalid_password' : 'user_not_found',
@@ -126,15 +136,18 @@ class AuthenticationService
     private function handleLockedAccount(User $user, Request $request, string $username): void
     {
         $this->auditLogger->logRequestEvent(
-            eventType: 'account_locked_attempt',
+            eventType: 'audit.auth.verify.denied',
             request: $request,
-            statusCode: 423,
+            statusCode: 422,
             targetType: 'user',
             targetIdcode: $user->idcode,
             meta: [
                 'username' => $username,
+                'reason' => 'account_locked',
                 'locked_until' => $user->locked_until?->toDateTimeString(),
-            ]
+            ],
+            actorUserId: $user->id,
+            actorType: 'user',
         );
 
         Log::warning('Login attempt on locked account', [
@@ -152,8 +165,8 @@ class AuthenticationService
     {
         $cacheKey = $this->getFailedAttemptsKey($user, $request);
         $attempts = Cache::get($cacheKey, 0) + 1;
-        $maxAttempts = config('auth.max_login_attempts', 5);
-        $lockoutMinutes = config('auth.lockout_minutes', 30);
+        $maxAttempts = (int) config('auth.max_login_attempts', 5);
+        $lockoutMinutes = (int) config('auth.lockout_minutes', 30);
 
         // Store attempts for lockout duration
         Cache::put($cacheKey, $attempts, now()->addMinutes($lockoutMinutes));
@@ -173,16 +186,19 @@ class AuthenticationService
         $lockedUntil = now()->addMinutes($lockoutMinutes);
         $user->update(['locked_until' => $lockedUntil]);
 
-        $this->auditLogger->logBusinessEvent(
-            eventType: 'account_locked',
+        $this->auditLogger->logRequestEvent(
+            eventType: 'audit.auth.locked',
             request: $request,
+            statusCode: 422,
             targetType: 'user',
             targetIdcode: $user->idcode,
             meta: [
                 'reason' => 'failed_login_attempts',
                 'attempts' => $attempts,
                 'locked_until' => $lockedUntil->toDateTimeString(),
-            ]
+            ],
+            actorUserId: $user->id,
+            actorType: 'user',
         );
 
         Log::warning('Account locked due to failed attempts', [
@@ -247,6 +263,24 @@ class AuthenticationService
     private function getFailedAttemptsKey(User $user, Request $request): string
     {
         return 'login_attempts:' . $user->login_id . ':' . $request->ip();
+    }
+
+    private function trimAuditUsername(string $username): string
+    {
+        $sanitized = preg_replace('/[\x00-\x1F\x7F]/', '', $username);
+
+        return trim($sanitized ?? '');
+    }
+
+    private function canonicalUnknownLoginIdentifier(string $username): string
+    {
+        $normalized = Str::transliterate(Str::lower($username));
+
+        if ($normalized === '') {
+            return 'login_unknown';
+        }
+
+        return 'login_' . hash('sha256', $normalized);
     }
 
     /**

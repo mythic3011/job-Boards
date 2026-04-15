@@ -1,0 +1,119 @@
+{
+  "version": "1.3.0",
+  "source_of_truth": "canonical-audit-contract",
+  "field_semantics": {
+    "event_type": "canonical semantic event name",
+    "request_id": "originating request correlation identifier",
+    "outcome": "normalized canonical event result",
+    "source": "originating service marker for the canonical record",
+    "actor_type": "normalized actor marker",
+    "target_type": "normalized target category",
+    "target_identifier": "normalized target identifier used for canonical review and dedupe",
+    "occurred_at": "source event timestamp",
+    "admitted_at": "canonical ingestion timestamp"
+  },
+  "payload": {
+    "required_fields": [
+      "event_type",
+      "request_id",
+      "source",
+      "outcome",
+      "actor_type",
+      "target_type",
+      "target_identifier",
+      "occurred_at"
+    ],
+    "optional_fields": [
+      "metadata"
+    ]
+  },
+  "dedupe": {
+    "identity_fields": [
+      "source",
+      "request_id",
+      "event_type",
+      "outcome",
+      "target_identifier"
+    ]
+  },
+  "metadata": {
+    "max_keys": 8,
+    "max_value_length": 255,
+    "allowed_keys": [
+      "reason",
+      "policy",
+      "signal",
+      "username",
+      "caller_identity",
+      "target_hint",
+      "mirror_drop_reason",
+      "rate_limit_bucket"
+    ]
+  },
+  "time_fields": {
+    "occurred_at": {
+      "meaning": "event_time"
+    },
+    "admitted_at": {
+      "meaning": "ingestion_time"
+    }
+  },
+  "normalized_enums": {
+    "source": [
+      "laravel",
+      "auth-service"
+    ],
+    "outcome": [
+      "success",
+      "denied",
+      "rate_limited",
+      "logout"
+    ]
+  },
+  "events": {
+    "audit.auth.verify.success": {
+      "admissible": true,
+      "outcome": "success"
+    },
+    "audit.auth.verify.denied": {
+      "admissible": true,
+      "outcome": "denied"
+    },
+    "audit.auth.locked": {
+      "admissible": true,
+      "outcome": "denied"
+    },
+    "audit.auth.rate_limit.triggered": {
+      "admissible": true,
+      "outcome": "rate_limited"
+    },
+    "audit.auth.logout": {
+      "admissible": true,
+      "outcome": "logout"
+    },
+    "audit.auth.check.denied": {
+      "admissible": true,
+      "outcome": "denied"
+    },
+    "audit.application.download_cv.denied": {
+      "admissible": true,
+      "outcome": "denied"
+    },
+    "audit.application.approve.denied": {
+      "admissible": true,
+      "outcome": "denied"
+    },
+    "audit.application.reject.denied": {
+      "admissible": true,
+      "outcome": "denied"
+    },
+    "audit.admin.permission.denied": {
+      "admissible": true,
+      "outcome": "denied"
+    },
+    "audit.auth.check.success": {
+      "admissible": false,
+      "outcome": "success"
+    }
+  }
+}

@@ -103,6 +103,9 @@ services:
       DB_HOST: postgres
       DB_SSLMODE: ${DB_SSLMODE:-prefer}
       REDIS_HOST: redis
+      CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID: ${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
+      CANONICAL_AUDIT_AUTH_SERVICE_SECRET: ${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}
+      CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS: ${CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.29.0.20}
       TRUSTED_PROXY_HEADERS: ${TRUSTED_PROXY_HEADERS:-x_forwarded}
     volumes:
@@ -191,6 +194,7 @@ services:
 
 networks:
   app-plane:
+    name: "${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane"
     driver: bridge
     ipam:
       config:

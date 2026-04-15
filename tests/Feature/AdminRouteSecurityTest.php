@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Tests\Concerns\InteractsWithBrowserRequests;
@@ -59,6 +60,37 @@ class AdminRouteSecurityTest extends TestCase
             ->assertRedirect(route('profile.two-factor'));
     }
 
+    public function test_admin_without_required_permission_creates_canonical_permission_deny_audit_log(): void
+    {
+        $admin = User::factory()->create([
+            'user_type' => 'admin',
+            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
+            'two_factor_confirmed_at' => now(),
+        ]);
+
+        $this->attachAdminRole($admin);
+        $this->createPermission('admin.system.view');
+
+        $this->withBrowser()
+            ->actingAs($admin)
+            ->get(route('admin.audit-logs.index'))
+            ->assertForbidden();
+
+        $log = AuditLog::query()
+            ->where('event_type', 'audit.admin.permission.denied')
+            ->latest('occurred_at')
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertSame('laravel', $log->source);
+        $this->assertSame('denied', $log->outcome);
+        $this->assertSame(403, $log->status_code);
+        $this->assertSame($admin->id, $log->actor_user_id);
+        $this->assertSame('admin_route', $log->target_type);
+        $this->assertSame('admin.audit-logs.index', $log->target_idcode);
+        $this->assertSame('admin.system.view', $log->meta['policy'] ?? null);
+    }
+
     private function attachAdminRole(User $user): void
     {
         $roleId = DB::table('roles')->insertGetId([
@@ -72,6 +104,18 @@ class AdminRouteSecurityTest extends TestCase
             'role_id' => $roleId,
             'model_type' => User::class,
             'model_id' => $user->getKey(),
+        ]);
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    private function createPermission(string $name): void
+    {
+        DB::table('permissions')->insert([
+            'name' => $name,
+            'guard_name' => 'web',
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
