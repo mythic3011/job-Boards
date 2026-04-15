@@ -225,15 +225,12 @@ BASH);
     public function test_install_full_prefers_generated_obs_runtime_values_over_repo_env_defaults_during_compose_calls(): void
     {
         $tempRoot = $this->makeTempDir();
-        $scriptPath = $tempRoot.'/install.sh';
+        $scriptPath = $this->installScriptFixture($tempRoot);
         $dockerEnvLog = $tempRoot.'/docker-env.log';
         $fakeBin = $tempRoot.'/fake-bin';
 
         mkdir($fakeBin, 0777, true);
         mkdir($tempRoot.'/ops/bootstrap', 0777, true);
-
-        copy($this->repoRoot.'/install.sh', $scriptPath);
-        chmod($scriptPath, 0755);
 
         file_put_contents($tempRoot.'/.env', <<<ENV
 APP_PORT=8080
