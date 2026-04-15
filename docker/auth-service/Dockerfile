@@ -2,9 +2,9 @@
 FROM node:20-alpine AS frontend-builder
 
 WORKDIR /build
-COPY frontend/package.json frontend/package-lock.json ./
+COPY docker/auth-service/frontend/package.json docker/auth-service/frontend/package-lock.json ./
 RUN npm ci
-COPY frontend/ ./
+COPY docker/auth-service/frontend/ ./
 RUN npm run build
 # produced assets in /build/dist
 
@@ -14,10 +14,12 @@ FROM node:20-alpine AS production
 WORKDIR /app
 
 # install runtime deps
-COPY package.json ./
-RUN npm install --production
+COPY docker/auth-service/package.json docker/auth-service/package-lock.json ./
+RUN npm ci --omit=dev
 
-COPY index.js ./
+COPY docker/auth-service/index.js ./
+COPY docker/auth-service/canonical-audit.js ./
+COPY config/contracts/canonical-audit.v1.json ./config/contracts/canonical-audit.v1.json
 
 # copy built frontend into public folder
 COPY --from=frontend-builder /build/dist/ ./public/

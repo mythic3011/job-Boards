@@ -44,7 +44,10 @@ trait UsesInMemorySqlite
         Schema::create('audit_logs', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->timestamp('occurred_at');
+            $table->timestamp('admitted_at')->nullable();
             $table->uuid('request_id');
+            $table->string('source')->nullable();
+            $table->string('outcome')->nullable();
             $table->uuid('actor_user_id')->nullable();
             $table->string('actor_type');
             $table->string('event_type');
@@ -57,6 +60,11 @@ trait UsesInMemorySqlite
             $table->string('target_idcode')->nullable();
             $table->text('meta')->nullable();
             $table->timestamps();
+
+            $table->unique(
+                ['source', 'request_id', 'event_type', 'outcome', 'target_idcode'],
+                'audit_logs_canonical_identity_unique',
+            );
         });
     }
 
@@ -65,6 +73,41 @@ trait UsesInMemorySqlite
         Schema::create('settings', function (Blueprint $table): void {
             $table->string('key')->primary();
             $table->text('value')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    protected function createJobPostingsTable(): void
+    {
+        Schema::create('job_postings', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('idcode')->unique();
+            $table->uuid('company_user_id');
+            $table->string('title');
+            $table->text('requirement');
+            $table->text('duty');
+            $table->unsignedInteger('salary_from')->nullable();
+            $table->unsignedInteger('salary_to')->nullable();
+            $table->timestamps();
+        });
+    }
+
+    protected function createApplicationsTable(): void
+    {
+        Schema::create('applications', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('idcode')->unique();
+            $table->uuid('job_id');
+            $table->uuid('applicant_user_id');
+            $table->text('message')->nullable();
+            $table->text('decision_message')->nullable();
+            $table->timestamp('decision_message_read_at')->nullable();
+            $table->string('cv_file_path');
+            $table->string('cv_original_name');
+            $table->string('cv_mime');
+            $table->unsignedBigInteger('cv_size_bytes');
+            $table->string('cv_sha256');
+            $table->string('status');
             $table->timestamps();
         });
     }

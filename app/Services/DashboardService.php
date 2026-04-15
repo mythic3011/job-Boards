@@ -21,7 +21,7 @@ class DashboardService
             $auditToday = AuditLog::where('occurred_at', '>=', $today)
                 ->selectRaw("
                     COUNT(*) as total_today,
-                    COUNT(CASE WHEN event_type = 'login_failed' THEN 1 END) as failed_logins,
+                    COUNT(CASE WHEN event_type IN ('login_failed', 'audit.auth.verify.denied') THEN 1 END) as failed_logins,
                     COUNT(CASE WHEN event_type IN ('suspicious_user_agent','suspicious_ua_high_risk_path','admin_probe') THEN 1 END) as suspicious
                 ")
                 ->first();
@@ -47,7 +47,9 @@ class DashboardService
     {
         return AuditLog::with('actor')
             ->whereIn('event_type', [
-                'login_success', 'login_failed', 'account_locked',
+                'login_success', 'login_failed', 'audit.auth.verify.success', 'audit.auth.verify.denied', 'account_locked', 'audit.auth.locked',
+                'audit.application.download_cv.denied', 'audit.application.approve.denied', 'audit.application.reject.denied',
+                'audit.admin.permission.denied',
                 'user.created', 'user.deleted', 'user.locked', 'user.unlocked',
                 'job.created', 'job.deleted',
                 'application.created', 'application.approved', 'application.rejected',

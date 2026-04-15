@@ -79,14 +79,16 @@ class AuthenticationService
         ]);
 
         $this->auditLogger->logBusinessEvent(
-            eventType: 'user_login',
+            eventType: 'audit.auth.verify.success',
             request: $request,
             targetType: 'user',
             targetIdcode: $user->idcode,
             meta: [
                 'username' => $user->login_id,
                 'email' => $user->email,
-            ]
+            ],
+            actorUserId: $user->id,
+            actorType: 'user',
         );
     }
 
@@ -101,7 +103,7 @@ class AuthenticationService
 
         // Audit log failed login
         $this->auditLogger->logRequestEvent(
-            eventType: 'login_failed',
+            eventType: 'audit.auth.verify.denied',
             request: $request,
             statusCode: 422,
             targetType: $user ? 'user' : null,
@@ -109,7 +111,9 @@ class AuthenticationService
             meta: [
                 'username' => $username,
                 'reason' => $user ? 'invalid_password' : 'user_not_found',
-            ]
+            ],
+            actorUserId: $user?->id,
+            actorType: $user ? 'user' : 'guest',
         );
 
         Log::warning('Authentication failed', [
@@ -126,15 +130,18 @@ class AuthenticationService
     private function handleLockedAccount(User $user, Request $request, string $username): void
     {
         $this->auditLogger->logRequestEvent(
-            eventType: 'account_locked_attempt',
+            eventType: 'audit.auth.verify.denied',
             request: $request,
-            statusCode: 423,
+            statusCode: 422,
             targetType: 'user',
             targetIdcode: $user->idcode,
             meta: [
                 'username' => $username,
+                'reason' => 'account_locked',
                 'locked_until' => $user->locked_until?->toDateTimeString(),
-            ]
+            ],
+            actorUserId: $user->id,
+            actorType: 'user',
         );
 
         Log::warning('Login attempt on locked account', [
@@ -152,8 +159,8 @@ class AuthenticationService
     {
         $cacheKey = $this->getFailedAttemptsKey($user, $request);
         $attempts = Cache::get($cacheKey, 0) + 1;
-        $maxAttempts = config('auth.max_login_attempts', 5);
-        $lockoutMinutes = config('auth.lockout_minutes', 30);
+        $maxAttempts = (int) config('auth.max_login_attempts', 5);
+        $lockoutMinutes = (int) config('auth.lockout_minutes', 30);
 
         // Store attempts for lockout duration
         Cache::put($cacheKey, $attempts, now()->addMinutes($lockoutMinutes));
@@ -173,16 +180,19 @@ class AuthenticationService
         $lockedUntil = now()->addMinutes($lockoutMinutes);
         $user->update(['locked_until' => $lockedUntil]);
 
-        $this->auditLogger->logBusinessEvent(
-            eventType: 'account_locked',
+        $this->auditLogger->logRequestEvent(
+            eventType: 'audit.auth.locked',
             request: $request,
+            statusCode: 422,
             targetType: 'user',
             targetIdcode: $user->idcode,
             meta: [
                 'reason' => 'failed_login_attempts',
                 'attempts' => $attempts,
                 'locked_until' => $lockedUntil->toDateTimeString(),
-            ]
+            ],
+            actorUserId: $user->id,
+            actorType: 'user',
         );
 
         Log::warning('Account locked due to failed attempts', [

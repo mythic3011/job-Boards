@@ -32,7 +32,10 @@ class AuditLog extends Model
     protected $fillable = [
         'id',
         'occurred_at',
+        'admitted_at',
         'request_id',
+        'source',
+        'outcome',
         'actor_user_id',
         'actor_type',
         'event_type',
@@ -50,6 +53,7 @@ class AuditLog extends Model
     {
         return [
             'occurred_at' => 'datetime',
+            'admitted_at' => 'datetime',
             'meta' => 'array',
         ];
     }

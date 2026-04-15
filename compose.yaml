@@ -34,11 +34,20 @@ services:
             start_period: 15s
 
     auth-service:
-        build: ./docker/auth-service
+        build:
+            context: .
+            dockerfile: docker/auth-service/Dockerfile
         environment:
             - MONITORING_ADMIN_USERNAME=${MONITORING_ADMIN_USERNAME}
             - MONITORING_PASSWORD_HASH=${MONITORING_PASSWORD_HASH}
             - SESSION_SECRET=${SESSION_SECRET}
+            - CANONICAL_AUDIT_INGEST_URL=${CANONICAL_AUDIT_INGEST_URL:-http://laravel.test/api/internal/canonical-audit/events}
+            - CANONICAL_AUDIT_KEY_ID=${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
+            - CANONICAL_AUDIT_SECRET=${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}
+            - CANONICAL_AUDIT_CALLER_IDENTITY=auth-service
+            - AUTH_SERVICE_LOG_FILE=/var/log/auth-service/auth-service.log
+        volumes:
+            - auth-service-logs:/var/log/auth-service
         networks:
             - sail
         restart: unless-stopped
@@ -159,6 +168,7 @@ services:
             - ./docker/promtail/config.yaml:/etc/promtail/config.yaml:ro
             - nginx-logs:/var/log/nginx:ro
             - ./storage/logs:/var/log/laravel:ro
+            - auth-service-logs:/var/log/auth-service:ro
             - crowdsec-logs:/var/log/crowdsec:ro
             - promtail-positions:/var/lib/promtail
         networks:
@@ -228,6 +238,9 @@ services:
             DB_HOST: postgres
             DB_SSLMODE: ${DB_SSLMODE:-prefer}
             REDIS_HOST: redis
+            CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID: ${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
+            CANONICAL_AUDIT_AUTH_SERVICE_SECRET: ${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}
+            CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS: ${CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
         volumes:
             - ".:/var/www/html"
         networks:
@@ -333,6 +346,8 @@ volumes:
     sail-postgres:
         driver: local
     sail-redis:
+        driver: local
+    auth-service-logs:
         driver: local
     nginx-ssl:
         driver: local
