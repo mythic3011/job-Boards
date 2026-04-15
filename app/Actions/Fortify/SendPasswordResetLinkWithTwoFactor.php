@@ -5,6 +5,7 @@ namespace App\Actions\Fortify;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TwoFactorService;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
@@ -112,10 +113,18 @@ class SendPasswordResetLinkWithTwoFactor
             ]);
         }
 
-        // 2FA verified, send password reset link (or log token locally for debugging)
+        // In local development we still avoid returning raw reset tokens to the caller.
         if (app()->environment('local')) {
             $token = Password::broker()->createToken($user);
             RateLimiter::clear($key);
+
+            Log::debug('Password reset token generated (LOCAL ONLY)', [
+                'email' => $user->email,
+                'reset_url' => route('password.reset', [
+                    'token' => $token,
+                    'email' => $user->email,
+                ]),
+            ]);
 
             $this->auditLogger->logSecurityEvent(
                 eventType: 'password_reset.link_generated',
@@ -131,8 +140,6 @@ class SendPasswordResetLinkWithTwoFactor
             return [
                 'status' => Password::RESET_LINK_SENT,
                 'local' => true,
-                'token' => $token,
-                'email' => $user->email,
             ];
         }
 
