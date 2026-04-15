@@ -102,6 +102,9 @@ services:
       DB_HOST: postgres
       DB_SSLMODE: ${DB_SSLMODE:-prefer}
       REDIS_HOST: redis
+      CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID: ${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
+      CANONICAL_AUDIT_AUTH_SERVICE_SECRET: ${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}
+      CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS: ${CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
     volumes:
       - ".:/var/www/html"
     networks:
@@ -188,6 +191,7 @@ services:
 
 networks:
   app-plane:
+    name: "${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane"
     driver: bridge
 
 volumes:
