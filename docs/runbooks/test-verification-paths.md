@@ -44,9 +44,10 @@ Use this shape for worktree-local full-default verification:
 
 ```bash
 ROOT=$(cd ../.. && pwd)
+COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-jobs-borads}
 
 docker run --rm \
-  --network jobs-borads_app-plane \
+  --network "${COMPOSE_PROJECT_NAME}_app-plane" \
   --add-host postgres:172.29.0.2 \
   --add-host redis:172.29.0.4 \
   --env-file .env \
