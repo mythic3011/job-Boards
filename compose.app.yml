@@ -13,13 +13,14 @@ services:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/nginx/crowdsec-bouncer.conf.template:/etc/nginx/crowdsec-bouncer.conf.template:ro
       - ./docker/nginx/errors:/usr/share/nginx/html:ro
-      - /opt/blue-team/nginx/includes/blue-team-honeypot.conf:/etc/nginx/includes/blue-team-honeypot.conf:ro
+      - ${BT_HONEYPOT_SOURCE:?Set BT_HONEYPOT_SOURCE before app apply}:/etc/nginx/includes/blue-team-honeypot.conf:ro
       - nginx-ssl:/etc/nginx/ssl
       - nginx-htpasswd:/etc/nginx/htpasswd
       - nginx-logs:/var/log/nginx
       - crowdsec-keys:/crowdsec-keys:ro
     networks:
-      - app-plane
+      app-plane:
+        ipv4_address: 172.29.0.20
     depends_on:
       laravel.test:
         condition: service_started
@@ -105,6 +106,8 @@ services:
       CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID: ${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
       CANONICAL_AUDIT_AUTH_SERVICE_SECRET: ${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}
       CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS: ${CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.29.0.20}
+      TRUSTED_PROXY_HEADERS: ${TRUSTED_PROXY_HEADERS:-x_forwarded}
     volumes:
       - ".:/var/www/html"
     networks:
@@ -193,6 +196,9 @@ networks:
   app-plane:
     name: "${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane"
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24
 
 volumes:
   sail-postgres:

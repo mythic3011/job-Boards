@@ -185,7 +185,7 @@ new class extends Component
                                 @if($job->salary)
                                     <div class="mt-0.5 text-xs text-gray-500">{{ $job->salary }}</div>
                                 @else
-                                    <div class="mt-0.5 text-xs text-gray-400">No salary stated</div>
+                                    <div class="mt-0.5 text-xs italic text-gray-400">No salary stated</div>
                                 @endif
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
@@ -230,8 +230,12 @@ new class extends Component
                                         </svg>
                                     </div>
                                     <p class="text-sm font-semibold text-gray-500">No job postings found</p>
-                                    @if($search || $companyFilter)
+                                    @if($search && ($companyFilter || $sort !== 'latest'))
                                         <p class="text-xs text-gray-400">Try adjusting your search or filters</p>
+                                    @elseif($search)
+                                        <p class="text-xs text-gray-400">Try adjusting your search term</p>
+                                    @elseif($companyFilter || $sort !== 'latest')
+                                        <p class="text-xs text-gray-400">Try adjusting your filters</p>
                                     @endif
                                 </div>
                             </td>

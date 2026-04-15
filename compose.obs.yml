@@ -84,12 +84,12 @@ services:
     container_name: jobs-boards-grafana
     image: grafana/grafana:latest
     environment:
-      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_secret
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
       - grafana-data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ${GRAFANA_PASSWORD_FILE:?Set GRAFANA_PASSWORD_FILE before obs apply}:/run/secrets/grafana_admin_password:ro
+      - ${GRAFANA_SECRET_FILE:?Set GRAFANA_SECRET_FILE before obs apply}:/run/secrets/grafana_admin_secret:ro
     networks:
       - obs-plane
     depends_on:

@@ -1,5 +1,32 @@
 let pendingChange = null;
 
+function getAvatarFallbackElement(img) {
+    if (!img) return null;
+
+    const fallbackId = img.getAttribute("data-avatar-fallback-id");
+    if (!fallbackId) return null;
+
+    return document.getElementById(fallbackId);
+}
+
+function showAvatarImage(img) {
+    if (!img) return;
+
+    const fallback = getAvatarFallbackElement(img);
+
+    img.classList.remove("hidden");
+    if (fallback) fallback.classList.add("hidden");
+}
+
+function showAvatarFallbackForImage(img) {
+    if (!img) return;
+
+    const fallback = getAvatarFallbackElement(img);
+
+    img.classList.add("hidden");
+    if (fallback) fallback.classList.remove("hidden");
+}
+
 function showAvatarFallback(inputId) {
     if (!inputId) return;
     const fallback = document.getElementById(`${inputId}-fallback-avatar`);
@@ -193,6 +220,21 @@ function showToast(message, type = "info") {
     }
 }
 
+function syncExistingAvatarImage(img) {
+    if (!img?.complete) return;
+
+    if (img.naturalWidth > 0) {
+        showAvatarImage(img);
+        return;
+    }
+
+    showAvatarFallbackForImage(img);
+}
+
+function syncAllAvatarImages() {
+    document.querySelectorAll("[data-avatar-image]").forEach(syncExistingAvatarImage);
+}
+
 // Delegated event listeners — replaces inline on* handlers
 document.addEventListener("change", (e) => {
     const input = e.target.closest("[data-avatar-input]");
@@ -211,11 +253,28 @@ document.addEventListener("click", (e) => {
 
 // Capture image load errors so broken/missing avatars fall back to initials.
 document.addEventListener(
+    "load",
+    (e) => {
+        const img = e.target.closest?.("[data-avatar-image]");
+        if (!img) return;
+        showAvatarImage(img);
+    },
+    true,
+);
+
+document.addEventListener(
     "error",
     (e) => {
         const img = e.target.closest?.("[data-avatar-image]");
         if (!img) return;
+        showAvatarFallbackForImage(img);
         showAvatarFallback(img.dataset.avatarInputId);
     },
     true,
 );
+
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", syncAllAvatarImages, { once: true });
+} else {
+    syncAllAvatarImages();
+}

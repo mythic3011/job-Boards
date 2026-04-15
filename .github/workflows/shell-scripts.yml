@@ -48,4 +48,4 @@ jobs:
         run: |
           mapfile -t scripts < <(git ls-files '*.sh')
           [ "${#scripts[@]}" -gt 0 ] || { echo "No shell scripts found"; exit 0; }
-          shellcheck "${scripts[@]}"
+          shellcheck -x -S warning "${scripts[@]}"

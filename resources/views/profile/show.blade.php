@@ -17,6 +17,11 @@
         <p class="text-gray-600 mt-1">Manage your account settings and preferences</p>
     </div>
 
+    @include('profile.partials.workspace-nav', [
+        'active' => 'show',
+        'twoFactorEnabled' => $two_factor_enabled,
+    ])
+
     @if($errors->any())
         <x-ui.alert type="error" class="mb-6">
             <ul class="list-disc list-inside">
