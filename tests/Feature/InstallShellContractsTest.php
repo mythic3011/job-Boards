@@ -19,15 +19,12 @@ class InstallShellContractsTest extends TestCase
     public function test_install_full_does_not_use_linux_only_netstat_flags_when_probing_ports(): void
     {
         $tempRoot = $this->makeTempDir();
-        $scriptPath = $tempRoot.'/install.sh';
+        $scriptPath = $this->installScriptFixture($tempRoot);
         $netstatLog = $tempRoot.'/netstat.log';
         $fakeBin = $tempRoot.'/fake-bin';
 
         mkdir($fakeBin, 0777, true);
         mkdir($tempRoot.'/ops/bootstrap', 0777, true);
-
-        copy($this->repoRoot.'/install.sh', $scriptPath);
-        chmod($scriptPath, 0755);
 
         file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
@@ -94,16 +91,13 @@ BASH);
     public function test_install_full_prepares_obs_runtime_artifacts_before_docker_compose_build(): void
     {
         $tempRoot = $this->makeTempDir();
-        $scriptPath = $tempRoot.'/install.sh';
+        $scriptPath = $this->installScriptFixture($tempRoot);
         $bootstrapLog = $tempRoot.'/bootstrap-obs.log';
         $dockerEnvLog = $tempRoot.'/docker-env.log';
         $fakeBin = $tempRoot.'/fake-bin';
 
         mkdir($fakeBin, 0777, true);
         mkdir($tempRoot.'/ops/bootstrap', 0777, true);
-
-        copy($this->repoRoot.'/install.sh', $scriptPath);
-        chmod($scriptPath, 0755);
 
         file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
@@ -165,15 +159,12 @@ BASH);
     public function test_install_full_prefers_generated_obs_runtime_values_over_repo_env_defaults_during_compose_calls(): void
     {
         $tempRoot = $this->makeTempDir();
-        $scriptPath = $tempRoot.'/install.sh';
+        $scriptPath = $this->installScriptFixture($tempRoot);
         $dockerEnvLog = $tempRoot.'/docker-env.log';
         $fakeBin = $tempRoot.'/fake-bin';
 
         mkdir($fakeBin, 0777, true);
         mkdir($tempRoot.'/ops/bootstrap', 0777, true);
-
-        copy($this->repoRoot.'/install.sh', $scriptPath);
-        chmod($scriptPath, 0755);
 
         file_put_contents($tempRoot.'/.env', <<<ENV
 APP_PORT=8080
@@ -234,16 +225,13 @@ BASH);
     public function test_install_full_exports_repo_local_honeypot_source_before_docker_compose_build(): void
     {
         $tempRoot = $this->makeTempDir();
-        $scriptPath = $tempRoot.'/install.sh';
+        $scriptPath = $this->installScriptFixture($tempRoot);
         $dockerEnvLog = $tempRoot.'/docker-env.log';
         $fakeBin = $tempRoot.'/fake-bin';
 
         mkdir($fakeBin, 0777, true);
         mkdir($tempRoot.'/ops/bootstrap', 0777, true);
         mkdir($tempRoot.'/docker/nginx/includes', 0777, true);
-
-        copy($this->repoRoot.'/install.sh', $scriptPath);
-        chmod($scriptPath, 0755);
 
         file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
         file_put_contents($tempRoot.'/docker/nginx/includes/blue-team-honeypot.conf', "location = /.env { return 403; }\n");
@@ -295,15 +283,12 @@ BASH);
     public function test_install_full_uses_explicit_combined_compose_file_without_orphan_cleanup(): void
     {
         $tempRoot = $this->makeTempDir();
-        $scriptPath = $tempRoot.'/install.sh';
+        $scriptPath = $this->installScriptFixture($tempRoot);
         $dockerLog = $tempRoot.'/docker.log';
         $fakeBin = $tempRoot.'/fake-bin';
 
         mkdir($fakeBin, 0777, true);
         mkdir($tempRoot.'/ops/bootstrap', 0777, true);
-
-        copy($this->repoRoot.'/install.sh', $scriptPath);
-        chmod($scriptPath, 0755);
 
         file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
@@ -356,14 +341,11 @@ BASH);
     public function test_install_quick_restarts_the_app_container_without_combined_compose_interpolation(): void
     {
         $tempRoot = $this->makeTempDir();
-        $scriptPath = $tempRoot.'/install.sh';
+        $scriptPath = $this->installScriptFixture($tempRoot);
         $dockerLog = $tempRoot.'/docker.log';
         $fakeBin = $tempRoot.'/fake-bin';
 
         mkdir($fakeBin, 0777, true);
-
-        copy($this->repoRoot.'/install.sh', $scriptPath);
-        chmod($scriptPath, 0755);
 
         file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
 
@@ -403,6 +385,52 @@ BASH);
         $this->assertStringContainsString('restart jobs-boards-laravel.test', $dockerOutput);
         $this->assertStringNotContainsString('compose -f', $dockerOutput);
         $this->assertStringNotContainsString('compose restart laravel.test', $dockerOutput);
+    }
+
+    public function test_install_skip_reports_the_effective_compose_file_in_summary(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $fakeBin = $tempRoot.'/fake-bin';
+        $customComposeFile = $tempRoot.'/compose.custom.yml';
+
+        mkdir($fakeBin, 0777, true);
+
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        file_put_contents($customComposeFile, "services: {}\n");
+
+        $this->writeExecutable($fakeBin.'/docker', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "compose" && "${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "${1:-}" == "exec" ]]; then
+  exit 0
+fi
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'skip', 'dev'],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'INSTALL_COMPOSE_FILE' => $customComposeFile,
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+
+        $this->assertSame(0, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('docker compose -f ./compose.custom.yml ps', $combinedOutput);
+        $this->assertStringContainsString('docker compose -f ./compose.custom.yml logs', $combinedOutput);
+        $this->assertStringNotContainsString('docker compose -f compose.yaml ps', $combinedOutput);
     }
 
     public function test_combined_compose_requires_generated_obs_runtime_artifacts(): void
@@ -462,6 +490,20 @@ BASH);
         mkdir($dir, 0777, true);
 
         return $dir;
+    }
+
+    private function installScriptFixture(string $tempRoot): string
+    {
+        $scriptPath = $tempRoot.'/install.sh';
+        $commonLibPath = $tempRoot.'/ops/lib/common.sh';
+
+        mkdir(dirname($commonLibPath), 0777, true);
+        copy($this->repoRoot.'/install.sh', $scriptPath);
+        copy($this->repoRoot.'/ops/lib/common.sh', $commonLibPath);
+        chmod($scriptPath, 0755);
+        chmod($commonLibPath, 0755);
+
+        return $scriptPath;
     }
 
     private function writeExecutable(string $path, string $contents): void
