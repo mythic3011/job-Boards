@@ -11,7 +11,7 @@
 
 This project has two intentional test entrypoints:
 
-- `composer test`: full default verification path
+- `composer test`: full default verification path, using direct PHPUnit
 - `composer test:sqlite`: fast local sqlite-safe path
 
 Their coverage boundaries are different. Read [docs/runbooks/test-verification-paths.md](docs/runbooks/test-verification-paths.md) before treating sqlite results as full verification.
