@@ -21,7 +21,7 @@ datasources:
     url: $GRAFANA_POSTGRES_URL
     user: $GRAFANA_POSTGRES_USER
     secureJsonData:
-      password: $GRAFANA_POSTGRES_PASSWORD
+      password: $GRAFANA_POSTGRES_SECRET
     jsonData:
       database: $GRAFANA_POSTGRES_DATABASE
       sslmode: $GRAFANA_POSTGRES_SSLMODE

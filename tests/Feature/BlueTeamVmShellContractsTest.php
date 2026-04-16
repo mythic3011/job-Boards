@@ -148,8 +148,9 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('GRAFANA_POSTGRES_URL: ${GRAFANA_POSTGRES_URL:-postgres:5432}', $contents);
         $this->assertStringContainsString('GRAFANA_POSTGRES_DATABASE: ${DB_DATABASE:?Set DB_DATABASE before obs apply}', $contents);
         $this->assertStringContainsString('GRAFANA_POSTGRES_USER: ${DB_USERNAME:?Set DB_USERNAME before obs apply}', $contents);
-        $this->assertStringContainsString('GRAFANA_POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD before obs apply}', $contents);
+        $this->assertStringContainsString('GRAFANA_POSTGRES_SECRET: ${DB_PASSWORD:?Set DB_PASSWORD before obs apply}', $contents);
         $this->assertStringContainsString('GRAFANA_POSTGRES_SSLMODE: ${GRAFANA_POSTGRES_SSLMODE:-prefer}', $contents);
+        $this->assertStringNotContainsString('GRAFANA_POSTGRES_PASSWORD:', $contents);
         $this->assertStringContainsString("  grafana:\n", $contents);
         $this->assertStringContainsString("    networks:\n      - obs-plane\n      - app-plane", $contents);
     }
@@ -241,7 +242,8 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('type: postgres', $contents);
         $this->assertStringContainsString('url: $GRAFANA_POSTGRES_URL', $contents);
         $this->assertStringContainsString('user: $GRAFANA_POSTGRES_USER', $contents);
-        $this->assertStringContainsString('password: $GRAFANA_POSTGRES_PASSWORD', $contents);
+        $this->assertStringContainsString('password: $GRAFANA_POSTGRES_SECRET', $contents);
+        $this->assertStringNotContainsString('GRAFANA_POSTGRES_PASSWORD', $contents);
         $this->assertStringContainsString('database: $GRAFANA_POSTGRES_DATABASE', $contents);
         $this->assertStringContainsString('sslmode: $GRAFANA_POSTGRES_SSLMODE', $contents);
     }
