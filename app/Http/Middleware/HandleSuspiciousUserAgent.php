@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Services\AuditLogger;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
 class HandleSuspiciousUserAgent
@@ -118,8 +119,12 @@ class HandleSuspiciousUserAgent
      */
     protected function isHighRiskPath(string $path): bool
     {
+        $normalizedPath = Str::lower(ltrim($path, '/'));
+
         foreach ($this->highRiskPaths as $riskPath) {
-            if (str_starts_with($path, $riskPath)) {
+            $normalizedRiskPath = Str::lower(ltrim($riskPath, '/'));
+
+            if ($normalizedPath === $normalizedRiskPath || str_starts_with($normalizedPath, $normalizedRiskPath . '/')) {
                 return true;
             }
         }
