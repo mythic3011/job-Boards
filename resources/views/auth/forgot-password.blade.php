@@ -20,6 +20,7 @@
             <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-8" x-data="{ useRecovery: false }">
                 <form class="space-y-6" action="{{ route('password.email') }}" method="POST">
                     @csrf
+                    <x-honeypot />
 
                     <div>
                         <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email address</label>
