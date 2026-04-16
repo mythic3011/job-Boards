@@ -39,10 +39,10 @@ class LoginAuditTest extends TestCase
         ]);
 
         $this->withBrowser()
-            ->post(route('login.store'), [
+            ->post(route('login.store'), $this->honeypotFormPayload([
                 'login_id' => $user->login_id,
                 'password' => 'StrongPass123!',
-            ])
+            ]))
             ->assertRedirect(route('my.applications.index'));
 
         $this->assertDatabaseHas('audit_logs', [
@@ -79,10 +79,10 @@ class LoginAuditTest extends TestCase
 
         $this->from(route('login'))
             ->withBrowser()
-            ->post(route('login.store'), [
+            ->post(route('login.store'), $this->honeypotFormPayload([
                 'login_id' => $user->login_id,
                 'password' => 'WrongPass123!',
-            ])
+            ]))
             ->assertRedirect(route('login'));
 
         $this->assertDatabaseHas('audit_logs', [
@@ -99,10 +99,10 @@ class LoginAuditTest extends TestCase
     {
         $this->from(route('login'))
             ->withBrowser()
-            ->post(route('login.store'), [
+            ->post(route('login.store'), $this->honeypotFormPayload([
                 'login_id' => ' MissingUser@Example.com ',
                 'password' => 'WrongPass123!',
-            ])
+            ]))
             ->assertRedirect(route('login'));
 
         $log = \App\Models\AuditLog::query()
@@ -137,10 +137,10 @@ class LoginAuditTest extends TestCase
         foreach (range(1, 3) as $attempt) {
             $this->from(route('login'))
                 ->withBrowser()
-                ->post(route('login.store'), [
+                ->post(route('login.store'), $this->honeypotFormPayload([
                     'login_id' => $user->login_id,
                     'password' => 'WrongPass123!',
-                ])
+                ]))
                 ->assertRedirect(route('login'));
         }
 
@@ -165,10 +165,10 @@ class LoginAuditTest extends TestCase
 
         $this->from(route('login'))
             ->withBrowser()
-            ->post(route('login.store'), [
+            ->post(route('login.store'), $this->honeypotFormPayload([
                 'login_id' => $user->login_id,
                 'password' => 'StrongPass123!',
-            ])
+            ]))
             ->assertRedirect(route('login'));
 
         $log = \App\Models\AuditLog::query()
