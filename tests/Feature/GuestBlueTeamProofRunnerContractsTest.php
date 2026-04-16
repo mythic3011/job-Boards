@@ -78,7 +78,7 @@ BASH);
         $this->assertStringContainsString('setup-blue-team-vm.sh app', $sudoOutput);
         $this->assertStringContainsString('setup-blue-team-vm.sh obs', $sudoOutput);
         $this->assertStringContainsString('setup-blue-team-vm.sh verify', $sudoOutput);
-        $this->assertStringContainsString('ops/smoke/run-all.sh', $sudoOutput);
+        $this->assertStringNotContainsString('ops/smoke/run-all.sh', $sudoOutput);
         $this->assertFileExists($outputDir.'/10-os-release.txt');
         $this->assertFileExists($outputDir.'/11-uname.txt');
         $this->assertFileExists($outputDir.'/12-docker-version.txt');
@@ -265,7 +265,7 @@ BASH);
         $this->assertFileDoesNotExist($outputDir.'/grafana-admin-secret');
     }
 
-    public function test_guest_proof_runner_executes_smoke_from_repo_root_with_explicit_paths_and_sudo_backed_docker_context(): void
+    public function test_guest_proof_runner_executes_smoke_from_repo_root_with_explicit_paths_and_sg_docker_context(): void
     {
         $sandbox = $this->makeTempDir();
         $inputDir = $sandbox.'/input';
@@ -298,10 +298,10 @@ BASH);
         $this->assertSame((string) realpath($expectedRepoDir.'/setup-blue-team-vm.sh'), realpath((string) ($smokeContext['runner'] ?? '')));
         $this->assertSame((string) realpath($expectedRepoDir.'/compose.app.yml'), realpath((string) ($smokeContext['app_compose_file'] ?? '')));
         $this->assertSame((string) realpath($expectedRepoDir.'/compose.obs.yml'), realpath((string) ($smokeContext['obs_compose_file'] ?? '')));
-        $this->assertSame('sudo', $smokeContext['docker_context'] ?? null);
+        $this->assertSame('sg', $smokeContext['docker_context'] ?? null);
     }
 
-    public function test_guest_proof_runner_executes_smoke_with_sudo_backed_docker_access_without_group_refresh(): void
+    public function test_guest_proof_runner_executes_smoke_with_sudo_backed_docker_fallback_when_non_root_access_is_unavailable(): void
     {
         $sandbox = $this->makeTempDir();
         $inputDir = $sandbox.'/input';
@@ -692,7 +692,6 @@ fi
 /bin/cat "$@"
 BASH);
     }
-
     private function writeExecutable(string $path, string $contents): void
     {
         $dir = dirname($path);
