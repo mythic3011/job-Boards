@@ -27,4 +27,13 @@ class AdminDashboardUiContractTest extends TestCase
         $this->assertStringContainsString('Failed Sign-ins Today', $contents);
         $this->assertStringContainsString('Suspicious Events', $contents);
     }
+
+    public function test_admin_dashboard_badges_cover_canonical_auth_verify_events(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/dashboard.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString("str_contains(\$eventType, 'denied') || \$eventType === 'audit.auth.verify.denied'", $contents);
+        $this->assertStringContainsString("str_contains(\$eventType, 'login') || \$eventType === 'audit.auth.verify.success'", $contents);
+    }
 }

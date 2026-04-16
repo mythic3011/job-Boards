@@ -168,6 +168,41 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString(': "${BT_HONEYPOT_SOURCE:=/opt/blue-team/nginx/includes/blue-team-honeypot.conf}"', $contents);
     }
 
+    public function test_nginx_conf_maps_default_honeypot_probe_names_for_decoy_logs(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('map $uri $blue_team_trap_name {', $contents);
+        $this->assertStringContainsString('/.env env_probe;', $contents);
+        $this->assertStringContainsString('/.git/config git_probe;', $contents);
+        $this->assertStringContainsString('/phpmyadmin phpmyadmin_probe;', $contents);
+        $this->assertStringContainsString('/wp-login.php wp_probe;', $contents);
+        $this->assertStringContainsString('/admin-old admin_old_probe;', $contents);
+    }
+
+    public function test_obs_promtail_scrapes_auth_service_structured_logs(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/promtail/config.yaml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('- job_name: auth-service', $contents);
+        $this->assertStringContainsString('job: auth-service', $contents);
+        $this->assertStringContainsString('app: auth-service', $contents);
+        $this->assertStringContainsString('__path__: /var/log/auth-service/*.log', $contents);
+    }
+
+    public function test_obs_grafana_provisions_auth_service_audit_dashboard(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/grafana/provisioning/dashboards/auth-service-audit.json');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('"uid": "auth-service-audit"', $contents);
+        $this->assertStringContainsString('audit.canonical_mirror.dropped', $contents);
+        $this->assertStringContainsString('{app=\\"auth-service\\"}', $contents);
+        $this->assertStringContainsString('audit\\\\.auth\\\\..*', $contents);
+    }
+
     public function test_common_bt_compose_exports_obs_generated_env_before_running_docker_compose(): void
     {
         $tempRoot = $this->makeTempDir();
