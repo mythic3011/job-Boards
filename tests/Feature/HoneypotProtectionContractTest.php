@@ -100,9 +100,11 @@ class HoneypotProtectionContractTest extends TestCase
 
     public function test_filled_honeypot_field_is_recorded_without_logging_raw_field_content(): void
     {
+        $honeypotFieldName = (string) config('honeypot.field_name', 'website');
+
         $response = $this->runMiddleware([
             'email' => 'user@example.test',
-            'website' => 'https://spam.example',
+            $honeypotFieldName => 'https://spam.example',
             '_timing' => encrypt(time() - 10),
         ]);
 
@@ -112,7 +114,7 @@ class HoneypotProtectionContractTest extends TestCase
 
         $this->assertNotNull($log);
         $this->assertSame('filled_honeypot_field', $log->meta['reason']);
-        $this->assertSame('website', $log->meta['field_name']);
+        $this->assertSame($honeypotFieldName, $log->meta['field_name']);
         $this->assertTrue($log->meta['field_filled']);
         $this->assertSame(strlen('https://spam.example'), $log->meta['field_length']);
         $this->assertArrayNotHasKey('honeypot_value', $log->meta);

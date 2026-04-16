@@ -19,7 +19,7 @@ class NginxErrorPageContractTest extends TestCase
         $this->assertStringContainsString('alias /usr/share/nginx/html/styles.css;', $contents);
     }
 
-    public function test_static_nginx_error_pages_share_the_themed_stylesheet_contract(): void
+    public function test_static_nginx_error_pages_share_themed_stylesheet_contract(): void
     {
         $error403 = file_get_contents(dirname(__DIR__, 2).'/docker/nginx/errors/403.html');
         $error429 = file_get_contents(dirname(__DIR__, 2).'/docker/nginx/errors/429.html');
