@@ -1,7 +1,7 @@
 type: trigger
 name: custom/banned-page-probe
 description: "IP fired bot fingerprint beacon from banned page"
-filter: '"POST /api/bot/fp-log" in evt.Line.Raw'
+filter: '"trap=bot_fingerprint" in evt.Line.Raw && "probe=banned_page" in evt.Line.Raw && "method=POST" in evt.Line.Raw && "status=204" in evt.Line.Raw'
 groupby: evt.Meta.source_ip
 blackhole: 5m
 labels:
