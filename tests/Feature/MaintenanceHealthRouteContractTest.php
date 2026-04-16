@@ -22,6 +22,14 @@ class MaintenanceHealthRouteContractTest extends TestCase
         parent::setUp();
 
         $this->useInMemorySqlite();
+        config([
+            'cache.default' => 'array',
+            'cache.stores.array' => [
+                'driver' => 'array',
+                'serialize' => false,
+            ],
+        ]);
+        app('cache')->setDefaultDriver('array');
         $this->createSettingsTable();
         $this->markSetupCompleted();
         $this->enableMaintenance();
