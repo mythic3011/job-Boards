@@ -265,7 +265,7 @@ BASH);
         $this->assertFileDoesNotExist($outputDir.'/grafana-admin-secret');
     }
 
-    public function test_guest_proof_runner_executes_smoke_from_repo_root_with_explicit_paths_and_non_root_docker_context(): void
+    public function test_guest_proof_runner_executes_smoke_from_repo_root_with_explicit_paths_and_sudo_backed_docker_context(): void
     {
         $sandbox = $this->makeTempDir();
         $inputDir = $sandbox.'/input';

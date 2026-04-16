@@ -587,9 +587,11 @@ verify_mode() {
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' RETURN
 
-    if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
+    if BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
         BT_DRY_RUN="${BT_DRY_RUN}" \
         run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" verify; then
+        host_rc=0
+    else
         host_rc=$?
     fi
 

@@ -416,6 +416,53 @@ BASH);
         $this->assertSame('FAIL', $overallSummary['status'] ?? null);
     }
 
+    public function test_top_level_verify_preserves_host_failure_exit_when_child_verify_exits_before_plane_summary(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $fakeBin = $tempRoot.'/fake-bin';
+        mkdir($fakeBin, 0777, true);
+
+        $this->writeExecutable(
+            $tempRoot.'/setup-blue-team-vm.sh',
+            (string) file_get_contents($this->repoRoot.'/setup-blue-team-vm.sh'),
+        );
+        $this->writeExecutable(
+            $tempRoot.'/ops/lib/common.sh',
+            (string) file_get_contents($this->repoRoot.'/ops/lib/common.sh'),
+        );
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-host.sh', "#!/usr/bin/env bash\nexit 2\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-app.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', "#!/usr/bin/env bash\nexit 0\n");
+        file_put_contents($tempRoot.'/compose.app.yml', "services: {}\n");
+        file_put_contents($tempRoot.'/compose.obs.yml', "services: {}\n");
+        $this->writeExecutable($fakeBin.'/docker', "#!/usr/bin/env bash\nexit 0\n");
+
+        $process = new Process(
+            [$tempRoot.'/setup-blue-team-vm.sh', 'verify'],
+            $tempRoot,
+            [
+                'BT_DRY_RUN' => '1',
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $hostSummary = $this->findJsonRecord($combinedOutput, 'plane_summary', 'host');
+        $overallSummary = $this->findJsonRecord($combinedOutput, 'overall_summary', 'overall');
+
+        $this->assertNotSame(0, $process->getExitCode());
+        $this->assertSame('plane_summary', $hostSummary['record_type'] ?? null);
+        $this->assertSame('host', $hostSummary['plane'] ?? null);
+        $this->assertSame('FAIL', $hostSummary['status'] ?? null);
+        $this->assertStringContainsString('Host bootstrap verify exited before emitting a structured plane summary.', $hostSummary['message'] ?? '');
+        $this->assertStringNotContainsString('completed without emitting a structured plane summary', $hostSummary['message'] ?? '');
+        $this->assertSame('overall_summary', $overallSummary['record_type'] ?? null);
+        $this->assertSame('FAIL', $overallSummary['status'] ?? null);
+    }
+
     public function test_top_level_verify_on_non_linux_runtime_points_to_child_plane_verifiers_for_local_evidence(): void
     {
         $tempRoot = $this->makeTempDir();
