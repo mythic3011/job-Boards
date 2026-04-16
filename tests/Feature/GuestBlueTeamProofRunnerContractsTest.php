@@ -78,7 +78,7 @@ BASH);
         $this->assertStringContainsString('setup-blue-team-vm.sh app', $sudoOutput);
         $this->assertStringContainsString('setup-blue-team-vm.sh obs', $sudoOutput);
         $this->assertStringContainsString('setup-blue-team-vm.sh verify', $sudoOutput);
-        $this->assertStringNotContainsString('ops/smoke/run-all.sh', $sudoOutput);
+        $this->assertStringContainsString('ops/smoke/run-all.sh', $sudoOutput);
         $this->assertFileExists($outputDir.'/10-os-release.txt');
         $this->assertFileExists($outputDir.'/11-uname.txt');
         $this->assertFileExists($outputDir.'/12-docker-version.txt');
@@ -265,7 +265,7 @@ BASH);
         $this->assertFileDoesNotExist($outputDir.'/grafana-admin-secret');
     }
 
-    public function test_guest_proof_runner_executes_smoke_from_repo_root_with_explicit_paths_and_non_root_docker_context(): void
+    public function test_guest_proof_runner_executes_smoke_from_repo_root_with_explicit_paths_and_sudo_backed_docker_context(): void
     {
         $sandbox = $this->makeTempDir();
         $inputDir = $sandbox.'/input';
@@ -298,7 +298,38 @@ BASH);
         $this->assertSame((string) realpath($expectedRepoDir.'/setup-blue-team-vm.sh'), realpath((string) ($smokeContext['runner'] ?? '')));
         $this->assertSame((string) realpath($expectedRepoDir.'/compose.app.yml'), realpath((string) ($smokeContext['app_compose_file'] ?? '')));
         $this->assertSame((string) realpath($expectedRepoDir.'/compose.obs.yml'), realpath((string) ($smokeContext['obs_compose_file'] ?? '')));
-        $this->assertSame('sg', $smokeContext['docker_context'] ?? null);
+        $this->assertSame('sudo', $smokeContext['docker_context'] ?? null);
+    }
+
+    public function test_guest_proof_runner_executes_smoke_with_sudo_backed_docker_access_without_group_refresh(): void
+    {
+        $sandbox = $this->makeTempDir();
+        $inputDir = $sandbox.'/input';
+        $workDir = $sandbox.'/workdir';
+        $outputDir = $sandbox.'/output/current';
+        $fakeBin = $sandbox.'/fake-bin';
+
+        mkdir($inputDir, 0777, true);
+        mkdir($fakeBin, 0777, true);
+
+        $this->installGuestProofRunner($sandbox);
+        $archiveHash = $this->writeInputArchiveWithSmokeContract($sandbox, $inputDir);
+        $this->writeManifest($inputDir.'/manifest.json', $archiveHash);
+        $this->writeExecutable($inputDir.'/guest-install-deps.sh', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'installer\n' >> "${BT_PROOF_SEQUENCE_LOG}"
+BASH);
+        $this->writeFakeSha256sum($fakeBin.'/sha256sum', $archiveHash);
+        $this->writeProofPrivilegeToolchainWithSudoOnlySmoke($fakeBin, $sandbox.'/sudo.log', $workDir.'/repo');
+
+        $process = $this->runProofRunner($sandbox, $inputDir, $workDir, $outputDir, $fakeBin);
+        $sequence = (string) file_get_contents($outputDir.'/sequence.log');
+        $smokeContext = $this->readJsonFile($outputDir.'/smoke-context.json');
+
+        $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $this->assertSame("installer\nsetup:host\nsetup:app\nsetup:obs\nsmoke\nsetup:verify\n", $sequence);
+        $this->assertSame('sudo', $smokeContext['docker_context'] ?? null);
     }
 
     private function makeTempDir(): string
@@ -534,6 +565,83 @@ set -euo pipefail
 case "${1:-}" in
   info)
     if [[ "${BT_FAKE_DOCKER_CONTEXT:-}" != "sudo" && "${BT_FAKE_DOCKER_CONTEXT:-}" != "sg" ]]; then
+      exit 93
+    fi
+    printf 'Server: Docker Engine\n'
+    exit 0
+    ;;
+  version)
+    printf 'Docker version 26.1.0\n'
+    exit 0
+    ;;
+  compose)
+    if [[ "${2:-}" == "version" ]]; then
+      printf 'Docker Compose version v2.27.0\n'
+      exit 0
+    fi
+    if [[ "${2:-}" == "-f" && "${4:-}" == "ps" ]]; then
+      printf 'NAME STATUS\nproof running\n'
+      exit 0
+    fi
+    exit 0
+    ;;
+esac
+exit 0
+BASH);
+
+        $this->writeExecutable($binDir.'/systemctl', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "status" && "${2:-}" == "docker" && "${3:-}" == "--no-pager" ]]; then
+  printf 'docker.service - Docker Application Container Engine\n'
+  exit 0
+fi
+exit 0
+BASH);
+
+        $this->writeExecutable($binDir.'/uname', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'Linux clean-vm 5.15.0-test #1 SMP\n'
+BASH);
+
+        $this->writeExecutable($binDir.'/cat', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "/etc/os-release" ]]; then
+  printf 'NAME="Ubuntu"\nVERSION="22.04.5 LTS"\n'
+  exit 0
+fi
+/bin/cat "$@"
+BASH);
+    }
+
+    private function writeProofPrivilegeToolchainWithSudoOnlySmoke(string $binDir, string $sudoLogPath, string $expectedRepoDir): void
+    {
+        $this->writeExecutable($binDir.'/sudo', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$sudoLogPath}"
+if [[ "\${1:-}" != "-n" ]]; then
+  exit 91
+fi
+shift
+if [[ "\${1:-}" == "env" ]]; then
+  shift
+  while [[ "\${1:-}" == *=* ]]; do
+    export "\$1"
+    shift
+  done
+fi
+BT_FAKE_DOCKER_CONTEXT=sudo BT_EXPECTED_REPO_DIR="{$expectedRepoDir}" "\$@"
+BASH);
+
+        $this->writeExecutable($binDir.'/docker', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  info)
+    if [[ "${BT_FAKE_DOCKER_CONTEXT:-}" != "sudo" ]]; then
       exit 93
     fi
     printf 'Server: Docker Engine\n'

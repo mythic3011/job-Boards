@@ -24,8 +24,8 @@ class BlueTeamVmShellContractsTest extends TestCase
         $tempDir = $this->makeTempDir();
         $dockerLog = $tempDir.'/docker.log';
         $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
-        $grafanaSecretFile = $tempDir.'/grafana-admin-secret';
-        file_put_contents($grafanaSecretFile, "grafana-secret\n");
+        $grafanaPasswordFile = $tempDir.'/grafana-admin-secret';
+        file_put_contents($grafanaPasswordFile, "grafana-secret\n");
         file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
 
         $process = $this->runScript(
@@ -38,11 +38,11 @@ class BlueTeamVmShellContractsTest extends TestCase
                 'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
                 'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
-                'BT_GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
+                'BT_GRAFANA_ADMIN_SECRET_FILE' => $grafanaPasswordFile,
                 'MONITORING_ADMIN_USERNAME' => 'admin',
                 'MONITORING_PASSWORD_HASH' => 'not-a-valid-bcrypt',
                 'SESSION_SECRET' => str_repeat('a', 64),
-                'GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
+                'GRAFANA_ADMIN_SECRET_FILE' => $grafanaPasswordFile,
                 'PROMETHEUS_PASSWORD_HASH' => password_hash('prometheus-secret', PASSWORD_BCRYPT),
             ],
         );
@@ -82,15 +82,15 @@ class BlueTeamVmShellContractsTest extends TestCase
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
         $generatedEnv = @file_get_contents($tempDir.'/state/runtime/obs.generated.env') ?: '';
         $renderedConfig = $tempDir.'/state/rendered/prometheus.web-config.yml';
-        $grafanaSecretFile = $tempDir.'/state/runtime/grafana-admin-secret';
+        $grafanaPasswordFile = $tempDir.'/state/runtime/grafana-admin-secret';
 
         $this->assertSame(0, $process->getExitCode());
         $this->assertStringContainsString('"check_id":"obs.bootstrap.required_env"', $combinedOutput);
         $this->assertStringContainsString('"status":"PASS"', $combinedOutput);
         $this->assertStringContainsString('PROMETHEUS_WEB_CONFIG_FILE='.$renderedConfig, $generatedEnv);
-        $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.$grafanaSecretFile, $generatedEnv);
+        $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.$grafanaPasswordFile, $generatedEnv);
         $this->assertFileExists($renderedConfig);
-        $this->assertFileExists($grafanaSecretFile);
+        $this->assertFileExists($grafanaPasswordFile);
         $this->assertStringNotContainsString('compose -f', @file_get_contents($dockerLog) ?: '');
     }
 
@@ -99,8 +99,8 @@ class BlueTeamVmShellContractsTest extends TestCase
         $tempDir = $this->makeTempDir();
         $dockerLog = $tempDir.'/docker.log';
         $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
-        $grafanaSecretFile = $tempDir.'/grafana-admin-secret';
-        file_put_contents($grafanaSecretFile, "grafana-secret\n");
+        $grafanaPasswordFile = $tempDir.'/grafana-admin-secret';
+        file_put_contents($grafanaPasswordFile, "grafana-secret\n");
         file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
         file_put_contents($tempDir.'/rendered-blocker', 'not-a-directory');
 
@@ -114,11 +114,11 @@ class BlueTeamVmShellContractsTest extends TestCase
                 'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
                 'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/rendered-blocker',
-                'BT_GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
+                'BT_GRAFANA_ADMIN_SECRET_FILE' => $grafanaPasswordFile,
                 'MONITORING_ADMIN_USERNAME' => 'admin',
                 'MONITORING_PASSWORD_HASH' => password_hash('monitoring-secret', PASSWORD_BCRYPT),
                 'SESSION_SECRET' => str_repeat('b', 64),
-                'GRAFANA_ADMIN_SECRET_FILE' => $grafanaSecretFile,
+                'GRAFANA_ADMIN_SECRET_FILE' => $grafanaPasswordFile,
                 'PROMETHEUS_PASSWORD_HASH' => password_hash('prometheus-secret', PASSWORD_BCRYPT),
             ],
         );
@@ -410,8 +410,56 @@ BASH);
         $this->assertSame('FAIL', $planeSummary['status'] ?? null);
         $this->assertArrayHasKey('message', $planeSummary);
         $this->assertArrayHasKey('remediation_hint', $planeSummary);
+        $this->assertStringContainsString('exited before emitting a structured plane summary', $planeSummary['message'] ?? '');
         $this->assertSame('overall_summary', $overallSummary['record_type'] ?? null);
         $this->assertSame('overall', $overallSummary['plane'] ?? null);
+        $this->assertSame('FAIL', $overallSummary['status'] ?? null);
+    }
+
+    public function test_top_level_verify_preserves_host_failure_exit_when_child_verify_exits_before_plane_summary(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $fakeBin = $tempRoot.'/fake-bin';
+        mkdir($fakeBin, 0777, true);
+
+        $this->writeExecutable(
+            $tempRoot.'/setup-blue-team-vm.sh',
+            (string) file_get_contents($this->repoRoot.'/setup-blue-team-vm.sh'),
+        );
+        $this->writeExecutable(
+            $tempRoot.'/ops/lib/common.sh',
+            (string) file_get_contents($this->repoRoot.'/ops/lib/common.sh'),
+        );
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-host.sh', "#!/usr/bin/env bash\nexit 2\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-app.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', "#!/usr/bin/env bash\nexit 0\n");
+        file_put_contents($tempRoot.'/compose.app.yml', "services: {}\n");
+        file_put_contents($tempRoot.'/compose.obs.yml', "services: {}\n");
+        $this->writeExecutable($fakeBin.'/docker', "#!/usr/bin/env bash\nexit 0\n");
+
+        $process = new Process(
+            [$tempRoot.'/setup-blue-team-vm.sh', 'verify'],
+            $tempRoot,
+            [
+                'BT_DRY_RUN' => '1',
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $hostSummary = $this->findJsonRecord($combinedOutput, 'plane_summary', 'host');
+        $overallSummary = $this->findJsonRecord($combinedOutput, 'overall_summary', 'overall');
+
+        $this->assertNotSame(0, $process->getExitCode());
+        $this->assertSame('plane_summary', $hostSummary['record_type'] ?? null);
+        $this->assertSame('host', $hostSummary['plane'] ?? null);
+        $this->assertSame('FAIL', $hostSummary['status'] ?? null);
+        $this->assertStringContainsString('Host bootstrap verify exited before emitting a structured plane summary.', $hostSummary['message'] ?? '');
+        $this->assertStringNotContainsString('completed without emitting a structured plane summary', $hostSummary['message'] ?? '');
+        $this->assertSame('overall_summary', $overallSummary['record_type'] ?? null);
         $this->assertSame('FAIL', $overallSummary['status'] ?? null);
     }
 

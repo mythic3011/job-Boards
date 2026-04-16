@@ -290,7 +290,6 @@ collect_system_evidence() {
 }
 
 run_smoke_step() {
-    local log_path="${BT_PROOF_LOG_ROOT}/50-smoke.log"
     local smoke_script="${BT_PROOF_REPO_DIR}/ops/smoke/run-all.sh"
     local runner_path="${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh"
     local app_compose_file="${BT_PROOF_REPO_DIR}/compose.app.yml"
@@ -305,20 +304,7 @@ run_smoke_step() {
     command_string+="OBS_COMPOSE_FILE=$(q "${obs_compose_file}") "
     command_string+="$(q "${smoke_script}")"
 
-    if docker info >/dev/null 2>&1; then
-        bash -c "${command_string}" >"${log_path}" 2>&1
-        COMPLETED_STEPS+=("ops/smoke/run-all.sh")
-        return 0
-    fi
-
-    if command -v sg >/dev/null 2>&1; then
-        sg docker -c "${command_string}" >"${log_path}" 2>&1
-        COMPLETED_STEPS+=("ops/smoke/run-all.sh")
-        return 0
-    fi
-
-    log "ERROR [smoke_docker_access_required] Non-root smoke execution requires direct Docker access or sg docker fallback."
-    exit 1
+    run_step_privileged "ops/smoke/run-all.sh" "50-smoke.log" bash -c "${command_string}"
 }
 
 main() {
