@@ -1,6 +1,9 @@
 # Test Verification Paths
 
-This repository has two intentional verification entrypoints with different authority levels.
+This repository has three intentional verification entrypoints across two authority levels.
+
+- `composer test` and `composer test:worktree` are full-default verification paths.
+- `composer test:sqlite` is the sqlite-safe verification path.
 
 ## Full Default Verification
 
@@ -41,7 +44,7 @@ When running the full-default path from a git worktree inside a one-off Docker c
 
 If those symlink targets are not mounted into the container, verification will fail for environment/bootstrap reasons instead of product behavior.
 
-Do not symlink `vendor/` from the root checkout into a worktree. Composer resolves `App\\` from the checkout that owns `vendor/`, so a shared `vendor/` tree can make `php artisan test` load the wrong app tree. Use `composer test:worktree` after installing dependencies in the worktree itself.
+Do not symlink `vendor/` from the root checkout into a worktree. Composer resolves `App\\` from the checkout that owns `vendor/`, so a shared `vendor/` tree can make `vendor/bin/phpunit` (or any command using that `vendor/autoload.php`) load the wrong app tree. Use `composer test:worktree` after installing dependencies in the worktree itself.
 
 Use this shape for worktree-local full-default verification:
 
