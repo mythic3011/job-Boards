@@ -1066,6 +1066,32 @@ set -euo pipefail
 shasum -a 256 "${1:-}"
 BASH);
 
+        foreach (['curl', 'jq', 'apt-get', 'groupadd', 'usermod'] as $tool) {
+            $this->writeExecutable($binDir.'/'.$tool, "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        }
+
+        $this->writeExecutable($binDir.'/git', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+PATH="/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin" exec git "$@"
+BASH);
+
+        $this->writeExecutable($binDir.'/python3', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+PATH="/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin" exec python3 "$@"
+BASH);
+
+        $this->writeExecutable($binDir.'/id', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "-un" ]]; then
+  printf 'proof-user\n'
+  exit 0
+fi
+exit 0
+BASH);
+
         $this->writeExecutable($binDir.'/uname', <<<'BASH'
 #!/usr/bin/env bash
 set -euo pipefail

@@ -646,10 +646,11 @@ main() {
     require_command prlctl
     require_command python3
     require_command shasum
-    require_command ssh
-    require_command scp
-    require_command tar
-    if [[ "${SSH_IDENTITY_MODE}" == "pinned" ]]; then
+    if [[ "${DRY_RUN}" != "1" ]]; then
+        require_command ssh
+        require_command scp
+    fi
+    if [[ "${SSH_IDENTITY_MODE}" == "pinned" && "${DRY_RUN}" != "1" ]]; then
         require_command ssh-keyscan
         require_command ssh-keygen
     fi
