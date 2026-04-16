@@ -152,8 +152,10 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('GRAFANA_POSTGRES_SSLMODE: ${GRAFANA_POSTGRES_SSLMODE:-prefer}', $contents);
         $this->assertStringNotContainsString('GRAFANA_POSTGRES_PASSWORD:', $contents);
         $this->assertStringNotContainsString('DB_PASSWORD', $contents);
-        $this->assertStringContainsString("  grafana:\n", $contents);
-        $this->assertStringContainsString("    networks:\n      - obs-plane\n      - app-plane", $contents);
+        $this->assertMatchesRegularExpression(
+            "/^  grafana:\\n(?:(?:    |      ).*\\n)*?    networks:\\n      - obs-plane\\n      - app-plane\\n/m",
+            $contents
+        );
     }
 
     public function test_app_compose_uses_an_explicit_front_proxy_allowlist_for_https_aware_urls(): void
