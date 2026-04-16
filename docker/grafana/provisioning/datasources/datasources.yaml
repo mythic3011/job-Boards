@@ -14,3 +14,17 @@ datasources:
     access: proxy
     url: http://loki:3100
     editable: true
+  - name: Postgres
+    uid: P8E949C5F1FC6F134
+    type: postgres
+    access: proxy
+    url: $GRAFANA_POSTGRES_URL
+    user: $GRAFANA_POSTGRES_USER
+    secureJsonData:
+      password: $GRAFANA_POSTGRES_PASSWORD
+    jsonData:
+      database: $GRAFANA_POSTGRES_DATABASE
+      sslmode: $GRAFANA_POSTGRES_SSLMODE
+      postgresVersion: 1500
+      timescaledb: false
+    editable: true
