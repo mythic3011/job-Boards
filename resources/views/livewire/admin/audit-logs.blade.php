@@ -122,9 +122,9 @@ new class extends Component
         $stats = AuditLog::where('occurred_at', '>=', $today)
             ->selectRaw("
                 COUNT(*) as total_today,
-                COUNT(CASE WHEN event_type = 'login_failed' THEN 1 END) as failed_logins,
+                COUNT(CASE WHEN event_type IN ('login_failed', 'audit.auth.verify.denied') THEN 1 END) as failed_logins,
                 COUNT(CASE WHEN event_type IN ('suspicious_user_agent', 'suspicious_ua_high_risk_path', 'admin_probe', 'security.route_probe', 'security.route_scan_detected', 'security.unauth_access') THEN 1 END) as suspicious,
-                COUNT(CASE WHEN event_type = 'account_locked' THEN 1 END) as locked_accounts
+                COUNT(CASE WHEN event_type IN ('account_locked', 'audit.auth.locked') THEN 1 END) as locked_accounts
             ")
             ->first();
 
@@ -460,9 +460,9 @@ new class extends Component
                     @forelse($logs as $log)
                         @php
                             $eventClass = match(true) {
-                                str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') => 'bg-red-100 text-red-800',
+                                str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') || str_contains($log->event_type, 'denied') || $log->event_type === 'audit.auth.verify.denied' => 'bg-red-100 text-red-800',
                                 str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') => 'bg-orange-100 text-orange-800',
-                                str_contains($log->event_type, 'login') => 'bg-green-100 text-green-800',
+                                str_contains($log->event_type, 'login') || $log->event_type === 'audit.auth.verify.success' => 'bg-green-100 text-green-800',
                                 default => 'bg-gray-100 text-gray-700',
                             };
                         @endphp
@@ -553,9 +553,9 @@ new class extends Component
             @forelse($logs as $log)
                 @php
                     $eventClass = match(true) {
-                        str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') => 'bg-red-100 text-red-800',
+                        str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') || str_contains($log->event_type, 'denied') || $log->event_type === 'audit.auth.verify.denied' => 'bg-red-100 text-red-800',
                         str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') => 'bg-orange-100 text-orange-800',
-                        str_contains($log->event_type, 'login') => 'bg-green-100 text-green-800',
+                        str_contains($log->event_type, 'login') || $log->event_type === 'audit.auth.verify.success' => 'bg-green-100 text-green-800',
                         default => 'bg-gray-100 text-gray-700',
                     };
                 @endphp
