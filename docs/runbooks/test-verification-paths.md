@@ -37,8 +37,11 @@ When running the full-default path from a git worktree inside a one-off Docker c
 
 - `.env` in the worktree resolves to `../../.env`
 - `public/build` in the worktree resolves to `../../../public/build`
+- `vendor/` in the worktree must be a real worktree-local directory, not a symlink to another checkout
 
 If those symlink targets are not mounted into the container, verification will fail for environment/bootstrap reasons instead of product behavior.
+
+Do not symlink `vendor/` from the root checkout into a worktree. Composer resolves `App\\` from the checkout that owns `vendor/`, so a shared `vendor/` tree can make `php artisan test` load the wrong app tree. Use `composer test:worktree` after installing dependencies in the worktree itself.
 
 Use this shape for worktree-local full-default verification:
 

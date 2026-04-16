@@ -62,6 +62,11 @@
             "@php artisan config:clear --ansi",
             "vendor/bin/phpunit"
         ],
+        "test:worktree": [
+            "@php -r \"if (is_link('vendor')) { fwrite(STDERR, 'Worktree-local verification requires a real vendor/ directory. Symlinked vendor/ points at another checkout and breaks autoload resolution. Run composer install in this worktree.' . PHP_EOL); exit(1); } if (!is_dir('vendor')) { fwrite(STDERR, 'Worktree-local verification requires vendor/ in this worktree. Run composer install in this worktree.' . PHP_EOL); exit(1); }\"",
+            "@php artisan config:clear --ansi",
+            "vendor/bin/phpunit"
+        ],
         "test:sqlite": [
             "@php artisan config:clear --ansi",
             "@php artisan test tests/Feature/InstallSecurityTest.php tests/Feature/TrustedProxyConfigTest.php tests/Feature/AdminRouteSecurityTest.php tests/Feature/MaintenanceContractTest.php tests/Feature/MaintenanceModeTest.php tests/Feature/Admin/AuditLogViewerTest.php tests/Unit/Services/TwoFactorServiceTest.php"
