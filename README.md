@@ -60,8 +60,6 @@ If you are working in a git worktree, do not symlink `vendor/` from another chec
 
 For a running local stack, prefer `docker exec jobs-boards-laravel.test composer test` over bare `docker compose exec ...`; it avoids re-interpolating the combined compose file when obs runtime artifacts are already mounted. When project shell wrappers do invoke Compose, explicit shell exports win, generated obs runtime artifacts override source-layer `.env`, and source-layer `.env` only fills missing values.
 
-For a running local stack, prefer `docker exec jobs-boards-laravel.test composer test` over bare `docker compose exec ...`; it avoids re-interpolating the combined compose file when obs runtime artifacts are already mounted. When project shell wrappers do invoke Compose, explicit shell exports win, generated obs runtime artifacts override source-layer `.env`, and source-layer `.env` only fills missing values.
-
 ## Verification
 
 SQLite-safe anti-bot shadow review:
