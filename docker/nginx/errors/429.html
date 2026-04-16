@@ -1,82 +1,45 @@
 <!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="robots" content="noindex, nofollow" />
-    <title>429 Too Many Requests</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #0f0f1a;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
-        .card {
-            background: #1a1a2e;
-            border: 1px solid #2d2d4e;
-            border-radius: 12px;
-            padding: 2.5rem;
-            width: 100%;
-            max-width: 420px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
-            text-align: center;
-        }
-        .code { font-size: 4rem; font-weight: 700; color: #d97706; line-height: 1; margin-bottom: 0.5rem; }
-        h1 { font-size: 1.25rem; color: #c9b8e8; font-weight: 600; margin-bottom: 0.75rem; }
-        p { color: #888; font-size: 0.9rem; line-height: 1.6; margin-bottom: 1.5rem; }
-        .countdown {
-            display: inline-block;
-            background: rgba(217,119,6,0.1);
-            border: 1px solid rgba(217,119,6,0.3);
-            color: #d97706;
-            padding: 0.5rem 1.25rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            margin-bottom: 1.5rem;
-        }
-        .retry-link {
-            display: none;
-            color: #d97706;
-            text-decoration: none;
-            font-size: 0.9rem;
-            border: 1px solid rgba(217,119,6,0.4);
-            padding: 0.6rem 1.5rem;
-            border-radius: 8px;
-            transition: background 0.2s;
-        }
-        .retry-link:hover { background: rgba(217,119,6,0.1); }
-        .footer { margin-top: 1.5rem; font-size: 0.75rem; color: #444; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <div class="code">429</div>
-        <h1>Too Many Requests</h1>
-        <p>You've sent too many requests in a short period. Please slow down and try again shortly.</p>
-        <div class="countdown" id="countdown">Retry in <span id="timer">30</span>s</div>
-        <a href="/" class="retry-link" id="retry-link">Try again</a>
-        <div class="footer">All requests are logged &middot; Repeated violations may result in a ban</div>
-    </div>
-    <script>
-        (function () {
-            var s = 30;
-            var timer = document.getElementById('timer');
-            var countdown = document.getElementById('countdown');
-            var link = document.getElementById('retry-link');
-            var iv = setInterval(function () {
-                s--;
-                timer.textContent = s;
-                if (s <= 0) {
-                    clearInterval(iv);
-                    countdown.style.display = 'none';
-                    link.style.display = 'inline-block';
-                }
-            }, 1000);
-        })();
-    </script>
-</body>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="robots" content="noindex, nofollow" />
+        <title>429 Too Many Requests</title>
+        <link rel="stylesheet" href="/_error/styles.css" />
+    </head>
+    <body>
+        <main class="surface card">
+            <div class="pill pill--warning">Rate limited</div>
+            <div class="code code--warning">429</div>
+            <h1>Too many requests</h1>
+            <p>
+                The front door is throttling this client because too many
+                requests arrived in a short period.
+            </p>
+            <div class="countdown" id="countdown">Retry in <span id="timer">30</span>s</div>
+            <div class="actions">
+                <a href="/" class="action action--secondary retry-link" id="retry-link">Try again</a>
+            </div>
+            <p class="footer">
+                Slow down and retry after the cooldown window clears.
+            </p>
+        </main>
+        <script>
+            (function () {
+                var s = 30;
+                var timer = document.getElementById("timer");
+                var countdown = document.getElementById("countdown");
+                var link = document.getElementById("retry-link");
+                var iv = setInterval(function () {
+                    s--;
+                    timer.textContent = s;
+                    if (s <= 0) {
+                        clearInterval(iv);
+                        countdown.style.display = "none";
+                        link.style.display = "inline-flex";
+                    }
+                }, 1000);
+            })();
+        </script>
+    </body>
 </html>

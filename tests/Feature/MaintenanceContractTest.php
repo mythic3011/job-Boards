@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Setting;
 use App\Models\User;
+use Illuminate\Cache\RateLimiter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use PragmaRX\Google2FA\Google2FA;
@@ -22,9 +23,38 @@ class MaintenanceContractTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class);
+        $this->withoutMiddleware([
+            \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        ]);
 
         $this->useInMemorySqlite();
+        config([
+            'cache.default' => 'array',
+            'cache.stores.array' => [
+                'driver' => 'array',
+                'serialize' => false,
+            ],
+            'permission.cache.store' => 'array',
+            'session.driver' => 'array',
+        ]);
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('cache');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('cache.store');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('cache.psr6');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('session');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('session.store');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance(RateLimiter::class);
+        app()->forgetInstance('cache');
+        app()->forgetInstance('cache.store');
+        app()->forgetInstance('cache.psr6');
+        app()->forgetInstance('session');
+        app()->forgetInstance('session.store');
+        app()->forgetInstance(RateLimiter::class);
+        app()->forgetInstance(\Spatie\Permission\PermissionRegistrar::class);
+        app('cache')->setDefaultDriver('array');
+        app('session')->setDefaultDriver('array');
+        (new \App\Providers\FortifyServiceProvider($this->app))->boot();
+        app(\Spatie\Permission\PermissionRegistrar::class)->initializeCache();
         $this->createSettingsTable();
         $this->createUsersTable();
         $this->createPermissionTables();
@@ -43,14 +73,14 @@ class MaintenanceContractTest extends TestCase
     public function test_guest_cannot_register_during_maintenance(): void
     {
         $this->withBrowser()
-            ->post(route('register.store'), [
+            ->post(route('register.store'), $this->honeypotFormPayload([
                 'name' => 'Test User',
                 'email' => 'test@example.com',
                 'login_id' => 'testuser',
                 'password' => 'StrongPass123!',
                 'password_confirmation' => 'StrongPass123!',
                 'user_type' => 'individual',
-            ])
+            ]))
             ->assertStatus(503);
     }
 
@@ -64,7 +94,9 @@ class MaintenanceContractTest extends TestCase
     public function test_guest_cannot_request_password_reset_during_maintenance(): void
     {
         $this->withBrowser()
-            ->post(route('password.email'), ['email' => 'test@example.com'])
+            ->post(route('password.email'), $this->honeypotFormPayload([
+                'email' => 'test@example.com',
+            ]))
             ->assertStatus(503);
     }
 
@@ -103,10 +135,10 @@ class MaintenanceContractTest extends TestCase
         ]);
 
         $this->withBrowser()
-            ->post(route('login.store'), [
+            ->post(route('login.store'), $this->honeypotFormPayload([
                 'login_id' => $user->login_id,
                 'password' => 'StrongPass123!',
-            ])
+            ]))
             ->assertStatus(503);
 
         $this->assertGuest();
@@ -122,10 +154,10 @@ class MaintenanceContractTest extends TestCase
         $this->attachAdminRole($admin);
 
         $this->withBrowser()
-            ->post(route('login.store'), [
+            ->post(route('login.store'), $this->honeypotFormPayload([
                 'login_id' => $admin->login_id,
                 'password' => 'StrongPass123!',
-            ])
+            ]))
             ->assertRedirect(route('admin.dashboard'));
 
         $this->assertAuthenticatedAs($admin);

@@ -7,4 +7,7 @@ return [
     // Minimum seconds between form render and submission
     // Humans take at least 3s; bots submit instantly
     'min_time' => 3,
+
+    // Maximum seconds between form render and submission before the token is stale
+    'max_time' => 3600,
 ];
