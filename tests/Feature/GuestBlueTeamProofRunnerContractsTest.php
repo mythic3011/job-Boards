@@ -219,12 +219,15 @@ BASH);
         $this->writeFakeSha256sum($fakeBin.'/sha256sum', $archiveHash);
         $this->writeProofPrivilegeToolchain($fakeBin, $sandbox.'/sudo.log');
 
-        file_put_contents($stateDir.'/runtime/grafana-admin-secret', "not-for-export\n");
+        $sessionSecret = $this->fixtureSessionSecret();
+        $grafanaSecretContents = $this->fixtureGrafanaAdminSecretContents();
+
+        file_put_contents($stateDir.'/runtime/grafana-admin-secret', $grafanaSecretContents);
         file_put_contents($stateDir.'/rendered/prometheus.web-config.yml', "basic_auth_users:\n  admin: \"hidden\"\n");
         file_put_contents(
             $stateDir.'/runtime/obs.generated.env',
             implode("\n", [
-                'SESSION_SECRET=super-secret-session',
+                'SESSION_SECRET='.$sessionSecret,
                 'MONITORING_PASSWORD_HASH=$2y$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
                 'PROMETHEUS_PASSWORD_HASH=$2y$12$bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
                 'GRAFANA_ADMIN_SECRET_FILE='.$stateDir.'/runtime/grafana-admin-secret',
@@ -258,8 +261,8 @@ BASH);
         $this->assertTrue($projection['generated_env']['keys']['PROMETHEUS_WEB_CONFIG_FILE']['readable'] ?? false);
         $this->assertSame(2, $projection['generated_secret_audit']['record_count'] ?? null);
         $this->assertSame('SESSION_SECRET', $projection['generated_secret_audit']['records'][0]['target_field'] ?? null);
-        $this->assertStringNotContainsString('super-secret-session', $serializedProjection);
-        $this->assertStringNotContainsString('not-for-export', $serializedProjection);
+        $this->assertStringNotContainsString($sessionSecret, $serializedProjection);
+        $this->assertStringNotContainsString(trim($grafanaSecretContents), $serializedProjection);
         $this->assertFileDoesNotExist($outputDir.'/obs.generated.env');
         $this->assertFileDoesNotExist($outputDir.'/obs.generated-secrets.jsonl');
         $this->assertFileDoesNotExist($outputDir.'/grafana-admin-secret');
@@ -594,6 +597,16 @@ BASH);
 
         file_put_contents($path, $contents);
         chmod($path, 0755);
+    }
+
+    private function fixtureSessionSecret(): string
+    {
+        return hash('sha256', 'guest-proof-session-fixture');
+    }
+
+    private function fixtureGrafanaAdminSecretContents(): string
+    {
+        return "fixture-admin-file\n";
     }
 
     /**

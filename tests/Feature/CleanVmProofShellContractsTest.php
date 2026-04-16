@@ -400,12 +400,15 @@ class CleanVmProofShellContractsTest extends TestCase
         mkdir($stateDir.'/runtime', 0777, true);
         mkdir($stateDir.'/rendered', 0777, true);
 
-        file_put_contents($stateDir.'/runtime/grafana-admin-secret', "not-for-export\n");
+        $sessionSecret = $this->fixtureSessionSecret();
+        $grafanaSecretContents = $this->fixtureGrafanaAdminSecretContents();
+
+        file_put_contents($stateDir.'/runtime/grafana-admin-secret', $grafanaSecretContents);
         file_put_contents($stateDir.'/rendered/prometheus.web-config.yml', "basic_auth_users:\n  admin: \"hidden\"\n");
         file_put_contents(
             $stateDir.'/runtime/obs.generated.env',
             implode("\n", [
-                'SESSION_SECRET=super-secret-session',
+                'SESSION_SECRET='.$sessionSecret,
                 'MONITORING_PASSWORD_HASH=$2y$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
                 'PROMETHEUS_PASSWORD_HASH=$2y$12$bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
                 'GRAFANA_ADMIN_SECRET_FILE='.$stateDir.'/runtime/grafana-admin-secret',
@@ -453,8 +456,8 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->assertSame('obs_runtime_metadata', $projection['record_type'] ?? null);
         $this->assertSame(2, $projection['generated_secret_audit']['record_count'] ?? null);
         $this->assertStringContainsString('BT_STATE_DIR='.$stateDir, $sshOutput);
-        $this->assertStringNotContainsString('super-secret-session', $projectionContents);
-        $this->assertStringNotContainsString('not-for-export', $projectionContents);
+        $this->assertStringNotContainsString($sessionSecret, $projectionContents);
+        $this->assertStringNotContainsString(trim($grafanaSecretContents), $projectionContents);
         $this->assertFileDoesNotExist($outputDir.'/slice-e-projection/guest-output/obs.generated.env');
         $this->assertFileDoesNotExist($outputDir.'/slice-e-projection/guest-output/obs.generated-secrets.jsonl');
     }
@@ -1146,6 +1149,16 @@ BASH);
 
         file_put_contents($path, $contents);
         chmod($path, 0755);
+    }
+
+    private function fixtureSessionSecret(): string
+    {
+        return hash('sha256', 'clean-vm-proof-session-fixture');
+    }
+
+    private function fixtureGrafanaAdminSecretContents(): string
+    {
+        return "fixture-admin-file\n";
     }
 
     /**

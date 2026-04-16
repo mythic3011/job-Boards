@@ -25,7 +25,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $dockerLog = $tempDir.'/docker.log';
         $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
         $grafanaPasswordFile = $tempDir.'/grafana-admin-secret';
-        file_put_contents($grafanaPasswordFile, "grafana-secret\n");
+        file_put_contents($grafanaPasswordFile, $this->fixtureGrafanaAdminSecretContents());
         file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
 
         $process = $this->runScript(
@@ -43,7 +43,7 @@ class BlueTeamVmShellContractsTest extends TestCase
                 'MONITORING_PASSWORD_HASH' => 'not-a-valid-bcrypt',
                 'SESSION_SECRET' => str_repeat('a', 64),
                 'GRAFANA_ADMIN_SECRET_FILE' => $grafanaPasswordFile,
-                'PROMETHEUS_PASSWORD_HASH' => password_hash('prometheus-secret', PASSWORD_BCRYPT),
+                'PROMETHEUS_PASSWORD_HASH' => password_hash($this->fixturePlainCredential('prometheus'), PASSWORD_BCRYPT),
             ],
         );
 
@@ -73,9 +73,9 @@ class BlueTeamVmShellContractsTest extends TestCase
                 'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
                 'MONITORING_ADMIN_USERNAME' => 'admin',
-                'MONITORING_PASSWORD' => 'monitoring-secret',
-                'GRAFANA_PASSWORD' => 'grafana-secret',
-                'PROMETHEUS_PASSWORD' => 'prometheus-secret',
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
             ],
         );
 
@@ -100,7 +100,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $dockerLog = $tempDir.'/docker.log';
         $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
         $grafanaPasswordFile = $tempDir.'/grafana-admin-secret';
-        file_put_contents($grafanaPasswordFile, "grafana-secret\n");
+        file_put_contents($grafanaPasswordFile, $this->fixtureGrafanaAdminSecretContents());
         file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
         file_put_contents($tempDir.'/rendered-blocker', 'not-a-directory');
 
@@ -116,10 +116,10 @@ class BlueTeamVmShellContractsTest extends TestCase
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/rendered-blocker',
                 'BT_GRAFANA_ADMIN_SECRET_FILE' => $grafanaPasswordFile,
                 'MONITORING_ADMIN_USERNAME' => 'admin',
-                'MONITORING_PASSWORD_HASH' => password_hash('monitoring-secret', PASSWORD_BCRYPT),
+                'MONITORING_PASSWORD_HASH' => password_hash($this->fixturePlainCredential('monitoring'), PASSWORD_BCRYPT),
                 'SESSION_SECRET' => str_repeat('b', 64),
                 'GRAFANA_ADMIN_SECRET_FILE' => $grafanaPasswordFile,
-                'PROMETHEUS_PASSWORD_HASH' => password_hash('prometheus-secret', PASSWORD_BCRYPT),
+                'PROMETHEUS_PASSWORD_HASH' => password_hash($this->fixturePlainCredential('prometheus'), PASSWORD_BCRYPT),
             ],
         );
 
@@ -615,6 +615,16 @@ BASH;
         $this->writeExecutable($binDir.'/docker', $script);
 
         return $binDir;
+    }
+
+    private function fixturePlainCredential(string $scope): string
+    {
+        return "fixture-{$scope}-value";
+    }
+
+    private function fixtureGrafanaAdminSecretContents(): string
+    {
+        return "fixture-admin-file\n";
     }
 
     /**
