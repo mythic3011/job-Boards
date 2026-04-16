@@ -89,7 +89,7 @@ compose_file_display() {
     local compose_file="${INSTALL_COMPOSE_FILE}"
 
     if [[ "${compose_file}" == "${ROOT_DIR}/"* ]]; then
-        printf './%s\n' "${compose_file#${ROOT_DIR}/}"
+        printf './%s\n' "${compose_file#"${ROOT_DIR}"/}"
         return 0
     fi
 
