@@ -29,6 +29,15 @@ scrape_configs:
           app: laravel
           __path__: /var/log/laravel/*.log
 
+  # Auth-service structured logs
+  - job_name: auth-service
+    static_configs:
+      - targets: [localhost]
+        labels:
+          job: auth-service
+          app: auth-service
+          __path__: /var/log/auth-service/*.log
+
   # CrowdSec bouncer events (emitted into nginx error log)
   - job_name: crowdsec-bouncer
     static_configs:

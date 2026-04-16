@@ -9,8 +9,39 @@ class BootstrapHealthRouteContractTest extends TestCase
 {
     public function test_fresh_http_kernel_bootstrap_can_serve_the_health_route(): void
     {
+        $environment = [
+            'APP_ENV' => 'testing',
+            'APP_KEY' => 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+        ];
+
         $script = <<<'PHP'
-require 'vendor/autoload.php';
+$autoloadCandidates = [
+    getcwd().'/vendor/autoload.php',
+    dirname(getcwd(), 2).'/vendor/autoload.php',
+];
+
+$autoloadPath = null;
+
+foreach ($autoloadCandidates as $candidate) {
+    if (is_file($candidate)) {
+        $autoloadPath = $candidate;
+        break;
+    }
+}
+
+if ($autoloadPath === null) {
+    fwrite(STDERR, 'Unable to resolve vendor/autoload.php for bootstrap subprocess.'.PHP_EOL);
+    exit(1);
+}
+
+$loader = require $autoloadPath;
+
+if ($loader instanceof Composer\Autoload\ClassLoader) {
+    $loader->setPsr4('App\\', [getcwd().'/app']);
+    $loader->setPsr4('Database\\Factories\\', [getcwd().'/database/factories']);
+    $loader->setPsr4('Database\\Seeders\\', [getcwd().'/database/seeders']);
+    $loader->setPsr4('Tests\\', [getcwd().'/tests']);
+}
 
 $app = require 'bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
@@ -24,7 +55,7 @@ PHP;
         $process = new Process(
             [PHP_BINARY, '-d', 'display_errors=1', '-r', $script],
             dirname(__DIR__, 2),
-            ['APP_ENV' => 'testing'],
+            $environment,
             null,
             20,
         );

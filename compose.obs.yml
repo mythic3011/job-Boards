@@ -1,12 +1,22 @@
 services:
   auth-service:
-    build: ./docker/auth-service
+    build:
+      context: .
+      dockerfile: docker/auth-service/Dockerfile
     environment:
       MONITORING_ADMIN_USERNAME: ${MONITORING_ADMIN_USERNAME:?Set MONITORING_ADMIN_USERNAME before obs apply}
       MONITORING_PASSWORD_HASH: ${MONITORING_PASSWORD_HASH:?Set MONITORING_PASSWORD_HASH before obs apply}
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET before obs apply}
+      CANONICAL_AUDIT_INGEST_URL: ${CANONICAL_AUDIT_INGEST_URL:-http://laravel.test/api/internal/canonical-audit/events}
+      CANONICAL_AUDIT_KEY_ID: ${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
+      CANONICAL_AUDIT_SECRET: ${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:?Set CANONICAL_AUDIT_AUTH_SERVICE_SECRET before obs apply}
+      CANONICAL_AUDIT_CALLER_IDENTITY: auth-service
+      AUTH_SERVICE_LOG_FILE: /var/log/auth-service/auth-service.log
+    volumes:
+      - auth-service-logs:/var/log/auth-service
     networks:
       - obs-plane
+      - app-plane
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
@@ -60,6 +70,7 @@ services:
       - ./docker/promtail/config.yaml:/etc/promtail/config.yaml:ro
       - nginx-logs:/var/log/nginx:ro
       - ./storage/logs:/var/log/laravel:ro
+      - auth-service-logs:/var/log/auth-service:ro
       - crowdsec-logs:/var/log/crowdsec:ro
       - promtail-positions:/var/lib/promtail
     networks:
@@ -73,14 +84,20 @@ services:
     container_name: jobs-boards-grafana
     image: grafana/grafana:latest
     environment:
-      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_secret
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GRAFANA_POSTGRES_URL: ${GRAFANA_POSTGRES_URL:-postgres:5432}
+      GRAFANA_POSTGRES_DATABASE: ${DB_DATABASE:?Set DB_DATABASE before obs apply}
+      GRAFANA_POSTGRES_USER: ${DB_USERNAME:?Set DB_USERNAME before obs apply}
+      GRAFANA_POSTGRES_SECRET: ${GRAFANA_POSTGRES_SECRET:?Set GRAFANA_POSTGRES_SECRET before obs apply}
+      GRAFANA_POSTGRES_SSLMODE: ${GRAFANA_POSTGRES_SSLMODE:-prefer}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ${GRAFANA_PASSWORD_FILE:?Set GRAFANA_PASSWORD_FILE before obs apply}:/run/secrets/grafana_admin_password:ro
+      - ${GRAFANA_ADMIN_SECRET_FILE:?Set GRAFANA_ADMIN_SECRET_FILE before obs apply}:/run/secrets/grafana_admin_secret:ro
     networks:
       - obs-plane
+      - app-plane
     depends_on:
       prometheus:
         condition: service_healthy
@@ -95,8 +112,13 @@ services:
 networks:
   obs-plane:
     driver: bridge
+  app-plane:
+    external: true
+    name: "${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane"
 
 volumes:
+  auth-service-logs:
+    driver: local
   nginx-logs:
     driver: local
   crowdsec-logs:

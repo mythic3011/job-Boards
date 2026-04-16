@@ -11,7 +11,7 @@ OBS_WAIT_TIMEOUT_SECONDS="${BT_OBS_WAIT_TIMEOUT_SECONDS:-90}"
 OBS_GENERATED_ENV_FILE="${BT_OBS_GENERATED_ENV_FILE:-${BT_RUNTIME_DIR}/obs.generated.env}"
 OBS_GENERATED_AUDIT_FILE="${BT_OBS_GENERATED_AUDIT_FILE:-${BT_RUNTIME_DIR}/obs.generated-secrets.jsonl}"
 OBS_RENDERED_DIR="${BT_OBS_RENDERED_DIR:-${BT_STATE_DIR}/rendered}"
-OBS_GRAFANA_PASSWORD_FILE="${BT_GRAFANA_PASSWORD_FILE:-${BT_RUNTIME_DIR}/grafana-admin-password}"
+OBS_GRAFANA_ADMIN_SECRET_FILE="${BT_GRAFANA_ADMIN_SECRET_FILE:-${BT_RUNTIME_DIR}/grafana-admin-secret}"
 OBS_PROMETHEUS_WEB_CONFIG_FILE="${BT_PROMETHEUS_WEB_CONFIG_FILE:-${OBS_RENDERED_DIR}/prometheus.web-config.yml}"
 obs_statuses=()
 
@@ -78,7 +78,7 @@ verify_obs_required_env() {
         "MONITORING_ADMIN_USERNAME"
         "MONITORING_PASSWORD_HASH"
         "SESSION_SECRET"
-        "GRAFANA_PASSWORD_FILE"
+        "GRAFANA_ADMIN_SECRET_FILE"
         "PROMETHEUS_PASSWORD_HASH"
         "PROMETHEUS_WEB_CONFIG_FILE"
     )
@@ -102,7 +102,7 @@ verify_obs_required_env() {
                     invalid+=("${var_name}")
                 fi
                 ;;
-            GRAFANA_PASSWORD_FILE|PROMETHEUS_WEB_CONFIG_FILE)
+            GRAFANA_ADMIN_SECRET_FILE|PROMETHEUS_WEB_CONFIG_FILE)
                 if [[ ! -r "${value}" ]]; then
                     missing+=("${var_name}")
                 fi
@@ -288,7 +288,7 @@ ensure_obs_runtime_secrets() {
     obs_autofix_session_secret || failed=1
     obs_autofix_password_hash "MONITORING_PASSWORD_HASH" "MONITORING_PASSWORD" || failed=1
     obs_autofix_password_hash "PROMETHEUS_PASSWORD_HASH" "PROMETHEUS_PASSWORD" || failed=1
-    obs_materialize_secret_file "GRAFANA_PASSWORD_FILE" "GRAFANA_PASSWORD" "${OBS_GRAFANA_PASSWORD_FILE}" || failed=1
+    obs_materialize_secret_file "GRAFANA_ADMIN_SECRET_FILE" "GRAFANA_PASSWORD" "${OBS_GRAFANA_ADMIN_SECRET_FILE}" || failed=1
     obs_load_generated_env
     obs_render_prometheus_web_config || failed=1
 

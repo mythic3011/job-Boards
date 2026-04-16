@@ -9,16 +9,13 @@ trait InteractsWithBrowserRequests
         return $this->withHeader('User-Agent', 'Mozilla/5.0 (compatible; TestBrowser/1.0)');
     }
 
-    /**
-     * @param array<string, mixed> $payload
-     * @return array<string, mixed>
-     */
-    protected function honeypotFormPayload(array $payload = [], int $renderedSecondsAgo = 10): array
+    protected function honeypotFormPayload(array $payload, int $secondsSinceRender = 10): array
     {
-        return [
-            'website' => '',
-            '_timing' => encrypt(time() - $renderedSecondsAgo),
-            ...$payload,
-        ];
+        $fieldName = (string) config('honeypot.field_name', 'website');
+
+        return array_merge([
+            $fieldName => '',
+            '_timing' => encrypt(time() - $secondsSinceRender),
+        ], $payload);
     }
 }

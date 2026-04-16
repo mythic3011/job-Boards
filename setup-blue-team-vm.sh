@@ -560,7 +560,7 @@ host_mode() {
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' RETURN
 
-    if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
+    if BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
         BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" \
         BT_MGMT_SSH_CIDR="${BT_MGMT_SSH_CIDR:-}" \
         BT_ALLOW_SSH_ANYWHERE_FOR_DEMO="${BT_ALLOW_SSH_ANYWHERE_FOR_DEMO:-0}" \
@@ -568,6 +568,8 @@ host_mode() {
         BT_SSH_ALLOW_USER="${BT_SSH_ALLOW_USER:-}" \
         BT_DRY_RUN="${BT_DRY_RUN}" \
         run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" apply; then
+        host_rc=0
+    else
         host_rc=$?
     fi
 
@@ -585,9 +587,11 @@ verify_mode() {
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' RETURN
 
-    if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
+    if BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
         BT_DRY_RUN="${BT_DRY_RUN}" \
         run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" verify; then
+        host_rc=0
+    else
         host_rc=$?
     fi
 
@@ -599,7 +603,9 @@ verify_mode() {
 
     if compose_any_service_running "${BT_COMPOSE_APP_FILE}" nginx laravel.test postgres redis crowdsec; then
         tmp_app="$(mktemp)"
-        if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" run_and_capture "${tmp_app}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" verify; then
+        if BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" run_and_capture "${tmp_app}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" verify; then
+            app_rc=0
+        else
             app_rc=$?
         fi
         resolve_plane_status_with_fallback "${tmp_app}" "app" "${app_rc}" "App bootstrap verify"
@@ -611,7 +617,9 @@ verify_mode() {
 
     if compose_any_service_running "${BT_COMPOSE_OBS_FILE}" grafana loki promtail prometheus auth-service; then
         tmp_obs="$(mktemp)"
-        if ! BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" run_and_capture "${tmp_obs}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" verify; then
+        if BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" run_and_capture "${tmp_obs}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" verify; then
+            obs_rc=0
+        else
             obs_rc=$?
         fi
         resolve_plane_status_with_fallback "${tmp_obs}" "obs" "${obs_rc}" "Obs bootstrap verify"
@@ -630,7 +638,9 @@ rollback_mode() {
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' RETURN
 
-    if ! BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" rollback; then
+    if BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" rollback; then
+        host_rc=0
+    else
         host_rc=$?
     fi
     local host_status
@@ -645,7 +655,9 @@ app_mode() {
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' RETURN
 
-    if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" apply; then
+    if BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" apply; then
+        app_rc=0
+    else
         app_rc=$?
     fi
     local app_status
@@ -662,7 +674,9 @@ obs_mode() {
     tmp="$(mktemp)"
     trap 'rm -f "${tmp}"' RETURN
 
-    if ! BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" apply; then
+    if BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" apply; then
+        obs_rc=0
+    else
         obs_rc=$?
     fi
     local obs_status
@@ -683,7 +697,7 @@ full_mode() {
     tmp_obs="$(mktemp)"
     trap 'rm -f "${tmp_host}" "${tmp_app}" "${tmp_obs}"' RETURN
 
-    if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
+    if BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
         BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" \
         BT_MGMT_SSH_CIDR="${BT_MGMT_SSH_CIDR:-}" \
         BT_ALLOW_SSH_ANYWHERE_FOR_DEMO="${BT_ALLOW_SSH_ANYWHERE_FOR_DEMO:-0}" \
@@ -691,13 +705,19 @@ full_mode() {
         BT_SSH_ALLOW_USER="${BT_SSH_ALLOW_USER:-}" \
         BT_DRY_RUN="${BT_DRY_RUN}" \
         run_and_capture "${tmp_host}" "${ROOT_DIR}/ops/bootstrap/bootstrap-host.sh" apply; then
+        host_rc=0
+    else
         host_rc=$?
     fi
 
-    if ! BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp_app}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" apply; then
+    if BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp_app}" "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" apply; then
+        app_rc=0
+    else
         app_rc=$?
     fi
-    if ! BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp_obs}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" apply; then
+    if BT_COMPOSE_OBS_FILE="${BT_COMPOSE_OBS_FILE}" BT_DRY_RUN="${BT_DRY_RUN}" run_and_capture "${tmp_obs}" "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" apply; then
+        obs_rc=0
+    else
         obs_rc=$?
     fi
 

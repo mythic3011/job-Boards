@@ -22,7 +22,7 @@ class TrustedProxyConfigTest extends TestCase
     {
         $this->rebootApplicationWithTrustedProxies(null, null);
 
-        $this->call('GET', '/_test/proxy-inspect', [], [], [], [
+        $this->call('GET', 'http://jobs.example.test/_test/proxy-inspect', [], [], [], [
             'REMOTE_ADDR' => '198.51.100.10',
             'HTTP_X_FORWARDED_FOR' => '203.0.113.5',
             'HTTP_X_FORWARDED_PROTO' => 'https',
@@ -47,7 +47,7 @@ class TrustedProxyConfigTest extends TestCase
     {
         $this->rebootApplicationWithTrustedProxies('192.0.2.10', 'x_forwarded');
 
-        $this->call('GET', '/_test/proxy-inspect', [], [], [], [
+        $this->call('GET', 'http://jobs.example.test/_test/proxy-inspect', [], [], [], [
             'REMOTE_ADDR' => '198.51.100.10',
             'HTTP_X_FORWARDED_FOR' => '203.0.113.5',
             'HTTP_X_FORWARDED_PROTO' => 'https',
@@ -64,7 +64,7 @@ class TrustedProxyConfigTest extends TestCase
     {
         $this->rebootApplicationWithTrustedProxies('198.51.100.10', 'x_forwarded');
 
-        $this->call('GET', '/_test/proxy-inspect', [], [], [], [
+        $this->call('GET', 'http://jobs.example.test/_test/proxy-inspect', [], [], [], [
             'REMOTE_ADDR' => '198.51.100.10',
             'HTTP_X_FORWARDED_FOR' => '203.0.113.5',
             'HTTP_X_FORWARDED_PROTO' => 'https',
@@ -114,6 +114,15 @@ class TrustedProxyConfigTest extends TestCase
         $this->setEnvValue('TRUSTED_PROXY_HEADERS', $headers);
 
         $this->refreshApplication();
+        config([
+            'cache.default' => 'array',
+            'cache.stores.array' => [
+                'driver' => 'array',
+                'serialize' => false,
+            ],
+        ]);
+        app('cache')->setDefaultDriver('array');
+
         Route::get('/_test/proxy-inspect', function (Request $request) {
             return response()->json([
                 'ip' => $request->ip(),

@@ -14,8 +14,6 @@ PROMTAIL_SERVICE="${PROMTAIL_SERVICE:-promtail}"
 
 require_cmd docker python3
 
-BT_COMPOSE_OBS_FILE="${OBS_COMPOSE_FILE}"
-
 tmp_output="$(mktemp)"
 trap 'rm -f "${tmp_output}"' EXIT
 

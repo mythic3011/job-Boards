@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Setting;
 use App\Models\User;
+use Illuminate\Cache\RateLimiter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use PragmaRX\Google2FA\Google2FA;
@@ -22,9 +23,38 @@ class MaintenanceContractTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->withoutMiddleware(\Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class);
+        $this->withoutMiddleware([
+            \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        ]);
 
         $this->useInMemorySqlite();
+        config([
+            'cache.default' => 'array',
+            'cache.stores.array' => [
+                'driver' => 'array',
+                'serialize' => false,
+            ],
+            'permission.cache.store' => 'array',
+            'session.driver' => 'array',
+        ]);
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('cache');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('cache.store');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('cache.psr6');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('session');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('session.store');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance(RateLimiter::class);
+        app()->forgetInstance('cache');
+        app()->forgetInstance('cache.store');
+        app()->forgetInstance('cache.psr6');
+        app()->forgetInstance('session');
+        app()->forgetInstance('session.store');
+        app()->forgetInstance(RateLimiter::class);
+        app()->forgetInstance(\Spatie\Permission\PermissionRegistrar::class);
+        app('cache')->setDefaultDriver('array');
+        app('session')->setDefaultDriver('array');
+        (new \App\Providers\FortifyServiceProvider($this->app))->boot();
+        app(\Spatie\Permission\PermissionRegistrar::class)->initializeCache();
         $this->createSettingsTable();
         $this->createUsersTable();
         $this->createPermissionTables();

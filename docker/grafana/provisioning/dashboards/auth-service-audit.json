@@ -1,0 +1,58 @@
+{
+    "title": "Auth Service Audit",
+    "uid": "auth-service-audit",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "time": { "from": "now-6h", "to": "now" },
+    "panels": [
+        {
+            "id": 1,
+            "title": "Dropped Canonical Mirror Events (5m)",
+            "type": "timeseries",
+            "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "sum(count_over_time({app=\"auth-service\"} | json | msg=\"audit.canonical_mirror.dropped\" [5m]))",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 2,
+            "title": "Admissible Audit Events by Type (5m)",
+            "type": "timeseries",
+            "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "sum by (msg) (count_over_time({app=\"auth-service\"} | json | msg=~\"audit\\.auth\\..*\" [5m]))",
+                    "legendFormat": "{{msg}}",
+                    "refId": "A"
+                }
+            ]
+        },
+        {
+            "id": 3,
+            "title": "Auth Service Audit Stream",
+            "type": "logs",
+            "gridPos": { "x": 0, "y": 8, "w": 24, "h": 14 },
+            "datasource": { "type": "loki", "uid": "P8E80F9AEF21F6940" },
+            "targets": [
+                {
+                    "expr": "{app=\"auth-service\"} | json | msg=~\"audit\\..*\"",
+                    "refId": "A"
+                }
+            ],
+            "options": {
+                "showTime": true,
+                "showLabels": true,
+                "sortOrder": "Descending",
+                "dedupStrategy": "none",
+                "enableLogDetails": true,
+                "prettifyLogMessage": true
+            }
+        }
+    ]
+}

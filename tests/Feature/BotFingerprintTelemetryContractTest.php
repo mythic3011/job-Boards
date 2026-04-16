@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\Setting;
+use Illuminate\Cache\RateLimiter;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\Cache;
 use Tests\Concerns\InteractsWithBrowserRequests;
@@ -23,6 +24,28 @@ class BotFingerprintTelemetryContractTest extends TestCase
         parent::setUp();
 
         $this->useInMemorySqlite();
+        config([
+            'cache.default' => 'array',
+            'cache.stores.array' => [
+                'driver' => 'array',
+                'serialize' => false,
+            ],
+            'session.driver' => 'array',
+        ]);
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('cache');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('cache.store');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('cache.psr6');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('session');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance('session.store');
+        \Illuminate\Support\Facades\Facade::clearResolvedInstance(RateLimiter::class);
+        app()->forgetInstance('cache');
+        app()->forgetInstance('cache.store');
+        app()->forgetInstance('cache.psr6');
+        app()->forgetInstance('session');
+        app()->forgetInstance('session.store');
+        app()->forgetInstance(RateLimiter::class);
+        app('cache')->setDefaultDriver('array');
+        app('session')->setDefaultDriver('array');
         $this->createSettingsTable();
         $this->createAuditLogsTable();
 
@@ -35,6 +58,7 @@ class BotFingerprintTelemetryContractTest extends TestCase
         $route = app('router')->getRoutes()->getByName('bot.fp-log');
 
         $this->assertNotNull($route);
+        $this->assertContains(\App\Http\Middleware\HoneypotProtection::class, $route->excludedMiddleware());
         $this->assertContains(VerifyCsrfToken::class, $route->excludedMiddleware());
         $this->assertContains(\App\Http\Middleware\CheckMaintenanceMode::class, $route->excludedMiddleware());
     }

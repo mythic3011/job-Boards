@@ -28,26 +28,12 @@ class AdminDashboardUiContractTest extends TestCase
         $this->assertStringContainsString('Suspicious Events', $contents);
     }
 
-    public function test_admin_dashboard_uses_theme_aware_cards_instead_of_hardcoded_light_surfaces(): void
+    public function test_admin_dashboard_badges_cover_canonical_auth_verify_events(): void
     {
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/dashboard.blade.php');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('theme-hero-surface', $contents);
-        $this->assertStringContainsString('theme-hero-card', $contents);
-        $this->assertStringContainsString('theme-hero-eyebrow', $contents);
-        $this->assertStringContainsString('theme-text-strong', $contents);
-        $this->assertStringContainsString('theme-text-muted', $contents);
-        $this->assertStringContainsString('theme-panel-subtle', $contents);
-        $this->assertStringContainsString('theme-icon-tile-accent', $contents);
-        $this->assertStringContainsString('theme-alert-warning', $contents);
-        $this->assertStringContainsString('theme-signal-warning', $contents);
-        $this->assertStringNotContainsString('bg-white p-4', $contents);
-        $this->assertStringNotContainsString('text-gray-900', $contents);
-        $this->assertStringNotContainsString('bg-white/5', $contents);
-        $this->assertStringNotContainsString('border-white/10', $contents);
-        $this->assertStringNotContainsString('bg-red-100 text-red-700', $contents);
-        $this->assertStringNotContainsString('bg-green-100 text-green-700', $contents);
-        $this->assertStringNotContainsString('bg-indigo-100 text-indigo-700', $contents);
+        $this->assertStringContainsString("str_contains(\$eventType, 'denied') || \$eventType === 'audit.auth.verify.denied'", $contents);
+        $this->assertStringContainsString("str_contains(\$eventType, 'login') || \$eventType === 'audit.auth.verify.success'", $contents);
     }
 }

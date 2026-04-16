@@ -31,14 +31,14 @@ Obs plane:
 zsh -lc 'set -a; source .env; source .blue-team-vm/runtime/obs.generated.env; set +a; docker compose -f compose.obs.yml up -d'
 ```
 
-The obs plane depends on final runtime values such as `GRAFANA_PASSWORD_FILE` and `PROMETHEUS_WEB_CONFIG_FILE`. A bare `docker compose` invocation without `.blue-team-vm/runtime/obs.generated.env` will fail interpolation and should be treated as missing runtime preparation, not as proof that the deployment contract is broken.
+The obs plane depends on final runtime values such as `GRAFANA_ADMIN_SECRET_FILE` and `PROMETHEUS_WEB_CONFIG_FILE`. A bare `docker compose` invocation without `.blue-team-vm/runtime/obs.generated.env` will fail interpolation and should be treated as missing runtime preparation, not as proof that the deployment contract is broken.
 
 ## Runtime Artifact Contract
 
 Obs bootstrap renders and materializes final runtime artifacts before `compose.obs.yml` can be trusted:
 
 - `.blue-team-vm/runtime/obs.generated.env`
-- `.blue-team-vm/runtime/grafana-admin-password`
+- `.blue-team-vm/runtime/grafana-admin-secret`
 - `.blue-team-vm/rendered/prometheus.web-config.yml`
 
 If those files are missing locally, regenerate them with:
@@ -49,12 +49,14 @@ BT_STATE_DIR="$(pwd)/.blue-team-vm" BT_COMPOSE_OBS_FILE="$(pwd)/compose.obs.yml"
 
 ## Test Verification Paths
 
-This project has two intentional test entrypoints:
+This project has three intentional test entrypoints across two authority levels:
 
-- `composer test`: full default verification path
+- `composer test`: full default verification path, using direct PHPUnit
+- `composer test:worktree`: full default verification path for a git worktree, with a guard that rejects symlinked or missing `vendor/`
 - `composer test:sqlite`: fast local sqlite-safe path
 
 `composer test:sqlite` is not evidence that the full default or PostgreSQL path passed. Read [docs/runbooks/test-verification-paths.md](docs/runbooks/test-verification-paths.md) before treating sqlite-safe output as full verification.
+If you are working in a git worktree, do not symlink `vendor/` from another checkout; use a real worktree-local dependency install and `composer test:worktree` instead.
 
 For a running local stack, prefer `docker exec jobs-boards-laravel.test composer test` over bare `docker compose exec ...`; it avoids re-interpolating the combined compose file when obs runtime artifacts are already mounted. When project shell wrappers do invoke Compose, explicit shell exports win, generated obs runtime artifacts override source-layer `.env`, and source-layer `.env` only fills missing values.
 

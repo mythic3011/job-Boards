@@ -122,9 +122,9 @@ new class extends Component
         $stats = AuditLog::where('occurred_at', '>=', $today)
             ->selectRaw("
                 COUNT(*) as total_today,
-                COUNT(CASE WHEN event_type = 'login_failed' THEN 1 END) as failed_logins,
+                COUNT(CASE WHEN event_type IN ('login_failed', 'audit.auth.verify.denied') THEN 1 END) as failed_logins,
                 COUNT(CASE WHEN event_type IN ('suspicious_user_agent', 'suspicious_ua_high_risk_path', 'admin_probe', 'security.route_probe', 'security.route_scan_detected', 'security.unauth_access') THEN 1 END) as suspicious,
-                COUNT(CASE WHEN event_type = 'account_locked' THEN 1 END) as locked_accounts
+                COUNT(CASE WHEN event_type IN ('account_locked', 'audit.auth.locked') THEN 1 END) as locked_accounts
             ")
             ->first();
 
@@ -340,11 +340,8 @@ new class extends Component
 }; ?>
 
 <div>
-    <div class="mb-6 flex items-center justify-between gap-3">
-        <div>
-            <h1 class="theme-text-strong text-3xl font-bold">Audit Logs</h1>
-            <p class="theme-text-muted mt-1 text-sm">Review request trails, actor behavior, and high-signal security events.</p>
-        </div>
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-3xl font-bold">Audit Logs</h1>
     </div>
 
     <!-- Stats -->
@@ -368,24 +365,20 @@ new class extends Component
 
     <div class="mb-4 flex flex-wrap items-center gap-2">
         @php
-            $chipBase = 'inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors';
-            $inactiveChip = 'theme-panel-subtle theme-text-strong border-[var(--app-panel-border)] hover:bg-[var(--app-panel-bg)]';
-            $quickFilterClass = static function (string $current, string $filter, string $activeClass, string $inactiveClass): string {
-                return $current === $filter ? $activeClass : $inactiveClass;
-            };
+            $chipBase = 'inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition-colors';
         @endphp
 
-        <button type="button" wire:click="applyQuickFilter('admin_actions')" class="{{ $chipBase }} {{ $quickFilterClass($quickFilter, 'admin_actions', 'theme-pill', $inactiveChip) }}">Admin Actions</button>
-        <button type="button" wire:click="applyQuickFilter('company_actions')" class="{{ $chipBase }} {{ $quickFilterClass($quickFilter, 'company_actions', 'theme-pill', $inactiveChip) }}">Company Actions</button>
-        <button type="button" wire:click="applyQuickFilter('individual_actions')" class="{{ $chipBase }} {{ $quickFilterClass($quickFilter, 'individual_actions', 'theme-pill', $inactiveChip) }}">Individual Actions</button>
-        <button type="button" wire:click="applyQuickFilter('failed_requests')" class="{{ $chipBase }} {{ $quickFilterClass($quickFilter, 'failed_requests', 'theme-alert-error', $inactiveChip) }}">Failed Requests</button>
-        <button type="button" wire:click="applyQuickFilter('application_submitted')" class="{{ $chipBase }} {{ $quickFilterClass($quickFilter, 'application_submitted', 'theme-alert-success', $inactiveChip) }}">Application Submitted</button>
-        <button type="button" wire:click="applyQuickFilter('job_created')" class="{{ $chipBase }} {{ $quickFilterClass($quickFilter, 'job_created', 'theme-alert-success', $inactiveChip) }}">Job Created</button>
-        <button type="button" wire:click="applyQuickFilter('profile_updated')" class="{{ $chipBase }} {{ $quickFilterClass($quickFilter, 'profile_updated', 'theme-alert-success', $inactiveChip) }}">Profile Updated</button>
-        <button type="button" wire:click="applyQuickFilter('password_updated')" class="{{ $chipBase }} {{ $quickFilterClass($quickFilter, 'password_updated', 'theme-alert-success', $inactiveChip) }}">Password Updated</button>
+        <button type="button" wire:click="applyQuickFilter('admin_actions')" class="{{ $chipBase }} {{ $quickFilter === 'admin_actions' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Admin Actions</button>
+        <button type="button" wire:click="applyQuickFilter('company_actions')" class="{{ $chipBase }} {{ $quickFilter === 'company_actions' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Company Actions</button>
+        <button type="button" wire:click="applyQuickFilter('individual_actions')" class="{{ $chipBase }} {{ $quickFilter === 'individual_actions' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Individual Actions</button>
+        <button type="button" wire:click="applyQuickFilter('failed_requests')" class="{{ $chipBase }} {{ $quickFilter === 'failed_requests' ? 'bg-rose-600 text-white ring-rose-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Failed Requests</button>
+        <button type="button" wire:click="applyQuickFilter('application_submitted')" class="{{ $chipBase }} {{ $quickFilter === 'application_submitted' ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Application Submitted</button>
+        <button type="button" wire:click="applyQuickFilter('job_created')" class="{{ $chipBase }} {{ $quickFilter === 'job_created' ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Job Created</button>
+        <button type="button" wire:click="applyQuickFilter('profile_updated')" class="{{ $chipBase }} {{ $quickFilter === 'profile_updated' ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Profile Updated</button>
+        <button type="button" wire:click="applyQuickFilter('password_updated')" class="{{ $chipBase }} {{ $quickFilter === 'password_updated' ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Password Updated</button>
 
         @if($quickFilter !== '')
-            <button type="button" wire:click="clearQuickFilters" class="theme-button theme-button-outline inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium">Clear</button>
+            <button type="button" wire:click="clearQuickFilters" class="inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium text-gray-600 ring-1 ring-gray-300 hover:bg-gray-50">Clear</button>
         @endif
     </div>
 
@@ -393,19 +386,19 @@ new class extends Component
     <div class="mb-6 flex flex-wrap gap-3">
         {{-- Search --}}
         <div class="relative flex-1 min-w-48">
-            <div class="theme-input-shell flex items-center gap-3 rounded-lg border px-4 py-2.5 transition-all duration-150">
-                <svg class="theme-text-muted shrink-0" style="width:18px;height:18px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <div class="flex items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-all duration-150 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
+                <svg style="width:18px;height:18px;flex-shrink:0;color:#9ca3af" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                 </svg>
                 <input
                     type="text"
                     wire:model.live.debounce.300ms="search"
                     placeholder="IP, user, target…"
-                    class="theme-input flex-1 min-w-0 border-0 bg-transparent text-sm outline-none"
+                    class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none min-w-0"
                     autocomplete="off"
                 />
                 @if($search)
-                    <button wire:click="$set('search', '')" class="theme-text-muted shrink-0 rounded-full p-0.5 transition-colors cursor-pointer hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)]" aria-label="Clear search">
+                    <button wire:click="$set('search', '')" class="shrink-0 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors cursor-pointer" aria-label="Clear search">
                         <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                         </svg>
@@ -414,34 +407,34 @@ new class extends Component
             </div>
         </div>
 
-        <select wire:model.live="eventType" class="theme-input-shell theme-text-strong shrink-0 rounded-lg border px-3 py-2.5 text-sm outline-none transition-all duration-150 cursor-pointer">
+        <select wire:model.live="eventType" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
             <option value="">All Events</option>
             @foreach($this->eventTypes as $type)
                 <option value="{{ $type }}">{{ str_replace('_', ' ', $type) }}</option>
             @endforeach
         </select>
 
-        <select wire:model.live="actorType" class="theme-input-shell theme-text-strong shrink-0 rounded-lg border px-3 py-2.5 text-sm outline-none transition-all duration-150 cursor-pointer">
+        <select wire:model.live="actorType" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
             <option value="">All Actors</option>
             <option value="user">User</option>
             <option value="guest">Guest</option>
             <option value="system">System</option>
         </select>
 
-        <select wire:model.live="actorRole" class="theme-input-shell theme-text-strong shrink-0 rounded-lg border px-3 py-2.5 text-sm outline-none transition-all duration-150 cursor-pointer">
+        <select wire:model.live="actorRole" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
             <option value="">All Roles</option>
             @foreach($this->actorRoles as $role)
                 <option value="{{ $role }}">{{ Str::headline($role) }}</option>
             @endforeach
         </select>
 
-        <select wire:model.live="status" class="theme-input-shell theme-text-strong shrink-0 rounded-lg border px-3 py-2.5 text-sm outline-none transition-all duration-150 cursor-pointer">
+        <select wire:model.live="status" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
             <option value="">All Statuses</option>
             <option value="success">Success (2xx)</option>
             <option value="failed">Failed (4xx+)</option>
         </select>
 
-        <select wire:model.live="dateRange" class="theme-input-shell theme-text-strong shrink-0 rounded-lg border px-3 py-2.5 text-sm outline-none transition-all duration-150 cursor-pointer">
+        <select wire:model.live="dateRange" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
             <option value="today">Today</option>
             <option value="last_7_days">Last 7 Days</option>
             <option value="last_30_days">Last 30 Days</option>
@@ -451,96 +444,96 @@ new class extends Component
 
     <!-- Results -->
     <x-ui.card>
-        <div class="theme-table-shell hidden overflow-x-auto rounded-xl border lg:block">
-            <table class="min-w-full text-sm">
-                <thead class="theme-table-head theme-table-divider border-b">
+        <div class="hidden lg:block overflow-x-auto rounded-xl border border-gray-200">
+            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                <thead class="bg-gray-50/90">
                     <tr>
-                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Time</th>
-                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Event</th>
-                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Actor</th>
-                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Request</th>
-                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
-                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Inspect</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actor</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspect</th>
                     </tr>
                 </thead>
-                <tbody class="theme-table-divider divide-y">
+                <tbody class="bg-white divide-y divide-gray-200">
                     @forelse($logs as $log)
                         @php
                             $eventClass = match(true) {
-                                str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') => 'theme-alert-error',
-                                str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') => 'theme-alert-warning',
-                                str_contains($log->event_type, 'login') => 'theme-alert-success',
-                                default => 'theme-pill',
+                                str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') || str_contains($log->event_type, 'denied') || $log->event_type === 'audit.auth.verify.denied' => 'bg-red-100 text-red-800',
+                                str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') => 'bg-orange-100 text-orange-800',
+                                str_contains($log->event_type, 'login') || $log->event_type === 'audit.auth.verify.success' => 'bg-green-100 text-green-800',
+                                default => 'bg-gray-100 text-gray-700',
                             };
                         @endphp
-                        <tr wire:key="log-desktop-{{ $log->id }}" class="align-top transition-colors hover:bg-[var(--app-panel-subtle-bg)]/70">
-                            <td class="theme-text-muted px-4 py-3 whitespace-nowrap">
+                        <tr wire:key="log-desktop-{{ $log->id }}" class="hover:bg-gray-50 align-top">
+                            <td class="px-4 py-3 whitespace-nowrap text-gray-500">
                                 <div title="{{ $log->occurred_at->toDateTimeString() }}">{{ $log->occurred_at->diffForHumans() }}</div>
-                                <div class="theme-text-muted mt-1 text-[11px]">{{ $log->occurred_at->format('Y-m-d H:i:s') }}</div>
+                                <div class="text-[11px] text-gray-400 mt-1">{{ $log->occurred_at->format('Y-m-d H:i:s') }}</div>
                             </td>
                             <td class="px-4 py-3 min-w-[280px]">
-                                <span class="inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium {{ $eventClass }}">{{ $this->eventLabel($log) }}</span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $eventClass }}">{{ $this->eventLabel($log) }}</span>
                                 @if($this->eventSummary($log))
-                                    <div class="theme-text-muted mt-1 text-xs leading-relaxed">{{ $this->eventSummary($log) }}</div>
+                                    <div class="text-xs text-gray-600 mt-1 leading-relaxed">{{ $this->eventSummary($log) }}</div>
                                 @endif
                             </td>
                             <td class="px-4 py-3 min-w-[220px]">
                                 @if($log->actor)
-                                    <div class="theme-text-strong font-medium" title="{{ $log->actor->login_id }}">{{ $this->actorPrimaryLabel($log) }}</div>
+                                    <div class="font-medium text-gray-900" title="{{ $log->actor->login_id }}">{{ $this->actorPrimaryLabel($log) }}</div>
                                     @if($this->actorSecondaryLabel($log))
-                                        <div class="theme-text-muted text-xs">{{ $this->actorSecondaryLabel($log) }}</div>
+                                        <div class="text-xs text-gray-500">{{ $this->actorSecondaryLabel($log) }}</div>
                                     @endif
                                     @if(! empty($this->actorRoles($log)))
                                         <div class="mt-1 flex flex-wrap gap-1">
                                             @foreach($this->actorRoles($log) as $role)
-                                                <span class="theme-pill inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium">
+                                                <span class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-indigo-200">
                                                     {{ Str::headline($role) }}
                                                 </span>
                                             @endforeach
                                         </div>
                                     @endif
                                 @else
-                                    <span class="theme-text-muted">{{ $log->actor_type ?? 'guest' }}</span>
+                                    <span class="text-gray-400">{{ $log->actor_type ?? 'guest' }}</span>
                                 @endif
-                                <div class="theme-text-muted mt-1 font-mono text-[11px]">{{ $log->ip }}</div>
+                                <div class="text-[11px] text-gray-400 font-mono mt-1">{{ $log->ip }}</div>
                             </td>
                             <td class="px-4 py-3 min-w-[300px]">
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     @if($log->method)
-                                        <span class="inline-flex items-center rounded border px-1.5 py-0.5 text-xs font-bold {{ match($log->method) {
-                                            'GET' => 'theme-alert-info',
-                                            'POST' => 'theme-alert-success',
-                                            'PUT', 'PATCH' => 'theme-alert-warning',
-                                            'DELETE' => 'theme-alert-error',
-                                            default => 'theme-pill',
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold {{ match($log->method) {
+                                            'GET' => 'bg-blue-100 text-blue-700',
+                                            'POST' => 'bg-green-100 text-green-700',
+                                            'PUT', 'PATCH' => 'bg-yellow-100 text-yellow-700',
+                                            'DELETE' => 'bg-red-100 text-red-700',
+                                            default => 'bg-gray-100 text-gray-700',
                                         } }}">{{ $log->method }}</span>
                                     @endif
-                                    <span class="theme-text-strong break-all text-xs" title="{{ $log->path }}">{{ $this->friendlyPath($log) }}</span>
+                                    <span class="text-xs text-gray-700 break-all" title="{{ $log->path }}">{{ $this->friendlyPath($log) }}</span>
                                 </div>
-                                <div class="theme-text-muted mt-1 font-mono text-[11px]">{{ $log->request_id }}</div>
+                                <div class="text-[11px] text-gray-400 font-mono mt-1">{{ $log->request_id }}</div>
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 @if($log->status_code)
-                                    <span class="inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium {{ $log->status_code < 300 ? 'theme-alert-success' : ($log->status_code < 500 ? 'theme-alert-warning' : 'theme-alert-error') }}">{{ $log->status_code }}</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $log->status_code < 300 ? 'bg-green-100 text-green-800' : ($log->status_code < 500 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">{{ $log->status_code }}</span>
                                 @else
-                                    <span class="theme-text-muted">—</span>
+                                    <span class="text-gray-400">—</span>
                                 @endif
                             </td>
-                            <td class="theme-text-muted px-4 py-3 min-w-[280px] text-xs">
-                                <div class="mb-1 font-mono">target: {{ $this->targetLabel($log) }}</div>
+                            <td class="px-4 py-3 min-w-[280px] text-xs text-gray-600">
+                                <div class="font-mono mb-1">target: {{ $this->targetLabel($log) }}</div>
                                 <details>
-                                    <summary class="theme-link cursor-pointer">View details</summary>
+                                    <summary class="cursor-pointer text-indigo-600 hover:text-indigo-700">View details</summary>
                                     <div class="mt-2 space-y-2">
                                         @if($log->user_agent)
                                             <div>
-                                                <div class="theme-text-muted text-[11px] uppercase tracking-wide">User Agent</div>
-                                                <div class="theme-text-muted break-all">{{ $log->user_agent }}</div>
+                                                <div class="text-[11px] uppercase tracking-wide text-gray-400">User Agent</div>
+                                                <div class="break-all text-gray-600">{{ $log->user_agent }}</div>
                                             </div>
                                         @endif
                                         @if(is_array($log->meta) && ! empty($log->meta))
                                             <div>
-                                                <div class="theme-text-muted text-[11px] uppercase tracking-wide">Meta</div>
-                                                <pre class="theme-panel theme-text-strong mt-1 max-h-44 overflow-auto rounded border p-2 text-[11px]">{{ json_encode($log->meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                                <div class="text-[11px] uppercase tracking-wide text-gray-400">Meta</div>
+                                                <pre class="mt-1 max-h-44 overflow-auto rounded bg-gray-900 p-2 text-[11px] text-gray-100">{{ json_encode($log->meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                             </div>
                                         @endif
                                     </div>
@@ -549,7 +542,7 @@ new class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="theme-text-muted px-4 py-8 text-center">No audit logs found.</td>
+                            <td colspan="6" class="px-4 py-8 text-center text-gray-500">No audit logs found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -560,68 +553,68 @@ new class extends Component
             @forelse($logs as $log)
                 @php
                     $eventClass = match(true) {
-                        str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') => 'theme-alert-error',
-                        str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') => 'theme-alert-warning',
-                        str_contains($log->event_type, 'login') => 'theme-alert-success',
-                        default => 'theme-pill',
+                        str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') || str_contains($log->event_type, 'denied') || $log->event_type === 'audit.auth.verify.denied' => 'bg-red-100 text-red-800',
+                        str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') => 'bg-orange-100 text-orange-800',
+                        str_contains($log->event_type, 'login') || $log->event_type === 'audit.auth.verify.success' => 'bg-green-100 text-green-800',
+                        default => 'bg-gray-100 text-gray-700',
                     };
                 @endphp
-                <article wire:key="log-mobile-{{ $log->id }}" class="theme-panel-subtle space-y-3 rounded-xl border p-4">
+                <article wire:key="log-mobile-{{ $log->id }}" class="rounded-xl border border-gray-200 p-4 space-y-3">
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <div class="theme-text-strong text-sm font-medium">{{ $log->occurred_at->diffForHumans() }}</div>
-                            <div class="theme-text-muted text-[11px]">{{ $log->occurred_at->format('Y-m-d H:i:s') }}</div>
+                            <div class="text-sm text-gray-900 font-medium">{{ $log->occurred_at->diffForHumans() }}</div>
+                            <div class="text-[11px] text-gray-400">{{ $log->occurred_at->format('Y-m-d H:i:s') }}</div>
                         </div>
                         @if($log->status_code)
-                            <span class="inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium {{ $log->status_code < 300 ? 'theme-alert-success' : ($log->status_code < 500 ? 'theme-alert-warning' : 'theme-alert-error') }}">{{ $log->status_code }}</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $log->status_code < 300 ? 'bg-green-100 text-green-800' : ($log->status_code < 500 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">{{ $log->status_code }}</span>
                         @endif
                     </div>
 
                     <div>
-                        <span class="inline-flex items-center rounded border px-2 py-0.5 text-xs font-medium {{ $eventClass }}">{{ $this->eventLabel($log) }}</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $eventClass }}">{{ $this->eventLabel($log) }}</span>
                         @if($this->eventSummary($log))
-                            <div class="theme-text-muted mt-1 text-xs leading-relaxed">{{ $this->eventSummary($log) }}</div>
+                            <div class="text-xs text-gray-600 mt-1 leading-relaxed">{{ $this->eventSummary($log) }}</div>
                         @endif
                     </div>
 
                     <div class="grid grid-cols-1 gap-2 text-xs">
-                        <div><span class="theme-text-muted">Actor:</span> <span class="theme-text-strong">{{ $this->actorPrimaryLabel($log) }}</span></div>
+                        <div><span class="text-gray-400">Actor:</span> <span class="text-gray-700">{{ $this->actorPrimaryLabel($log) }}</span></div>
                         @if(! empty($this->actorRoles($log)))
                             <div class="flex flex-wrap gap-1">
                                 @foreach($this->actorRoles($log) as $role)
-                                    <span class="theme-pill inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium">{{ Str::headline($role) }}</span>
+                                    <span class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-indigo-200">{{ Str::headline($role) }}</span>
                                 @endforeach
                             </div>
                         @endif
-                        <div><span class="theme-text-muted">IP:</span> <span class="theme-text-strong font-mono">{{ $log->ip }}</span></div>
+                        <div><span class="text-gray-400">IP:</span> <span class="font-mono text-gray-700">{{ $log->ip }}</span></div>
                         <div>
-                            <span class="theme-text-muted">Request:</span>
-                            <span class="theme-text-strong">{{ $log->method ? $log->method.' ' : '' }}{{ $this->friendlyPath($log) }}</span>
+                            <span class="text-gray-400">Request:</span>
+                            <span class="text-gray-700">{{ $log->method ? $log->method.' ' : '' }}{{ $this->friendlyPath($log) }}</span>
                         </div>
-                        <div><span class="theme-text-muted">Target:</span> <span class="theme-text-strong font-mono">{{ $this->targetLabel($log) }}</span></div>
-                        <div><span class="theme-text-muted">Request ID:</span> <span class="theme-text-muted break-all font-mono">{{ $log->request_id }}</span></div>
+                        <div><span class="text-gray-400">Target:</span> <span class="font-mono text-gray-700">{{ $this->targetLabel($log) }}</span></div>
+                        <div><span class="text-gray-400">Request ID:</span> <span class="font-mono text-gray-600 break-all">{{ $log->request_id }}</span></div>
                     </div>
 
                     <details>
-                        <summary class="theme-link cursor-pointer text-sm">View details</summary>
+                        <summary class="cursor-pointer text-sm text-indigo-600 hover:text-indigo-700">View details</summary>
                         <div class="mt-2 space-y-2 text-xs">
                             @if($log->user_agent)
                                 <div>
-                                    <div class="theme-text-muted text-[11px] uppercase tracking-wide">User Agent</div>
-                                    <div class="theme-text-muted break-all">{{ $log->user_agent }}</div>
+                                    <div class="text-[11px] uppercase tracking-wide text-gray-400">User Agent</div>
+                                    <div class="break-all text-gray-600">{{ $log->user_agent }}</div>
                                 </div>
                             @endif
                             @if(is_array($log->meta) && ! empty($log->meta))
                                 <div>
-                                    <div class="theme-text-muted text-[11px] uppercase tracking-wide">Meta</div>
-                                    <pre class="theme-panel theme-text-strong mt-1 max-h-40 overflow-auto rounded border p-2 text-[11px]">{{ json_encode($log->meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                    <div class="text-[11px] uppercase tracking-wide text-gray-400">Meta</div>
+                                    <pre class="mt-1 max-h-40 overflow-auto rounded bg-gray-900 p-2 text-[11px] text-gray-100">{{ json_encode($log->meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                 </div>
                             @endif
                         </div>
                     </details>
                 </article>
             @empty
-                <div class="theme-panel-subtle theme-text-muted rounded-xl border px-4 py-8 text-center">No audit logs found.</div>
+                <div class="rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-500">No audit logs found.</div>
             @endforelse
         </div>
 
