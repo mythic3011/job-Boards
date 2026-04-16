@@ -140,6 +140,24 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringNotContainsString('${PROMETHEUS_WEB_CONFIG_FILE:-./docker/prometheus/web-config.yml}', $contents);
     }
 
+    public function test_obs_compose_grafana_joins_app_plane_with_explicit_postgres_datasource_env(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.obs.yml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('GRAFANA_POSTGRES_URL: ${GRAFANA_POSTGRES_URL:-postgres:5432}', $contents);
+        $this->assertStringContainsString('GRAFANA_POSTGRES_DATABASE: ${DB_DATABASE:?Set DB_DATABASE before obs apply}', $contents);
+        $this->assertStringContainsString('GRAFANA_POSTGRES_USER: ${DB_USERNAME:?Set DB_USERNAME before obs apply}', $contents);
+        $this->assertStringContainsString('GRAFANA_POSTGRES_SECRET: ${GRAFANA_POSTGRES_SECRET:?Set GRAFANA_POSTGRES_SECRET before obs apply}', $contents);
+        $this->assertStringContainsString('GRAFANA_POSTGRES_SSLMODE: ${GRAFANA_POSTGRES_SSLMODE:-prefer}', $contents);
+        $this->assertStringNotContainsString('GRAFANA_POSTGRES_PASSWORD:', $contents);
+        $this->assertStringNotContainsString('DB_PASSWORD', $contents);
+        $this->assertMatchesRegularExpression(
+            "/^  grafana:\\n(?:(?:    |      ).*\\n)*?    networks:\\n      - obs-plane\\n      - app-plane\\n/m",
+            $contents
+        );
+    }
+
     public function test_app_compose_uses_an_explicit_front_proxy_allowlist_for_https_aware_urls(): void
     {
         $contents = file_get_contents($this->repoRoot.'/compose.app.yml');
@@ -215,6 +233,22 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('uid: P8E80F9AEF21F6940', $contents);
         $this->assertStringContainsString('type: loki', $contents);
         $this->assertStringContainsString('url: http://loki:3100', $contents);
+    }
+
+    public function test_obs_grafana_provisions_stable_postgres_datasource_uid(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/grafana/provisioning/datasources/datasources.yaml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('name: Postgres', $contents);
+        $this->assertStringContainsString('uid: P8E949C5F1FC6F134', $contents);
+        $this->assertStringContainsString('type: postgres', $contents);
+        $this->assertStringContainsString('url: $GRAFANA_POSTGRES_URL', $contents);
+        $this->assertStringContainsString('user: $GRAFANA_POSTGRES_USER', $contents);
+        $this->assertStringContainsString('password: $GRAFANA_POSTGRES_SECRET', $contents);
+        $this->assertStringNotContainsString('GRAFANA_POSTGRES_PASSWORD', $contents);
+        $this->assertStringContainsString('database: $GRAFANA_POSTGRES_DATABASE', $contents);
+        $this->assertStringContainsString('sslmode: $GRAFANA_POSTGRES_SSLMODE', $contents);
     }
 
     public function test_common_bt_compose_exports_obs_generated_env_before_running_docker_compose(): void

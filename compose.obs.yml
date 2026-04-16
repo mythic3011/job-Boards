@@ -86,12 +86,18 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_secret
       GF_USERS_ALLOW_SIGN_UP: "false"
+      GRAFANA_POSTGRES_URL: ${GRAFANA_POSTGRES_URL:-postgres:5432}
+      GRAFANA_POSTGRES_DATABASE: ${DB_DATABASE:?Set DB_DATABASE before obs apply}
+      GRAFANA_POSTGRES_USER: ${DB_USERNAME:?Set DB_USERNAME before obs apply}
+      GRAFANA_POSTGRES_SECRET: ${GRAFANA_POSTGRES_SECRET:?Set GRAFANA_POSTGRES_SECRET before obs apply}
+      GRAFANA_POSTGRES_SSLMODE: ${GRAFANA_POSTGRES_SSLMODE:-prefer}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
       - ${GRAFANA_ADMIN_SECRET_FILE:?Set GRAFANA_ADMIN_SECRET_FILE before obs apply}:/run/secrets/grafana_admin_secret:ro
     networks:
       - obs-plane
+      - app-plane
     depends_on:
       prometheus:
         condition: service_healthy
