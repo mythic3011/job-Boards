@@ -114,6 +114,15 @@ class TrustedProxyConfigTest extends TestCase
         $this->setEnvValue('TRUSTED_PROXY_HEADERS', $headers);
 
         $this->refreshApplication();
+        config([
+            'cache.default' => 'array',
+            'cache.stores.array' => [
+                'driver' => 'array',
+                'serialize' => false,
+            ],
+        ]);
+        app('cache')->setDefaultDriver('array');
+
         Route::get('/_test/proxy-inspect', function (Request $request) {
             return response()->json([
                 'ip' => $request->ip(),
