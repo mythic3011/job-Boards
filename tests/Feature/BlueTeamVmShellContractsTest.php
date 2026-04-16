@@ -203,6 +203,20 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('audit\\\\.auth\\\\..*', $contents);
     }
 
+    public function test_obs_grafana_provisions_stable_prometheus_and_loki_datasource_uids(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/grafana/provisioning/datasources/datasources.yaml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('name: Prometheus', $contents);
+        $this->assertStringContainsString('uid: PBFA97CFB590B2093', $contents);
+        $this->assertStringContainsString('type: prometheus', $contents);
+        $this->assertStringContainsString('name: Loki', $contents);
+        $this->assertStringContainsString('uid: P8E80F9AEF21F6940', $contents);
+        $this->assertStringContainsString('type: loki', $contents);
+        $this->assertStringContainsString('url: http://loki:3100', $contents);
+    }
+
     public function test_common_bt_compose_exports_obs_generated_env_before_running_docker_compose(): void
     {
         $tempRoot = $this->makeTempDir();
