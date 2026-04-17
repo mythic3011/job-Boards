@@ -12,17 +12,58 @@ class DashboardService
 {
     private const CACHE_DURATION = 300;
     private const CACHE_KEY = 'dashboard.stats';
+    private const SUSPICIOUS_EVENT_TYPES = [
+        'suspicious_user_agent',
+        'suspicious_ua_high_risk_path',
+        'admin_probe',
+        'bot_fingerprint_probe',
+        'honeypot.triggered',
+        'security.route_probe',
+        'security.route_scan_detected',
+        'security.unauth_access',
+    ];
+    private const RECENT_ACTIVITY_EVENT_TYPES = [
+        'login_success',
+        'login_failed',
+        'audit.auth.verify.success',
+        'audit.auth.verify.denied',
+        'account_locked',
+        'audit.auth.locked',
+        'audit.application.download_cv.denied',
+        'audit.application.approve.denied',
+        'audit.application.reject.denied',
+        'audit.admin.permission.denied',
+        'bot_fingerprint_probe',
+        'honeypot.triggered',
+        'security.route_probe',
+        'security.route_scan_detected',
+        'security.unauth_access',
+        'user.created',
+        'user.deleted',
+        'user.locked',
+        'user.unlocked',
+        'job.created',
+        'job.deleted',
+        'application.created',
+        'application.approved',
+        'application.rejected',
+        'setup.completed',
+    ];
 
     public function getStats(): array
     {
         return Cache::remember(self::CACHE_KEY, self::CACHE_DURATION, function () {
             $today = now()->startOfDay();
 
+            $quotedSuspiciousEventTypes = collect(self::SUSPICIOUS_EVENT_TYPES)
+                ->map(fn (string $eventType): string => "'" . $eventType . "'")
+                ->implode(',');
+
             $auditToday = AuditLog::where('occurred_at', '>=', $today)
                 ->selectRaw("
                     COUNT(*) as total_today,
                     COUNT(CASE WHEN event_type IN ('login_failed', 'audit.auth.verify.denied') THEN 1 END) as failed_logins,
-                    COUNT(CASE WHEN event_type IN ('suspicious_user_agent','suspicious_ua_high_risk_path','admin_probe') THEN 1 END) as suspicious
+                    COUNT(CASE WHEN event_type IN ({$quotedSuspiciousEventTypes}) THEN 1 END) as suspicious
                 ")
                 ->first();
 
@@ -46,15 +87,7 @@ class DashboardService
     public function getRecentActivity(): \Illuminate\Support\Collection
     {
         return AuditLog::with('actor')
-            ->whereIn('event_type', [
-                'login_success', 'login_failed', 'audit.auth.verify.success', 'audit.auth.verify.denied', 'account_locked', 'audit.auth.locked',
-                'audit.application.download_cv.denied', 'audit.application.approve.denied', 'audit.application.reject.denied',
-                'audit.admin.permission.denied',
-                'user.created', 'user.deleted', 'user.locked', 'user.unlocked',
-                'job.created', 'job.deleted',
-                'application.created', 'application.approved', 'application.rejected',
-                'setup.completed',
-            ])
+            ->whereIn('event_type', self::RECENT_ACTIVITY_EVENT_TYPES)
             ->orderByDesc('occurred_at')
             ->limit(8)
             ->get();

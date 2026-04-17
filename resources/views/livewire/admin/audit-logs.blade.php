@@ -123,7 +123,7 @@ new class extends Component
             ->selectRaw("
                 COUNT(*) as total_today,
                 COUNT(CASE WHEN event_type IN ('login_failed', 'audit.auth.verify.denied') THEN 1 END) as failed_logins,
-                COUNT(CASE WHEN event_type IN ('suspicious_user_agent', 'suspicious_ua_high_risk_path', 'admin_probe', 'security.route_probe', 'security.route_scan_detected', 'security.unauth_access') THEN 1 END) as suspicious,
+                COUNT(CASE WHEN event_type IN ('suspicious_user_agent', 'suspicious_ua_high_risk_path', 'admin_probe', 'bot_fingerprint_probe', 'honeypot.triggered', 'security.route_probe', 'security.route_scan_detected', 'security.unauth_access') THEN 1 END) as suspicious,
                 COUNT(CASE WHEN event_type IN ('account_locked', 'audit.auth.locked') THEN 1 END) as locked_accounts
             ")
             ->first();
@@ -289,6 +289,42 @@ new class extends Component
     public function eventSummary(AuditLog $log): ?string
     {
         $meta = is_array($log->meta) ? $log->meta : [];
+
+        if ($log->event_type === 'bot_fingerprint_probe') {
+            $probe = isset($meta['probe']) && is_string($meta['probe']) && $meta['probe'] !== ''
+                ? $meta['probe']
+                : 'unknown';
+            $signal = isset($meta['signal']) && is_string($meta['signal']) && $meta['signal'] !== ''
+                ? $meta['signal']
+                : 'unknown';
+            $headless = array_key_exists('headless', $meta)
+                ? ($meta['headless'] === null ? 'unknown' : ($meta['headless'] ? 'yes' : 'no'))
+                : 'unknown';
+
+            return "Probe: {$probe} | signal: {$signal} | headless: {$headless}";
+        }
+
+        if ($log->event_type === 'honeypot.triggered') {
+            $reason = isset($meta['reason']) && is_string($meta['reason']) && $meta['reason'] !== ''
+                ? $meta['reason']
+                : 'triggered';
+
+            if ($reason === 'filled_honeypot_field') {
+                $fieldName = isset($meta['field_name']) && is_string($meta['field_name']) && $meta['field_name'] !== ''
+                    ? $meta['field_name']
+                    : 'field';
+
+                return 'Honeypot field filled: ' . $fieldName;
+            }
+
+            return match ($reason) {
+                'missing_timing_token' => 'Missing honeypot timing token',
+                'invalid_timing_token' => 'Invalid honeypot timing token',
+                'submission_too_fast' => 'Form submitted faster than honeypot threshold',
+                'expired_timing_token' => 'Honeypot timing token expired',
+                default => Str::headline(str_replace('_', ' ', $reason)),
+            };
+        }
 
         if ($log->event_type === 'security.unauth_access') {
             $routeName = isset($meta['route_name']) && is_string($meta['route_name']) && $meta['route_name'] !== ''
@@ -461,7 +497,7 @@ new class extends Component
                         @php
                             $eventClass = match(true) {
                                 str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') || str_contains($log->event_type, 'denied') || $log->event_type === 'audit.auth.verify.denied' => 'bg-red-100 text-red-800',
-                                str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') => 'bg-orange-100 text-orange-800',
+                                str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') || $log->event_type === 'honeypot.triggered' => 'bg-orange-100 text-orange-800',
                                 str_contains($log->event_type, 'login') || $log->event_type === 'audit.auth.verify.success' => 'bg-green-100 text-green-800',
                                 default => 'bg-gray-100 text-gray-700',
                             };
@@ -554,7 +590,7 @@ new class extends Component
                 @php
                     $eventClass = match(true) {
                         str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') || str_contains($log->event_type, 'denied') || $log->event_type === 'audit.auth.verify.denied' => 'bg-red-100 text-red-800',
-                        str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') => 'bg-orange-100 text-orange-800',
+                        str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') || $log->event_type === 'honeypot.triggered' => 'bg-orange-100 text-orange-800',
                         str_contains($log->event_type, 'login') || $log->event_type === 'audit.auth.verify.success' => 'bg-green-100 text-green-800',
                         default => 'bg-gray-100 text-gray-700',
                     };

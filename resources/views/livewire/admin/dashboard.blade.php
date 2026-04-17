@@ -23,7 +23,7 @@ new class extends Component
     {
         return match (true) {
             str_contains($eventType, 'failed') || str_contains($eventType, 'locked') || str_contains($eventType, 'denied') || $eventType === 'audit.auth.verify.denied' => 'bg-red-100 text-red-700',
-            str_contains($eventType, 'suspicious') || str_contains($eventType, 'probe') => 'bg-orange-100 text-orange-700',
+            str_contains($eventType, 'suspicious') || str_contains($eventType, 'probe') || $eventType === 'honeypot.triggered' => 'bg-orange-100 text-orange-700',
             str_contains($eventType, 'login') || $eventType === 'audit.auth.verify.success' => 'bg-green-100 text-green-700',
             str_contains($eventType, 'setup') => 'bg-indigo-100 text-indigo-700',
             default => 'bg-gray-100 text-gray-600',
@@ -44,6 +44,11 @@ new class extends Component
             'application.created' => 'Application submitted',
             'application.approved' => 'Application approved',
             'application.rejected' => 'Application rejected',
+            'bot_fingerprint_probe' => 'Bot fingerprint probe',
+            'honeypot.triggered' => 'Honeypot triggered',
+            'security.route_probe' => 'Route probe',
+            'security.route_scan_detected' => 'Route scan detected',
+            'security.unauth_access' => 'Protected route probe',
             'setup.completed' => 'Setup completed',
             default => ucwords(str_replace(['_', '.'], ' ', $eventType)),
         };
@@ -113,7 +118,7 @@ new class extends Component
             'label' => 'Suspicious Events',
             'value' => $stats['suspicious_today'],
             'tone' => $stats['suspicious_today'] > 0 ? 'text-orange-700' : 'text-green-700',
-            'description' => $stats['suspicious_today'] > 0 ? 'Inspect anti-probe and suspicious-user-agent events.' : 'No suspicious events recorded today.',
+            'description' => $stats['suspicious_today'] > 0 ? 'Inspect probe, honeypot, and route-security signals.' : 'No suspicious events recorded today.',
         ],
         [
             'label' => 'Locked Accounts',

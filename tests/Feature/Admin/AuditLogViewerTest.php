@@ -150,4 +150,48 @@ class AuditLogViewerTest extends TestCase
             ->assertSee('target-ddd')
             ->assertDontSee('target-eee');
     }
+
+    public function test_admin_audit_log_viewer_shows_a_concise_bot_fingerprint_summary(): void
+    {
+        $admin = $this->adminUser();
+
+        AuditLog::factory()->create([
+            'event_type' => 'bot_fingerprint_probe',
+            'meta' => [
+                'probe' => 'banned_page',
+                'signal' => 'page_load',
+                'headless' => true,
+            ],
+            'occurred_at' => now(),
+        ]);
+
+        $this->withBrowser()
+            ->actingAs($admin)
+            ->get(route('admin.audit-logs.index'))
+            ->assertOk()
+            ->assertSeeText('Bot Fingerprint Probe')
+            ->assertSeeText('Probe: banned_page | signal: page_load | headless: yes');
+    }
+
+    public function test_admin_audit_log_viewer_humanizes_honeypot_trigger_reason(): void
+    {
+        $admin = $this->adminUser();
+
+        AuditLog::factory()->create([
+            'event_type' => 'honeypot.triggered',
+            'meta' => [
+                'reason' => 'filled_honeypot_field',
+                'field_name' => 'website',
+                'field_filled' => true,
+            ],
+            'occurred_at' => now(),
+        ]);
+
+        $this->withBrowser()
+            ->actingAs($admin)
+            ->get(route('admin.audit-logs.index'))
+            ->assertOk()
+            ->assertSeeText('Honeypot Triggered')
+            ->assertSeeText('Honeypot field filled: website');
+    }
 }
