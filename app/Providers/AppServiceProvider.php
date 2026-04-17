@@ -64,6 +64,12 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->ip());
         });
 
+        RateLimiter::for('bot-fingerprint-probe', function (Request $request) {
+            $probe = (string) $request->query('probe', 'unknown');
+
+            return Limit::perMinute(12)->by($request->ip().'|'.$probe);
+        });
+
         // Stricter rate limiting for suspicious user agents
         RateLimiter::for('suspicious-ua', function (Request $request) {
             $path = Str::lower(ltrim($request->path(), '/'));

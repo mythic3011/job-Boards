@@ -37,6 +37,7 @@ class HoneypotProtectionContractTest extends TestCase
 
         $this->assertNotNull($log);
         $this->assertSame('honeypot.triggered', $log->event_type);
+        $this->assertSame('denied', $log->outcome);
         $this->assertSame('security', $log->target_type);
         $this->assertSame('honeypot', $log->target_idcode);
         $this->assertSame('missing_timing_token', $log->meta['reason']);
@@ -114,6 +115,7 @@ class HoneypotProtectionContractTest extends TestCase
 
         $this->assertNotNull($log);
         $this->assertSame('filled_honeypot_field', $log->meta['reason']);
+        $this->assertSame('denied', $log->outcome);
         $this->assertSame($honeypotFieldName, $log->meta['field_name']);
         $this->assertTrue($log->meta['field_filled']);
         $this->assertSame(strlen('https://spam.example'), $log->meta['field_length']);

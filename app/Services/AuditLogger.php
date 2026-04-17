@@ -208,6 +208,10 @@ class AuditLogger
             return 'logout';
         }
 
+        if ($eventType === 'honeypot.triggered') {
+            return 'denied';
+        }
+
         if ($statusCode === 429) {
             return 'rate_limited';
         }
