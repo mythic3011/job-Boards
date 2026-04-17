@@ -619,7 +619,7 @@ run_remote_proof() {
 
 collect_artifacts() {
     mkdir -p "${GUEST_OUTPUT_DIR}"
-    if ! run_scp_recursive "$(ssh_target):${REMOTE_OUTPUT_DIR}/." "${GUEST_OUTPUT_DIR}"; then
+    if ! run_scp_recursive "$(ssh_target):${REMOTE_OUTPUT_DIR}" "${GUEST_OUTPUT_DIR}"; then
         fail "artifact" "artifact_collection_failed" "Unable to collect guest proof output."
     fi
 
@@ -646,10 +646,11 @@ main() {
     require_command prlctl
     require_command python3
     require_command shasum
-    require_command ssh
-    require_command scp
-    require_command tar
-    if [[ "${SSH_IDENTITY_MODE}" == "pinned" ]]; then
+    if [[ "${DRY_RUN}" != "1" ]]; then
+        require_command ssh
+        require_command scp
+    fi
+    if [[ "${SSH_IDENTITY_MODE}" == "pinned" && "${DRY_RUN}" != "1" ]]; then
         require_command ssh-keyscan
         require_command ssh-keygen
     fi

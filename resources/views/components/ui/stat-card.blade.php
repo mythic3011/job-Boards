@@ -8,8 +8,8 @@
 <x-ui.card>
     <div class="flex items-center justify-between">
         <div class="flex-1">
-            <p class="text-sm font-medium text-gray-600">{{ $label }}</p>
-            <p class="text-3xl font-bold text-gray-900" aria-label="{{ $label }}: {{ $value }}">
+            <p class="theme-text-muted text-sm font-medium">{{ $label }}</p>
+            <p class="theme-text-strong text-3xl font-bold" aria-label="{{ $label }}: {{ $value }}">
                 {{ $value }}
             </p>
             @if($trend)

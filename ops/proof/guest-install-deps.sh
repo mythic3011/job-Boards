@@ -13,23 +13,36 @@ log() {
     printf '%s\n' "$*" | tee -a "${BT_PROOF_LOG_FILE}"
 }
 
+prefer_non_interactive_sudo() {
+    command -v sudo >/dev/null 2>&1
+}
+
 run_privileged() {
     if [[ "${EUID}" -eq 0 ]]; then
         "$@"
-        return 0
+        return $?
     fi
 
-    sudo -n "$@"
+    if prefer_non_interactive_sudo; then
+        sudo -n "$@"
+        return $?
+    fi
+
+    return 127
 }
 
 run_logged_privileged() {
+    if prefer_non_interactive_sudo; then
+        sudo -n "$@" 2>&1 | tee -a "${BT_PROOF_LOG_FILE}"
+        return "${PIPESTATUS[0]}"
+    fi
+
     if [[ "${EUID}" -eq 0 ]]; then
         "$@" 2>&1 | tee -a "${BT_PROOF_LOG_FILE}"
         return "${PIPESTATUS[0]}"
     fi
 
-    sudo -n "$@" 2>&1 | tee -a "${BT_PROOF_LOG_FILE}"
-    return "${PIPESTATUS[0]}"
+    return 127
 }
 
 prepare_logging() {

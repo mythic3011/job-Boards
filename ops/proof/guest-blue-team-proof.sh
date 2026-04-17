@@ -311,13 +311,14 @@ run_smoke_step() {
         return 0
     fi
 
-    if command -v sg >/dev/null 2>&1 && sg docker -c "docker info >/dev/null 2>&1"; then
+    if command -v sg >/dev/null 2>&1; then
         sg docker -c "${command_string}" >"${log_path}" 2>&1
         COMPLETED_STEPS+=("ops/smoke/run-all.sh")
         return 0
     fi
 
-    run_step_privileged "ops/smoke/run-all.sh" "50-smoke.log" bash -c "${command_string}"
+    log "ERROR [smoke_docker_access_required] Non-root smoke execution requires direct Docker access or sg docker fallback."
+    exit 1
 }
 
 main() {

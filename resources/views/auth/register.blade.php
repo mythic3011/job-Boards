@@ -1,209 +1,269 @@
 @php
     use App\Models\Setting;
+
     $registrationsOpen = Setting::getBool('registrations_open', true);
+    $selectedUserType = old('user_type', 'individual');
 @endphp
 
 <x-layouts.base :title="'Register'" :show-header="false">
-    <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-md w-full space-y-8">
-            <x-layouts.flash-messages />
-            <div>
-                <div class="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-indigo-100">
-                    <svg class="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                    </svg>
-                </div>
-                <h2 class="mt-6 text-center text-3xl font-bold text-gray-900">
-                    Create your account
-                </h2>
-                <p class="mt-2 text-center text-sm text-gray-600">
-                    Already have an account?
-                    <a href="{{ route('login') }}" class="font-medium text-indigo-600 hover:text-indigo-500">
-                        Sign in
-                    </a>
-                </p>
-            </div>
+    <x-auth.shell
+        title="Create your account"
+        subtitle="Pick the account type that matches how you will use the platform."
+        max-width="max-w-6xl"
+    >
+        <x-slot:icon>
+            <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 0 1 8 0ZM3 20a6 6 0 0 1 12 0v1H3v-1Z" />
+            </svg>
+        </x-slot:icon>
 
-            <div class="bg-white shadow-sm rounded-xl border border-gray-200 p-8">
-                @if(!$registrationsOpen)
-                    <div class="text-center space-y-6">
-                        <div class="flex items-center justify-center">
-                            <div class="flex items-center justify-center w-20 h-20 rounded-full bg-amber-50 ring-4 ring-amber-100">
-                                <svg class="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                </svg>
-                            </div>
-                        </div>
-                        <div>
-                            <h3 class="text-xl font-bold text-gray-900 mb-2">
-                                Registrations Temporarily Closed
-                            </h3>
-                            <p class="text-gray-500 text-sm leading-relaxed max-w-sm mx-auto">
-                                We're currently not accepting new registrations. This is a temporary measure, and we'll be opening up again soon.
-                            </p>
-                        </div>
-                        <div class="border-t border-gray-100 pt-6">
-                            <p class="text-sm text-gray-500 mb-3">Already have an account?</p>
-                            <a
-                                href="{{ route('login') }}"
-                                class="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 cursor-pointer"
-                            >
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                                </svg>
-                                Sign In to Continue
-                            </a>
-                        </div>
+        @if(!$registrationsOpen)
+            <x-ui.card padding="p-8 sm:p-10">
+                <div class="space-y-6 text-center">
+                    <div class="theme-auth-emblem mx-auto flex h-20 w-20 items-center justify-center rounded-full">
+                        <svg class="h-10 w-10" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2Zm10-10V7a4 4 0 1 0-8 0v4h8Z" />
+                        </svg>
                     </div>
-                @else
-                    <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-5">
+                    <div>
+                        <h2 class="theme-text-strong text-xl font-bold">Registrations Temporarily Closed</h2>
+                        <p class="theme-text-muted mt-2 text-sm leading-6">
+                            We are not accepting new registrations right now. Existing accounts can still sign in and continue working.
+                        </p>
+                    </div>
+                    <div class="flex justify-center">
+                        <x-ui.button href="{{ route('login') }}" variant="primary">
+                            Sign In to Continue
+                        </x-ui.button>
+                    </div>
+                </div>
+            </x-ui.card>
+        @else
+            <div class="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-start">
+                <x-ui.card padding="p-8">
+                    <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                         @csrf
                         <x-honeypot />
 
-                        <div>
-                            <label for="login_id" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                            <input
+                        <div class="grid gap-5 sm:grid-cols-2">
+                            <x-ui.input
                                 id="login_id"
                                 name="login_id"
+                                label="Username"
                                 type="text"
-                                value="{{ old('login_id') }}"
                                 autocomplete="username"
-                                required
-                                class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all {{ $errors->has('login_id') ? 'border-red-300' : 'border-gray-300' }}"
                                 placeholder="Choose a unique username"
-                            >
-                            @error('login_id')
-                                <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
+                                :required="true"
+                                :value="old('login_id')"
+                            />
 
-                        <div>
-                            <label for="nickname" class="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
-                            <input
+                            <x-ui.input
                                 id="nickname"
                                 name="nickname"
+                                label="Display Name"
                                 type="text"
-                                value="{{ old('nickname') }}"
                                 autocomplete="name"
-                                required
-                                class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all {{ $errors->has('nickname') ? 'border-red-300' : 'border-gray-300' }}"
                                 placeholder="Your display name"
-                            >
-                            @error('nickname')
-                                <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
+                                :required="true"
+                                :value="old('nickname')"
+                            />
                         </div>
 
-                        <div>
-                            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email address</label>
-                            <input
-                                id="email"
-                                name="email"
-                                type="email"
-                                value="{{ old('email') }}"
-                                autocomplete="email"
-                                required
-                                class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all {{ $errors->has('email') ? 'border-red-300' : 'border-gray-300' }}"
-                                placeholder="you@example.com"
-                            >
-                            @error('email')
-                                <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
+                        <x-ui.input
+                            id="email"
+                            name="email"
+                            label="Email Address"
+                            type="email"
+                            autocomplete="email"
+                            placeholder="you@example.com"
+                            :required="true"
+                            :value="old('email')"
+                        />
+
+                        <div class="space-y-3">
+                            <div>
+                                <h2 class="theme-text-strong text-lg font-semibold">Choose Your Workspace</h2>
+                                <x-ui.form-help class="mt-1">This decides which dashboard and workflow entry points you will land in after sign-up.</x-ui.form-help>
+                            </div>
+
+                            <div class="grid gap-3 sm:grid-cols-2">
+                                <div>
+                                    <input
+                                        id="user_type_individual"
+                                        type="radio"
+                                        name="user_type"
+                                        value="individual"
+                                        class="peer sr-only"
+                                        {{ $selectedUserType === 'individual' ? 'checked' : '' }}
+                                    >
+                                    <label
+                                        for="user_type_individual"
+                                        data-workspace-option
+                                        class="theme-panel-subtle block cursor-pointer rounded-[1.75rem] border p-5 transition-all hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)] peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-panel-bg)] peer-checked:shadow-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--app-focus-ring)]"
+                                    >
+                                        <span class="flex items-start justify-between gap-4">
+                                            <span class="block">
+                                                <span class="theme-text-strong block text-base font-semibold">Individual Workspace</span>
+                                                <span class="theme-text-muted mt-2 block text-sm leading-6">For candidates who want to browse jobs, submit applications, and manage profile/security from one workspace.</span>
+                                            </span>
+                                            <span
+                                                data-workspace-indicator
+                                                class="theme-icon-tile inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition-all peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-accent-strong)] peer-checked:text-white"
+                                                aria-hidden="true"
+                                            >
+                                                <span class="peer-checked:block hidden">✓</span>
+                                            </span>
+                                        </span>
+                                    </label>
+                                </div>
+
+                                <div>
+                                    <input
+                                        id="user_type_company"
+                                        type="radio"
+                                        name="user_type"
+                                        value="company"
+                                        class="peer sr-only"
+                                        {{ $selectedUserType === 'company' ? 'checked' : '' }}
+                                    >
+                                    <label
+                                        for="user_type_company"
+                                        data-workspace-option
+                                        class="theme-panel-subtle block cursor-pointer rounded-[1.75rem] border p-5 transition-all hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)] peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-panel-bg)] peer-checked:shadow-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--app-focus-ring)]"
+                                    >
+                                        <span class="flex items-start justify-between gap-4">
+                                            <span class="block">
+                                                <span class="theme-text-strong block text-base font-semibold">Company Workspace</span>
+                                                <span class="theme-text-muted mt-2 block text-sm leading-6">For employers who need to publish listings, review applicants, and keep the hiring queue moving.</span>
+                                            </span>
+                                            <span
+                                                data-workspace-indicator
+                                                class="theme-icon-tile inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition-all peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-accent-strong)] peer-checked:text-white"
+                                                aria-hidden="true"
+                                            >
+                                                <span class="peer-checked:block hidden">✓</span>
+                                            </span>
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <x-ui.form-error name="user_type" />
                         </div>
 
-                        <div>
-                            <label for="user_type" class="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
-                            <select
-                                id="user_type"
-                                name="user_type"
-                                required
-                                class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all cursor-pointer {{ $errors->has('user_type') ? 'border-red-300' : 'border-gray-300' }}"
-                            >
-                                <option value="individual" {{ old('user_type') == 'individual' ? 'selected' : '' }}>Individual (Job Seeker)</option>
-                                <option value="company" {{ old('user_type') == 'company' ? 'selected' : '' }}>Company (Employer)</option>
-                            </select>
-                            <p class="mt-1 text-xs text-gray-500">Choose Individual if you're looking for jobs, or Company if you're hiring.</p>
-                            @error('user_type')
-                                <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
-
-                        <div>
-                            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                            <input
+                        <div class="grid gap-5 sm:grid-cols-2">
+                            <x-ui.input
                                 id="password"
                                 name="password"
+                                label="Password"
                                 type="password"
                                 autocomplete="new-password"
-                                required
-                                class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all {{ $errors->has('password') ? 'border-red-300' : 'border-gray-300' }}"
-                            >
-                            <p class="mt-1 text-xs text-gray-500">At least 12 characters with mixed case, letters, numbers, and symbols.</p>
-                            @error('password')
-                                <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
-                        </div>
+                                :required="true"
+                                help="At least 12 characters with mixed case, letters, numbers, and symbols."
+                            />
 
-                        <div>
-                            <label for="password_confirmation" class="block text-sm font-medium text-gray-700 mb-1">Confirm Password</label>
-                            <input
+                            <x-ui.input
                                 id="password_confirmation"
                                 name="password_confirmation"
+                                label="Confirm Password"
                                 type="password"
                                 autocomplete="new-password"
-                                required
-                                class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all {{ $errors->has('password_confirmation') ? 'border-red-300' : 'border-gray-300' }}"
-                            >
-                            @error('password_confirmation')
-                                <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
+                                :required="true"
+                            />
                         </div>
 
-                        <div>
-                            <label for="profile_image" class="block text-sm font-medium text-gray-700 mb-1">Profile Image (Optional)</label>
-                            <input
-                                id="profile_image"
-                                name="profile_image"
-                                type="file"
-                                accept="image/*"
-                                class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer"
-                            >
-                            <img id="profile_image_preview" src="" alt="Profile Image Preview" class="mt-4 w-24 h-24 rounded-full object-cover hidden" />
-                            <p class="mt-1 text-xs text-gray-500">JPG, PNG, GIF up to 2MB</p>
-                            @error('profile_image')
-                                <p class="mt-1.5 text-sm text-red-600">{{ $message }}</p>
-                            @enderror
+                        <div class="space-y-3">
+                            <div>
+                                <x-ui.form-label for="profile_image">Profile Image</x-ui.form-label>
+                                <x-ui.form-help class="mt-1">Optional. JPG, PNG, or GIF up to 2MB.</x-ui.form-help>
+                            </div>
+                            <div class="theme-panel-subtle rounded-2xl border p-4">
+                                <input
+                                    id="profile_image"
+                                    name="profile_image"
+                                    type="file"
+                                    accept="image/*"
+                                    class="theme-text-muted block w-full cursor-pointer text-sm file:mr-4 file:rounded-full file:border-0 file:bg-[var(--app-panel-bg)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--app-accent-strong)] hover:file:bg-[var(--app-panel-border)]"
+                                >
+                                <div class="mt-4 flex items-center gap-4">
+                                    <img id="profile_image_preview" src="" alt="Profile Image Preview" class="hidden h-20 w-20 rounded-2xl object-cover" />
+                                    <div class="theme-text-muted text-sm leading-6">
+                                        Add an avatar now if you want your profile to look complete the moment you enter the workspace.
+                                    </div>
+                                </div>
+                            </div>
+                            <x-ui.form-error name="profile_image" />
                         </div>
 
-                        <div class="border-t border-gray-100 pt-5">
-                            <div class="flex items-start gap-3">
+                        <div class="rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)] px-4 py-4">
+                            <label for="enable_2fa" class="flex cursor-pointer items-start gap-3">
                                 <input
                                     id="enable_2fa"
                                     name="enable_2fa"
                                     type="checkbox"
                                     value="1"
-                                    class="mt-0.5 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                    class="mt-0.5 h-4 w-4 rounded border-[var(--app-panel-border)] text-[var(--app-accent-strong)] focus:ring-[var(--app-accent-soft)]"
                                 >
                                 <div>
-                                    <label for="enable_2fa" class="block text-sm font-medium text-gray-700 cursor-pointer">
-                                        Enable Two-Factor Authentication
-                                    </label>
-                                    <p class="mt-1 text-xs text-gray-500">
-                                        Recommended — adds an extra layer of security. You can also enable this later in security settings.
-                                    </p>
+                                    <span class="theme-text-strong block text-sm font-semibold">Enable two-factor authentication</span>
+                                    <span class="theme-text-muted mt-1 block text-sm leading-6">Recommended. You can enable it later too, but turning it on early unlocks the protected password workflow from day one.</span>
                                 </div>
-                            </div>
+                            </label>
                         </div>
 
-                        <button
-                            type="submit"
-                            class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors cursor-pointer"
-                        >
+                        <x-ui.button type="submit" variant="primary" class="w-full justify-center">
                             Create account
-                        </button>
+                        </x-ui.button>
                     </form>
-                @endif
+                </x-ui.card>
+
+                <div class="space-y-4">
+                    <x-ui.card tone="subtle" padding="p-6">
+                        <x-ui.section-label class="mb-2">Onboarding</x-ui.section-label>
+                        <h2 class="theme-text-strong text-xl font-semibold">Launch Checklist</h2>
+                        <ul class="theme-text-muted mt-4 space-y-3 text-sm leading-6">
+                            <li class="flex gap-3">
+                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
+                                <span>Choose the workspace that matches what you want to do here.</span>
+                            </li>
+                            <li class="flex gap-3">
+                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
+                                <span>Use a strong password immediately so you do not start with security debt.</span>
+                            </li>
+                            <li class="flex gap-3">
+                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
+                                <span>Add an avatar and display name if you want the profile workspace to feel complete right away.</span>
+                            </li>
+                            <li class="flex gap-3">
+                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
+                                <span>Enable 2FA now if you want protected recovery and password workflows from the start.</span>
+                            </li>
+                        </ul>
+                    </x-ui.card>
+
+                    <x-ui.card padding="p-6">
+                        <x-ui.section-label class="mb-2">Next</x-ui.section-label>
+                        <h2 class="theme-text-strong text-xl font-semibold">After You Join</h2>
+                        <div class="mt-4 space-y-3">
+                            <div class="rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)] px-4 py-4">
+                                <p class="theme-text-strong text-sm font-semibold">Individual accounts</p>
+                                <p class="theme-text-muted mt-1 text-sm leading-6">Land in a candidate dashboard focused on application progress, role discovery, and account security.</p>
+                            </div>
+                            <div class="rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)] px-4 py-4">
+                                <p class="theme-text-strong text-sm font-semibold">Company accounts</p>
+                                <p class="theme-text-muted mt-1 text-sm leading-6">Land in a hiring dashboard centred on active listings, inbound candidates, and response throughput.</p>
+                            </div>
+                        </div>
+                    </x-ui.card>
+                </div>
             </div>
-        </div>
-    </div>
+        @endif
+
+        <x-slot:footer>
+            Already have an account?
+            <a href="{{ route('login') }}" class="theme-link font-medium">
+                Sign in
+            </a>
+        </x-slot:footer>
+    </x-auth.shell>
 </x-layouts.base>

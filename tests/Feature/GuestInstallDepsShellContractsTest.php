@@ -41,26 +41,31 @@ class GuestInstallDepsShellContractsTest extends TestCase
         $this->assertStringContainsString('Guest dependency toolchain already present.', $process->getOutput().$process->getErrorOutput());
         $this->assertFileExists($logFile);
         $this->assertSame('0644', substr(sprintf('%o', fileperms($logFile)), -4));
-        $this->assertSame('', @file_get_contents($sudoLog) ?: '');
-        $this->assertSame('', @file_get_contents($aptLog) ?: '');
+        $this->assertSame('', file_exists($sudoLog) ? (string) file_get_contents($sudoLog) : '');
+        $this->assertSame('', file_exists($aptLog) ? (string) file_get_contents($aptLog) : '');
     }
 
-    public function test_guest_install_uses_a_privilege_appropriate_apt_chain_and_verifies_sha256sum(): void
+    public function test_guest_install_uses_noninteractive_sudo_apt_chain_and_verifies_sha256sum(): void
     {
         $tempRoot = $this->makeTempDir();
         $fakeBin = $tempRoot.'/fake-bin';
         $aptLog = $tempRoot.'/apt.log';
         $sudoLog = $tempRoot.'/sudo.log';
-        $groupaddLog = $tempRoot.'/groupadd.log';
-        $usermodLog = $tempRoot.'/usermod.log';
         $stateRoot = $tempRoot.'/state';
         $installBin = $stateRoot.'/installed-bin';
-        $runtimeUid = $this->currentUid();
 
         mkdir($fakeBin, 0777, true);
         mkdir($installBin, 0777, true);
         $this->installGuestScript($tempRoot);
-        $this->writePrivilegeAwareIdStub($fakeBin.'/id');
+        $this->writeExecutable($fakeBin.'/id', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "-un" ]]; then
+  printf 'proof-user\n'
+  exit 0
+fi
+exit 94
+BASH);
         $this->writeExecutable($fakeBin.'/sudo', <<<BASH
 #!/usr/bin/env bash
 set -euo pipefail
@@ -71,8 +76,8 @@ fi
 shift
 "\$@"
 BASH);
-        $this->writeExecutable($fakeBin.'/groupadd', "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' \"\$*\" >> \"{$groupaddLog}\"\nexit 0\n");
-        $this->writeExecutable($fakeBin.'/usermod', "#!/usr/bin/env bash\nset -euo pipefail\nprintf '%s\\n' \"\$*\" >> \"{$usermodLog}\"\nexit 0\n");
+        $this->writeExecutable($fakeBin.'/groupadd', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        $this->writeExecutable($fakeBin.'/usermod', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
         $this->writeExecutable($fakeBin.'/apt-get', <<<BASH
 #!/usr/bin/env bash
 set -euo pipefail
@@ -124,50 +129,21 @@ exit 92
 BASH);
 
         $logFile = $tempRoot.'/proof-output/logs/01-guest-install-deps.log';
-        $process = $this->runGuestInstaller(
-            $tempRoot,
-            $installBin.':'.$fakeBin,
-            $logFile,
-            ['BT_TEST_RUNTIME_UID' => $runtimeUid === null ? '' : (string) $runtimeUid],
-        );
+        $process = $this->runGuestInstaller($tempRoot, $installBin.':'.$fakeBin, $logFile);
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
         $aptOutput = (string) @file_get_contents($aptLog);
         $sudoOutput = (string) @file_get_contents($sudoLog);
-        $groupaddOutput = (string) @file_get_contents($groupaddLog);
-        $usermodOutput = (string) @file_get_contents($usermodLog);
 
         $this->assertSame(0, $process->getExitCode());
         $this->assertStringContainsString('Installing guest proof dependencies.', $combinedOutput);
         $this->assertStringContainsString('Guest dependency toolchain ready.', $combinedOutput);
         $this->assertStringContainsString('DEBIAN_FRONTEND=noninteractive CMD=update', $aptOutput);
         $this->assertStringContainsString('DEBIAN_FRONTEND=noninteractive CMD=install -y ca-certificates coreutils curl docker.io docker-compose-plugin git jq python3', $aptOutput);
-
-        if ($runtimeUid === 0) {
-            $this->assertSame('', $sudoOutput);
-            $this->assertSame('', $groupaddOutput);
-            $this->assertSame('', $usermodOutput);
-        } else {
-            $this->assertStringContainsString('-n apt-get update', $sudoOutput);
-            $this->assertStringContainsString('-n apt-get install -y ca-certificates coreutils curl docker.io docker-compose-plugin git jq python3', $sudoOutput);
-            $this->assertStringContainsString('-n groupadd -f docker', $sudoOutput);
-            $this->assertStringContainsString('-n usermod -aG docker proof-user', $sudoOutput);
-            $this->assertStringContainsString('-f docker', $groupaddOutput);
-            $this->assertStringContainsString('-aG docker proof-user', $usermodOutput);
-        }
-
+        $this->assertStringContainsString('-n apt-get update', $sudoOutput);
+        $this->assertStringContainsString('-n apt-get install -y ca-certificates coreutils curl docker.io docker-compose-plugin git jq python3', $sudoOutput);
+        $this->assertStringContainsString('-n groupadd -f docker', $sudoOutput);
+        $this->assertStringContainsString('-n usermod -aG docker proof-user', $sudoOutput);
         $this->assertFileExists($logFile);
-    }
-
-    public function test_guest_install_script_retains_direct_root_and_noninteractive_sudo_branches(): void
-    {
-        $scriptPath = $this->repoRoot.'/ops/proof/guest-install-deps.sh';
-        $this->assertFileExists($scriptPath);
-
-        $script = (string) file_get_contents($scriptPath);
-
-        $this->assertStringContainsString('if [[ "${EUID}" -eq 0 ]]; then', $script);
-        $this->assertStringContainsString('sudo -n "$@"', $script);
-        $this->assertStringContainsString('sudo -n "$@" 2>&1 | tee -a "${BT_PROOF_LOG_FILE}"', $script);
     }
 
     public function test_guest_install_fails_loud_when_required_toolchain_is_still_missing_after_install(): void
@@ -175,11 +151,18 @@ BASH);
         $tempRoot = $this->makeTempDir();
         $fakeBin = $tempRoot.'/fake-bin';
         $aptLog = $tempRoot.'/apt.log';
-        $runtimeUid = $this->currentUid();
 
         mkdir($fakeBin, 0777, true);
         $this->installGuestScript($tempRoot);
-        $this->writePrivilegeAwareIdStub($fakeBin.'/id');
+        $this->writeExecutable($fakeBin.'/id', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "-un" ]]; then
+  printf 'proof-user\n'
+  exit 0
+fi
+exit 94
+BASH);
         $this->writeExecutable($fakeBin.'/sudo', "#!/usr/bin/env bash\nset -euo pipefail\nif [[ \"\${1:-}\" != \"-n\" ]]; then exit 91; fi\nshift\n\"\$@\"\n");
         $this->writeExecutable($fakeBin.'/groupadd', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
         $this->writeExecutable($fakeBin.'/usermod', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
@@ -191,12 +174,7 @@ exit 0
 BASH);
 
         $logFile = $tempRoot.'/proof-output/logs/01-guest-install-deps.log';
-        $process = $this->runGuestInstaller(
-            $tempRoot,
-            $fakeBin,
-            $logFile,
-            ['BT_TEST_RUNTIME_UID' => $runtimeUid === null ? '' : (string) $runtimeUid],
-        );
+        $process = $this->runGuestInstaller($tempRoot, $fakeBin, $logFile);
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
 
         $this->assertNotSame(0, $process->getExitCode());
@@ -205,6 +183,44 @@ BASH);
         $this->assertStringContainsString('Guest dependency toolchain verification failed after install.', $combinedOutput);
         $this->assertStringContainsString('DEBIAN_FRONTEND=noninteractive CMD=update', (string) @file_get_contents($aptLog));
         $this->assertFileExists($logFile);
+    }
+
+    public function test_run_privileged_propagates_noninteractive_sudo_failures_in_shell_contracts(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $fakeBin = $tempRoot.'/fake-bin';
+        $sudoLog = $tempRoot.'/sudo.log';
+
+        mkdir($fakeBin, 0777, true);
+        $scriptPath = $this->installGuestScriptForSourceContract($tempRoot);
+        $sudoStub = <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "__SUDO_LOG__"
+if [[ "${1:-}" != "-n" ]]; then
+  exit 91
+fi
+exit 42
+BASH;
+        $this->writeExecutable($fakeBin.'/sudo', str_replace('__SUDO_LOG__', $sudoLog, $sudoStub));
+
+        $process = new Process(
+            ['bash', '-lc', 'source "$0"; if run_privileged false; then exit 0; else status=$?; exit "$status"; fi;', $scriptPath],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_TEST_SKIP_MAIN' => '1',
+                'HOME' => $tempRoot,
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $runningAsRoot = function_exists('posix_geteuid') && posix_geteuid() === 0;
+
+        $this->assertSame($runningAsRoot ? 1 : 42, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $this->assertSame($runningAsRoot ? '' : "-n false\n", file_exists($sudoLog) ? (string) file_get_contents($sudoLog) : '');
     }
 
     private function makeTempDir(): string
@@ -223,6 +239,24 @@ BASH);
             $tempRoot.'/ops/proof/guest-install-deps.sh',
             (string) file_get_contents($scriptPath),
         );
+    }
+
+    private function installGuestScriptForSourceContract(string $tempRoot): string
+    {
+        $scriptPath = $this->repoRoot.'/ops/proof/guest-install-deps.sh';
+        $this->assertFileExists($scriptPath, 'Expected guest dependency installer script to exist.');
+
+        $contents = (string) file_get_contents($scriptPath);
+        $contents = str_replace(
+            "main \"\$@\"\n",
+            "if [[ \"\${BT_TEST_SKIP_MAIN:-0}\" != \"1\" ]]; then\n    main \"\$@\"\nfi\n",
+            $contents,
+        );
+
+        $targetPath = $tempRoot.'/ops/proof/guest-install-deps.sh';
+        $this->writeExecutable($targetPath, $contents);
+
+        return $targetPath;
     }
 
     private function writeStubToolchain(string $binDir): void
@@ -255,51 +289,16 @@ BASH);
         chmod($path, 0755);
     }
 
-    private function writePrivilegeAwareIdStub(string $path): void
-    {
-        $this->writeExecutable($path, <<<'BASH'
-#!/usr/bin/env bash
-set -euo pipefail
-if [[ "${1:-}" == "-un" ]]; then
-  if [[ "${BT_TEST_RUNTIME_UID:-}" == "0" ]]; then
-    printf 'root\n'
-  else
-    printf 'proof-user\n'
-  fi
-  exit 0
-fi
-exit 94
-BASH);
-    }
-
-    private function currentUid(): ?int
-    {
-        if (function_exists('posix_geteuid')) {
-            return posix_geteuid();
-        }
-
-        $process = new Process(['id', '-u']);
-        $process->run();
-
-        if (! $process->isSuccessful()) {
-            return null;
-        }
-
-        $output = trim($process->getOutput());
-
-        return ctype_digit($output) ? (int) $output : null;
-    }
-
-    private function runGuestInstaller(string $tempRoot, string $path, string $logFile, array $extraEnv = []): Process
+    private function runGuestInstaller(string $tempRoot, string $path, string $logFile): Process
     {
         $process = new Process(
             [$tempRoot.'/ops/proof/guest-install-deps.sh'],
             $tempRoot,
-            array_merge([
+            [
                 'PATH' => $path.':'.getenv('PATH'),
                 'BT_PROOF_OUTPUT_DIR' => dirname(dirname($logFile)),
                 'HOME' => $tempRoot,
-            ], $extraEnv),
+            ],
             null,
             20,
         );

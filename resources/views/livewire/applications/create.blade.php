@@ -136,17 +136,17 @@ new class extends Component
 <div x-on:profile-image-uploaded.window="window.toast && window.toast.success('Profile photo uploaded')">
     <div class="max-w-4xl mx-auto">
         {{-- Breadcrumb --}}
-        <nav class="mb-4 flex items-center gap-2 text-sm text-gray-500">
-            <a href="{{ route('jobs.index') }}" class="hover:text-indigo-600 transition-colors">Jobs</a>
+        <nav class="theme-text-muted mb-4 flex items-center gap-2 text-sm">
+            <a href="{{ route('jobs.index') }}" class="theme-link transition-colors">Jobs</a>
             <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
             </svg>
-            <span class="text-gray-900 font-medium">Apply</span>
+            <span class="theme-text-strong font-medium">Apply</span>
         </nav>
 
         <div class="mb-6">
-            <h1 class="text-2xl font-bold text-gray-900">Apply for Job</h1>
-            <p class="text-sm text-gray-500 mt-1">Fill in the details below to submit your application.</p>
+            <h1 class="theme-text-strong text-2xl font-bold">Apply for Job</h1>
+            <p class="theme-text-muted mt-1 text-sm">Fill in the details below to submit your application.</p>
         </div>
 
         <x-ui.card padding="p-8">
@@ -163,15 +163,15 @@ new class extends Component
                 <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div class="space-y-3">
                         <x-ui.form-label for="profile_image">Update Profile Photo</x-ui.form-label>
-                        <div class="rounded-lg border border-gray-200 bg-gray-50 p-6 md:p-7 min-h-[320px]">
+                        <div class="theme-panel-subtle min-h-[320px] rounded-2xl border p-6 md:p-7">
                             <div class="flex flex-col items-center gap-4 text-center">
                                 <x-ui.avatar
                                     :src="$profile_image ? $profile_image->temporaryUrl() : $profileImageUrl"
                                     :name="$userName"
                                     size="2xl"
-                                    class="border-2 border-gray-200"
+                                    class="border-2 border-[var(--app-panel-border)] bg-[var(--app-panel-bg)]"
                                 />
-                                <label for="profile_image" class="inline-flex items-center justify-center rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors cursor-pointer">
+                                <label for="profile_image" class="theme-button theme-button-primary inline-flex cursor-pointer items-center justify-center rounded-lg border px-5 py-2.5 text-sm font-medium">
                                     Upload photo
                                 </label>
                                 <input
@@ -182,7 +182,7 @@ new class extends Component
                                     accept="image/*"
                                     class="sr-only"
                                 >
-                                <p class="text-xs text-gray-500">JPG, PNG, WebP or GIF, up to 2MB</p>
+                                <p class="theme-text-muted text-xs">JPG, PNG, WebP or GIF, up to 2MB</p>
                                 @if($profileImageNotice)
                                     <x-ui.alert type="info" class="mt-2">
                                         {{ $profileImageNotice }}

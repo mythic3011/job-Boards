@@ -34,6 +34,8 @@ $(() => {
             `install_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
         getCSRFToken: () => $(SELECTORS.CSRF_TOKEN).attr("content") || "",
         isInstallPage: () => window.location.pathname === CONFIG.INSTALL_PATH,
+        hasLivewireInstallerRoot: () =>
+            document.querySelector("[data-install-livewire-root]") !== null,
         isDOMReady: () => !!(document.body || document.documentElement),
         isJQueryReady: () => $("body").length > 0 || $("html").length > 0,
         setupAjax: (csrfToken) =>
@@ -956,6 +958,10 @@ $(() => {
             console.log("Not on install page");
             return;
         }
+        if (utils.hasLivewireInstallerRoot()) {
+            console.log("Livewire installer root detected, skipping legacy install wizard takeover.");
+            return;
+        }
         if (!utils.isDOMReady()) {
             console.error("DOM not available");
             return;
@@ -975,6 +981,10 @@ $(() => {
             document.readyState === "complete"
         ) {
             console.log("Document already ready");
+            if (utils.hasLivewireInstallerRoot()) {
+                console.log("Livewire installer root detected, skipping legacy install wizard takeover.");
+                return;
+            }
             if (utils.isDOMReady()) {
                 const wizard = new InstallWizard();
                 window.installWizard = wizard;

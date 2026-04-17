@@ -615,6 +615,7 @@ PY
     fi
 
     if command -v php >/dev/null 2>&1; then
+        # shellcheck disable=SC2016
         php -r '
 $hash = $argv[1];
 $info = password_get_info($hash);
