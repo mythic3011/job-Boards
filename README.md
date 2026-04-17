@@ -31,7 +31,9 @@ Obs plane:
 zsh -lc 'set -a; source .env; source .blue-team-vm/runtime/obs.generated.env; set +a; docker compose -f compose.obs.yml up -d'
 ```
 
-The obs plane depends on final runtime values such as `GRAFANA_ADMIN_SECRET_FILE` and `PROMETHEUS_WEB_CONFIG_FILE`. A bare `docker compose` invocation without `.blue-team-vm/runtime/obs.generated.env` will fail interpolation and should be treated as missing runtime preparation, not as proof that the deployment contract is broken.
+The obs plane depends on final runtime values such as `GRAFANA_ADMIN_SECRET_FILE` and `PROMETHEUS_WEB_CONFIG_FILE`. `.blue-team-vm/runtime/obs.generated.env` now also carries the compose-side runtime inputs that follow-up `bootstrap-obs.sh verify` needs for interpolation. A bare `docker compose` invocation without that generated env should be treated as missing runtime preparation, not as proof that the deployment contract is broken.
+The split-plane shell entrypoints now treat `app-plane` as a shared external network. `./ops/app/05-compose-up.sh` and `./ops/bootstrap/bootstrap-obs.sh apply` will create the default `${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane` when it is absent and only auto-detect an existing `*_app-plane` network when its subnet matches the required `${BT_APP_PLANE_SUBNET:-172.29.0.0/24}` contract. Raw `docker compose -f compose.app.yml ...` and `docker compose -f compose.obs.yml ...` still do not perform that detection or creation for you.
+If your local app plane is owned by another compose project or worktree, export `BT_APP_PLANE_NETWORK_NAME=<existing_app_plane_network>` before manual split-plane compose commands. If that network does not use the default subnet contract, also export `BT_APP_PLANE_SUBNET=<compatible_subnet>` explicitly before using the shell wrappers.
 
 ## Runtime Artifact Contract
 
@@ -96,6 +98,7 @@ BT_STATE_DIR="$(pwd)/.blue-team-vm" \
 ```
 
 On non-Linux local runtimes, `bootstrap-app.sh verify` will mark `app.host.local_ports` as `SKIPPED`. That is expected. Only the top-level `./setup-blue-team-vm.sh verify` flow is meant to prove host-kernel and host-port constraints inside the actual Linux blue-team VM.
+`bootstrap-obs.sh verify` expects the app plane to have already produced the shared nginx/log surfaces. If app services are down, `obs.logs.read_only_mount = FAIL` is a real precondition failure rather than an obs-plane compose regression.
 
 ## Clean VM Proof Planning
 

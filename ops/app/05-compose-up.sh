@@ -11,4 +11,5 @@ if [[ "${BT_DRY_RUN}" == "1" ]]; then
     exit 0
 fi
 
+bt_ensure_app_plane_network
 bt_compose "${BT_COMPOSE_APP_FILE}" up -d

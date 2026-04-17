@@ -56,6 +56,10 @@ verify_obs_logs() {
     bt_compose "${BT_COMPOSE_OBS_FILE}" exec -T promtail sh -c 'test -r /var/log/nginx/access.log || test -r /var/log/nginx/error.log'
 }
 
+ensure_obs_app_plane_network() {
+    bt_ensure_app_plane_network
+}
+
 verify_obs_no_ports() {
     python3 - "${BT_COMPOSE_OBS_FILE}" <<'PY'
 import json
@@ -460,6 +464,36 @@ obs_materialize_secret_file() {
     return 0
 }
 
+obs_persist_runtime_input() {
+    local target_key="$1"
+    shift
+
+    local current
+    current="$(bt_env_file_value "${OBS_GENERATED_ENV_FILE}" "${target_key}" || true)"
+    if [[ -n "${current}" ]]; then
+        return 0
+    fi
+
+    local source_key
+    local source_value=""
+    local check_suffix
+    for source_key in "$@"; do
+        source_value="$(obs_effective_env_value "${source_key}" || true)"
+        [[ -n "${source_value}" ]] && break
+    done
+
+    if [[ -z "${source_value}" ]]; then
+        return 1
+    fi
+
+    obs_set_generated_value "${target_key}" "${source_value}"
+    obs_emit_generated_audit "${target_key}" "${source_key}" "persisted_runtime_input" "true" "false"
+    check_suffix="$(obs_check_id_suffix "${target_key}")"
+    bt_emit_check "obs.bootstrap.${check_suffix}.persisted" "obs" "${BT_STATUS_PASS}" "${target_key} was persisted into obs runtime env from ${source_key}." "Review generated env provenance if operator-managed rotation is required."
+    obs_statuses+=("${BT_STATUS_PASS}")
+    return 0
+}
+
 obs_autofix_session_secret() {
     local current
     current="$(obs_effective_env_value "SESSION_SECRET" || true)"
@@ -514,6 +548,11 @@ ensure_obs_runtime_secrets() {
     obs_load_generated_env
 
     local failed=0
+    obs_persist_runtime_input "MONITORING_ADMIN_USERNAME" "MONITORING_ADMIN_USERNAME" || failed=1
+    obs_persist_runtime_input "DB_DATABASE" "DB_DATABASE" || failed=1
+    obs_persist_runtime_input "DB_USERNAME" "DB_USERNAME" || failed=1
+    obs_persist_runtime_input "CANONICAL_AUDIT_AUTH_SERVICE_SECRET" "CANONICAL_AUDIT_AUTH_SERVICE_SECRET" || failed=1
+    obs_persist_runtime_input "GRAFANA_POSTGRES_SECRET" "GRAFANA_POSTGRES_SECRET" "DB_PASSWORD" || failed=1
     obs_autofix_session_secret || failed=1
     obs_autofix_password_hash "MONITORING_PASSWORD_HASH" "MONITORING_PASSWORD" || failed=1
     obs_autofix_password_hash "PROMETHEUS_PASSWORD_HASH" "PROMETHEUS_PASSWORD" || failed=1
@@ -560,12 +599,17 @@ apply_action() {
         emit_obs_summary "Obs bootstrap failed preflight."
         exit 1
     }
+    run_obs_check "obs.bootstrap.app_plane_network" "Obs bootstrap resolved or created a compatible shared app-plane network for shared auth and database traffic." "Set BT_APP_PLANE_NETWORK_NAME or BT_APP_PLANE_SUBNET explicitly if the shared app-plane contract differs from the default runtime." ensure_obs_app_plane_network || {
+        emit_obs_summary "Obs bootstrap failed preflight."
+        exit 1
+    }
 
     bt_compose "${BT_COMPOSE_OBS_FILE}" up -d
-    bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" grafana running "${OBS_WAIT_TIMEOUT_SECONDS}" || true
+    bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" auth-service healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true
+    bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" grafana healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true
     bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" loki running "${OBS_WAIT_TIMEOUT_SECONDS}" || true
     bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" promtail running "${OBS_WAIT_TIMEOUT_SECONDS}" || true
-    bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" prometheus running "${OBS_WAIT_TIMEOUT_SECONDS}" || true
+    bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" prometheus healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true
 
     verify_action
 }

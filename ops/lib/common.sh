@@ -288,6 +288,145 @@ bt_compose() {
     docker compose -f "${compose_file}" "$@"
 }
 
+bt_default_app_plane_network_name() {
+    printf '%s_app-plane\n' "${COMPOSE_PROJECT_NAME:-jobs-borads}"
+}
+
+bt_default_app_plane_subnet() {
+    printf '%s\n' "${BT_APP_PLANE_SUBNET:-172.29.0.0/24}"
+}
+
+bt_docker_network_exists() {
+    local network_name="$1"
+    [[ -n "${network_name}" ]] || return 1
+    docker network inspect "${network_name}" >/dev/null 2>&1
+}
+
+bt_docker_network_subnets() {
+    local network_name="$1"
+    docker network inspect -f '{{range .IPAM.Config}}{{println .Subnet}}{{end}}' "${network_name}" 2>/dev/null || true
+}
+
+bt_app_plane_network_matches_contract() {
+    local network_name="$1"
+    local expected_subnet
+    local subnet
+
+    expected_subnet="$(bt_default_app_plane_subnet)"
+    bt_docker_network_exists "${network_name}" || return 1
+
+    while IFS= read -r subnet; do
+        [[ -n "${subnet}" ]] || continue
+        [[ "${subnet}" == "${expected_subnet}" ]] && return 0
+    done < <(bt_docker_network_subnets "${network_name}")
+
+    return 1
+}
+
+bt_create_app_plane_network() {
+    local network_name="$1"
+    local expected_subnet
+
+    expected_subnet="$(bt_default_app_plane_subnet)"
+    docker network create --driver bridge --subnet "${expected_subnet}" "${network_name}" >/dev/null
+}
+
+bt_container_network_names() {
+    local container_name="$1"
+    docker inspect -f '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}' "${container_name}" 2>/dev/null || true
+}
+
+bt_auto_detect_app_plane_network_name() {
+    local candidate
+    local container_name
+    local candidates=()
+    local seen=""
+
+    for container_name in jobs-boards-nginx jobs-boards-postgres jobs-boards-laravel.test jobs-boards-redis; do
+        while IFS= read -r candidate; do
+            [[ -n "${candidate}" ]] || continue
+            [[ "${candidate}" == *_app-plane ]] || continue
+            bt_app_plane_network_matches_contract "${candidate}" || continue
+            case " ${seen} " in
+                *" ${candidate} "*) continue ;;
+            esac
+            candidates+=("${candidate}")
+            seen+=" ${candidate}"
+        done < <(bt_container_network_names "${container_name}")
+    done
+
+    if [[ "${#candidates[@]}" == 1 ]]; then
+        printf '%s\n' "${candidates[0]}"
+        return 0
+    fi
+
+    while IFS= read -r candidate; do
+        [[ -n "${candidate}" ]] || continue
+        [[ "${candidate}" == *_app-plane ]] || continue
+        bt_app_plane_network_matches_contract "${candidate}" || continue
+        case " ${seen} " in
+            *" ${candidate} "*) continue ;;
+        esac
+        candidates+=("${candidate}")
+        seen+=" ${candidate}"
+    done < <(docker network ls --format '{{.Name}}' 2>/dev/null || true)
+
+    if [[ "${#candidates[@]}" == 1 ]]; then
+        printf '%s\n' "${candidates[0]}"
+        return 0
+    fi
+
+    return 1
+}
+
+bt_ensure_app_plane_network() {
+    local configured="${BT_APP_PLANE_NETWORK_NAME:-}"
+    local requested=""
+    local detected=""
+    local expected_subnet=""
+
+    expected_subnet="$(bt_default_app_plane_subnet)"
+
+    if [[ -n "${configured}" ]]; then
+        if bt_docker_network_exists "${configured}"; then
+            if ! bt_app_plane_network_matches_contract "${configured}"; then
+                bt_warn "Configured BT_APP_PLANE_NETWORK_NAME ${configured} does not match required app-plane subnet ${expected_subnet}."
+                return 1
+            fi
+
+            export BT_APP_PLANE_NETWORK_NAME="${configured}"
+            return 0
+        fi
+
+        bt_create_app_plane_network "${configured}" || return 1
+        export BT_APP_PLANE_NETWORK_NAME="${configured}"
+        return 0
+    fi
+
+    requested="$(bt_default_app_plane_network_name)"
+    if bt_docker_network_exists "${requested}"; then
+        if ! bt_app_plane_network_matches_contract "${requested}"; then
+            bt_warn "Default app-plane network ${requested} does not match required app-plane subnet ${expected_subnet}."
+            return 1
+        fi
+
+        export BT_APP_PLANE_NETWORK_NAME="${requested}"
+        return 0
+    fi
+
+    detected="$(bt_auto_detect_app_plane_network_name || true)"
+    if [[ -n "${detected}" ]]; then
+        export BT_APP_PLANE_NETWORK_NAME="${detected}"
+        bt_warn "Using detected compatible app-plane network ${detected} because ${requested} does not exist."
+        return 0
+    fi
+
+    bt_create_app_plane_network "${requested}" || return 1
+    export BT_APP_PLANE_NETWORK_NAME="${requested}"
+    bt_warn "Created shared app-plane network ${requested} with subnet ${expected_subnet}."
+    return 0
+}
+
 bt_preload_compose_env() {
     local root_env_file="${BT_ROOT_DIR}/.env"
     local obs_generated_env_file="${BT_OBS_GENERATED_ENV_FILE:-${BT_RUNTIME_DIR}/obs.generated.env}"

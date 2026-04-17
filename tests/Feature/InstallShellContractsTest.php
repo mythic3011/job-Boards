@@ -475,13 +475,31 @@ BASH);
         $contents = file_get_contents($this->repoRoot.'/compose.yaml');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('entrypoint: ["/entrypoint.sh"]', $contents);
-        $this->assertStringContainsString('./docker/crowdsec/entrypoint.sh:/entrypoint.sh:ro', $contents);
+        $this->assertStringNotContainsString('entrypoint: ["/entrypoint.sh"]', $contents);
+        $this->assertStringNotContainsString('./docker/crowdsec/entrypoint.sh:/entrypoint.sh:ro', $contents);
+        $this->assertStringContainsString('./docker/crowdsec/appsec-configs/appsec-default.yaml:/etc/crowdsec/appsec-configs/appsec-default.yaml:ro', $contents);
         $this->assertStringContainsString('./docker/crowdsec/acquis.d/fp-trap.yaml:/etc/crowdsec/acquis.d/fp-trap.yaml:ro', $contents);
         $this->assertStringContainsString('CROWDSEC_REQUIRED_APPSEC_CONFIG: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"', $contents);
         $this->assertStringContainsString('CROWDSEC_REQUIRED_APPSEC_COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"', $contents);
+        $this->assertStringContainsString('COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"', $contents);
+        $this->assertStringContainsString('APPSEC_CONFIGS: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"', $contents);
+        $this->assertStringContainsString('cscli appsec-configs list -c /etc/crowdsec/config.yaml', $contents);
+        $this->assertStringContainsString('grep -Fq \"${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}\"', $contents);
+        $this->assertStringContainsString("cscli appsec-rules list -c /etc/crowdsec/config.yaml", $contents);
+        $this->assertStringContainsString("grep -Fq 'crowdsecurity/vpatch-'", $contents);
         $this->assertStringContainsString('wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1', $contents);
         $this->assertStringNotContainsString('cscli version || exit 1', $contents);
+    }
+
+    public function test_combined_compose_waits_for_crowdsec_key_initialization_before_starting_nginx(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.yaml');
+
+        $this->assertIsString($contents);
+        $this->assertMatchesRegularExpression(
+            "/^    nginx:\\n(?:(?:        |            ).*\\n)*?        depends_on:\\n            laravel\\.test:\\n                condition: service_started\\n            crowdsec-key-init:\\n                condition: service_completed_successfully\\n/m",
+            $contents
+        );
     }
 
     private function makeTempDir(): string

@@ -60,6 +60,13 @@ Local repository note:
 - blue-team VM host runs default to `/var/lib/blue-team-vm`
 - local repo workflows may override `BT_STATE_DIR` to `${REPO_ROOT}/.blue-team-vm`
 - when local developers start `compose.obs.yml` manually, they must export both source-layer `.env` values and `${BT_STATE_DIR}/runtime/obs.generated.env`
+- `obs.generated.env` is expected to carry both rendered file paths and the persisted compose-side runtime inputs needed for follow-up `bootstrap-obs.sh verify` calls
+- split-plane shell entrypoints treat `app-plane` as a shared external network, not a per-compose-owned network
+- `./ops/app/05-compose-up.sh` and `./ops/bootstrap/bootstrap-obs.sh apply` may create the default `${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane` when it is absent
+- those shell entrypoints may auto-detect a single existing `*_app-plane` network only when its subnet matches `${BT_APP_PLANE_SUBNET:-172.29.0.0/24}`
+- when local developers start `compose.app.yml` or `compose.obs.yml` manually against an app plane owned by another compose project/worktree, they must export `BT_APP_PLANE_NETWORK_NAME` to that existing app-plane network name
+- if that existing shared network does not use the default subnet contract, they must also export `BT_APP_PLANE_SUBNET` explicitly before using the shell wrappers
+- raw `docker compose -f compose.app.yml ...` and `docker compose -f compose.obs.yml ...` do not perform shared-network detection or creation
 - a missing `PROMETHEUS_WEB_CONFIG_FILE` or `GRAFANA_ADMIN_SECRET_FILE` during local `docker compose` interpolation is a runtime artifact preparation failure, not by itself proof that the obs deployment contract is wrong
 
 ## Startup Gating Versus Functional Proof
@@ -144,6 +151,7 @@ Observable grading contract:
 - Obs plane owns read-only consumption only.
 - Any obs mount of a shared surface must remain read-only.
 - Public port publishing from obs-plane services is not allowed.
+- `obs.logs.read_only_mount = FAIL` means the shared log surfaces are missing or unreadable; the usual cause is that the app plane did not start and populate the nginx/crowdsec/log producer surfaces first.
 
 ## Minimal Rerun Checklist
 
