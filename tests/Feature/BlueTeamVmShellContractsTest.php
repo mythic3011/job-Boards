@@ -378,6 +378,8 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('local template_path = "/etc/nginx/crowdsec-bouncer.conf.template"', $contents);
         $this->assertStringContainsString('_G.bt_crowdsec_render_config = function()', $contents);
         $this->assertStringContainsString('${CROWDSEC_BOUNCER_API_KEY}', $contents);
+        $this->assertStringContainsString('local rendered = string.gsub(template, "${CROWDSEC_BOUNCER_API_KEY}", function()', $contents);
+        $this->assertStringContainsString('return key', $contents);
         $this->assertStringContainsString('rendered bouncer config from template', $contents);
         $this->assertStringNotContainsString('local retry_max_attempts = 12', $contents);
         $this->assertStringNotContainsString('if recovery_attempts >= retry_max_attempts then', $contents);
