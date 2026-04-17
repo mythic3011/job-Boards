@@ -163,6 +163,26 @@ class MaintenanceContractTest extends TestCase
         $this->assertAuthenticatedAs($admin);
     }
 
+    public function test_legacy_admin_login_is_allowed_during_maintenance_without_admin_role(): void
+    {
+        $admin = $this->createUser([
+            'user_type' => 'admin',
+            'login_id' => 'legacyadmin1',
+            'email' => 'legacy-admin@example.com',
+        ]);
+        $this->createPermission('admin.system.view');
+        $this->assignDirectPermission($admin, 'admin.system.view');
+
+        $this->withBrowser()
+            ->post(route('login.store'), $this->honeypotFormPayload([
+                'login_id' => $admin->login_id,
+                'password' => 'StrongPass123!',
+            ]))
+            ->assertRedirect(route('admin.dashboard'));
+
+        $this->assertAuthenticatedAs($admin);
+    }
+
     public function test_non_admin_two_factor_challenge_is_blocked_during_maintenance(): void
     {
         $secret = 'JBSWY3DPEHPK3PXP';
@@ -200,6 +220,34 @@ class MaintenanceContractTest extends TestCase
             'two_factor_confirmed_at' => now(),
         ]);
         $this->attachAdminRole($admin);
+
+        $this->withBrowser()
+            ->withSession(['login.id' => $admin->id, 'login.remember' => false])
+            ->get(route('two-factor.login'))
+            ->assertOk();
+
+        $validCode = app(Google2FA::class)->getCurrentOtp($secret);
+
+        $this->withBrowser()
+            ->withSession(['login.id' => $admin->id, 'login.remember' => false])
+            ->post(route('two-factor.login.store'), ['code' => $validCode])
+            ->assertRedirect('/');
+
+        $this->assertAuthenticatedAs($admin);
+    }
+
+    public function test_legacy_admin_two_factor_challenge_is_allowed_during_maintenance_without_admin_role(): void
+    {
+        $secret = 'JBSWY3DPEHPK3PXP';
+        $admin = $this->createUser([
+            'user_type' => 'admin',
+            'login_id' => 'legacyadmin2fa',
+            'email' => 'legacy-admin2fa@example.com',
+            'two_factor_secret' => encrypt($secret),
+            'two_factor_confirmed_at' => now(),
+        ]);
+        $this->createPermission('admin.system.view');
+        $this->assignDirectPermission($admin, 'admin.system.view');
 
         $this->withBrowser()
             ->withSession(['login.id' => $admin->id, 'login.remember' => false])
@@ -262,6 +310,34 @@ class MaintenanceContractTest extends TestCase
         DB::table('role_has_permissions')->insert([
             'role_id' => $roleId,
             'permission_id' => $permissionId,
+        ]);
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    private function createPermission(string $name): void
+    {
+        DB::table('permissions')->insert([
+            'name' => $name,
+            'guard_name' => 'web',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    private function assignDirectPermission(User $user, string $permission): void
+    {
+        $permissionId = DB::table('permissions')
+            ->where('name', $permission)
+            ->where('guard_name', 'web')
+            ->value('id');
+
+        DB::table('model_has_permissions')->insert([
+            'permission_id' => $permissionId,
+            'model_type' => User::class,
+            'model_id' => $user->getKey(),
         ]);
 
         app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();

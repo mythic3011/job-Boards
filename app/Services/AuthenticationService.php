@@ -13,7 +13,8 @@ use Illuminate\Validation\ValidationException;
 class AuthenticationService
 {
     public function __construct(
-        private readonly AuditLogger $auditLogger
+        private readonly AuditLogger $auditLogger,
+        private readonly AdminNavigationService $adminNavigation,
     ) {
     }
 
@@ -303,15 +304,15 @@ class AuthenticationService
             return session()->pull('url.intended');
         }
 
-        // Admin users go to admin dashboard
-        if ($user->hasAnyPermission([
-            'admin.system.view',
-            'admin.users.view',
-            'admin.jobs.view',
-            'admin.applications.view',
-            'admin.settings.view',
-        ])) {
-            return route('admin.dashboard');
+        // Admin users go to the first permitted admin surface.
+        if ($user->isAdmin()) {
+            $primaryAdminDestination = $this->adminNavigation->primaryDestinationFor($user);
+
+            if ($primaryAdminDestination !== null) {
+                return $primaryAdminDestination['href'];
+            }
+
+            return route('home');
         }
 
         // Company users go to jobs management

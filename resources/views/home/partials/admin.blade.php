@@ -7,10 +7,19 @@
                 <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
                     Home stays lightweight here: use it as the handoff surface into the operational dashboard and the admin modules that carry real platform workload.
                 </p>
-                <div class="mt-6 flex flex-wrap gap-3">
-                    <x-ui.button href="{{ route('admin.dashboard') }}" size="lg">Open Admin Dashboard</x-ui.button>
-                    <x-ui.button href="{{ route('admin.audit-logs.index') }}" variant="outline" size="lg">Audit Logs</x-ui.button>
-                </div>
+                @if($primaryAdminLink)
+                    <div class="mt-6 flex flex-wrap gap-3">
+                        <x-ui.button href="{{ $primaryAdminLink['href'] }}" size="lg">{{ $primaryAdminLink['label'] }}</x-ui.button>
+                        @if($secondaryAdminLink)
+                            <x-ui.button href="{{ $secondaryAdminLink['href'] }}" variant="outline" size="lg">{{ $secondaryAdminLink['label'] }}</x-ui.button>
+                        @endif
+                    </div>
+                @else
+                    <div class="mt-6 rounded-2xl border border-white/12 bg-white/5 px-4 py-4">
+                        <p class="text-sm font-semibold">No admin modules are assigned yet</p>
+                        <p class="mt-2 text-sm leading-6 text-slate-300">Ask another administrator to grant the admin scopes you need before using protected operational surfaces.</p>
+                    </div>
+                @endif
             </div>
 
             <div class="rounded-2xl border border-white/10 bg-white/5 px-5 py-5 backdrop-blur-sm">
@@ -28,15 +37,27 @@
             <p class="theme-text-muted mt-1 text-sm">Fast access to the admin modules you are most likely to reach from the global home route.</p>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            @foreach($adminLinks as $link)
-                <a href="{{ $link['href'] }}" class="block">
-                    <x-ui.card padding="p-5" hover="true" class="h-full">
-                        <p class="theme-text-strong text-base font-semibold">{{ $link['label'] }}</p>
-                        <p class="theme-text-muted mt-2 text-sm leading-6">{{ $link['description'] }}</p>
-                    </x-ui.card>
-                </a>
-            @endforeach
-        </div>
+        @if(! empty($remainingAdminLinks))
+            <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                @foreach($remainingAdminLinks as $link)
+                    <a href="{{ $link['href'] }}" class="block">
+                        <x-ui.card padding="p-5" hover="true" class="h-full">
+                            <p class="theme-text-strong text-base font-semibold">{{ $link['label'] }}</p>
+                            <p class="theme-text-muted mt-2 text-sm leading-6">{{ $link['description'] }}</p>
+                        </x-ui.card>
+                    </a>
+                @endforeach
+            </div>
+        @elseif($primaryAdminLink)
+            <div class="theme-panel-subtle rounded-3xl border px-5 py-5">
+                <p class="theme-text-strong text-sm font-semibold">Primary launch surfaces are already pinned above.</p>
+                <p class="theme-text-muted mt-2 text-sm leading-6">This admin scope currently exposes a narrow set of protected modules, so the hero actions stay as the canonical handoff.</p>
+            </div>
+        @else
+            <div class="theme-panel-subtle rounded-3xl border px-5 py-5">
+                <p class="theme-text-strong text-sm font-semibold">Admin access is currently unscoped.</p>
+                <p class="theme-text-muted mt-2 text-sm leading-6">Protected admin links stay hidden here until your account is granted at least one admin surface permission.</p>
+            </div>
+        @endif
     </section>
 </div>

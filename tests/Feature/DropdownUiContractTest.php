@@ -24,6 +24,7 @@ class DropdownUiContractTest extends TestCase
         $this->assertStringContainsString('Workspace', $header);
         $this->assertStringContainsString('Security', $header);
         $this->assertStringContainsString('Session', $header);
+        $this->assertStringContainsString('! $loop->first', $navigation);
         $this->assertStringContainsString('max-h-[min(75vh,32rem)]', $header);
         $this->assertStringContainsString('overflow-y-auto', $header);
     }
@@ -35,15 +36,19 @@ class DropdownUiContractTest extends TestCase
 
         $this->assertIsString($header);
         $this->assertIsString($css);
+        $this->assertStringContainsString('$adminDestinations = auth()->user()->isAdmin()', $header);
+        $this->assertStringContainsString('$primaryAdminDestination = $adminDestinations[0] ?? null;', $header);
         $this->assertStringContainsString('$dashboardHref = auth()->user()->isAdmin()', $header);
-        $this->assertStringContainsString("route('admin.dashboard')", $header);
+        $this->assertStringContainsString('($primaryAdminDestination[\'href\'] ?? route(\'home\'))', $header);
         $this->assertStringContainsString('href="{{ $dashboardHref }}"', $header);
+        $this->assertStringContainsString('Open Admin Workspace', $header);
         $this->assertStringContainsString('theme-dropdown-item', $header);
         $this->assertStringContainsString('theme-dropdown-item-active', $header);
         $this->assertStringContainsString('aria-current="{{', $header);
         $this->assertStringContainsString('theme-icon-tile', $header);
         $this->assertStringContainsString('theme-alert-success', $header);
         $this->assertStringContainsString('theme-alert-warning', $header);
+        $this->assertStringNotContainsString("route('admin.dashboard')", $header);
         $this->assertStringContainsString('.theme-dropdown-item {', $css);
         $this->assertStringContainsString('.theme-dropdown-item-active {', $css);
         $this->assertStringContainsString('.theme-dropdown-item-active .theme-text-muted', $css);

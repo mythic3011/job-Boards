@@ -16,12 +16,12 @@ class MaintenanceAlert extends Component
     {
         $this->maintenanceActive = Setting::getBool('maintenance_mode', false);
         $this->maintenanceMessage = Setting::get('maintenance_message', 'The system is currently under maintenance. Please try again later.');
-        $this->isAdmin = auth()->check() && auth()->user()->hasRole('admin');
+        $this->isAdmin = auth()->check() && auth()->user()->isAdmin();
     }
 
     public function mount(): void
     {
-        $this->isAdmin = auth()->check() && auth()->user()->hasRole('admin');
+        $this->isAdmin = auth()->check() && auth()->user()->isAdmin();
         $this->checkMaintenanceStatus();
     }
 

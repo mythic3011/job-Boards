@@ -22,7 +22,7 @@ class HideAdminRoutes
     {
         $user = $request->user();
 
-        if (!$user || !$user->hasRole('admin')) {
+        if (!$user || !$user->isAdmin()) {
             // Log admin probe attempt (even though we return 404)
             $this->auditLogger->logRequestEvent(
                 eventType: 'admin_probe',

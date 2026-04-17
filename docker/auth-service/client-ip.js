@@ -52,24 +52,37 @@ const socketPeerIp = (request) =>
             "",
     );
 
+const requestIpFallback = (request) => {
+    const requestIp = normalizeIp(request?.ip);
+    if (requestIp !== "" && net.isIP(requestIp) !== 0) {
+        return requestIp;
+    }
+
+    return "unknown";
+};
+
 const createClientIpResolver = ({ trustedProxyIps = [] } = {}) => {
     const trustedPeers = new Set(trustedProxyIps.map((entry) => normalizeIp(entry)));
 
     return (request) => {
         const peerIp = socketPeerIp(request);
 
-        if (peerIp === "" || !trustedPeers.has(peerIp)) {
-            return peerIp;
+        if (peerIp === "") {
+            return requestIpFallback(request);
         }
 
-        const forwardedFor = firstForwardedIp(request?.headers?.["x-forwarded-for"]);
-        if (forwardedFor !== "") {
-            return forwardedFor;
+        if (!trustedPeers.has(peerIp)) {
+            return peerIp;
         }
 
         const realIp = normalizeIp(request?.headers?.["x-real-ip"]);
         if (realIp !== "" && net.isIP(realIp) !== 0) {
             return realIp;
+        }
+
+        const forwardedFor = firstForwardedIp(request?.headers?.["x-forwarded-for"]);
+        if (forwardedFor !== "") {
+            return forwardedFor;
         }
 
         return peerIp;
