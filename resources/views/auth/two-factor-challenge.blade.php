@@ -83,17 +83,17 @@
             <x-ui.button type="submit" variant="primary" class="w-full">
                 Verify and Continue
             </x-ui.button>
-
-            {{-- Cancel / logout --}}
-            <div class="text-center">
-                <form method="POST" action="{{ route('logout') }}" class="inline">
-                    @csrf
-                    <button type="submit" class="theme-link text-sm underline underline-offset-2 cursor-pointer">
-                        Cancel and log out
-                    </button>
-                </form>
-            </div>
         </form>
+
+        {{-- Cancel / logout --}}
+        <div class="mt-5 text-center">
+            <form method="POST" action="{{ route('logout') }}" class="inline">
+                @csrf
+                <button type="submit" class="theme-link text-sm underline underline-offset-2 cursor-pointer">
+                    Cancel and log out
+                </button>
+            </form>
+        </div>
     </x-ui.card>
 
     <div class="theme-panel-subtle mt-6 rounded-xl border p-4">

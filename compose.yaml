@@ -48,6 +48,7 @@ services:
             - CANONICAL_AUDIT_SECRET=${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}
             - CANONICAL_AUDIT_CALLER_IDENTITY=auth-service
             - AUTH_SERVICE_LOG_FILE=/var/log/auth-service/auth-service.log
+            - AUTH_SERVICE_TRUSTED_PROXY_IPS=${AUTH_SERVICE_TRUSTED_PROXY_IPS:-172.30.0.20}
         volumes:
             - auth-service-logs:/var/log/auth-service
         networks:

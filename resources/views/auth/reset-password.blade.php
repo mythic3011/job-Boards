@@ -15,6 +15,7 @@
             <form class="space-y-5" action="{{ route('password.update') }}" method="POST">
                 @csrf
                 <input type="hidden" name="token" value="{{ $token }}">
+                <x-honeypot />
 
                 <div>
                     <label for="email" class="theme-text-strong mb-1 block text-sm font-medium">Email address</label>

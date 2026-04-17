@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Services\AuditLogger;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class HoneypotProtection
@@ -21,6 +22,7 @@ class HoneypotProtection
         '/login',
         '/register',
         '/forgot-password',
+        '/reset-password',
     ];
 
     /**
@@ -100,17 +102,26 @@ class HoneypotProtection
 
     protected function reject(Request $request, string $reason, array $meta = []): Response
     {
-        $this->auditLogger->logRequestEvent(
-            eventType: 'honeypot.triggered',
-            request: $request,
-            statusCode: 200,
-            targetType: 'security',
-            targetIdcode: 'honeypot',
-            meta: array_merge([
+        try {
+            $this->auditLogger->logRequestEvent(
+                eventType: 'honeypot.triggered',
+                request: $request,
+                statusCode: 200,
+                targetType: 'security',
+                targetIdcode: 'honeypot',
+                meta: array_merge([
+                    'surface' => $request->path(),
+                    'reason' => $reason,
+                ], $meta)
+            );
+        } catch (\Throwable $e) {
+            Log::warning('Honeypot audit logging failed', [
+                'event_type' => 'honeypot.triggered',
                 'surface' => $request->path(),
                 'reason' => $reason,
-            ], $meta)
-        );
+                'exception_class' => $e::class,
+            ]);
+        }
 
         return response()->json(['message' => 'Request processed'], 200);
     }

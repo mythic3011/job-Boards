@@ -110,12 +110,12 @@ class MaintenanceContractTest extends TestCase
     public function test_guest_cannot_submit_password_reset_during_maintenance(): void
     {
         $this->withBrowser()
-            ->post(route('password.update'), [
+            ->post(route('password.update'), $this->honeypotFormPayload([
                 'token' => 'test-token',
                 'email' => 'test@example.com',
                 'password' => 'StrongPass123!',
                 'password_confirmation' => 'StrongPass123!',
-            ])
+            ]))
             ->assertStatus(503);
     }
 
