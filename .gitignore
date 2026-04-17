@@ -38,11 +38,6 @@ public/vendor
 # specifically ignore Livewire's published styles/templates
 /resources/views/vendor/livewire/
 
-# docs dir and all files within it
-/docs/*/*.md
-!/docs/notes/live-proof-blue-team-vm-2026-04-07.md
-!/docs/runbooks/operator-preconditions-blue-team-vm.md
-
 # AI-related files
 .claude/
 .cursor/
@@ -67,3 +62,4 @@ admin-*-*.txt
 docker/nginx/htpasswd/monitoring.htpasswd
 /.blue-team-vm/
 /.worktrees/
+docs/plans/
