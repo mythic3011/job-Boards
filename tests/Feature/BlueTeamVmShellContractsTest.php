@@ -311,6 +311,15 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringNotContainsString('if recovery_attempts >= retry_max_attempts then', $contents);
     }
 
+    public function test_nginx_crowdsec_recovery_throttles_repeated_warning_logs(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('local should_log_warning = recovery_attempts <= 3 or recovery_attempts % 12 == 0', $contents);
+        $this->assertStringContainsString('if should_log_warning then', $contents);
+    }
+
     public function test_obs_promtail_scrapes_auth_service_structured_logs(): void
     {
         $contents = file_get_contents($this->repoRoot.'/docker/promtail/config.yaml');
