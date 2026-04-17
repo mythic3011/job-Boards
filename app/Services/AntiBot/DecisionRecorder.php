@@ -19,9 +19,9 @@ class DecisionRecorder
         ?string $eventType = null,
         int $statusCode = 200,
         array $meta = [],
-    ): void
+    ): bool
     {
-        $this->recordWithEventType(
+        return $this->recordWithEventType(
             request: $request,
             context: $context,
             assessment: $assessment,
@@ -38,7 +38,7 @@ class DecisionRecorder
         string $eventType,
         int $statusCode = 200,
         array $meta = [],
-    ): void
+    ): bool
     {
         try {
             $this->auditLogger->logSecurityEvent(
@@ -48,11 +48,17 @@ class DecisionRecorder
                 meta: array_merge($context->toAuditMeta(), $assessment->toAuditMeta(), $meta),
                 statusCode: $statusCode,
             );
+
+            return true;
         } catch (\Throwable $e) {
-            Log::debug('Anti-bot decision recording skipped', [
-                'error' => $e->getMessage(),
+            Log::warning('anti_bot.audit_recording_failed', [
+                'event_type' => $eventType,
                 'surface' => $context->surface,
+                'request_id' => (string) $request->attributes->get('request_id', 'unknown'),
+                'exception_class' => $e::class,
             ]);
+
+            return false;
         }
     }
 }

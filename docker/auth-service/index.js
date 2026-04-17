@@ -4,6 +4,11 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { createCanonicalAuditMirror } = require("./canonical-audit");
+const {
+    createCanonicalClientIpKeyGenerator,
+    createClientIpResolver,
+    parseTrustedProxyIps,
+} = require("./client-ip");
 
 const AUTH_SERVICE_LOG_FILE = process.env.AUTH_SERVICE_LOG_FILE?.trim() || "";
 
@@ -56,6 +61,9 @@ const USERS = {
 
 const SESSION_TTL = 8 * 60 * 60 * 1000; // 8h
 const SESSION_SECRET = process.env.SESSION_SECRET?.trim() || "";
+const TRUSTED_PROXY_IPS = parseTrustedProxyIps(
+    process.env.AUTH_SERVICE_TRUSTED_PROXY_IPS || "",
+);
 
 const failStartup = (message) => {
     log("error", message);
@@ -79,7 +87,6 @@ const cookieParser = require("cookie-parser");
 const rateLimit = require("express-rate-limit");
 
 const app = express();
-app.set("trust proxy", 1); // trust nginx X-Forwarded-For
 app.use(express.json());
 app.use(cookieParser());
 
@@ -138,6 +145,26 @@ const verifyToken = (signed) => {
     return token;
 };
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+const getClientIP = createClientIpResolver({
+    trustedProxyIps: TRUSTED_PROXY_IPS,
+});
+const canonicalClientIpKeyGenerator =
+    createCanonicalClientIpKeyGenerator(getClientIP);
+
+const getAuditMeta = (req, extra = {}) => ({
+    ip: getClientIP(req),
+    ua: req.headers["user-agent"] || "",
+    requestId: req.headers["x-request-id"] || "",
+    ...extra,
+});
+
+const normalizeBcryptHash = (hash) => {
+    if (!hash) return hash;
+    // Apache htpasswd emits $2y$, while node-bcrypt expects $2a$/$2b$.
+    return hash.replace(/^\$2y\$/, "$2b$");
+};
+
 // ── Rate limiters ─────────────────────────────────────────────────────────────
 // /verify: max 10 attempts per 15 min per IP
 const verifyLimiter = rateLimit({
@@ -145,7 +172,7 @@ const verifyLimiter = rateLimit({
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req) => req.headers["x-real-ip"] || req.ip,
+    keyGenerator: canonicalClientIpKeyGenerator,
     handler: (req, res) => {
         log("warn", "audit.auth.rate_limit.triggered", {
             ...getAuditMeta(req),
@@ -162,7 +189,7 @@ const checkLimiter = rateLimit({
     max: 120,
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req) => req.headers["x-real-ip"] || req.ip,
+    keyGenerator: canonicalClientIpKeyGenerator,
     skipSuccessfulRequests: true, // only count failures
     handler: (req, res) => {
         log("warn", "audit.auth.rate_limit.triggered", {
@@ -173,25 +200,6 @@ const checkLimiter = rateLimit({
         res.status(429).end();
     },
 });
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-const getClientIP = (req) =>
-    req.headers["x-real-ip"] ||
-    req.headers["x-forwarded-for"]?.split(",")[0]?.trim() ||
-    req.ip;
-
-const getAuditMeta = (req, extra = {}) => ({
-    ip: getClientIP(req),
-    ua: req.headers["user-agent"] || "",
-    requestId: req.headers["x-request-id"] || "",
-    ...extra,
-});
-
-const normalizeBcryptHash = (hash) => {
-    if (!hash) return hash;
-    // Apache htpasswd emits $2y$, while node-bcrypt expects $2a$/$2b$.
-    return hash.replace(/^\$2y\$/, "$2b$");
-};
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) =>

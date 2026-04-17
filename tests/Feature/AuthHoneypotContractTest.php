@@ -11,14 +11,17 @@ class AuthHoneypotContractTest extends TestCase
         $login = file_get_contents(dirname(__DIR__, 2).'/resources/views/auth/login.blade.php');
         $register = file_get_contents(dirname(__DIR__, 2).'/resources/views/auth/register.blade.php');
         $forgotPassword = file_get_contents(dirname(__DIR__, 2).'/resources/views/auth/forgot-password.blade.php');
+        $resetPassword = file_get_contents(dirname(__DIR__, 2).'/resources/views/auth/reset-password.blade.php');
 
         $this->assertIsString($login);
         $this->assertIsString($register);
         $this->assertIsString($forgotPassword);
+        $this->assertIsString($resetPassword);
 
         $this->assertStringContainsString('<x-honeypot />', $login);
         $this->assertStringContainsString('<x-honeypot />', $register);
         $this->assertStringContainsString('<x-honeypot />', $forgotPassword);
+        $this->assertStringContainsString('<x-honeypot />', $resetPassword);
     }
 
     public function test_shared_honeypot_component_uses_the_configured_field_name_contract(): void

@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Http\Middleware\HoneypotProtection;
+use App\Services\AuditLogger;
 use App\Models\AuditLog;
 use Illuminate\Http\Request;
+use Mockery;
 use Symfony\Component\HttpFoundation\Response;
 use Tests\Concerns\UsesInMemorySqlite;
 use Tests\TestCase;
@@ -22,6 +24,13 @@ class HoneypotProtectionContractTest extends TestCase
 
         $this->useInMemorySqlite();
         $this->createAuditLogsTable();
+    }
+
+    protected function tearDown(): void
+    {
+        Mockery::close();
+
+        parent::tearDown();
     }
 
     public function test_missing_timing_token_is_treated_as_a_honeypot_hit_and_audited(): void
@@ -122,13 +131,47 @@ class HoneypotProtectionContractTest extends TestCase
         $this->assertArrayNotHasKey('honeypot_value', $log->meta);
     }
 
-    protected function runMiddleware(array $payload): Response
+    public function test_reset_password_path_is_treated_as_a_protected_honeypot_surface(): void
     {
-        $request = Request::create('/forgot-password', 'POST', $payload);
+        $response = $this->runMiddleware([
+            'email' => 'user@example.test',
+        ], '/reset-password');
+
+        $this->assertSame(200, $response->getStatusCode());
+
+        $log = AuditLog::query()->latest('occurred_at')->first();
+
+        $this->assertNotNull($log);
+        $this->assertSame('honeypot.triggered', $log->event_type);
+        $this->assertSame('reset-password', $log->meta['surface']);
+        $this->assertSame('missing_timing_token', $log->meta['reason']);
+    }
+
+    public function test_honeypot_rejection_still_returns_benign_response_when_audit_logging_fails(): void
+    {
+        $failingLogger = Mockery::mock(AuditLogger::class);
+        $failingLogger->shouldReceive('logRequestEvent')
+            ->once()
+            ->andThrow(new \RuntimeException('audit unavailable'));
+
+        $middleware = new HoneypotProtection($failingLogger);
+
+        $response = $this->runMiddleware([
+            'email' => 'user@example.test',
+        ], '/forgot-password', $middleware);
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertSame(['message' => 'Request processed'], json_decode($response->getContent(), true));
+        $this->assertSame(0, AuditLog::query()->count());
+    }
+
+    protected function runMiddleware(array $payload, string $path = '/forgot-password', ?HoneypotProtection $middleware = null): Response
+    {
+        $request = Request::create($path, 'POST', $payload);
         $request->server->set('REMOTE_ADDR', '127.0.0.1');
         $request->headers->set('User-Agent', 'Mozilla/5.0 (compatible; HoneypotTest/1.0)');
 
-        return app(HoneypotProtection::class)->handle(
+        return ($middleware ?? app(HoneypotProtection::class))->handle(
             $request,
             static fn (): Response => response('', 204)
         );

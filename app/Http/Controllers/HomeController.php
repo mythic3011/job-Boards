@@ -7,6 +7,7 @@ use App\Models\Application;
 use App\Models\JobPosting;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\AdminNavigationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
@@ -14,6 +15,10 @@ use Illuminate\View\View;
 
 class HomeController extends Controller
 {
+    public function __construct(
+        private readonly AdminNavigationService $adminNavigation,
+    ) {}
+
     public function __invoke(Request $request): View|RedirectResponse
     {
         if (!Schema::hasTable('settings') || !Setting::isSetupCompleted()) {
@@ -27,7 +32,7 @@ class HomeController extends Controller
         }
 
         if ($user->isAdmin()) {
-            return view('welcome', $this->adminPayload());
+            return view('welcome', $this->adminPayload($user));
         }
 
         if ($user->isCompany()) {
@@ -56,33 +61,17 @@ class HomeController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function adminPayload(): array
+    private function adminPayload(User $user): array
     {
+        $adminLinks = $this->adminNavigation->destinationsFor($user);
+
         return [
             'pageTitle' => 'Admin Home',
             'homeSurface' => 'admin',
-            'adminLinks' => [
-                [
-                    'label' => 'Open Admin Dashboard',
-                    'description' => 'Jump into the operational snapshot with platform-wide signals.',
-                    'href' => route('admin.dashboard'),
-                ],
-                [
-                    'label' => 'Review Users',
-                    'description' => 'Inspect account hygiene, lockouts, and moderation tasks.',
-                    'href' => route('admin.users.index'),
-                ],
-                [
-                    'label' => 'Check Jobs',
-                    'description' => 'Review live listings and marketplace quality.',
-                    'href' => route('admin.jobs.index'),
-                ],
-                [
-                    'label' => 'Inspect Applications',
-                    'description' => 'Watch the response queue and dispute surfaces.',
-                    'href' => route('admin.applications.index'),
-                ],
-            ],
+            'adminLinks' => $adminLinks,
+            'primaryAdminLink' => $adminLinks[0] ?? null,
+            'secondaryAdminLink' => $adminLinks[1] ?? null,
+            'remainingAdminLinks' => array_slice($adminLinks, 2),
         ];
     }
 

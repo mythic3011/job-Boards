@@ -172,18 +172,6 @@ class InstallController extends Controller
                 'install_demo_data' => $installDemo,
             ]);
 
-            $this->auditLogger->logBusinessEvent(
-                eventType: 'setup.completed',
-                request: request(),
-                targetType: 'system',
-                meta: [
-                    'admin_email' => $request->admin_email ?? $request->email,
-                    'demo_data_installed' => $installDemo,
-                    'installer_type' => $isLivewireRequest ? 'livewire' : 'javascript',
-                    'completed_at' => now()->toDateTimeString(),
-                ]
-            );
-
             if (!$isLivewireRequest) {
                 $this->clearRateLimit($request);
                 $this->clearInstallSession($request);

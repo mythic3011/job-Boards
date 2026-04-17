@@ -91,6 +91,23 @@ class AdminRouteSecurityTest extends TestCase
         $this->assertSame('admin.system.view', $log->meta['policy'] ?? null);
     }
 
+    public function test_legacy_admin_identity_with_direct_permission_can_access_admin_routes(): void
+    {
+        $admin = User::factory()->create([
+            'user_type' => 'admin',
+            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
+            'two_factor_confirmed_at' => now(),
+        ]);
+
+        $this->createPermission('admin.system.view');
+        $this->assignDirectPermission($admin, 'admin.system.view');
+
+        $this->withBrowser()
+            ->actingAs($admin)
+            ->get(route('admin.audit-logs.index'))
+            ->assertOk();
+    }
+
     private function attachAdminRole(User $user): void
     {
         $roleId = DB::table('roles')->insertGetId([
@@ -116,6 +133,22 @@ class AdminRouteSecurityTest extends TestCase
             'guard_name' => 'web',
             'created_at' => now(),
             'updated_at' => now(),
+        ]);
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    private function assignDirectPermission(User $user, string $permission): void
+    {
+        $permissionId = DB::table('permissions')
+            ->where('name', $permission)
+            ->where('guard_name', 'web')
+            ->value('id');
+
+        DB::table('model_has_permissions')->insert([
+            'permission_id' => $permissionId,
+            'model_type' => User::class,
+            'model_id' => $user->getKey(),
         ]);
 
         app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
