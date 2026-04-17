@@ -19,6 +19,7 @@ RUN npm ci --omit=dev
 
 COPY docker/auth-service/index.js ./
 COPY docker/auth-service/canonical-audit.js ./
+COPY docker/auth-service/client-ip.js ./
 COPY config/contracts/canonical-audit.v1.json ./config/contracts/canonical-audit.v1.json
 
 # copy built frontend into public folder

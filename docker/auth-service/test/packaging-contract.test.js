@@ -18,6 +18,10 @@ test("auth-service packaging copies canonical audit runtime files from repo root
         "Dockerfile must copy canonical-audit.js into the runtime image",
     );
     assert.ok(
+        dockerfile.includes("COPY docker/auth-service/client-ip.js ./"),
+        "Dockerfile must copy client-ip.js into the runtime image",
+    );
+    assert.ok(
         dockerfile.includes(
             "COPY config/contracts/canonical-audit.v1.json ./config/contracts/canonical-audit.v1.json",
         ),

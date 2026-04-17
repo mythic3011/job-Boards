@@ -1,8 +1,21 @@
 services:
+  auth-service-logs-init:
+    image: "${BT_OBS_AUTH_SERVICE_IMAGE:-${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service}"
+    user: "0:0"
+    command:
+      - /bin/sh
+      - -ec
+      - mkdir -p /var/log/auth-service && chown -R 100:101 /var/log/auth-service
+    volumes:
+      - auth-service-logs:/var/log/auth-service
+    network_mode: none
+    restart: "no"
+
   auth-service:
     build:
       context: .
       dockerfile: docker/auth-service/Dockerfile
+    image: "${BT_OBS_AUTH_SERVICE_IMAGE:-${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service}"
     environment:
       MONITORING_ADMIN_USERNAME: ${MONITORING_ADMIN_USERNAME:?Set MONITORING_ADMIN_USERNAME before obs apply}
       MONITORING_PASSWORD_HASH: ${MONITORING_PASSWORD_HASH:?Set MONITORING_PASSWORD_HASH before obs apply}
@@ -18,6 +31,9 @@ services:
     networks:
       - obs-plane
       - app-plane
+    depends_on:
+      auth-service-logs-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
@@ -81,6 +97,18 @@ services:
         condition: service_started
     restart: unless-stopped
 
+  grafana-data-init:
+    image: alpine:3.20
+    user: "0:0"
+    command:
+      - /bin/sh
+      - -ec
+      - mkdir -p /var/lib/grafana/plugins && chown -R 472:0 /var/lib/grafana
+    volumes:
+      - grafana-data:/var/lib/grafana
+    network_mode: none
+    restart: "no"
+
   grafana:
     container_name: jobs-boards-grafana
     image: grafana/grafana:latest
@@ -95,6 +123,7 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ${GRAFANA_DATASOURCES_FILE:?Set GRAFANA_DATASOURCES_FILE before obs apply}:/etc/grafana/provisioning/datasources/datasources.yaml:ro
       - ${GRAFANA_ADMIN_SECRET_FILE:?Set GRAFANA_ADMIN_SECRET_FILE before obs apply}:/run/secrets/grafana_admin_secret:ro
     networks:
       - obs-plane
@@ -102,6 +131,8 @@ services:
     depends_on:
       prometheus:
         condition: service_healthy
+      grafana-data-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
@@ -115,7 +146,7 @@ networks:
     driver: bridge
   app-plane:
     external: true
-    name: "${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane"
+    name: "${BT_APP_PLANE_NETWORK_NAME:-${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane}"
 
 volumes:
   auth-service-logs:

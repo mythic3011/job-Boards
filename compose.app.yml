@@ -24,6 +24,8 @@ services:
     depends_on:
       laravel.test:
         condition: service_started
+      crowdsec-key-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -kfsS https://127.0.0.1/up || exit 1"]
@@ -35,19 +37,20 @@ services:
   crowdsec:
     container_name: jobs-boards-crowdsec
     image: crowdsecurity/crowdsec:latest
-    entrypoint: ["/entrypoint.sh"]
     environment:
       CROWDSEC_REQUIRED_APPSEC_CONFIG: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"
       CROWDSEC_REQUIRED_APPSEC_COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"
+      COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"
+      APPSEC_CONFIGS: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"
     dns:
       - "${CROWDSEC_DNS_PRIMARY:-1.1.1.1}"
       - "${CROWDSEC_DNS_SECONDARY:-8.8.8.8}"
     volumes:
-      - ./docker/crowdsec/entrypoint.sh:/entrypoint.sh:ro
       - ./docker/crowdsec/acquis.d/nginx.yaml:/etc/crowdsec/acquis.d/nginx.yaml:ro
       - ./docker/crowdsec/acquis.d/fp-trap.yaml:/etc/crowdsec/acquis.d/fp-trap.yaml:ro
       - ./docker/crowdsec/acquis.d/laravel.yaml:/etc/crowdsec/acquis.d/laravel.yaml:ro
       - ./docker/crowdsec/acquis.d/appsec.yaml:/etc/crowdsec/acquis.d/appsec.yaml:ro
+      - ./docker/crowdsec/appsec-configs/appsec-default.yaml:/etc/crowdsec/appsec-configs/appsec-default.yaml:ro
       - ./docker/crowdsec/parsers/s02-enrich/whitelists.yaml:/etc/crowdsec/parsers/s02-enrich/local-whitelists.yaml:ro
       - ./docker/crowdsec/scenarios/laravel-bf.yaml:/etc/crowdsec/scenarios/laravel-bf.yaml:ro
       - ./docker/crowdsec/scenarios/path-scanner.yaml:/etc/crowdsec/scenarios/path-scanner.yaml:ro
@@ -64,7 +67,7 @@ services:
         condition: service_started
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "test -f /etc/crowdsec/config.yaml && wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "test -f /etc/crowdsec/config.yaml && cscli appsec-configs list -c /etc/crowdsec/config.yaml 2>/dev/null | grep -Fq \"${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}\" && cscli appsec-rules list -c /etc/crowdsec/config.yaml 2>/dev/null | grep -Fq 'crowdsecurity/vpatch-' && wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -194,11 +197,8 @@ services:
 
 networks:
   app-plane:
-    name: "${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane"
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.29.0.0/24
+    external: true
+    name: "${BT_APP_PLANE_NETWORK_NAME:-${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane}"
 
 volumes:
   sail-postgres:

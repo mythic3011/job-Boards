@@ -52,7 +52,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertNotSame(0, $process->getExitCode());
         $this->assertStringContainsString('"check_id":"obs.bootstrap.required_env"', $combinedOutput);
         $this->assertStringContainsString('"status":"FAIL"', $combinedOutput);
-        $this->assertStringNotContainsString('compose -f', @file_get_contents($dockerLog) ?: '');
+        $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
     }
 
     public function test_obs_prepare_materializes_runtime_artifacts_without_running_compose(): void
@@ -73,6 +73,10 @@ class BlueTeamVmShellContractsTest extends TestCase
                 'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
                 'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
                 'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
                 'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
                 'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
@@ -82,16 +86,80 @@ class BlueTeamVmShellContractsTest extends TestCase
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
         $generatedEnv = @file_get_contents($tempDir.'/state/runtime/obs.generated.env') ?: '';
         $renderedConfig = $tempDir.'/state/rendered/prometheus.web-config.yml';
+        $renderedGrafanaDatasources = $tempDir.'/state/rendered/grafana.datasources.yml';
         $grafanaPasswordFile = $tempDir.'/state/runtime/grafana-admin-secret';
 
         $this->assertSame(0, $process->getExitCode());
         $this->assertStringContainsString('"check_id":"obs.bootstrap.required_env"', $combinedOutput);
         $this->assertStringContainsString('"status":"PASS"', $combinedOutput);
         $this->assertStringContainsString('PROMETHEUS_WEB_CONFIG_FILE='.$renderedConfig, $generatedEnv);
+        $this->assertStringContainsString('GRAFANA_DATASOURCES_FILE='.$renderedGrafanaDatasources, $generatedEnv);
         $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.$grafanaPasswordFile, $generatedEnv);
+        $this->assertStringContainsString("MONITORING_ADMIN_USERNAME=admin\n", $generatedEnv);
+        $this->assertStringContainsString("DB_DATABASE=jobs_boards\n", $generatedEnv);
+        $this->assertStringContainsString("DB_USERNAME=jobs_boards\n", $generatedEnv);
+        $this->assertStringContainsString("GRAFANA_POSTGRES_SECRET=postgres-secret\n", $generatedEnv);
+        $this->assertStringContainsString('CANONICAL_AUDIT_AUTH_SERVICE_SECRET='.str_repeat('c', 64), $generatedEnv);
         $this->assertFileExists($renderedConfig);
+        $this->assertFileExists($renderedGrafanaDatasources);
         $this->assertFileExists($grafanaPasswordFile);
-        $this->assertStringNotContainsString('compose -f', @file_get_contents($dockerLog) ?: '');
+        $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
+    }
+
+    public function test_obs_prepare_refreshes_persisted_runtime_inputs_when_operator_env_changes(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+
+        $firstRun = $this->runScript(
+            [$this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', 'prepare'],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'first-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
+        );
+        $secondRun = $this->runScript(
+            [$this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', 'prepare'],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'second-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
+        );
+
+        $generatedEnv = @file_get_contents($tempDir.'/state/runtime/obs.generated.env') ?: '';
+
+        $this->assertSame(0, $firstRun->getExitCode());
+        $this->assertSame(0, $secondRun->getExitCode());
+        $this->assertStringContainsString("GRAFANA_POSTGRES_SECRET=second-secret\n", $generatedEnv);
+        $this->assertStringNotContainsString("GRAFANA_POSTGRES_SECRET=first-secret\n", $generatedEnv);
     }
 
     public function test_obs_apply_fails_before_compose_when_prometheus_runtime_config_cannot_be_rendered(): void
@@ -128,7 +196,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertNotSame(0, $process->getExitCode());
         $this->assertStringContainsString('"check_id":"obs.bootstrap.required_env"', $combinedOutput);
         $this->assertStringContainsString('"status":"FAIL"', $combinedOutput);
-        $this->assertStringNotContainsString('compose -f', @file_get_contents($dockerLog) ?: '');
+        $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
     }
 
     public function test_obs_compose_requires_explicit_prometheus_runtime_web_config_path(): void
@@ -138,6 +206,15 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString('${PROMETHEUS_WEB_CONFIG_FILE:?Set PROMETHEUS_WEB_CONFIG_FILE before obs apply}', $contents);
         $this->assertStringNotContainsString('${PROMETHEUS_WEB_CONFIG_FILE:-./docker/prometheus/web-config.yml}', $contents);
+    }
+
+    public function test_obs_compose_requires_explicit_grafana_runtime_datasource_config_path(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.obs.yml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('${GRAFANA_DATASOURCES_FILE:?Set GRAFANA_DATASOURCES_FILE before obs apply}:/etc/grafana/provisioning/datasources/datasources.yaml:ro', $contents);
+        $this->assertStringNotContainsString('./docker/grafana/provisioning/datasources/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro', $contents);
     }
 
     public function test_obs_compose_grafana_joins_app_plane_with_explicit_postgres_datasource_env(): void
@@ -158,15 +235,76 @@ class BlueTeamVmShellContractsTest extends TestCase
         );
     }
 
+    public function test_app_and_obs_compose_allow_an_explicit_app_plane_network_override(): void
+    {
+        $appContents = file_get_contents($this->repoRoot.'/compose.app.yml');
+        $obsContents = file_get_contents($this->repoRoot.'/compose.obs.yml');
+
+        $this->assertIsString($appContents);
+        $this->assertIsString($obsContents);
+        $this->assertStringContainsString("  app-plane:\n    external: true\n", $appContents);
+        $this->assertStringContainsString("  app-plane:\n    external: true\n", $obsContents);
+        $this->assertStringContainsString('name: "${BT_APP_PLANE_NETWORK_NAME:-${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane}"', $appContents);
+        $this->assertStringContainsString('name: "${BT_APP_PLANE_NETWORK_NAME:-${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane}"', $obsContents);
+    }
+
+    public function test_split_plane_docs_keep_the_default_app_plane_subnet_as_a_fixed_contract(): void
+    {
+        $readmeContents = file_get_contents($this->repoRoot.'/README.md');
+        $runbookContents = file_get_contents($this->repoRoot.'/docs/runbooks/operator-preconditions-blue-team-vm.md');
+        $bootstrapContents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh');
+
+        $this->assertIsString($readmeContents);
+        $this->assertIsString($runbookContents);
+        $this->assertIsString($bootstrapContents);
+        $this->assertStringContainsString('172.29.0.0/24', $readmeContents);
+        $this->assertStringContainsString('172.29.0.0/24', $runbookContents);
+        $this->assertStringNotContainsString('BT_APP_PLANE_SUBNET=<compatible_subnet>', $readmeContents);
+        $this->assertStringNotContainsString('must also export `BT_APP_PLANE_SUBNET` explicitly', $runbookContents);
+        $this->assertStringNotContainsString('BT_APP_PLANE_SUBNET explicitly', $bootstrapContents);
+    }
+
+    public function test_obs_compose_initializes_grafana_volume_permissions_before_starting_grafana(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.obs.yml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString("  grafana-data-init:\n", $contents);
+        $this->assertStringContainsString('image: alpine:3.20', $contents);
+        $this->assertStringContainsString('user: "0:0"', $contents);
+        $this->assertStringContainsString('mkdir -p /var/lib/grafana/plugins && chown -R 472:0 /var/lib/grafana', $contents);
+        $this->assertStringContainsString("network_mode: none\n", $contents);
+        $this->assertStringContainsString("restart: \"no\"\n", $contents);
+        $this->assertStringContainsString("      grafana-data-init:\n        condition: service_completed_successfully", $contents);
+    }
+
+    public function test_obs_compose_initializes_auth_service_log_volume_permissions_before_starting_auth_service(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.obs.yml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString("  auth-service-logs-init:\n", $contents);
+        $this->assertStringContainsString('image: "${BT_OBS_AUTH_SERVICE_IMAGE:-${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service}"', $contents);
+        $this->assertMatchesRegularExpression(
+            '/^  auth-service:\\n(?:(?:    |      ).*\\n)*?    image: "\\$\\{BT_OBS_AUTH_SERVICE_IMAGE:-\\$\\{COMPOSE_PROJECT_NAME:-jobs-borads\\}-auth-service\\}"\\n/m',
+            $contents
+        );
+        $this->assertStringContainsString('user: "0:0"', $contents);
+        $this->assertStringContainsString('mkdir -p /var/log/auth-service && chown -R 100:101 /var/log/auth-service', $contents);
+        $this->assertStringContainsString("      auth-service-logs-init:\n        condition: service_completed_successfully", $contents);
+    }
+
     public function test_app_compose_uses_an_explicit_front_proxy_allowlist_for_https_aware_urls(): void
     {
         $contents = file_get_contents($this->repoRoot.'/compose.app.yml');
+        $commonContents = file_get_contents($this->repoRoot.'/ops/lib/common.sh');
 
         $this->assertIsString($contents);
+        $this->assertIsString($commonContents);
         $this->assertStringContainsString('TRUSTED_PROXIES: ${TRUSTED_PROXIES:-172.29.0.20}', $contents);
         $this->assertStringContainsString('TRUSTED_PROXY_HEADERS: ${TRUSTED_PROXY_HEADERS:-x_forwarded}', $contents);
         $this->assertStringContainsString('ipv4_address: 172.29.0.20', $contents);
-        $this->assertStringContainsString('subnet: 172.29.0.0/24', $contents);
+        $this->assertStringContainsString("printf '%s\\n' \"172.29.0.0/24\"", $commonContents);
     }
 
     public function test_app_compose_requires_an_explicit_honeypot_source_artifact_path(): void
@@ -176,6 +314,39 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString('${BT_HONEYPOT_SOURCE:?Set BT_HONEYPOT_SOURCE before app apply}:/etc/nginx/includes/blue-team-honeypot.conf:ro', $contents);
         $this->assertStringNotContainsString('/opt/blue-team/nginx/includes/blue-team-honeypot.conf:/etc/nginx/includes/blue-team-honeypot.conf:ro', $contents);
+    }
+
+    public function test_app_compose_keeps_crowdsec_image_bootstrap_and_healthchecks_appsec_readiness(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.app.yml');
+        $appsecConfig = file_get_contents($this->repoRoot.'/docker/crowdsec/appsec-configs/appsec-default.yaml');
+
+        $this->assertIsString($contents);
+        $this->assertIsString($appsecConfig);
+        $this->assertStringNotContainsString('entrypoint: ["/entrypoint.sh"]', $contents);
+        $this->assertStringNotContainsString('./docker/crowdsec/entrypoint.sh:/entrypoint.sh:ro', $contents);
+        $this->assertStringContainsString('./docker/crowdsec/appsec-configs/appsec-default.yaml:/etc/crowdsec/appsec-configs/appsec-default.yaml:ro', $contents);
+        $this->assertStringContainsString('COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"', $contents);
+        $this->assertStringContainsString('APPSEC_CONFIGS: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"', $contents);
+        $this->assertStringContainsString('cscli appsec-configs list -c /etc/crowdsec/config.yaml', $contents);
+        $this->assertStringContainsString('grep -Fq \"${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}\"', $contents);
+        $this->assertStringContainsString("cscli appsec-rules list -c /etc/crowdsec/config.yaml", $contents);
+        $this->assertStringContainsString("grep -Fq 'crowdsecurity/vpatch-'", $contents);
+        $this->assertStringContainsString('name: crowdsecurity/appsec-default', $appsecConfig);
+        $this->assertStringContainsString('crowdsecurity/appsec-generic-test', $appsecConfig);
+        $this->assertStringNotContainsString('crowdsecurity/experimental-*', $appsecConfig);
+        $this->assertStringNotContainsString('crowdsecurity/generic-*', $appsecConfig);
+    }
+
+    public function test_app_compose_waits_for_crowdsec_key_initialization_before_starting_nginx(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.app.yml');
+
+        $this->assertIsString($contents);
+        $this->assertMatchesRegularExpression(
+            "/^  nginx:\\n(?:(?:    |      ).*\\n)*?    depends_on:\\n      laravel\\.test:\\n        condition: service_started\\n      crowdsec-key-init:\\n        condition: service_completed_successfully\\n/m",
+            $contents
+        );
     }
 
     public function test_blue_team_vm_common_defaults_keep_the_host_managed_honeypot_source_path(): void
@@ -197,6 +368,28 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('/phpmyadmin phpmyadmin_probe;', $contents);
         $this->assertStringContainsString('/wp-login.php wp_probe;', $contents);
         $this->assertStringContainsString('/admin-old admin_old_probe;', $contents);
+    }
+
+    public function test_nginx_crowdsec_recovery_can_render_bouncer_config_after_key_arrives(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('local template_path = "/etc/nginx/crowdsec-bouncer.conf.template"', $contents);
+        $this->assertStringContainsString('_G.bt_crowdsec_render_config = function()', $contents);
+        $this->assertStringContainsString('${CROWDSEC_BOUNCER_API_KEY}', $contents);
+        $this->assertStringContainsString('rendered bouncer config from template', $contents);
+        $this->assertStringNotContainsString('local retry_max_attempts = 12', $contents);
+        $this->assertStringNotContainsString('if recovery_attempts >= retry_max_attempts then', $contents);
+    }
+
+    public function test_nginx_crowdsec_recovery_throttles_repeated_warning_logs(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('local should_log_warning = recovery_attempts <= 3 or recovery_attempts % 12 == 0', $contents);
+        $this->assertStringContainsString('if should_log_warning then', $contents);
     }
 
     public function test_obs_promtail_scrapes_auth_service_structured_logs(): void
@@ -251,6 +444,494 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('sslmode: $GRAFANA_POSTGRES_SSLMODE', $contents);
     }
 
+    public function test_obs_grafana_datasource_template_keeps_stable_uids_without_hardcoded_stale_alias_cleanup(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/grafana/provisioning/datasources/datasources.yaml');
+
+        $this->assertIsString($contents);
+        $this->assertStringNotContainsString('deleteDatasources:', $contents);
+        $this->assertStringNotContainsString('prune: true', $contents);
+        $this->assertStringNotContainsString('JobsBoards-Postgres', $contents);
+    }
+
+    public function test_obs_prepare_renders_grafana_runtime_datasource_config_with_detected_uid_aliases(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $fakeBin = $tempDir.'/fake-bin';
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "-f" && "\${4:-}" == "config" ]]; then
+  cat <<'JSON'
+{"name":"jobs-borads","services":{"grafana":{"volumes":[{"type":"volume","source":"grafana-data","target":"/var/lib/grafana"}]}},"volumes":{"grafana-data":{"name":"jobs-borads_grafana-data"}}}
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "volume" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_grafana-data" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "run" ]]; then
+  cat <<'JSON'
+[{"orgId":1,"name":"JobsBoards-Postgres","uid":"P8E949C5F1FC6F134"}]
+JSON
+  exit 0
+fi
+exit 0
+BASH);
+
+        $process = $this->runScript(
+            [$this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', 'prepare'],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
+        );
+
+        $renderedGrafanaDatasources = @file_get_contents($tempDir.'/state/rendered/grafana.datasources.yml') ?: '';
+        $generatedEnv = @file_get_contents($tempDir.'/state/runtime/obs.generated.env') ?: '';
+
+        $this->assertSame(0, $process->getExitCode());
+        $this->assertStringContainsString('GRAFANA_DATASOURCES_FILE='.$tempDir.'/state/rendered/grafana.datasources.yml', $generatedEnv);
+        $this->assertStringContainsString('deleteDatasources:', $renderedGrafanaDatasources);
+        $this->assertStringContainsString('JobsBoards-Postgres', $renderedGrafanaDatasources);
+        $this->assertStringContainsString('uid: P8E949C5F1FC6F134', $renderedGrafanaDatasources);
+    }
+
+    public function test_obs_prepare_soft_fails_grafana_alias_detection_when_helper_container_cannot_inspect_volume(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $fakeBin = $tempDir.'/fake-bin';
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "-f" && "\${4:-}" == "config" ]]; then
+  cat <<'JSON'
+{"name":"jobs-borads","services":{"grafana":{"volumes":[{"type":"volume","source":"grafana-data","target":"/var/lib/grafana"}]}},"volumes":{"grafana-data":{"name":"jobs-borads_grafana-data"}}}
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "volume" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_grafana-data" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "run" ]]; then
+  exit 42
+fi
+exit 0
+BASH);
+
+        $process = $this->runScript(
+            [$this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', 'prepare'],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
+        );
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $renderedGrafanaDatasources = @file_get_contents($tempDir.'/state/rendered/grafana.datasources.yml') ?: '';
+
+        $this->assertSame(0, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('Unable to inspect existing Grafana datasource aliases from Docker volume jobs-borads_grafana-data.', $combinedOutput);
+        $this->assertStringContainsString('deleteDatasources:', $renderedGrafanaDatasources);
+        $this->assertStringNotContainsString('JobsBoards-Postgres', $renderedGrafanaDatasources);
+    }
+
+    public function test_obs_prepare_uses_a_host_accessible_grafana_volume_mountpoint_before_falling_back_to_a_helper_container(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $fakeBin = $tempDir.'/fake-bin';
+        $grafanaVolumeMountpoint = $tempDir.'/grafana-volume';
+        mkdir($fakeBin, 0777, true);
+        mkdir($grafanaVolumeMountpoint, 0777, true);
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+        $this->createGrafanaDatasourceDb(
+            $grafanaVolumeMountpoint.'/grafana.db',
+            [
+                ['org_id' => 1, 'name' => 'JobsBoards-Postgres', 'uid' => 'P8E949C5F1FC6F134'],
+            ],
+        );
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "-f" && "\${4:-}" == "config" ]]; then
+  cat <<'JSON'
+{"name":"jobs-borads","services":{"grafana":{"volumes":[{"type":"volume","source":"grafana-data","target":"/var/lib/grafana"}]}},"volumes":{"grafana-data":{"name":"jobs-borads_grafana-data"}}}
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "volume" && "\${2:-}" == "inspect" && "\${3:-}" == "-f" && "\${5:-}" == "jobs-borads_grafana-data" ]]; then
+  printf '%s\n' "{$grafanaVolumeMountpoint}"
+  exit 0
+fi
+if [[ "\${1:-}" == "volume" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_grafana-data" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "run" ]]; then
+  exit 42
+fi
+exit 0
+BASH);
+
+        $process = $this->runScript(
+            [$this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', 'prepare'],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
+        );
+
+        $renderedGrafanaDatasources = @file_get_contents($tempDir.'/state/rendered/grafana.datasources.yml') ?: '';
+        $dockerCommands = @file_get_contents($dockerLog) ?: '';
+
+        $this->assertSame(0, $process->getExitCode());
+        $this->assertStringContainsString('JobsBoards-Postgres', $renderedGrafanaDatasources);
+        $this->assertStringNotContainsString("run --rm\n", $dockerCommands);
+    }
+
+    public function test_obs_apply_uses_a_detected_existing_app_plane_network_when_default_name_is_missing(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $dockerEnvLog = $tempDir.'/docker-env.log';
+        $fakeBin = $tempDir.'/fake-bin';
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "-f" && "\${4:-}" == "config" ]]; then
+  cat <<'JSON'
+{"name":"jobs-borads","services":{"grafana":{"volumes":[{"type":"volume","source":"grafana-data","target":"/var/lib/grafana"}]}},"volumes":{"grafana-data":{"name":"jobs-borads_grafana-data"}}}
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "volume" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_grafana-data" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "run" ]]; then
+  printf '[]'
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_app-plane" ]]; then
+  exit 1
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "canonical-audit-visibility_app-plane" ]]; then
+  cat <<'JSON'
+[{"IPAM":{"Config":[{"Subnet":"172.29.0.0/24"}]}}]
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "-f" && "\${5:-}" == "canonical-audit-visibility_app-plane" ]]; then
+  printf '172.29.0.0/24\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "inspect" && "\${2:-}" == "-f" && "\${4:-}" == "jobs-boards-nginx" ]]; then
+  printf 'canonical-audit-visibility_app-plane\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "compose" && "\${4:-}" == "up" && "\${5:-}" == "-d" ]]; then
+  printf 'BT_APP_PLANE_NETWORK_NAME=%s\n' "\${BT_APP_PLANE_NETWORK_NAME:-}" >> "{$dockerEnvLog}"
+  exit 23
+fi
+exit 0
+BASH);
+
+        $process = $this->runScript(
+            [$this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', 'apply'],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
+        );
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerEnvOutput = (string) @file_get_contents($dockerEnvLog);
+
+        $this->assertSame(23, $process->getExitCode());
+        $this->assertStringContainsString('"check_id":"obs.bootstrap.app_plane_network"', $combinedOutput);
+        $this->assertStringContainsString('"status":"PASS"', $combinedOutput);
+        $this->assertStringContainsString('BT_APP_PLANE_NETWORK_NAME=canonical-audit-visibility_app-plane', $dockerEnvOutput);
+    }
+
+    public function test_obs_apply_creates_the_default_app_plane_network_when_detected_candidates_are_incompatible(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $dockerEnvLog = $tempDir.'/docker-env.log';
+        $fakeBin = $tempDir.'/fake-bin';
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "-f" && "\${4:-}" == "config" ]]; then
+  cat <<'JSON'
+{"name":"jobs-borads","services":{"grafana":{"volumes":[{"type":"volume","source":"grafana-data","target":"/var/lib/grafana"}]}},"volumes":{"grafana-data":{"name":"jobs-borads_grafana-data"}}}
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "volume" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_grafana-data" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "run" ]]; then
+  printf '[]'
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_app-plane" ]]; then
+  exit 1
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "canonical-audit-visibility_app-plane" ]]; then
+  cat <<'JSON'
+[{"IPAM":{"Config":[{"Subnet":"192.168.147.0/24"}]}}]
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "-f" && "\${5:-}" == "canonical-audit-visibility_app-plane" ]]; then
+  printf '192.168.147.0/24\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "inspect" && "\${2:-}" == "-f" && "\${4:-}" == "jobs-boards-nginx" ]]; then
+  printf 'canonical-audit-visibility_app-plane\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "create" && "\${3:-}" == "--driver" && "\${4:-}" == "bridge" && "\${5:-}" == "--subnet" && "\${6:-}" == "172.29.0.0/24" && "\${7:-}" == "jobs-borads_app-plane" ]]; then
+  printf 'jobs-borads_app-plane\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "compose" && "\${4:-}" == "up" && "\${5:-}" == "-d" ]]; then
+  printf 'BT_APP_PLANE_NETWORK_NAME=%s\n' "\${BT_APP_PLANE_NETWORK_NAME:-}" >> "{$dockerEnvLog}"
+  exit 23
+fi
+exit 0
+BASH);
+
+        $process = $this->runScript(
+            [$this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', 'apply'],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
+        );
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerEnvOutput = (string) @file_get_contents($dockerEnvLog);
+        $dockerCommands = (string) @file_get_contents($dockerLog);
+
+        $this->assertSame(23, $process->getExitCode());
+        $this->assertStringContainsString('"check_id":"obs.bootstrap.app_plane_network"', $combinedOutput);
+        $this->assertStringContainsString('"status":"PASS"', $combinedOutput);
+        $this->assertStringContainsString('network create --driver bridge --subnet 172.29.0.0/24 jobs-borads_app-plane', $dockerCommands);
+        $this->assertStringContainsString('BT_APP_PLANE_NETWORK_NAME=jobs-borads_app-plane', $dockerEnvOutput);
+    }
+
+    public function test_obs_apply_fails_before_compose_when_configured_app_plane_network_has_an_incompatible_subnet(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $fakeBin = $tempDir.'/fake-bin';
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "-f" && "\${4:-}" == "config" ]]; then
+  cat <<'JSON'
+{"name":"jobs-borads","services":{"grafana":{"volumes":[{"type":"volume","source":"grafana-data","target":"/var/lib/grafana"}]}},"volumes":{"grafana-data":{"name":"jobs-borads_grafana-data"}}}
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "volume" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_grafana-data" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "run" ]]; then
+  printf '[]'
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "custom-app-plane" ]]; then
+  cat <<'JSON'
+[{"IPAM":{"Config":[{"Subnet":"192.168.147.0/24"}]}}]
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "-f" && "\${5:-}" == "custom-app-plane" ]]; then
+  printf '192.168.147.0/24\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "compose" && "\${4:-}" == "up" && "\${5:-}" == "-d" ]]; then
+  exit 23
+fi
+exit 0
+BASH);
+
+        $process = $this->runScript(
+            [$this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', 'apply'],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'BT_APP_PLANE_NETWORK_NAME' => 'custom-app-plane',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
+        );
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+
+        $this->assertNotSame(0, $process->getExitCode());
+        $this->assertStringContainsString('"check_id":"obs.bootstrap.app_plane_network"', $combinedOutput);
+        $this->assertStringContainsString('"status":"FAIL"', $combinedOutput);
+        $this->assertStringContainsString('does not match required app-plane subnet 172.29.0.0/24', $combinedOutput);
+        $this->assertStringNotContainsString(' up -d', (string) @file_get_contents($dockerLog));
+    }
+
+    public function test_app_compose_up_creates_the_default_external_app_plane_network_before_compose_up(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $dockerEnvLog = $tempDir.'/docker-env.log';
+        $fakeBin = $tempDir.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempDir.'/compose.app.yml', "services: {}\n");
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_app-plane" ]]; then
+  exit 1
+fi
+if [[ "\${1:-}" == "inspect" && "\${2:-}" == "-f" ]]; then
+  exit 1
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "ls" ]]; then
+  printf 'bridge\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "create" && "\${3:-}" == "--driver" && "\${4:-}" == "bridge" && "\${5:-}" == "--subnet" && "\${6:-}" == "172.29.0.0/24" && "\${7:-}" == "jobs-borads_app-plane" ]]; then
+  printf 'jobs-borads_app-plane\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "compose" && "\${4:-}" == "up" && "\${5:-}" == "-d" ]]; then
+  printf 'BT_APP_PLANE_NETWORK_NAME=%s\n' "\${BT_APP_PLANE_NETWORK_NAME:-}" >> "{$dockerEnvLog}"
+  exit 0
+fi
+exit 0
+BASH);
+
+        $process = $this->runScript(
+            [$this->repoRoot.'/ops/app/05-compose-up.sh'],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_APP_FILE' => $tempDir.'/compose.app.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+            ],
+        );
+
+        $dockerCommands = (string) @file_get_contents($dockerLog);
+        $dockerEnvOutput = (string) @file_get_contents($dockerEnvLog);
+
+        $this->assertSame(0, $process->getExitCode());
+        $this->assertStringContainsString('network create --driver bridge --subnet 172.29.0.0/24 jobs-borads_app-plane', $dockerCommands);
+        $this->assertStringContainsString('compose -f '.$tempDir.'/compose.app.yml up -d', $dockerCommands);
+        $this->assertStringContainsString('BT_APP_PLANE_NETWORK_NAME=jobs-borads_app-plane', $dockerEnvOutput);
+    }
+
     public function test_common_bt_compose_exports_obs_generated_env_before_running_docker_compose(): void
     {
         $tempRoot = $this->makeTempDir();
@@ -269,6 +950,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml\n".
+            "GRAFANA_DATASOURCES_FILE={$tempRoot}/state/rendered/grafana.datasources.yml\n".
             "GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret\n"
         );
 
@@ -277,6 +959,7 @@ class BlueTeamVmShellContractsTest extends TestCase
 set -euo pipefail
 if [[ "\${1:-}" == "compose" ]]; then
   printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_DATASOURCES_FILE=%s\n' "\${GRAFANA_DATASOURCES_FILE:-}" >> "{$dockerEnvLog}"
   printf 'GRAFANA_ADMIN_SECRET_FILE=%s\n' "\${GRAFANA_ADMIN_SECRET_FILE:-}" >> "{$dockerEnvLog}"
   exit 7
 fi
@@ -300,6 +983,7 @@ BASH);
 
         $this->assertSame(7, $process->getExitCode());
         $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_DATASOURCES_FILE={$tempRoot}/state/rendered/grafana.datasources.yml", $dockerEnvOutput);
         $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret", $dockerEnvOutput);
     }
 
@@ -309,6 +993,7 @@ BASH);
         $dockerEnvLog = $tempRoot.'/docker-env.log';
         $fakeBin = $tempRoot.'/fake-bin';
         $explicitPrometheusPath = $tempRoot.'/explicit/prometheus.web-config.yml';
+        $explicitGrafanaDatasourcePath = $tempRoot.'/explicit/grafana.datasources.yml';
         $explicitGrafanaPath = $tempRoot.'/explicit/grafana-admin-secret';
 
         mkdir($fakeBin, 0777, true);
@@ -323,6 +1008,7 @@ BASH);
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml\n".
+            "GRAFANA_DATASOURCES_FILE={$tempRoot}/state/rendered/grafana.datasources.yml\n".
             "GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret\n"
         );
 
@@ -331,6 +1017,7 @@ BASH);
 set -euo pipefail
 if [[ "\${1:-}" == "compose" ]]; then
   printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_DATASOURCES_FILE=%s\n' "\${GRAFANA_DATASOURCES_FILE:-}" >> "{$dockerEnvLog}"
   printf 'GRAFANA_ADMIN_SECRET_FILE=%s\n' "\${GRAFANA_ADMIN_SECRET_FILE:-}" >> "{$dockerEnvLog}"
   exit 7
 fi
@@ -345,6 +1032,7 @@ BASH);
                 'BT_STATE_DIR' => $tempRoot.'/state',
                 'BT_RUNTIME_DIR' => $tempRoot.'/state/runtime',
                 'PROMETHEUS_WEB_CONFIG_FILE' => $explicitPrometheusPath,
+                'GRAFANA_DATASOURCES_FILE' => $explicitGrafanaDatasourcePath,
                 'GRAFANA_ADMIN_SECRET_FILE' => $explicitGrafanaPath,
             ],
             null,
@@ -356,6 +1044,7 @@ BASH);
 
         $this->assertSame(7, $process->getExitCode());
         $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$explicitPrometheusPath}", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_DATASOURCES_FILE={$explicitGrafanaDatasourcePath}", $dockerEnvOutput);
         $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$explicitGrafanaPath}", $dockerEnvOutput);
     }
 
@@ -365,8 +1054,10 @@ BASH);
         $dockerEnvLog = $tempRoot.'/docker-env.log';
         $fakeBin = $tempRoot.'/fake-bin';
         $repoEnvPrometheusPath = $tempRoot.'/repo-env/prometheus.web-config.yml';
+        $repoEnvGrafanaDatasourcePath = $tempRoot.'/repo-env/grafana.datasources.yml';
         $repoEnvGrafanaPath = $tempRoot.'/repo-env/grafana-admin-secret';
         $generatedPrometheusPath = $tempRoot.'/state/rendered/prometheus.web-config.yml';
+        $generatedGrafanaDatasourcePath = $tempRoot.'/state/rendered/grafana.datasources.yml';
         $generatedGrafanaPath = $tempRoot.'/state/runtime/grafana-admin-secret';
 
         mkdir($fakeBin, 0777, true);
@@ -381,12 +1072,14 @@ BASH);
         file_put_contents(
             $tempRoot.'/.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$repoEnvPrometheusPath}\n".
+            "GRAFANA_DATASOURCES_FILE={$repoEnvGrafanaDatasourcePath}\n".
             "GRAFANA_ADMIN_SECRET_FILE={$repoEnvGrafanaPath}\n"
         );
 
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$generatedPrometheusPath}\n".
+            "GRAFANA_DATASOURCES_FILE={$generatedGrafanaDatasourcePath}\n".
             "GRAFANA_ADMIN_SECRET_FILE={$generatedGrafanaPath}\n"
         );
 
@@ -395,6 +1088,7 @@ BASH);
 set -euo pipefail
 if [[ "\${1:-}" == "compose" ]]; then
   printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_DATASOURCES_FILE=%s\n' "\${GRAFANA_DATASOURCES_FILE:-}" >> "{$dockerEnvLog}"
   printf 'GRAFANA_ADMIN_SECRET_FILE=%s\n' "\${GRAFANA_ADMIN_SECRET_FILE:-}" >> "{$dockerEnvLog}"
   exit 7
 fi
@@ -418,8 +1112,10 @@ BASH);
 
         $this->assertSame(7, $process->getExitCode());
         $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$generatedPrometheusPath}", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_DATASOURCES_FILE={$generatedGrafanaDatasourcePath}", $dockerEnvOutput);
         $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$generatedGrafanaPath}", $dockerEnvOutput);
         $this->assertStringNotContainsString("PROMETHEUS_WEB_CONFIG_FILE={$repoEnvPrometheusPath}", $dockerEnvOutput);
+        $this->assertStringNotContainsString("GRAFANA_DATASOURCES_FILE={$repoEnvGrafanaDatasourcePath}", $dockerEnvOutput);
         $this->assertStringNotContainsString("GRAFANA_ADMIN_SECRET_FILE={$repoEnvGrafanaPath}", $dockerEnvOutput);
     }
 
@@ -448,6 +1144,36 @@ BASH);
 
         $this->assertIsString($contents);
         $this->assertStringNotContainsString('${target_key,,}', $contents);
+    }
+
+    public function test_obs_apply_waits_for_grafana_and_auth_service_health_before_verifying(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" auth-service healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true', $contents);
+        $this->assertStringContainsString('bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" grafana healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true', $contents);
+        $this->assertStringContainsString('bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" prometheus healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true', $contents);
+    }
+
+    public function test_obs_grafana_alias_detection_uses_python3_in_the_helper_container(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('python3 -c "${helper_script}"', $contents);
+        $this->assertStringNotContainsString('python -c "${helper_script}"', $contents);
+    }
+
+    public function test_obs_required_env_preflight_covers_compose_interpolation_contract_inputs(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh');
+
+        $this->assertIsString($contents);
+        $this->assertMatchesRegularExpression('/local required=\\((?:(?!\\)\\n).)*"DB_DATABASE"/s', $contents);
+        $this->assertMatchesRegularExpression('/local required=\\((?:(?!\\)\\n).)*"DB_USERNAME"/s', $contents);
+        $this->assertMatchesRegularExpression('/local required=\\((?:(?!\\)\\n).)*"CANONICAL_AUDIT_AUTH_SERVICE_SECRET"/s', $contents);
+        $this->assertMatchesRegularExpression('/local required=\\((?:(?!\\)\\n).)*"GRAFANA_POSTGRES_SECRET"/s', $contents);
     }
 
     public function test_app_bootstrap_avoids_bash4_mapfile_in_local_exposure_verifier(): void
@@ -648,6 +1374,31 @@ BASH;
 
         file_put_contents($path, $contents);
         chmod($path, 0755);
+    }
+
+    /**
+     * @param list<array{org_id:int,name:string,uid:string}> $rows
+     */
+    private function createGrafanaDatasourceDb(string $path, array $rows): void
+    {
+        $dir = dirname($path);
+        if (! is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+
+        $db = new \PDO('sqlite:'.$path);
+        $db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        $db->exec('CREATE TABLE data_source (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, name TEXT NOT NULL, uid TEXT NOT NULL)');
+
+        foreach ($rows as $row) {
+            $statement = $db->prepare('INSERT INTO data_source (org_id, name, uid) VALUES (:org_id, :name, :uid)');
+            $statement->bindValue(':org_id', $row['org_id'], \PDO::PARAM_INT);
+            $statement->bindValue(':name', $row['name'], \PDO::PARAM_STR);
+            $statement->bindValue(':uid', $row['uid'], \PDO::PARAM_STR);
+            $statement->execute();
+        }
+
+        $db = null;
     }
 
     /**
