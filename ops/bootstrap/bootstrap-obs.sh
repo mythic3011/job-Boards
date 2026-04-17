@@ -328,7 +328,7 @@ PY
             -e MANAGED_DATASOURCES_JSON \
             -v "${volume_name}:/grafana:ro" \
             "${OBS_GRAFANA_SQLITE_HELPER_IMAGE}" \
-            python -c "${helper_script}"
+            python3 -c "${helper_script}"
     )" || {
         bt_warn "Unable to inspect existing Grafana datasource aliases; using managed datasource defaults."
         printf '[]'

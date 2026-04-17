@@ -212,7 +212,11 @@ class BlueTeamVmShellContractsTest extends TestCase
 
         $this->assertIsString($contents);
         $this->assertStringContainsString("  auth-service-logs-init:\n", $contents);
-        $this->assertStringContainsString('image: jobs-borads-auth-service', $contents);
+        $this->assertStringContainsString('image: "${BT_OBS_AUTH_SERVICE_IMAGE:-${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service}"', $contents);
+        $this->assertMatchesRegularExpression(
+            '/^  auth-service:\\n(?:(?:    |      ).*\\n)*?    image: "\\$\\{BT_OBS_AUTH_SERVICE_IMAGE:-\\$\\{COMPOSE_PROJECT_NAME:-jobs-borads\\}-auth-service\\}"\\n/m',
+            $contents
+        );
         $this->assertStringContainsString('user: "0:0"', $contents);
         $this->assertStringContainsString('mkdir -p /var/log/auth-service && chown -R 100:101 /var/log/auth-service', $contents);
         $this->assertStringContainsString("      auth-service-logs-init:\n        condition: service_completed_successfully", $contents);
@@ -928,6 +932,15 @@ BASH);
         $this->assertStringContainsString('bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" auth-service healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true', $contents);
         $this->assertStringContainsString('bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" grafana healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true', $contents);
         $this->assertStringContainsString('bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" prometheus healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true', $contents);
+    }
+
+    public function test_obs_grafana_alias_detection_uses_python3_in_the_helper_container(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('python3 -c "${helper_script}"', $contents);
+        $this->assertStringNotContainsString('python -c "${helper_script}"', $contents);
     }
 
     public function test_app_bootstrap_avoids_bash4_mapfile_in_local_exposure_verifier(): void

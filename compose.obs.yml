@@ -1,6 +1,6 @@
 services:
   auth-service-logs-init:
-    image: jobs-borads-auth-service
+    image: "${BT_OBS_AUTH_SERVICE_IMAGE:-${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service}"
     user: "0:0"
     command:
       - /bin/sh
@@ -15,6 +15,7 @@ services:
     build:
       context: .
       dockerfile: docker/auth-service/Dockerfile
+    image: "${BT_OBS_AUTH_SERVICE_IMAGE:-${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service}"
     environment:
       MONITORING_ADMIN_USERNAME: ${MONITORING_ADMIN_USERNAME:?Set MONITORING_ADMIN_USERNAME before obs apply}
       MONITORING_PASSWORD_HASH: ${MONITORING_PASSWORD_HASH:?Set MONITORING_PASSWORD_HASH before obs apply}
