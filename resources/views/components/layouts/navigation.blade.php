@@ -5,6 +5,9 @@
 @php
     $activeRoute = $activeRoute ?? (request()->route() ? request()->route()->getName() : null);
     $isAdminRoute = $activeRoute && str_starts_with($activeRoute, 'admin.');
+    $adminDestinations = auth()->check() && auth()->user()->isAdmin()
+        ? app(\App\Services\AdminNavigationService::class)->destinationsFor(auth()->user())
+        : [];
     
     $isActive = function($routeName) use ($activeRoute) {
         return $activeRoute === $routeName || ($activeRoute && str_starts_with($activeRoute, $routeName . '.'));
@@ -16,7 +19,8 @@
         $isActive('admin.applications.index') => 'Applications',
         $isActive('admin.audit-logs.index') => 'Audit',
         $isActive('admin.settings.index') => 'Settings',
-        default => 'Dashboard',
+        $isActive('admin.dashboard') => 'Dashboard',
+        default => $adminDestinations[0]['summary'] ?? 'Admin',
     };
     
     $linkClasses = function($routeName) use ($isActive) {
@@ -50,7 +54,7 @@
         >
             Applications
         </a>
-        @can('admin.users.view')
+        @if($adminDestinations !== [])
             <div class="relative" id="admin-nav-dropdown" data-dropdown data-open="false">
                 <button type="button"
                     class="theme-dropdown-trigger inline-flex items-center gap-2 rounded-full border px-2.5 py-1.5 text-sm font-medium transition-colors {{ $isAdminRoute ? 'theme-link-active-chip' : 'theme-nav-link border-transparent' }}"
@@ -74,70 +78,53 @@
                         <p class="theme-text-muted mt-1 text-sm">Jump into protected management views.</p>
                     </div>
                     <div class="space-y-1">
-                        <a href="{{ route('admin.dashboard') }}" class="theme-text-strong flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
-                            <span class="theme-icon-tile-accent inline-flex h-8 w-8 items-center justify-center rounded-lg">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 3h16.5v5.25H3.75zM3.75 11.25h7.5V21h-7.5zM13.5 11.25h6.75V21H13.5z" />
-                                </svg>
-                            </span>
-                            <span>Dashboard</span>
-                        </a>
-                    @can('admin.users.view')
-                        <a href="{{ route('admin.users.index') }}" class="theme-text-strong flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
-                            <span class="theme-icon-tile inline-flex h-8 w-8 items-center justify-center rounded-lg">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5V10.5L12 4 2 10.5V20h5m10 0v-5a5 5 0 10-10 0v5m10 0H7" />
-                                </svg>
-                            </span>
-                            <span>Users</span>
-                        </a>
-                    @endcan
-                    @can('admin.jobs.view')
-                        <a href="{{ route('admin.jobs.index') }}" class="theme-text-strong flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
-                            <span class="theme-icon-tile inline-flex h-8 w-8 items-center justify-center rounded-lg">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                            </span>
-                            <span>Jobs</span>
-                        </a>
-                    @endcan
-                    @can('admin.applications.view')
-                        <a href="{{ route('admin.applications.index') }}" class="theme-text-strong flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
-                            <span class="theme-icon-tile inline-flex h-8 w-8 items-center justify-center rounded-lg">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 14.25v-8.25A2.25 2.25 0 0017.25 3.75H6.75A2.25 2.25 0 004.5 6v12A2.25 2.25 0 006.75 20.25h6.75" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.25 8.25h7.5M8.25 12h4.5M16.5 18.75l2.25 2.25L21 18.75" />
-                                </svg>
-                            </span>
-                            <span>Applications</span>
-                        </a>
-                    @endcan
-                    @can('admin.system.view')
-                        <a href="{{ route('admin.audit-logs.index') }}" class="theme-text-strong flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
-                            <span class="theme-icon-tile inline-flex h-8 w-8 items-center justify-center rounded-lg">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m-7.5 4.5h9A2.25 2.25 0 0018.75 18V6A2.25 2.25 0 0016.5 3.75h-9A2.25 2.25 0 005.25 6v12A2.25 2.25 0 007.5 20.25z" />
-                                </svg>
-                            </span>
-                            <span>Audit Logs</span>
-                        </a>
-                    @endcan
-                    @can('admin.settings.view')
-                        <div class="my-2 border-t" style="border-color: var(--app-panel-border);"></div>
-                        <a href="{{ route('admin.settings.index') }}" class="theme-text-strong flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
-                            <span class="theme-icon-tile inline-flex h-8 w-8 items-center justify-center rounded-lg">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 6h3m-7.72 1.78l2.12-.61a1.5 1.5 0 001.02-.94l.78-2.07h4.6l.78 2.07a1.5 1.5 0 001.02.94l2.12.61 2.3 3.98-1.33 1.74a1.5 1.5 0 000 1.8l1.33 1.74-2.3 3.98-2.12.61a1.5 1.5 0 00-1.02.94l-.78 2.07h-4.6l-.78-2.07a1.5 1.5 0 00-1.02-.94l-2.12-.61-2.3-3.98 1.33-1.74a1.5 1.5 0 000-1.8L3.48 11.76l2.3-3.98z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15.75A3.75 3.75 0 1112 8.25a3.75 3.75 0 010 7.5z" />
-                                </svg>
-                            </span>
-                            <span>Settings</span>
-                        </a>
-                    @endcan
+                        @foreach($adminDestinations as $destination)
+                            @php($isSettingsLink = $destination['route_name'] === 'admin.settings.index')
+                            @if($isSettingsLink)
+                                <div class="my-2 border-t" style="border-color: var(--app-panel-border);"></div>
+                            @endif
+                            <a href="{{ $destination['href'] }}" class="theme-text-strong flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>
+                                <span class="{{ $destination['route_name'] === 'admin.dashboard' ? 'theme-icon-tile-accent' : 'theme-icon-tile' }} inline-flex h-8 w-8 items-center justify-center rounded-lg">
+                                    @switch($destination['route_name'])
+                                        @case('admin.dashboard')
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.75 3h16.5v5.25H3.75zM3.75 11.25h7.5V21h-7.5zM13.5 11.25h6.75V21H13.5z" />
+                                            </svg>
+                                            @break
+                                        @case('admin.users.index')
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5V10.5L12 4 2 10.5V20h5m10 0v-5a5 5 0 10-10 0v5m10 0H7" />
+                                            </svg>
+                                            @break
+                                        @case('admin.jobs.index')
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            @break
+                                        @case('admin.applications.index')
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 14.25v-8.25A2.25 2.25 0 0017.25 3.75H6.75A2.25 2.25 0 004.5 6v12A2.25 2.25 0 006.75 20.25h6.75" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.25 8.25h7.5M8.25 12h4.5M16.5 18.75l2.25 2.25L21 18.75" />
+                                            </svg>
+                                            @break
+                                        @case('admin.audit-logs.index')
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m-7.5 4.5h9A2.25 2.25 0 0018.75 18V6A2.25 2.25 0 0016.5 3.75h-9A2.25 2.25 0 005.25 6v12A2.25 2.25 0 007.5 20.25z" />
+                                            </svg>
+                                            @break
+                                        @default
+                                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.5 6h3m-7.72 1.78l2.12-.61a1.5 1.5 0 001.02-.94l.78-2.07h4.6l.78 2.07a1.5 1.5 0 001.02.94l2.12.61 2.3 3.98-1.33 1.74a1.5 1.5 0 000 1.8l1.33 1.74-2.3 3.98-2.12.61a1.5 1.5 0 00-1.02.94l-.78 2.07h-4.6l-.78-2.07a1.5 1.5 0 00-1.02-.94l-2.12-.61-2.3-3.98 1.33-1.74a1.5 1.5 0 000-1.8L3.48 11.76l2.3-3.98z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15.75A3.75 3.75 0 1112 8.25a3.75 3.75 0 010 7.5z" />
+                                            </svg>
+                                    @endswitch
+                                </span>
+                                <span>{{ $destination['nav_label'] }}</span>
+                            </a>
+                        @endforeach
                     </div>
                 </div>
             </div>
-        @endcan
+        @endif
     @endauth
 </nav>

@@ -22,15 +22,24 @@
                 @auth
                     @php
                         $twoFactorEnabled = auth()->user()?->two_factor_confirmed_at !== null;
+                        $adminDestinations = auth()->user()->isAdmin()
+                            ? app(\App\Services\AdminNavigationService::class)->destinationsFor(auth()->user())
+                            : [];
+                        $primaryAdminDestination = $adminDestinations[0] ?? null;
                         $dashboardLabel = auth()->user()->isAdmin()
-                            ? 'Admin dashboard'
+                            ? ($primaryAdminDestination['label'] ?? 'Home')
                             : (auth()->user()->isCompany() ? 'Hiring dashboard' : 'Career dashboard');
                         $dashboardHref = auth()->user()->isAdmin()
-                            ? route('admin.dashboard')
+                            ? ($primaryAdminDestination['href'] ?? route('home'))
                             : route('home');
                         $dashboardRoutePatterns = auth()->user()->isAdmin()
-                            ? ['admin.dashboard']
+                            ? [($primaryAdminDestination['route_name'] ?? 'home')]
                             : ['home'];
+                        $dashboardActionLabel = auth()->user()->isAdmin()
+                            ? (($primaryAdminDestination !== null && ($primaryAdminDestination['route_name'] ?? null) !== 'admin.dashboard')
+                                ? 'Open Admin Workspace'
+                                : 'Open Dashboard')
+                            : 'Open Dashboard';
                         $dropdownItemClasses = function (array $patterns) {
                             $base = 'theme-dropdown-item theme-text-strong flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-colors';
 
@@ -94,7 +103,7 @@
                                                 </svg>
                                             </span>
                                             <span class="min-w-0 flex-1">
-                                                <span class="block font-medium">Open Dashboard</span>
+                                                <span class="block font-medium">{{ $dashboardActionLabel }}</span>
                                                 <span class="theme-text-muted block text-xs">{{ $dashboardLabel }}</span>
                                             </span>
                                         </a>

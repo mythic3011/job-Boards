@@ -7,6 +7,7 @@ use App\Models\Application;
 use App\Models\JobPosting;
 use App\Models\Setting;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\InteractsWithBrowserRequests;
@@ -118,6 +119,7 @@ class HomeDashboardUiContractTest extends TestCase
             'nickname' => 'Ops Admin',
             'user_type' => 'admin',
         ]);
+        $this->grantPermission($admin, 'admin.system.view');
 
         $response = $this->actingAs($admin)->withBrowser()->get(route('home'));
 
@@ -126,6 +128,87 @@ class HomeDashboardUiContractTest extends TestCase
             ->assertSeeText('Operational Surfaces')
             ->assertSeeText('Open Admin Dashboard')
             ->assertDontSeeText('Find Your Dream Job');
+    }
+
+    public function test_admin_home_filters_links_to_the_user_permitted_admin_surfaces(): void
+    {
+        $admin = User::factory()->create([
+            'nickname' => 'Scoped Admin',
+            'user_type' => 'admin',
+        ]);
+        $this->grantPermission($admin, 'admin.users.view');
+
+        $response = $this->actingAs($admin)->withBrowser()->get(route('home'));
+
+        $response->assertOk()
+            ->assertSeeText('Admin Control Room')
+            ->assertSeeText('Review Users')
+            ->assertSee('data-admin-nav-trigger-summary', false)
+            ->assertSee('href="'.route('admin.users.index').'"', false)
+            ->assertDontSeeText('Open Admin Dashboard')
+            ->assertDontSee('href="'.route('admin.dashboard').'"', false)
+            ->assertDontSee('href="'.route('admin.jobs.index').'"', false)
+            ->assertDontSee('href="'.route('admin.applications.index').'"', false)
+            ->assertDontSee('href="'.route('admin.settings.index').'"', false);
+    }
+
+    public function test_admin_home_keeps_dashboard_entrypoint_for_system_scope_even_without_user_scope(): void
+    {
+        $admin = User::factory()->create([
+            'nickname' => 'Systems Admin',
+            'user_type' => 'admin',
+        ]);
+        $this->grantPermission($admin, 'admin.system.view');
+
+        $response = $this->actingAs($admin)->withBrowser()->get(route('home'));
+
+        $response->assertOk()
+            ->assertSeeText('Admin tools')
+            ->assertSeeText('Open Admin Dashboard')
+            ->assertSee('href="'.route('admin.dashboard').'"', false)
+            ->assertDontSee('href="'.route('admin.users.index').'"', false);
+    }
+
+    public function test_admin_home_without_admin_permissions_hides_protected_admin_links(): void
+    {
+        $admin = User::factory()->create([
+            'nickname' => 'Unscoped Admin',
+            'user_type' => 'admin',
+        ]);
+
+        $response = $this->actingAs($admin)->withBrowser()->get(route('home'));
+
+        $response->assertOk()
+            ->assertSeeText('Admin Control Room')
+            ->assertSeeText('No admin modules are assigned yet')
+            ->assertSeeText('Open Dashboard')
+            ->assertDontSee('data-admin-nav-trigger-summary', false)
+            ->assertDontSee('href="'.route('admin.dashboard').'"', false)
+            ->assertDontSee('href="'.route('admin.users.index').'"', false)
+            ->assertDontSee('href="'.route('admin.jobs.index').'"', false)
+            ->assertDontSee('href="'.route('admin.applications.index').'"', false)
+            ->assertDontSee('href="'.route('admin.settings.index').'"', false);
+    }
+
+    private function grantPermission(User $user, string $permission): void
+    {
+        DB::table('permissions')->updateOrInsert(
+            ['name' => $permission, 'guard_name' => 'web'],
+            ['created_at' => now(), 'updated_at' => now()],
+        );
+
+        $permissionId = DB::table('permissions')
+            ->where('name', $permission)
+            ->where('guard_name', 'web')
+            ->value('id');
+
+        DB::table('model_has_permissions')->updateOrInsert([
+            'permission_id' => $permissionId,
+            'model_type' => User::class,
+            'model_id' => $user->getKey(),
+        ]);
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
     }
 
     protected function createJobPostingsTable(): void
