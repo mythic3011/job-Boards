@@ -293,7 +293,7 @@ bt_default_app_plane_network_name() {
 }
 
 bt_default_app_plane_subnet() {
-    printf '%s\n' "${BT_APP_PLANE_SUBNET:-172.29.0.0/24}"
+    printf '%s\n' "172.29.0.0/24"
 }
 
 bt_docker_network_exists() {
@@ -788,6 +788,60 @@ exit($algoName === "bcrypt" ? 0 : 1);
         set -e
         rm -f "${tmp}"
         [[ "${rc}" -eq 0 || "${rc}" -eq 3 ]]
+        return $?
+    fi
+
+    return 1
+}
+
+bt_bcrypt_hash_matches() {
+    local hash="${1:-}"
+    local password="${2:-}"
+    bt_is_valid_bcrypt_hash "${hash}" || return 1
+
+    if python3 -c "import bcrypt" >/dev/null 2>&1; then
+        python3 - "${hash}" "${password}" <<'PY'
+import bcrypt
+import sys
+
+raise SystemExit(0 if bcrypt.checkpw(sys.argv[2].encode("utf-8"), sys.argv[1].encode("utf-8")) else 1)
+PY
+        return $?
+    fi
+
+    if command -v php >/dev/null 2>&1; then
+        php -r '
+$hash = $argv[1];
+$password = $argv[2];
+exit(password_verify($password, $hash) ? 0 : 1);
+' "${hash}" "${password}"
+        return $?
+    fi
+
+    if command -v htpasswd >/dev/null 2>&1; then
+        local tmp rc
+        tmp="$(mktemp)"
+        printf '%s:%s\n' "admin" "${hash}" > "${tmp}"
+        set +e
+        htpasswd -vb "${tmp}" admin "${password}" >/dev/null 2>&1
+        rc=$?
+        set -e
+        rm -f "${tmp}"
+        [[ "${rc}" -eq 0 ]]
+        return $?
+    fi
+
+    if command -v docker >/dev/null 2>&1; then
+        local tmp rc
+        tmp="$(mktemp)"
+        printf '%s:%s\n' "admin" "${hash}" > "${tmp}"
+        set +e
+        docker run --rm -v "${tmp}:/tmp/htpasswd:ro" httpd:alpine \
+            htpasswd -vb /tmp/htpasswd admin "${password}" >/dev/null 2>&1
+        rc=$?
+        set -e
+        rm -f "${tmp}"
+        [[ "${rc}" -eq 0 ]]
         return $?
     fi
 

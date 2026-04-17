@@ -254,9 +254,77 @@ PY
         docker compose -f "${BT_COMPOSE_OBS_FILE}" config --format json | python3 -c "${helper_script}"
 }
 
+obs_grafana_runtime_mountpoint() {
+    local volume_name="$1"
+    docker volume inspect -f '{{ .Mountpoint }}' "${volume_name}" 2>/dev/null || true
+}
+
+obs_detect_grafana_datasource_aliases_from_db_path() {
+    local db_path="$1"
+    local managed_json="$2"
+
+    python3 - "${db_path}" "${managed_json}" <<'PY'
+import json
+import os
+import sqlite3
+import sys
+
+path = sys.argv[1]
+managed = json.loads(sys.argv[2])
+
+if not os.path.exists(path) or os.path.getsize(path) == 0:
+    print("[]")
+    raise SystemExit(0)
+
+connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+connection.row_factory = sqlite3.Row
+tables = {
+    row["name"]
+    for row in connection.execute("select name from sqlite_master where type = ?", ("table",))
+}
+
+if "data_source" not in tables:
+    print("[]")
+    raise SystemExit(0)
+
+managed_by_uid = {item["uid"]: item for item in managed}
+query = "select org_id, name, uid from data_source where uid in ({})".format(
+    ",".join("?" for _ in managed_by_uid)
+)
+rows = connection.execute(query, tuple(managed_by_uid)).fetchall()
+
+aliases = []
+seen = set()
+
+for row in rows:
+    managed_item = managed_by_uid.get(row["uid"])
+    if managed_item is None:
+        continue
+
+    org_id = int(row["org_id"] or 1)
+    if org_id != int(managed_item.get("orgId", 1)):
+        continue
+
+    if row["name"] == managed_item["name"]:
+        continue
+
+    key = (org_id, row["name"])
+    if key in seen:
+        continue
+
+    seen.add(key)
+    aliases.append({"orgId": org_id, "name": row["name"], "uid": row["uid"]})
+
+aliases.sort(key=lambda item: (item["orgId"], item["name"]))
+print(json.dumps(aliases, separators=(",", ":")))
+PY
+}
+
 obs_detect_grafana_datasource_aliases() {
     local managed_json="$1"
     local volume_name
+    local mountpoint
+    local db_path
     local detected_json
     local helper_script
 
@@ -271,13 +339,28 @@ obs_detect_grafana_datasource_aliases() {
         return 0
     fi
 
+    mountpoint="$(obs_grafana_runtime_mountpoint "${volume_name}")"
+    db_path="${mountpoint%/}/grafana.db"
+
+    if [[ -n "${mountpoint}" && -r "${db_path}" ]]; then
+        detected_json="$(obs_detect_grafana_datasource_aliases_from_db_path "${db_path}" "${managed_json}")" || {
+            bt_warn "Unable to inspect Grafana datasource aliases from host-accessible volume mountpoint ${db_path}; falling back to containerized inspection."
+            detected_json=""
+        }
+
+        if [[ -n "${detected_json}" ]]; then
+            printf '%s' "${detected_json}"
+            return 0
+        fi
+    fi
+
     helper_script="$(cat <<'PY'
 import json
 import os
 import sqlite3
 
-managed = json.loads(os.environ["MANAGED_DATASOURCES_JSON"])
 path = "/grafana/grafana.db"
+managed = json.loads(os.environ["MANAGED_DATASOURCES_JSON"])
 
 if not os.path.exists(path) or os.path.getsize(path) == 0:
     print("[]")
@@ -334,9 +417,8 @@ PY
             "${OBS_GRAFANA_SQLITE_HELPER_IMAGE}" \
             python3 -c "${helper_script}"
     )" || {
-        bt_warn "Unable to inspect existing Grafana datasource aliases; using managed datasource defaults."
-        printf '[]'
-        return 0
+        bt_warn "Unable to inspect existing Grafana datasource aliases from Docker volume ${volume_name}."
+        return 1
     }
 
     printf '%s' "${detected_json:-[]}"
@@ -394,6 +476,16 @@ PY
     fi
 }
 
+obs_generated_env_value() {
+    local key="$1"
+    bt_env_file_value "${OBS_GENERATED_ENV_FILE}" "${key}"
+}
+
+obs_requested_env_value() {
+    local key="$1"
+    bt_env_value "${key}" || obs_generated_env_value "${key}"
+}
+
 obs_load_generated_env() {
     bt_export_env_file "${OBS_GENERATED_ENV_FILE}"
 }
@@ -435,7 +527,7 @@ obs_set_generated_value() {
 
 obs_effective_env_value() {
     local key="$1"
-    bt_env_file_value "${OBS_GENERATED_ENV_FILE}" "${key}" || bt_env_value "${key}"
+    obs_generated_env_value "${key}" || bt_env_value "${key}"
 }
 
 obs_materialize_secret_file() {
@@ -443,24 +535,38 @@ obs_materialize_secret_file() {
     local source_key="$2"
     local default_path="$3"
     local current_path
+    local desired_path
     local source_value
     local check_suffix
 
-    current_path="$(obs_effective_env_value "${target_key}" || true)"
-    if [[ -n "${current_path}" ]]; then
-        [[ -r "${current_path}" ]] || return 1
+    current_path="$(obs_generated_env_value "${target_key}" || true)"
+    desired_path="$(bt_env_value "${target_key}" || true)"
+    if [[ -z "${desired_path}" ]]; then
+        desired_path="${current_path:-${default_path}}"
+    fi
+
+    source_value="$(obs_requested_env_value "${source_key}" || true)"
+    if [[ -z "${source_value}" ]]; then
+        [[ -r "${desired_path}" ]] || return 1
+        if [[ "${current_path}" != "${desired_path}" ]]; then
+            obs_set_generated_value "${target_key}" "${desired_path}"
+        fi
         return 0
     fi
 
-    source_value="$(obs_effective_env_value "${source_key}" || true)"
-    [[ -n "${source_value}" ]] || return 1
-
-    bt_write_file "${default_path}" "${source_value}"
-    if [[ "${BT_DRY_RUN}" != "1" ]]; then
-        chmod 0600 "${default_path}"
+    if [[ -r "${desired_path}" ]] && [[ "$(cat "${desired_path}")" == "${source_value}" ]]; then
+        if [[ "${current_path}" != "${desired_path}" ]]; then
+            obs_set_generated_value "${target_key}" "${desired_path}"
+        fi
+        return 0
     fi
 
-    obs_set_generated_value "${target_key}" "${default_path}"
+    bt_write_file "${desired_path}" "${source_value}"
+    if [[ "${BT_DRY_RUN}" != "1" ]]; then
+        chmod 0600 "${desired_path}"
+    fi
+
+    obs_set_generated_value "${target_key}" "${desired_path}"
     obs_emit_generated_audit "${target_key}" "${source_key}" "materialized_secret_file" "true" "false"
     check_suffix="$(obs_check_id_suffix "${target_key}")"
     bt_emit_check "obs.bootstrap.${check_suffix}.generated" "obs" "${BT_STATUS_PASS}" "${target_key} was materialized from ${source_key}." "Review generated env provenance if operator-managed rotation is required."
@@ -473,21 +579,33 @@ obs_persist_runtime_input() {
     shift
 
     local current
-    current="$(bt_env_file_value "${OBS_GENERATED_ENV_FILE}" "${target_key}" || true)"
-    if [[ -n "${current}" ]]; then
-        return 0
-    fi
+    current="$(obs_generated_env_value "${target_key}" || true)"
 
-    local source_key
+    local source_key=""
+    local candidate_key
     local source_value=""
     local check_suffix
-    for source_key in "$@"; do
-        source_value="$(obs_effective_env_value "${source_key}" || true)"
-        [[ -n "${source_value}" ]] && break
+    for candidate_key in "$@"; do
+        source_value="$(bt_env_value "${candidate_key}" || true)"
+        [[ -n "${source_value}" ]] || continue
+        source_key="${candidate_key}"
+        break
     done
+    if [[ -z "${source_key}" ]]; then
+        for candidate_key in "$@"; do
+            source_value="$(obs_generated_env_value "${candidate_key}" || true)"
+            [[ -n "${source_value}" ]] || continue
+            source_key="${candidate_key}"
+            break
+        done
+    fi
 
-    if [[ -z "${source_value}" ]]; then
+    if [[ -z "${source_key}" || -z "${source_value}" ]]; then
         return 1
+    fi
+
+    if [[ "${current}" == "${source_value}" ]]; then
+        return 0
     fi
 
     obs_set_generated_value "${target_key}" "${source_value}"
@@ -499,8 +617,17 @@ obs_persist_runtime_input() {
 }
 
 obs_autofix_session_secret() {
-    local current
-    current="$(obs_effective_env_value "SESSION_SECRET" || true)"
+    local current explicit
+    current="$(obs_generated_env_value "SESSION_SECRET" || true)"
+    explicit="$(bt_env_value "SESSION_SECRET" || true)"
+    if [[ -n "${explicit}" ]]; then
+        if [[ "${current}" != "${explicit}" ]]; then
+            obs_set_generated_value "SESSION_SECRET" "${explicit}"
+            obs_emit_generated_audit "SESSION_SECRET" "SESSION_SECRET" "persisted_runtime_input" "true" "false"
+        fi
+        return 0
+    fi
+
     if [[ -n "${current}" ]]; then
         return 0
     fi
@@ -517,23 +644,49 @@ obs_autofix_password_hash() {
     local target_key="$1"
     shift
 
-    local current
-    current="$(bt_normalize_compose_dollars "$(obs_effective_env_value "${target_key}" || true)")"
-    if [[ -n "${current}" ]]; then
+    local current explicit current_raw
+    current_raw="$(obs_generated_env_value "${target_key}" || true)"
+    current="$(bt_normalize_compose_dollars "${current_raw}")"
+    explicit="$(bt_normalize_compose_dollars "$(bt_env_value "${target_key}" || true)")"
+    if [[ -n "${explicit}" ]]; then
+        bt_bcrypt_hash_runtime_usable "${explicit}" || return 1
+        if [[ "${current_raw}" != "${explicit}" ]]; then
+            obs_set_generated_value "${target_key}" "${explicit}"
+            obs_emit_generated_audit "${target_key}" "${target_key}" "persisted_runtime_input" "true" "false"
+        fi
+        return 0
+    fi
+
+    local source_key=""
+    local candidate_key
+    local source_value=""
+    local check_suffix
+    for candidate_key in "$@"; do
+        source_value="$(bt_env_value "${candidate_key}" || true)"
+        [[ -n "${source_value}" ]] || continue
+        source_key="${candidate_key}"
+        break
+    done
+    if [[ -z "${source_key}" ]]; then
+        for candidate_key in "$@"; do
+            source_value="$(obs_generated_env_value "${candidate_key}" || true)"
+            [[ -n "${source_value}" ]] || continue
+            source_key="${candidate_key}"
+            break
+        done
+    fi
+
+    if [[ -z "${source_key}" || -z "${source_value}" ]]; then
+        [[ -n "${current}" ]] || return 1
         bt_bcrypt_hash_runtime_usable "${current}"
         return $?
     fi
 
-    local source_key
-    local source_value=""
-    local check_suffix
-    for source_key in "$@"; do
-        source_value="$(obs_effective_env_value "${source_key}" || true)"
-        [[ -n "${source_value}" ]] && break
-    done
-
-    if [[ -z "${source_value}" ]]; then
-        return 1
+    if [[ -n "${current}" ]]; then
+        bt_bcrypt_hash_runtime_usable "${current}" || return 1
+        if bt_bcrypt_hash_matches "${current}" "${source_value}"; then
+            return 0
+        fi
     fi
 
     local generated
@@ -549,7 +702,6 @@ obs_autofix_password_hash() {
 
 ensure_obs_runtime_secrets() {
     obs_prepare_runtime_artifacts
-    obs_load_generated_env
 
     local failed=0
     obs_persist_runtime_input "MONITORING_ADMIN_USERNAME" "MONITORING_ADMIN_USERNAME" || failed=1
@@ -561,7 +713,6 @@ ensure_obs_runtime_secrets() {
     obs_autofix_password_hash "MONITORING_PASSWORD_HASH" "MONITORING_PASSWORD" || failed=1
     obs_autofix_password_hash "PROMETHEUS_PASSWORD_HASH" "PROMETHEUS_PASSWORD" || failed=1
     obs_materialize_secret_file "GRAFANA_ADMIN_SECRET_FILE" "GRAFANA_PASSWORD" "${OBS_GRAFANA_ADMIN_SECRET_FILE}" || failed=1
-    obs_load_generated_env
     obs_render_prometheus_web_config || failed=1
     obs_render_grafana_datasources_config || failed=1
 
@@ -603,7 +754,7 @@ apply_action() {
         emit_obs_summary "Obs bootstrap failed preflight."
         exit 1
     }
-    run_obs_check "obs.bootstrap.app_plane_network" "Obs bootstrap resolved or created a compatible shared app-plane network for shared auth and database traffic." "Set BT_APP_PLANE_NETWORK_NAME or BT_APP_PLANE_SUBNET explicitly if the shared app-plane contract differs from the default runtime." ensure_obs_app_plane_network || {
+    run_obs_check "obs.bootstrap.app_plane_network" "Obs bootstrap resolved or created a compatible shared app-plane network for shared auth and database traffic." "Set BT_APP_PLANE_NETWORK_NAME explicitly when reusing an existing shared app-plane network; the 172.29.0.0/24 subnet is a fixed compose contract in this stack." ensure_obs_app_plane_network || {
         emit_obs_summary "Obs bootstrap failed preflight."
         exit 1
     }
