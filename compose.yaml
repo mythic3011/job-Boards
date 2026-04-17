@@ -192,12 +192,15 @@ services:
             GF_AUTH_PROXY_HEADER_PROPERTY: "username"
             GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
             GF_AUTH_PROXY_HEADERS: "Name:X-WEBAUTH-USER"
-            DB_DATABASE: "${DB_DATABASE}"
-            DB_USERNAME: "${DB_USERNAME}"
-            DB_PASSWORD: "${DB_PASSWORD}"
+            GRAFANA_POSTGRES_URL: ${GRAFANA_POSTGRES_URL:-postgres:5432}
+            GRAFANA_POSTGRES_DATABASE: ${DB_DATABASE}
+            GRAFANA_POSTGRES_USER: ${DB_USERNAME}
+            GRAFANA_POSTGRES_SECRET: ${DB_PASSWORD}
+            GRAFANA_POSTGRES_SSLMODE: ${GRAFANA_POSTGRES_SSLMODE:-prefer}
         volumes:
             - grafana-data:/var/lib/grafana
             - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+            - ${GRAFANA_DATASOURCES_FILE:?Set GRAFANA_DATASOURCES_FILE before docker compose up}:/etc/grafana/provisioning/datasources/datasources.yaml:ro
             - ${GRAFANA_ADMIN_SECRET_FILE:?Set GRAFANA_ADMIN_SECRET_FILE before docker compose up}:/run/secrets/grafana_admin_secret:ro
         networks:
             - sail

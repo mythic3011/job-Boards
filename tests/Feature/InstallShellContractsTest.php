@@ -443,9 +443,19 @@ BASH);
         $this->assertStringContainsString('${SESSION_SECRET:?Set SESSION_SECRET before docker compose up}', $contents);
         $this->assertStringContainsString('${PROMETHEUS_PASSWORD_HASH:?Set PROMETHEUS_PASSWORD_HASH before docker compose up}', $contents);
         $this->assertStringContainsString('${PROMETHEUS_WEB_CONFIG_FILE:?Set PROMETHEUS_WEB_CONFIG_FILE before docker compose up}', $contents);
+        $this->assertStringContainsString('${GRAFANA_DATASOURCES_FILE:?Set GRAFANA_DATASOURCES_FILE before docker compose up}', $contents);
         $this->assertStringContainsString('${GRAFANA_ADMIN_SECRET_FILE:?Set GRAFANA_ADMIN_SECRET_FILE before docker compose up}', $contents);
         $this->assertStringContainsString('GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_secret', $contents);
+        $this->assertStringContainsString('GRAFANA_POSTGRES_URL: ${GRAFANA_POSTGRES_URL:-postgres:5432}', $contents);
+        $this->assertStringContainsString('GRAFANA_POSTGRES_DATABASE: ${DB_DATABASE}', $contents);
+        $this->assertStringContainsString('GRAFANA_POSTGRES_USER: ${DB_USERNAME}', $contents);
+        $this->assertStringContainsString('GRAFANA_POSTGRES_SECRET: ${DB_PASSWORD}', $contents);
+        $this->assertStringContainsString('GRAFANA_POSTGRES_SSLMODE: ${GRAFANA_POSTGRES_SSLMODE:-prefer}', $contents);
+        $this->assertStringContainsString('${GRAFANA_DATASOURCES_FILE:?Set GRAFANA_DATASOURCES_FILE before docker compose up}:/etc/grafana/provisioning/datasources/datasources.yaml:ro', $contents);
         $this->assertStringNotContainsString('${PROMETHEUS_WEB_CONFIG_FILE:-./docker/prometheus/web-config.yml}', $contents);
+        $this->assertStringNotContainsString('DB_DATABASE: "${DB_DATABASE}"', $contents);
+        $this->assertStringNotContainsString('DB_USERNAME: "${DB_USERNAME}"', $contents);
+        $this->assertStringNotContainsString('DB_PASSWORD: "${DB_PASSWORD}"', $contents);
         $this->assertStringNotContainsString('GF_SECURITY_ADMIN_PASSWORD:', $contents);
     }
 
