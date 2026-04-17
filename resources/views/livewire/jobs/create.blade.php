@@ -77,17 +77,17 @@ new class extends Component
 
 <div class="max-w-4xl mx-auto">
     {{-- Breadcrumb --}}
-    <nav class="mb-4 flex items-center gap-2 text-sm text-gray-500">
-        <a href="{{ route('jobs.index') }}" class="hover:text-indigo-600 transition-colors">Jobs</a>
+    <nav class="theme-text-muted mb-4 flex items-center gap-2 text-sm">
+        <a href="{{ route('jobs.index') }}" class="theme-link transition-colors">Jobs</a>
         <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
         </svg>
-        <span class="text-gray-900 font-medium">Post a Job</span>
+        <span class="theme-text-strong font-medium">Post a Job</span>
     </nav>
 
     <div class="mb-6">
-        <h1 class="text-2xl font-bold text-gray-900">Post a Job</h1>
-        <p class="text-sm text-gray-500 mt-1">Fill in the details below to publish your job listing.</p>
+        <h1 class="theme-text-strong text-2xl font-bold">Post a Job</h1>
+        <p class="theme-text-muted mt-1 text-sm">Fill in the details below to publish your job listing.</p>
     </div>
 
     <x-ui.card padding="p-8">
@@ -123,9 +123,10 @@ new class extends Component
 
             <div>
                 <x-ui.form-label>Salary (Optional, HK$)</x-ui.form-label>
-                <div class="mt-1 flex items-center gap-3">
+                <div class="theme-panel-subtle mt-1 rounded-2xl border p-4">
+                    <div class="flex items-center gap-3">
                     <div class="relative flex-1">
-                        <span class="pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm text-gray-400">$</span>
+                        <span class="theme-text-muted pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm">$</span>
                         <input
                             type="number"
                             wire:model="salary_from"
@@ -133,12 +134,12 @@ new class extends Component
                             min="0"
                             max="99999999"
                             step="1"
-                            class="block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-gray-900 text-right shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                            class="theme-input block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-right shadow-sm ring-1 ring-inset ring-[var(--app-input-border)] placeholder:text-[var(--app-text-muted)] focus:ring-2 focus:ring-inset focus:ring-[var(--app-accent)] sm:text-sm sm:leading-6"
                         >
                     </div>
-                    <span class="shrink-0 text-sm text-gray-400">to</span>
+                    <span class="theme-text-muted shrink-0 text-sm">to</span>
                     <div class="relative flex-1">
-                        <span class="pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm text-gray-400">$</span>
+                        <span class="theme-text-muted pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm">$</span>
                         <input
                             type="number"
                             wire:model="salary_to"
@@ -146,11 +147,12 @@ new class extends Component
                             min="0"
                             max="99999999"
                             step="1"
-                            class="block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-gray-900 text-right shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
+                            class="theme-input block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-right shadow-sm ring-1 ring-inset ring-[var(--app-input-border)] placeholder:text-[var(--app-text-muted)] focus:ring-2 focus:ring-inset focus:ring-[var(--app-accent)] sm:text-sm sm:leading-6"
                         >
                     </div>
                 </div>
-                <p class="mt-1.5 text-xs text-gray-400">Leave blank if not specified. "To" is optional for a range.</p>
+                <p class="theme-text-muted mt-3 text-xs">Leave blank if not specified. "To" is optional for a range.</p>
+                </div>
                 <x-ui.form-error name="salary_from" />
                 <x-ui.form-error name="salary_to" />
             </div>

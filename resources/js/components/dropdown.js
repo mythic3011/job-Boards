@@ -25,6 +25,7 @@ function setDropdownState(dropdown, open) {
 
     dropdown.dataset.open = open ? "true" : "false";
     button.setAttribute("aria-expanded", open ? "true" : "false");
+    button.classList.toggle("is-open", open);
 
     menu.classList.toggle("opacity-0", !open);
     menu.classList.toggle("translate-y-1", !open);
@@ -33,10 +34,6 @@ function setDropdownState(dropdown, open) {
     menu.classList.toggle("opacity-100", open);
     menu.classList.toggle("translate-y-0", open);
     menu.classList.toggle("scale-100", open);
-
-    button.classList.toggle("bg-gray-50", open);
-    button.classList.toggle("border-gray-200", open);
-    button.classList.toggle("text-gray-900", open);
 
     if (arrow) {
         arrow.classList.toggle("rotate-180", open);

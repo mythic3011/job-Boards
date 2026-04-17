@@ -4,7 +4,7 @@
 ])
 
 @if($slot->isNotEmpty())
-    <p {{ $attributes->merge(['class' => "text-sm text-gray-500 {$class}", 'id' => $id]) }}>
+    <p {{ $attributes->merge(['class' => "theme-text-muted text-sm {$class}", 'id' => $id]) }}>
         {{ $slot }}
     </p>
 @endif

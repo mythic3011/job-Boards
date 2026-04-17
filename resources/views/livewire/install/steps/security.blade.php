@@ -29,26 +29,26 @@
     x-on:2fa-verified.window="verified = true"
 >
     <div>
-        <h2 class="text-2xl font-bold text-gray-900">Secure Your Account</h2>
-        <p class="text-sm text-gray-600 mt-1">Two-factor authentication is required for admin accounts</p>
+        <h2 class="theme-text-strong text-2xl font-bold">Secure Your Account</h2>
+        <p class="theme-text-muted text-sm mt-1">Two-factor authentication is required for admin accounts.</p>
     </div>
 
     <div class="space-y-4">
         {{-- Step A: Scan or enter key --}}
-        <div class="border border-gray-200 rounded-xl overflow-hidden">
-            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200">
-                <p class="text-sm font-semibold text-gray-700">1. Add to your authenticator app</p>
-                <p class="text-xs text-gray-500 mt-0.5">Google Authenticator, Authy, 1Password, etc.</p>
+        <div class="theme-panel-subtle border rounded-2xl overflow-hidden">
+            <div class="px-4 py-3 border-b" style="border-color: var(--app-panel-border);">
+                <p class="theme-text-strong text-sm font-semibold">1. Add to your authenticator app</p>
+                <p class="theme-text-muted text-xs mt-0.5">Google Authenticator, Authy, 1Password, and similar apps.</p>
             </div>
             <div class="p-4 flex flex-col sm:flex-row items-center gap-6">
                 {{-- QR Code --}}
                 <div class="shrink-0">
                     @if($qrCodeDataUrl)
-                        <div class="bg-white p-3 border border-gray-200 rounded-lg inline-block">
+                        <div class="theme-panel inline-block rounded-xl border p-3">
                             {!! $qrCodeDataUrl !!}
                         </div>
                     @else
-                        <div class="w-40 h-40 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 text-xs text-center px-4">
+                        <div class="theme-panel-subtle theme-text-muted w-40 h-40 rounded-xl flex items-center justify-center text-xs text-center px-4">
                             QR code unavailable
                         </div>
                     @endif
@@ -56,11 +56,11 @@
 
                 {{-- Manual key --}}
                 <div class="flex-1 w-full">
-                    <p class="text-xs font-medium text-gray-600 mb-2">Or enter this key manually:</p>
+                    <p class="theme-text-muted text-xs font-medium mb-2">Or enter this key manually:</p>
                     <div class="flex items-center gap-2">
-                        <code class="flex-1 text-sm font-mono bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-900 break-all">{{ $formattedSecret }}</code>
+                        <code class="theme-panel-subtle theme-text-strong flex-1 text-sm font-mono border rounded-xl px-3 py-2 break-all">{{ $formattedSecret }}</code>
                         <button type="button" @click="copySecret"
-                            class="shrink-0 px-3 py-2 text-xs font-medium bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors min-w-[56px] text-center">
+                            class="theme-button theme-button-outline shrink-0 px-3 py-2 text-xs font-medium rounded-xl min-w-[56px] text-center">
                             <span x-show="!copying">Copy</span>
                             <span x-show="copying" class="text-green-600">Copied!</span>
                         </button>
@@ -70,10 +70,10 @@
         </div>
 
         {{-- Step B: Verify code --}}
-        <div class="border {{ $testSuccess ? 'border-green-300 bg-green-50' : 'border-gray-200' }} rounded-xl overflow-hidden transition-colors">
-            <div class="bg-gray-50 {{ $testSuccess ? 'bg-green-50' : '' }} px-4 py-3 border-b {{ $testSuccess ? 'border-green-200' : 'border-gray-200' }}">
-                <p class="text-sm font-semibold text-gray-700">2. Verify it works</p>
-                <p class="text-xs text-gray-500 mt-0.5">Enter the 6-digit code from your app to confirm setup</p>
+        <div class="{{ $testSuccess ? 'border-green-300 bg-green-50/60' : 'theme-panel-subtle' }} border rounded-2xl overflow-hidden transition-colors">
+            <div class="{{ $testSuccess ? 'border-green-200' : '' }} px-4 py-3 border-b" style="{{ $testSuccess ? '' : 'border-color: var(--app-panel-border);' }}">
+                <p class="theme-text-strong text-sm font-semibold">2. Verify it works</p>
+                <p class="theme-text-muted text-xs mt-0.5">Enter the 6-digit code from your app to confirm setup.</p>
             </div>
             <div class="p-4">
                 @if($testSuccess)
@@ -91,14 +91,14 @@
                             inputmode="numeric"
                             maxlength="6"
                             placeholder="000000"
-                            class="w-32 px-3 py-2 text-center text-lg font-mono border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            class="theme-input w-32 px-3 py-2 text-center text-lg font-mono border rounded-xl"
                         >
                         <button type="button" wire:click="testOTP"
-                            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors">
+                            class="theme-button theme-button-primary rounded-xl px-4 py-2 text-sm font-medium">
                             Verify
                         </button>
                         @if($testResult && !$testSuccess)
-                            <p class="text-sm text-red-600">{{ $testResult }}</p>
+                            <p class="text-sm text-red-500">{{ $testResult }}</p>
                         @endif
                     </div>
                 @endif
@@ -106,14 +106,14 @@
         </div>
 
         {{-- Step C: Save recovery codes --}}
-        <div class="border border-amber-200 bg-amber-50 rounded-xl overflow-hidden">
-            <div class="px-4 py-3 border-b border-amber-200 flex items-center justify-between">
+        <div class="theme-alert theme-alert-warning border rounded-2xl overflow-hidden">
+            <div class="px-4 py-3 border-b flex items-center justify-between" style="border-color: var(--app-warning-border);">
                 <div>
-                    <p class="text-sm font-semibold text-gray-700">3. Save your recovery codes</p>
-                    <p class="text-xs text-gray-500 mt-0.5">Store these somewhere safe — you'll need them if you lose your device</p>
+                    <p class="theme-text-strong text-sm font-semibold">3. Save your recovery codes</p>
+                    <p class="theme-text-muted text-xs mt-0.5">Store these somewhere safe. You will need them if you lose your device.</p>
                 </div>
                 <button type="button" @click="showCodes = !showCodes"
-                    class="text-xs text-amber-700 font-medium hover:text-amber-900 underline shrink-0 ml-4">
+                    class="text-xs font-medium underline shrink-0 ml-4" style="color: var(--app-warning-fg);">
                     <span x-show="!showCodes">Show</span>
                     <span x-show="showCodes">Hide</span>
                 </button>
@@ -122,11 +122,11 @@
                 @if(count($recoveryCodes) > 0)
                     <div class="grid grid-cols-2 gap-1.5">
                         @foreach($recoveryCodes as $code)
-                            <code class="text-xs font-mono bg-white border border-amber-200 px-2 py-1.5 rounded text-gray-800">{{ $code }}</code>
+                            <code class="theme-panel text-xs font-mono border px-2 py-1.5 rounded-xl">{{ $code }}</code>
                         @endforeach
                     </div>
                     <button type="button" @click="downloadCodes"
-                        class="text-xs font-medium text-amber-700 hover:text-amber-900 underline">
+                        class="text-xs font-medium underline" style="color: var(--app-warning-fg);">
                         Download as text file
                     </button>
                 @endif
@@ -137,13 +137,13 @@
     {{-- Navigation --}}
     <div class="flex gap-3 pt-2">
         <button type="button" wire:click="previousStep"
-            class="px-6 py-3 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition-colors">
+            class="theme-button theme-button-outline rounded-xl px-6 py-3 font-medium">
             ← Back
         </button>
         <button type="button" @click="tryNextStep"
             :disabled="!verified"
-            :class="verified ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-gray-200 text-gray-400 cursor-not-allowed'"
-            class="flex-1 px-6 py-3 rounded-lg font-medium transition-colors">
+            :class="verified ? 'theme-button-primary' : 'theme-button-outline theme-text-muted cursor-not-allowed opacity-70'"
+            class="theme-button flex-1 rounded-xl px-6 py-3 font-medium">
             Continue →
         </button>
     </div>

@@ -118,25 +118,28 @@ new class extends Component
         x-transition:leave="transition ease-in duration-200"
         x-transition:leave-start="opacity-100 translate-y-0"
         x-transition:leave-end="opacity-0 -translate-y-2"
-        class="mb-6 flex items-start gap-3 rounded-xl border border-red-300 bg-red-50 px-5 py-4 shadow-sm"
+        class="theme-alert-error mb-6 flex items-start gap-3 rounded-xl border px-5 py-4 shadow-sm"
         role="alert"
     >
-        <svg class="mt-0.5 h-5 w-5 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <svg class="mt-0.5 h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
         <div class="flex-1">
-            <p class="text-sm font-semibold text-red-800">Validation Error</p>
-            <p class="mt-0.5 text-sm text-red-700" x-text="validationAlert"></p>
+            <p class="text-sm font-semibold">Validation Error</p>
+            <p class="mt-0.5 text-sm" x-text="validationAlert"></p>
         </div>
-        <button type="button" @click="validationAlert = ''" class="shrink-0 rounded text-red-400 hover:text-red-600 focus:outline-none" aria-label="Dismiss">
+        <button type="button" @click="validationAlert = ''" class="shrink-0 rounded transition-colors hover:opacity-80 focus:outline-none" aria-label="Dismiss">
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
         </button>
     </div>
 
-    <div class="flex items-center justify-between mb-6">
-        <h1 class="text-3xl font-bold">Edit Job Posting</h1>
+    <div class="mb-6 flex items-center justify-between gap-3">
+        <div>
+            <h1 class="theme-text-strong text-3xl font-bold">Edit Job Posting</h1>
+            <p class="theme-text-muted mt-1 text-sm">Refine the listing content without dropping the current hiring context.</p>
+        </div>
         <x-ui.button href="{{ route('admin.jobs.index') }}" variant="outline">
             Back to Jobs
         </x-ui.button>
@@ -185,34 +188,36 @@ new class extends Component
 
             <div>
                 <x-ui.form-label>Salary (Optional, HK$)</x-ui.form-label>
-                <div class="mt-1 flex items-center gap-3">
-                    <div class="relative flex-1">
-                        <span class="pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm text-gray-400">$</span>
-                        <input
-                            type="number"
-                            wire:model="salary_from"
-                            placeholder="From"
-                            min="0"
-                            max="99999999"
-                            step="1"
-                            class="block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-gray-900 text-right shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                        >
+                <div class="theme-panel-subtle mt-1 rounded-2xl border p-4">
+                    <div class="flex items-center gap-3">
+                        <div class="relative flex-1">
+                            <span class="theme-text-muted pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm">$</span>
+                            <input
+                                type="number"
+                                wire:model="salary_from"
+                                placeholder="From"
+                                min="0"
+                                max="99999999"
+                                step="1"
+                                class="theme-input block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-right shadow-sm ring-1 ring-inset ring-[var(--app-input-border)] placeholder:text-[var(--app-text-muted)] focus:ring-2 focus:ring-inset focus:ring-[var(--app-accent)] sm:text-sm sm:leading-6"
+                            >
+                        </div>
+                        <span class="theme-text-muted shrink-0 text-sm">to</span>
+                        <div class="relative flex-1">
+                            <span class="theme-text-muted pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm">$</span>
+                            <input
+                                type="number"
+                                wire:model="salary_to"
+                                placeholder="To (optional)"
+                                min="0"
+                                max="99999999"
+                                step="1"
+                                class="theme-input block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-right shadow-sm ring-1 ring-inset ring-[var(--app-input-border)] placeholder:text-[var(--app-text-muted)] focus:ring-2 focus:ring-inset focus:ring-[var(--app-accent)] sm:text-sm sm:leading-6"
+                            >
+                        </div>
                     </div>
-                    <span class="shrink-0 text-sm text-gray-400">to</span>
-                    <div class="relative flex-1">
-                        <span class="pointer-events-none absolute inset-y-0 left-5 flex items-center text-sm text-gray-400">$</span>
-                        <input
-                            type="number"
-                            wire:model="salary_to"
-                            placeholder="To (optional)"
-                            min="0"
-                            max="99999999"
-                            step="1"
-                            class="block w-full rounded-lg border-0 py-1.5 pl-9 pr-3 text-gray-900 text-right shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6"
-                        >
-                    </div>
+                    <p class="theme-text-muted mt-3 text-xs">Leave blank if not specified. "To" is optional for a range.</p>
                 </div>
-                <p class="mt-1.5 text-xs text-gray-400">Leave blank if not specified. "To" is optional for a range.</p>
                 <x-ui.form-error name="salary_from" />
                 <x-ui.form-error name="salary_to" />
             </div>

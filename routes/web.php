@@ -1,8 +1,7 @@
 <?php
 
-use App\Models\Setting;
+use App\Http\Controllers\HomeController;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schema;
 
 /*
 |--------------------------------------------------------------------------
@@ -37,12 +36,7 @@ require __DIR__.'/auth.php';
 | Home Route
 |--------------------------------------------------------------------------
 */
-Route::get('/', function () {
-    if (!Schema::hasTable('settings') || !Setting::isSetupCompleted()) {
-        return redirect()->route('install.index');
-    }
-    return view('welcome');
-})->name('home');
+Route::get('/', HomeController::class)->name('home');
 
 /*
 |--------------------------------------------------------------------------

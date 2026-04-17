@@ -34,19 +34,19 @@ new class extends Component
 <div class="max-w-4xl mx-auto">
 
     {{-- Breadcrumb --}}
-    <nav class="mb-4 flex items-center gap-2 text-sm text-gray-500">
-        <a href="{{ route('admin.applications.index') }}" class="hover:text-indigo-600 transition-colors">Applications</a>
+    <nav class="theme-text-muted mb-4 flex items-center gap-2 text-sm">
+        <a href="{{ route('admin.applications.index') }}" class="theme-link transition-colors">Applications</a>
         <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
         </svg>
-        <span class="text-gray-900 font-medium truncate">{{ $application->jobPosting->title }}</span>
+        <span class="theme-text-strong truncate font-medium">{{ $application->jobPosting->title }}</span>
     </nav>
 
     {{-- Page header --}}
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 class="text-2xl font-bold text-gray-900">Application Details</h1>
+        <h1 class="theme-text-strong text-2xl font-bold">Application Details</h1>
         <a href="{{ route('admin.applications.index') }}"
-           class="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 cursor-pointer">
+           class="theme-button theme-button-outline inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium cursor-pointer">
             <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
             </svg>
@@ -56,9 +56,9 @@ new class extends Component
 
     <x-ui.card padding="p-8">
         {{-- Job title + status --}}
-        <div class="border-b border-gray-200 pb-6 mb-6">
-            <h2 class="text-2xl font-bold text-gray-900 mb-3">
-                <a href="{{ route('jobs.show', $application->jobPosting->idcode) }}" class="hover:text-indigo-700 transition-colors">
+        <div class="theme-table-divider mb-6 border-b pb-6">
+            <h2 class="theme-text-strong mb-3 text-2xl font-bold">
+                <a href="{{ route('jobs.show', $application->jobPosting->idcode) }}" class="theme-link transition-colors">
                     {{ $application->jobPosting->title }}
                 </a>
             </h2>
@@ -70,9 +70,9 @@ new class extends Component
                     default    => 'Pending review',
                 };
                 $statusClasses = match($statusValue) {
-                    'approved' => 'bg-green-50 text-green-700 border-green-200',
-                    'rejected' => 'bg-red-50 text-red-700 border-red-200',
-                    default    => 'bg-yellow-50 text-yellow-700 border-yellow-200',
+                    'approved' => 'theme-alert-success border',
+                    'rejected' => 'theme-alert-error border',
+                    default    => 'theme-alert-warning border',
                 };
                 $dotClass = match($statusValue) {
                     'approved' => 'bg-green-500',
@@ -80,7 +80,7 @@ new class extends Component
                     default    => 'bg-yellow-500',
                 };
             @endphp
-            <div class="flex flex-wrap items-center gap-3 text-sm text-gray-500">
+            <div class="theme-text-muted flex flex-wrap items-center gap-3 text-sm">
                 <span class="flex items-center gap-1.5">
                     <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -97,43 +97,43 @@ new class extends Component
         <div class="space-y-6">
             {{-- Company --}}
             <div>
-                <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Company</h3>
-                <div class="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                    <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center border-2 border-blue-200 shrink-0">
-                        <span class="text-sm font-bold text-blue-600">{{ strtoupper(substr($application->jobPosting->companyUser->nickname, 0, 1)) }}</span>
+                <h3 class="theme-text-muted mb-3 text-sm font-semibold uppercase tracking-wider">Company</h3>
+                <div class="theme-panel-subtle flex items-center gap-3 rounded-xl border p-4">
+                    <div class="theme-icon-tile-accent flex h-10 w-10 shrink-0 items-center justify-center rounded-full border">
+                        <span class="text-sm font-bold">{{ strtoupper(substr($application->jobPosting->companyUser->nickname, 0, 1)) }}</span>
                     </div>
                     <div>
-                        <p class="font-semibold text-gray-900">{{ $application->jobPosting->companyUser->nickname }}</p>
-                        <p class="text-sm text-gray-500 mt-0.5">{{ $application->jobPosting->companyUser->email }}</p>
+                        <p class="theme-text-strong font-semibold">{{ $application->jobPosting->companyUser->nickname }}</p>
+                        <p class="theme-text-muted mt-0.5 text-sm">{{ $application->jobPosting->companyUser->email }}</p>
                     </div>
                 </div>
             </div>
 
             {{-- Applicant --}}
             <div>
-                <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Applicant</h3>
-                <div class="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                <h3 class="theme-text-muted mb-3 text-sm font-semibold uppercase tracking-wider">Applicant</h3>
+                <div class="theme-panel-subtle flex items-center gap-4 rounded-xl border p-4">
                     <x-ui.avatar
                         :src="$application->applicantUser->profile_image_path ? app(\App\Services\ProfileImageService::class)->getImageUrl($application->applicantUser->profile_image_path) : null"
                         :name="$application->applicantUser->nickname"
                         size="md"
-                        class="w-14 h-14 border-2 border-gray-200 bg-white shrink-0"
+                        class="h-14 w-14 shrink-0 border-2 border-[var(--app-panel-border)] bg-[var(--app-panel-bg)]"
                     />
                     <div>
-                        <p class="font-semibold text-gray-900">{{ $application->applicantUser->nickname }}</p>
-                        <p class="text-sm text-gray-500 mt-0.5">{{ $application->applicantUser->email }}</p>
+                        <p class="theme-text-strong font-semibold">{{ $application->applicantUser->nickname }}</p>
+                        <p class="theme-text-muted mt-0.5 text-sm">{{ $application->applicantUser->email }}</p>
                     </div>
                 </div>
             </div>
 
             {{-- Cover message --}}
             <div>
-                <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Cover Message</h3>
-                <div class="text-gray-700 bg-gray-50 p-4 rounded-xl border border-gray-200 text-sm leading-relaxed">
+                <h3 class="theme-text-muted mb-3 text-sm font-semibold uppercase tracking-wider">Cover Message</h3>
+                <div class="theme-panel-subtle theme-text-muted rounded-xl border p-4 text-sm leading-relaxed">
                     @if($application->message)
                         {!! nl2br(e($application->message)) !!}
                     @else
-                        <span class="text-gray-400">No message provided.</span>
+                        <span class="opacity-80">No message provided.</span>
                     @endif
                 </div>
             </div>
@@ -141,8 +141,8 @@ new class extends Component
             {{-- Company decision message --}}
             @if($application->decision_message)
                 <div>
-                    <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Company Message</h3>
-                    <div class="text-gray-700 bg-indigo-50 p-4 rounded-xl border border-indigo-100 text-sm leading-relaxed">
+                    <h3 class="theme-text-muted mb-3 text-sm font-semibold uppercase tracking-wider">Company Message</h3>
+                    <div class="theme-alert-info rounded-xl border p-4 text-sm leading-relaxed">
                         {!! nl2br(e($application->decision_message)) !!}
                     </div>
                 </div>
@@ -150,19 +150,19 @@ new class extends Component
 
             {{-- CV --}}
             <div>
-                <h3 class="text-sm font-semibold uppercase tracking-wider text-gray-500 mb-3">Resume / CV</h3>
+                <h3 class="theme-text-muted mb-3 text-sm font-semibold uppercase tracking-wider">Resume / CV</h3>
                 @if($application->cv_original_name)
-                    <div class="flex items-center justify-between bg-gray-50 p-4 rounded-xl border border-gray-200">
+                    <div class="theme-panel-subtle flex items-center justify-between rounded-xl border p-4">
                         <div class="flex items-center gap-3">
-                            <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-white border border-gray-200 shrink-0">
-                                <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <div class="theme-panel flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border">
+                                <svg class="theme-text-muted h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                                 </svg>
                             </div>
                             <div>
-                                <p class="text-sm font-medium text-gray-900">{{ $application->cv_original_name }}</p>
+                                <p class="theme-text-strong text-sm font-medium">{{ $application->cv_original_name }}</p>
                                 @if($application->cv_size_bytes)
-                                    <p class="text-xs text-gray-500 mt-0.5">{{ number_format($application->cv_size_bytes / 1024, 2) }} KB</p>
+                                    <p class="theme-text-muted mt-0.5 text-xs">{{ number_format($application->cv_size_bytes / 1024, 2) }} KB</p>
                                 @endif
                             </div>
                         </div>
@@ -171,7 +171,7 @@ new class extends Component
                         </x-ui.button>
                     </div>
                 @else
-                    <div class="p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-400">No CV attached.</div>
+                    <div class="theme-panel-subtle theme-text-muted rounded-xl border p-4 text-sm">No CV attached.</div>
                 @endif
             </div>
         </div>
