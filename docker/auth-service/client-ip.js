@@ -75,14 +75,14 @@ const createClientIpResolver = ({ trustedProxyIps = [] } = {}) => {
             return peerIp;
         }
 
-        const forwardedFor = firstForwardedIp(request?.headers?.["x-forwarded-for"]);
-        if (forwardedFor !== "") {
-            return forwardedFor;
-        }
-
         const realIp = normalizeIp(request?.headers?.["x-real-ip"]);
         if (realIp !== "" && net.isIP(realIp) !== 0) {
             return realIp;
+        }
+
+        const forwardedFor = firstForwardedIp(request?.headers?.["x-forwarded-for"]);
+        if (forwardedFor !== "") {
+            return forwardedFor;
         }
 
         return peerIp;
