@@ -53,7 +53,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Admin gate - check if user has admin role
         Gate::define('admin.access', function ($user) {
-            return $user->hasRole('admin');
+            return $user->isAdmin();
         });
 
         RateLimiter::for('file-upload', function (Request $request) {

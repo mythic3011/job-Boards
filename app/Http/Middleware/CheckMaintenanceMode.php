@@ -45,7 +45,7 @@ class CheckMaintenanceMode
             return response()->view('errors.maintenance', [], 503);
         }
 
-        if (auth()->user()->hasRole('admin')) {
+        if (auth()->user()->isAdmin()) {
             // Log once per session to avoid flooding audit logs on every request
             if (! session()->has('maintenance_bypass_logged')) {
                 $this->auditLogger->logSecurityEvent(
@@ -99,6 +99,6 @@ class CheckMaintenanceMode
         $model = app(StatefulGuard::class)->getProvider()->getModel();
         $pendingUser = $model::find($loginId);
 
-        return $pendingUser !== null && $pendingUser->hasRole('admin');
+        return $pendingUser !== null && $pendingUser->isAdmin();
     }
 }

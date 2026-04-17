@@ -22,7 +22,7 @@ class AuthenticatedSessionController extends FortifyAuthenticatedSessionControll
         // Check if maintenance mode is enabled and user is now authenticated
         if (auth()->check() && Setting::getBool('maintenance_mode', false)) {
             // If authenticated user is NOT an admin, show maintenance page and logout
-            if (!auth()->user()->hasRole('admin')) {
+            if (!auth()->user()->isAdmin()) {
                 auth()->logout();
                 $request->session()->invalidate();
                 $request->session()->regenerateToken();

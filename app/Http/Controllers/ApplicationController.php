@@ -127,7 +127,7 @@ class ApplicationController extends Controller
     private function logDownload(Application $application, $user): void
     {
         // Log download (audit log for admin downloads)
-        if ($user->hasRole('admin')) {
+        if ($user->isAdmin()) {
             $this->auditLogger->logBusinessEvent(
                 eventType: 'cv_download',
                 request: request(),

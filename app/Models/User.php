@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\Traits\HasRoles;
@@ -166,7 +168,28 @@ class User extends Authenticatable
      */
     public function isAdmin(): bool
     {
-        return $this->user_type === 'admin' || $this->hasRole('admin');
+        if ($this->user_type === 'admin') {
+            return true;
+        }
+
+        if (! $this->canResolveAdminRole()) {
+            return false;
+        }
+
+        try {
+            return $this->hasRole('admin');
+        } catch (QueryException) {
+            return false;
+        }
+    }
+
+    private function canResolveAdminRole(): bool
+    {
+        $permissionTables = config('permission.table_names', []);
+        $rolesTable = $permissionTables['roles'] ?? 'roles';
+        $modelHasRolesTable = $permissionTables['model_has_roles'] ?? 'model_has_roles';
+
+        return Schema::hasTable($rolesTable) && Schema::hasTable($modelHasRolesTable);
     }
 
     /**
