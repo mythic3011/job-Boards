@@ -251,6 +251,19 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('sslmode: $GRAFANA_POSTGRES_SSLMODE', $contents);
     }
 
+    public function test_obs_grafana_datasource_provisioning_prunes_stale_persisted_datasource_rows(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/grafana/provisioning/datasources/datasources.yaml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('prune: true', $contents);
+        $this->assertStringContainsString('deleteDatasources:', $contents);
+        $this->assertMatchesRegularExpression(
+            "/deleteDatasources:\\n(?:  - name: Prometheus\\n    orgId: 1\\n)(?:  - name: Loki\\n    orgId: 1\\n)(?:  - name: Postgres\\n    orgId: 1\\n)(?:  - name: JobsBoards-Postgres\\n    orgId: 1\\n)/",
+            $contents,
+        );
+    }
+
     public function test_common_bt_compose_exports_obs_generated_env_before_running_docker_compose(): void
     {
         $tempRoot = $this->makeTempDir();
