@@ -93,8 +93,9 @@ ops/smoke/run-all.sh
 - an operational clean-room run may use per-run TOFU SSH trust
 - a proof-grade clean-room run must use pinned SSH host identity
 - the guest SSH user must satisfy `sudo -n true` and `sudo -n docker info` before split-plane proof execution can proceed
-- the guest proof flow prepares the current SSH user for least-privilege smoke execution through the `docker` group, but retains sudo-backed Docker fallback when non-root access is unavailable
+- the guest proof flow prepares the current SSH user for least-privilege smoke execution through the `docker` group and falls back to `sg docker` when the refreshed group membership is not yet active in the current shell
 - smoke execution must run from the extracted repo root with explicit `RUNNER`, `APP_COMPOSE_FILE`, and `OBS_COMPOSE_FILE`
+- smoke scripts that invoke `setup-blue-team-vm.sh` must forward the matching `BT_COMPOSE_*` variable so nested verify/apply calls stay bound to the extracted split-plane compose files
 - compose `ps` evidence must be captured through `ops/lib/common.sh` / `bt_compose` so obs runtime interpolation matches the split-plane contract
 - the host orchestrator owns the final clean-room `result.json`
 - guest proof scripts may emit logs and fragments, but they do not own final overall proof authority
