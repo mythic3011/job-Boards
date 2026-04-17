@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.4.0",
   "source_of_truth": "canonical-audit-contract",
   "field_semantics": {
     "event_type": "canonical semantic event name",
@@ -110,6 +110,10 @@
     "audit.admin.permission.denied": {
       "admissible": true,
       "outcome": "denied"
+    },
+    "setup.completed": {
+      "admissible": true,
+      "outcome": "success"
     },
     "audit.auth.check.success": {
       "admissible": false,

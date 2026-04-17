@@ -5,9 +5,12 @@ namespace Tests\Feature;
 use App\Models\AuditLog;
 use App\Services\AntiBot\ChallengeVerifier;
 use App\Services\AntiBot\ChallengeVerificationResult;
+use App\Services\AuditLogger;
 use App\Services\InstallService;
 use Illuminate\Http\Request;
+use Livewire\Livewire;
 use Mockery;
+use PragmaRX\Google2FA\Google2FA;
 use Tests\Concerns\InteractsWithBrowserRequests;
 use Tests\Concerns\UsesInMemorySqlite;
 use Tests\TestCase;
@@ -75,6 +78,75 @@ class InstallSecurityTest extends TestCase
             'two_factor_secret' => 'JBSWY3DPEHPK3PXP',
         ])->assertStatus(422)
             ->assertJsonValidationErrors(['otp_code']);
+    }
+
+    public function test_install_controller_completion_produces_single_setup_completed_audit_row(): void
+    {
+        config(['app.install_token' => 'bootstrap-secret']);
+        $this->createUsersTable();
+
+        $secret = 'JBSWY3DPEHPK3PXP';
+        $installService = Mockery::mock(InstallService::class);
+        $installService->shouldReceive('completeInstallation')
+            ->once()
+            ->with(Mockery::type('array'))
+            ->andReturnUsing(function (): void {
+                app(AuditLogger::class)->logBusinessEvent(
+                    eventType: 'setup.completed',
+                    request: request(),
+                    targetType: 'system',
+                    targetIdcode: 'setup',
+                    meta: ['reason' => 'installation_complete'],
+                );
+            });
+        $this->app->instance(InstallService::class, $installService);
+
+        $this->withBrowser()->postJson('/install/complete?token=bootstrap-secret', [
+            'admin_name' => 'Admin User',
+            'admin_email' => 'admin@example.com',
+            'admin_password' => 'StrongPass123!',
+            'two_factor_secret' => $secret,
+            'otp_code' => app(Google2FA::class)->getCurrentOtp($secret),
+        ])->assertOk()
+            ->assertJson(['success' => true]);
+
+        $this->assertSame(1, AuditLog::query()->where('event_type', 'setup.completed')->count());
+    }
+
+    public function test_livewire_install_completion_produces_single_setup_completed_audit_row(): void
+    {
+        $installService = Mockery::mock(InstallService::class);
+        $installService->shouldReceive('completeInstallation')
+            ->once()
+            ->with(Mockery::type('array'))
+            ->andReturnUsing(function (): void {
+                app(AuditLogger::class)->logBusinessEvent(
+                    eventType: 'setup.completed',
+                    request: request(),
+                    targetType: 'system',
+                    targetIdcode: 'setup',
+                    meta: ['reason' => 'installation_complete'],
+                );
+            });
+        $this->app->instance(InstallService::class, $installService);
+
+        Livewire::test(\App\Livewire\Install\Wizard::class)
+            ->set('username', 'adminuser')
+            ->set('name', 'Admin User')
+            ->set('email', 'admin@gmail.com')
+            ->set('password', 'StrongPass123!')
+            ->set('password_confirmation', 'StrongPass123!')
+            ->set('app_name', 'Jobs Board')
+            ->set('app_url', 'https://jobboard.example.com')
+            ->set('timezone', 'Asia/Hong_Kong')
+            ->set('twoFactorSecret', 'JBSWY3DPEHPK3PXP')
+            ->set('recoveryCodes', ['RCODE-1', 'RCODE-2'])
+            ->set('testSuccess', true)
+            ->set('installDemo', false)
+            ->call('complete')
+            ->assertSet('error', '');
+
+        $this->assertSame(1, AuditLog::query()->where('event_type', 'setup.completed')->count());
     }
 
     public function test_install_enforcement_returns_challenge_required_when_step_up_is_triggered_without_token(): void

@@ -12,7 +12,7 @@ class CanonicalAuditContractTest extends TestCase
         $contract = app(CanonicalAuditContract::class);
 
         $this->assertFileExists(base_path('config/contracts/canonical-audit.v1.json'));
-        $this->assertSame('1.3.0', $contract->version());
+        $this->assertSame('1.4.0', $contract->version());
         $this->assertSame(
             ['source', 'request_id', 'event_type', 'outcome', 'target_identifier'],
             $contract->dedupeIdentityFields(),
@@ -24,6 +24,7 @@ class CanonicalAuditContractTest extends TestCase
         $this->assertTrue($contract->isAdmissibleEvent('audit.application.approve.denied'));
         $this->assertTrue($contract->isAdmissibleEvent('audit.application.reject.denied'));
         $this->assertTrue($contract->isAdmissibleEvent('audit.admin.permission.denied'));
+        $this->assertTrue($contract->isAdmissibleEvent('setup.completed'));
         $this->assertFalse($contract->isAdmissibleEvent('audit.auth.check.success'));
         $this->assertSame(8, $contract->metadataKeyLimit());
         $this->assertSame(255, $contract->metadataValueLengthLimit());
@@ -62,5 +63,6 @@ class CanonicalAuditContractTest extends TestCase
         $this->assertSame('denied', $contract->eventOutcome('audit.auth.locked'));
         $this->assertSame('denied', $contract->eventOutcome('audit.application.download_cv.denied'));
         $this->assertSame('denied', $contract->eventOutcome('audit.admin.permission.denied'));
+        $this->assertSame('success', $contract->eventOutcome('setup.completed'));
     }
 }

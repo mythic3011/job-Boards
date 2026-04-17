@@ -170,12 +170,7 @@ class InstallService
                 eventType: 'setup.completed',
                 request: request(),
                 targetType: 'system',
-                meta: [
-                    'admin_email' => $data['admin_email'],
-                    'app_name' => $data['app_name'] ?? null,
-                    'demo_data_installed' => $data['install_demo_data'] ?? false,
-                    'completed_at' => now()->toDateTimeString(),
-                ]
+                targetIdcode: 'setup',
             );
 
             DB::commit();

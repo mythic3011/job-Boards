@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Install;
 
-use App\Services\AuditLogger;
 use App\Services\InstallService;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Fortify\RecoveryCode;
@@ -214,18 +213,6 @@ class Wizard extends Component
                 'timezone'           => $this->timezone,
                 'install_demo_data'  => $this->installDemo,
             ]);
-
-            app(AuditLogger::class)->logBusinessEvent(
-                eventType: 'setup.completed',
-                request: request(),
-                targetType: 'system',
-                meta: [
-                    'admin_email'        => $this->email,
-                    'demo_data_installed' => $this->installDemo,
-                    'installer_type'     => 'livewire',
-                    'completed_at'       => now()->toDateTimeString(),
-                ]
-            );
 
             session()->flash('success', 'Installation completed successfully!');
             $this->redirect('/login', navigate: true);

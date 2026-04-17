@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Services\AuditLogger;
 use App\Services\DashboardService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Tests\Concerns\UsesInMemorySqlite;
 use Tests\TestCase;
 
@@ -92,5 +95,36 @@ class DashboardServiceVisibilityTest extends TestCase
         $this->assertTrue($activity->pluck('event_type')->contains('bot_fingerprint_probe'));
         $this->assertTrue($activity->pluck('event_type')->contains('honeypot.triggered'));
         $this->assertFalse($activity->pluck('event_type')->contains('application.approved'));
+    }
+
+    public function test_dashboard_service_shows_setup_completed_once_for_duplicate_canonical_install_events(): void
+    {
+        $request = Request::create('/install/complete', 'POST', [], [], [], [
+            'REMOTE_ADDR' => '127.0.0.1',
+            'HTTP_USER_AGENT' => 'PHPUnit',
+        ]);
+        $request->attributes->set('request_id', (string) Str::uuid());
+
+        $auditLogger = app(AuditLogger::class);
+
+        $auditLogger->logBusinessEvent(
+            eventType: 'setup.completed',
+            request: $request,
+            targetType: 'system',
+            targetIdcode: 'setup',
+            meta: ['reason' => 'installation_complete'],
+        );
+        $auditLogger->logBusinessEvent(
+            eventType: 'setup.completed',
+            request: $request,
+            targetType: 'system',
+            targetIdcode: 'setup',
+            meta: ['reason' => 'installation_complete'],
+        );
+
+        $activity = $this->dashboardService->getRecentActivity();
+
+        $this->assertSame(1, AuditLog::query()->where('event_type', 'setup.completed')->count());
+        $this->assertCount(1, $activity->where('event_type', 'setup.completed'));
     }
 }
