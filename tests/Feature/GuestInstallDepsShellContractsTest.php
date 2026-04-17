@@ -205,7 +205,7 @@ BASH;
         $this->writeExecutable($fakeBin.'/sudo', str_replace('__SUDO_LOG__', $sudoLog, $sudoStub));
 
         $process = new Process(
-            ['bash', '-lc', 'source "$0"; if run_privileged false; then exit 0; else status=$?; exit "$status"; fi;', $scriptPath],
+            ['bash', '-c', 'source "$0"; if run_privileged false; then exit 0; else status=$?; exit "$status"; fi;', $scriptPath],
             $tempRoot,
             [
                 'PATH' => $fakeBin.':'.getenv('PATH'),
