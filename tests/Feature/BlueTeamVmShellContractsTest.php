@@ -1119,6 +1119,14 @@ BASH);
         $this->assertStringNotContainsString("GRAFANA_ADMIN_SECRET_FILE={$repoEnvGrafanaPath}", $dockerEnvOutput);
     }
 
+    public function test_crowdsec_degraded_smoke_forwards_app_compose_to_nested_runner_verify(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/smoke/crowdsec-degraded.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('BT_COMPOSE_APP_FILE="${APP_COMPOSE_FILE}" "${RUNNER}" verify > "${tmp_output}" || true', $contents);
+    }
+
     public function test_app_verify_extracts_crowdsec_mode_without_gnu_awk_case_insensitive_extensions(): void
     {
         $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-app.sh');
