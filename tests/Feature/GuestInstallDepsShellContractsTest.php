@@ -41,8 +41,8 @@ class GuestInstallDepsShellContractsTest extends TestCase
         $this->assertStringContainsString('Guest dependency toolchain already present.', $process->getOutput().$process->getErrorOutput());
         $this->assertFileExists($logFile);
         $this->assertSame('0644', substr(sprintf('%o', fileperms($logFile)), -4));
-        $this->assertSame('', @file_get_contents($sudoLog) ?: '');
-        $this->assertSame('', @file_get_contents($aptLog) ?: '');
+        $this->assertSame('', file_exists($sudoLog) ? (string) file_get_contents($sudoLog) : '');
+        $this->assertSame('', file_exists($aptLog) ? (string) file_get_contents($aptLog) : '');
     }
 
     public function test_guest_install_uses_noninteractive_sudo_apt_chain_and_verifies_sha256sum(): void
@@ -185,6 +185,44 @@ BASH);
         $this->assertFileExists($logFile);
     }
 
+    public function test_run_privileged_propagates_noninteractive_sudo_failures_in_shell_contracts(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $fakeBin = $tempRoot.'/fake-bin';
+        $sudoLog = $tempRoot.'/sudo.log';
+
+        mkdir($fakeBin, 0777, true);
+        $scriptPath = $this->installGuestScriptForSourceContract($tempRoot);
+        $sudoStub = <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "__SUDO_LOG__"
+if [[ "${1:-}" != "-n" ]]; then
+  exit 91
+fi
+exit 42
+BASH;
+        $this->writeExecutable($fakeBin.'/sudo', str_replace('__SUDO_LOG__', $sudoLog, $sudoStub));
+
+        $process = new Process(
+            ['bash', '-lc', 'source "$0"; if run_privileged false; then exit 0; else status=$?; exit "$status"; fi;', $scriptPath],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_TEST_SKIP_MAIN' => '1',
+                'HOME' => $tempRoot,
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $runningAsRoot = function_exists('posix_geteuid') && posix_geteuid() === 0;
+
+        $this->assertSame($runningAsRoot ? 1 : 42, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $this->assertSame($runningAsRoot ? '' : "-n false\n", file_exists($sudoLog) ? (string) file_get_contents($sudoLog) : '');
+    }
+
     private function makeTempDir(): string
     {
         $dir = sys_get_temp_dir().'/jobs-boards-guest-install-'.bin2hex(random_bytes(8));
@@ -201,6 +239,24 @@ BASH);
             $tempRoot.'/ops/proof/guest-install-deps.sh',
             (string) file_get_contents($scriptPath),
         );
+    }
+
+    private function installGuestScriptForSourceContract(string $tempRoot): string
+    {
+        $scriptPath = $this->repoRoot.'/ops/proof/guest-install-deps.sh';
+        $this->assertFileExists($scriptPath, 'Expected guest dependency installer script to exist.');
+
+        $contents = (string) file_get_contents($scriptPath);
+        $contents = str_replace(
+            "main \"\$@\"\n",
+            "if [[ \"\${BT_TEST_SKIP_MAIN:-0}\" != \"1\" ]]; then\n    main \"\$@\"\nfi\n",
+            $contents,
+        );
+
+        $targetPath = $tempRoot.'/ops/proof/guest-install-deps.sh';
+        $this->writeExecutable($targetPath, $contents);
+
+        return $targetPath;
     }
 
     private function writeStubToolchain(string $binDir): void

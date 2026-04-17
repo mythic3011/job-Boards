@@ -18,14 +18,14 @@ prefer_non_interactive_sudo() {
 }
 
 run_privileged() {
-    if prefer_non_interactive_sudo; then
-        sudo -n "$@"
-        return 0
-    fi
-
     if [[ "${EUID}" -eq 0 ]]; then
         "$@"
-        return 0
+        return $?
+    fi
+
+    if prefer_non_interactive_sudo; then
+        sudo -n "$@"
+        return $?
     fi
 
     return 127
