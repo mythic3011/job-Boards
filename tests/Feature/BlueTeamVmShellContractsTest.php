@@ -515,6 +515,63 @@ BASH);
         $this->assertStringContainsString('uid: P8E949C5F1FC6F134', $renderedGrafanaDatasources);
     }
 
+    public function test_obs_prepare_soft_fails_grafana_alias_detection_when_helper_container_cannot_inspect_volume(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $fakeBin = $tempDir.'/fake-bin';
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "-f" && "\${4:-}" == "config" ]]; then
+  cat <<'JSON'
+{"name":"jobs-borads","services":{"grafana":{"volumes":[{"type":"volume","source":"grafana-data","target":"/var/lib/grafana"}]}},"volumes":{"grafana-data":{"name":"jobs-borads_grafana-data"}}}
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "volume" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_grafana-data" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "run" ]]; then
+  exit 42
+fi
+exit 0
+BASH);
+
+        $process = $this->runScript(
+            [$this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', 'prepare'],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
+        );
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $renderedGrafanaDatasources = @file_get_contents($tempDir.'/state/rendered/grafana.datasources.yml') ?: '';
+
+        $this->assertSame(0, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('Unable to inspect existing Grafana datasource aliases from Docker volume jobs-borads_grafana-data.', $combinedOutput);
+        $this->assertStringContainsString('deleteDatasources:', $renderedGrafanaDatasources);
+        $this->assertStringNotContainsString('JobsBoards-Postgres', $renderedGrafanaDatasources);
+    }
+
     public function test_obs_prepare_uses_a_host_accessible_grafana_volume_mountpoint_before_falling_back_to_a_helper_container(): void
     {
         $tempDir = $this->makeTempDir();
@@ -1329,18 +1386,19 @@ BASH;
             mkdir($dir, 0777, true);
         }
 
-        $db = new \SQLite3($path);
+        $db = new \PDO('sqlite:'.$path);
+        $db->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
         $db->exec('CREATE TABLE data_source (id INTEGER PRIMARY KEY AUTOINCREMENT, org_id INTEGER NOT NULL, name TEXT NOT NULL, uid TEXT NOT NULL)');
 
         foreach ($rows as $row) {
             $statement = $db->prepare('INSERT INTO data_source (org_id, name, uid) VALUES (:org_id, :name, :uid)');
-            $statement->bindValue(':org_id', $row['org_id'], SQLITE3_INTEGER);
-            $statement->bindValue(':name', $row['name'], SQLITE3_TEXT);
-            $statement->bindValue(':uid', $row['uid'], SQLITE3_TEXT);
+            $statement->bindValue(':org_id', $row['org_id'], \PDO::PARAM_INT);
+            $statement->bindValue(':name', $row['name'], \PDO::PARAM_STR);
+            $statement->bindValue(':uid', $row['uid'], \PDO::PARAM_STR);
             $statement->execute();
         }
 
-        $db->close();
+        $db = null;
     }
 
     /**

@@ -430,7 +430,7 @@ obs_render_grafana_datasources_config() {
     local current_path=""
 
     managed_json="$(obs_grafana_managed_datasources_json)" || return 1
-    detected_aliases_json="$(obs_detect_grafana_datasource_aliases "${managed_json}")"
+    detected_aliases_json="$(obs_detect_grafana_datasource_aliases "${managed_json}")" || detected_aliases_json='[]'
 
     python3 - "${OBS_GRAFANA_DATASOURCE_TEMPLATE_FILE}" "${OBS_GRAFANA_DATASOURCES_FILE}" "${managed_json}" "${detected_aliases_json}" <<'PY'
 import json
