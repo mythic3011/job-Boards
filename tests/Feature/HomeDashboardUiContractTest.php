@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Spatie\Permission\Models\Role;
 use Tests\Concerns\InteractsWithBrowserRequests;
 use Tests\Concerns\UsesInMemorySqlite;
 use Tests\TestCase;
@@ -115,10 +116,7 @@ class HomeDashboardUiContractTest extends TestCase
 
     public function test_admin_home_surfaces_a_control_room_entrypoint(): void
     {
-        $admin = User::factory()->create([
-            'nickname' => 'Ops Admin',
-            'user_type' => 'admin',
-        ]);
+        $admin = $this->createAdminUser('Ops Admin');
         $this->grantPermission($admin, 'admin.system.view');
 
         $response = $this->actingAs($admin)->withBrowser()->get(route('home'));
@@ -132,10 +130,7 @@ class HomeDashboardUiContractTest extends TestCase
 
     public function test_admin_home_filters_links_to_the_user_permitted_admin_surfaces(): void
     {
-        $admin = User::factory()->create([
-            'nickname' => 'Scoped Admin',
-            'user_type' => 'admin',
-        ]);
+        $admin = $this->createAdminUser('Scoped Admin');
         $this->grantPermission($admin, 'admin.users.view');
 
         $response = $this->actingAs($admin)->withBrowser()->get(route('home'));
@@ -154,10 +149,7 @@ class HomeDashboardUiContractTest extends TestCase
 
     public function test_admin_home_keeps_dashboard_entrypoint_for_system_scope_even_without_user_scope(): void
     {
-        $admin = User::factory()->create([
-            'nickname' => 'Systems Admin',
-            'user_type' => 'admin',
-        ]);
+        $admin = $this->createAdminUser('Systems Admin');
         $this->grantPermission($admin, 'admin.system.view');
 
         $response = $this->actingAs($admin)->withBrowser()->get(route('home'));
@@ -171,10 +163,7 @@ class HomeDashboardUiContractTest extends TestCase
 
     public function test_admin_home_without_admin_permissions_hides_protected_admin_links(): void
     {
-        $admin = User::factory()->create([
-            'nickname' => 'Unscoped Admin',
-            'user_type' => 'admin',
-        ]);
+        $admin = $this->createAdminUser('Unscoped Admin');
 
         $response = $this->actingAs($admin)->withBrowser()->get(route('home'));
 
@@ -209,6 +198,21 @@ class HomeDashboardUiContractTest extends TestCase
         ]);
 
         app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+    }
+
+    private function createAdminUser(string $nickname): User
+    {
+        $admin = User::factory()->create([
+            'nickname' => $nickname,
+            'user_type' => 'company',
+        ]);
+
+        $role = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $admin->assignRole($role);
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        return $admin;
     }
 
     protected function createJobPostingsTable(): void

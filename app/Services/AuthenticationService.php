@@ -311,6 +311,8 @@ class AuthenticationService
             if ($primaryAdminDestination !== null) {
                 return $primaryAdminDestination['href'];
             }
+
+            return route('home');
         }
 
         // Company users go to jobs management
