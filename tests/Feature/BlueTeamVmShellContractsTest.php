@@ -414,6 +414,10 @@ BASH);
                 'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
                 'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
                 'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
                 'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
                 'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
@@ -491,6 +495,10 @@ BASH);
                 'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
                 'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
                 'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
                 'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
                 'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
@@ -571,6 +579,10 @@ BASH);
                 'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
                 'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
                 'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
                 'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
                 'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
@@ -641,6 +653,10 @@ BASH);
                 'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
                 'BT_APP_PLANE_NETWORK_NAME' => 'custom-app-plane',
                 'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
                 'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
                 'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
                 'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
@@ -941,6 +957,17 @@ BASH);
         $this->assertIsString($contents);
         $this->assertStringContainsString('python3 -c "${helper_script}"', $contents);
         $this->assertStringNotContainsString('python -c "${helper_script}"', $contents);
+    }
+
+    public function test_obs_required_env_preflight_covers_compose_interpolation_contract_inputs(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh');
+
+        $this->assertIsString($contents);
+        $this->assertMatchesRegularExpression('/local required=\\((?:(?!\\)\\n).)*"DB_DATABASE"/s', $contents);
+        $this->assertMatchesRegularExpression('/local required=\\((?:(?!\\)\\n).)*"DB_USERNAME"/s', $contents);
+        $this->assertMatchesRegularExpression('/local required=\\((?:(?!\\)\\n).)*"CANONICAL_AUDIT_AUTH_SERVICE_SECRET"/s', $contents);
+        $this->assertMatchesRegularExpression('/local required=\\((?:(?!\\)\\n).)*"GRAFANA_POSTGRES_SECRET"/s', $contents);
     }
 
     public function test_app_bootstrap_avoids_bash4_mapfile_in_local_exposure_verifier(): void
