@@ -52,7 +52,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertNotSame(0, $process->getExitCode());
         $this->assertStringContainsString('"check_id":"obs.bootstrap.required_env"', $combinedOutput);
         $this->assertStringContainsString('"status":"FAIL"', $combinedOutput);
-        $this->assertStringNotContainsString('compose -f', @file_get_contents($dockerLog) ?: '');
+        $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
     }
 
     public function test_obs_prepare_materializes_runtime_artifacts_without_running_compose(): void
@@ -82,16 +82,19 @@ class BlueTeamVmShellContractsTest extends TestCase
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
         $generatedEnv = @file_get_contents($tempDir.'/state/runtime/obs.generated.env') ?: '';
         $renderedConfig = $tempDir.'/state/rendered/prometheus.web-config.yml';
+        $renderedGrafanaDatasources = $tempDir.'/state/rendered/grafana.datasources.yml';
         $grafanaPasswordFile = $tempDir.'/state/runtime/grafana-admin-secret';
 
         $this->assertSame(0, $process->getExitCode());
         $this->assertStringContainsString('"check_id":"obs.bootstrap.required_env"', $combinedOutput);
         $this->assertStringContainsString('"status":"PASS"', $combinedOutput);
         $this->assertStringContainsString('PROMETHEUS_WEB_CONFIG_FILE='.$renderedConfig, $generatedEnv);
+        $this->assertStringContainsString('GRAFANA_DATASOURCES_FILE='.$renderedGrafanaDatasources, $generatedEnv);
         $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.$grafanaPasswordFile, $generatedEnv);
         $this->assertFileExists($renderedConfig);
+        $this->assertFileExists($renderedGrafanaDatasources);
         $this->assertFileExists($grafanaPasswordFile);
-        $this->assertStringNotContainsString('compose -f', @file_get_contents($dockerLog) ?: '');
+        $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
     }
 
     public function test_obs_apply_fails_before_compose_when_prometheus_runtime_config_cannot_be_rendered(): void
@@ -128,7 +131,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertNotSame(0, $process->getExitCode());
         $this->assertStringContainsString('"check_id":"obs.bootstrap.required_env"', $combinedOutput);
         $this->assertStringContainsString('"status":"FAIL"', $combinedOutput);
-        $this->assertStringNotContainsString('compose -f', @file_get_contents($dockerLog) ?: '');
+        $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
     }
 
     public function test_obs_compose_requires_explicit_prometheus_runtime_web_config_path(): void
@@ -138,6 +141,15 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString('${PROMETHEUS_WEB_CONFIG_FILE:?Set PROMETHEUS_WEB_CONFIG_FILE before obs apply}', $contents);
         $this->assertStringNotContainsString('${PROMETHEUS_WEB_CONFIG_FILE:-./docker/prometheus/web-config.yml}', $contents);
+    }
+
+    public function test_obs_compose_requires_explicit_grafana_runtime_datasource_config_path(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.obs.yml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('${GRAFANA_DATASOURCES_FILE:?Set GRAFANA_DATASOURCES_FILE before obs apply}:/etc/grafana/provisioning/datasources/datasources.yaml:ro', $contents);
+        $this->assertStringNotContainsString('./docker/grafana/provisioning/datasources/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro', $contents);
     }
 
     public function test_obs_compose_grafana_joins_app_plane_with_explicit_postgres_datasource_env(): void
@@ -251,17 +263,71 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('sslmode: $GRAFANA_POSTGRES_SSLMODE', $contents);
     }
 
-    public function test_obs_grafana_datasource_provisioning_prunes_stale_persisted_datasource_rows(): void
+    public function test_obs_grafana_datasource_template_keeps_stable_uids_without_hardcoded_stale_alias_cleanup(): void
     {
         $contents = file_get_contents($this->repoRoot.'/docker/grafana/provisioning/datasources/datasources.yaml');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('prune: true', $contents);
-        $this->assertStringContainsString('deleteDatasources:', $contents);
-        $this->assertMatchesRegularExpression(
-            "/deleteDatasources:\\n(?:  - name: Prometheus\\n    orgId: 1\\n)(?:  - name: Loki\\n    orgId: 1\\n)(?:  - name: Postgres\\n    orgId: 1\\n)(?:  - name: JobsBoards-Postgres\\n    orgId: 1\\n)/",
-            $contents,
+        $this->assertStringNotContainsString('deleteDatasources:', $contents);
+        $this->assertStringNotContainsString('prune: true', $contents);
+        $this->assertStringNotContainsString('JobsBoards-Postgres', $contents);
+    }
+
+    public function test_obs_prepare_renders_grafana_runtime_datasource_config_with_detected_uid_aliases(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $fakeBin = $tempDir.'/fake-bin';
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "-f" && "\${4:-}" == "config" ]]; then
+  cat <<'JSON'
+{"name":"jobs-borads","services":{"grafana":{"volumes":[{"type":"volume","source":"grafana-data","target":"/var/lib/grafana"}]}},"volumes":{"grafana-data":{"name":"jobs-borads_grafana-data"}}}
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "volume" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_grafana-data" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "run" ]]; then
+  cat <<'JSON'
+[{"orgId":1,"name":"JobsBoards-Postgres","uid":"P8E949C5F1FC6F134"}]
+JSON
+  exit 0
+fi
+exit 0
+BASH);
+
+        $process = $this->runScript(
+            [$this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', 'prepare'],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
         );
+
+        $renderedGrafanaDatasources = @file_get_contents($tempDir.'/state/rendered/grafana.datasources.yml') ?: '';
+        $generatedEnv = @file_get_contents($tempDir.'/state/runtime/obs.generated.env') ?: '';
+
+        $this->assertSame(0, $process->getExitCode());
+        $this->assertStringContainsString('GRAFANA_DATASOURCES_FILE='.$tempDir.'/state/rendered/grafana.datasources.yml', $generatedEnv);
+        $this->assertStringContainsString('deleteDatasources:', $renderedGrafanaDatasources);
+        $this->assertStringContainsString('JobsBoards-Postgres', $renderedGrafanaDatasources);
+        $this->assertStringContainsString('uid: P8E949C5F1FC6F134', $renderedGrafanaDatasources);
     }
 
     public function test_common_bt_compose_exports_obs_generated_env_before_running_docker_compose(): void
@@ -282,6 +348,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml\n".
+            "GRAFANA_DATASOURCES_FILE={$tempRoot}/state/rendered/grafana.datasources.yml\n".
             "GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret\n"
         );
 
@@ -290,6 +357,7 @@ class BlueTeamVmShellContractsTest extends TestCase
 set -euo pipefail
 if [[ "\${1:-}" == "compose" ]]; then
   printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_DATASOURCES_FILE=%s\n' "\${GRAFANA_DATASOURCES_FILE:-}" >> "{$dockerEnvLog}"
   printf 'GRAFANA_ADMIN_SECRET_FILE=%s\n' "\${GRAFANA_ADMIN_SECRET_FILE:-}" >> "{$dockerEnvLog}"
   exit 7
 fi
@@ -313,6 +381,7 @@ BASH);
 
         $this->assertSame(7, $process->getExitCode());
         $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_DATASOURCES_FILE={$tempRoot}/state/rendered/grafana.datasources.yml", $dockerEnvOutput);
         $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret", $dockerEnvOutput);
     }
 
@@ -322,6 +391,7 @@ BASH);
         $dockerEnvLog = $tempRoot.'/docker-env.log';
         $fakeBin = $tempRoot.'/fake-bin';
         $explicitPrometheusPath = $tempRoot.'/explicit/prometheus.web-config.yml';
+        $explicitGrafanaDatasourcePath = $tempRoot.'/explicit/grafana.datasources.yml';
         $explicitGrafanaPath = $tempRoot.'/explicit/grafana-admin-secret';
 
         mkdir($fakeBin, 0777, true);
@@ -336,6 +406,7 @@ BASH);
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml\n".
+            "GRAFANA_DATASOURCES_FILE={$tempRoot}/state/rendered/grafana.datasources.yml\n".
             "GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret\n"
         );
 
@@ -344,6 +415,7 @@ BASH);
 set -euo pipefail
 if [[ "\${1:-}" == "compose" ]]; then
   printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_DATASOURCES_FILE=%s\n' "\${GRAFANA_DATASOURCES_FILE:-}" >> "{$dockerEnvLog}"
   printf 'GRAFANA_ADMIN_SECRET_FILE=%s\n' "\${GRAFANA_ADMIN_SECRET_FILE:-}" >> "{$dockerEnvLog}"
   exit 7
 fi
@@ -358,6 +430,7 @@ BASH);
                 'BT_STATE_DIR' => $tempRoot.'/state',
                 'BT_RUNTIME_DIR' => $tempRoot.'/state/runtime',
                 'PROMETHEUS_WEB_CONFIG_FILE' => $explicitPrometheusPath,
+                'GRAFANA_DATASOURCES_FILE' => $explicitGrafanaDatasourcePath,
                 'GRAFANA_ADMIN_SECRET_FILE' => $explicitGrafanaPath,
             ],
             null,
@@ -369,6 +442,7 @@ BASH);
 
         $this->assertSame(7, $process->getExitCode());
         $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$explicitPrometheusPath}", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_DATASOURCES_FILE={$explicitGrafanaDatasourcePath}", $dockerEnvOutput);
         $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$explicitGrafanaPath}", $dockerEnvOutput);
     }
 
@@ -378,8 +452,10 @@ BASH);
         $dockerEnvLog = $tempRoot.'/docker-env.log';
         $fakeBin = $tempRoot.'/fake-bin';
         $repoEnvPrometheusPath = $tempRoot.'/repo-env/prometheus.web-config.yml';
+        $repoEnvGrafanaDatasourcePath = $tempRoot.'/repo-env/grafana.datasources.yml';
         $repoEnvGrafanaPath = $tempRoot.'/repo-env/grafana-admin-secret';
         $generatedPrometheusPath = $tempRoot.'/state/rendered/prometheus.web-config.yml';
+        $generatedGrafanaDatasourcePath = $tempRoot.'/state/rendered/grafana.datasources.yml';
         $generatedGrafanaPath = $tempRoot.'/state/runtime/grafana-admin-secret';
 
         mkdir($fakeBin, 0777, true);
@@ -394,12 +470,14 @@ BASH);
         file_put_contents(
             $tempRoot.'/.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$repoEnvPrometheusPath}\n".
+            "GRAFANA_DATASOURCES_FILE={$repoEnvGrafanaDatasourcePath}\n".
             "GRAFANA_ADMIN_SECRET_FILE={$repoEnvGrafanaPath}\n"
         );
 
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
             "PROMETHEUS_WEB_CONFIG_FILE={$generatedPrometheusPath}\n".
+            "GRAFANA_DATASOURCES_FILE={$generatedGrafanaDatasourcePath}\n".
             "GRAFANA_ADMIN_SECRET_FILE={$generatedGrafanaPath}\n"
         );
 
@@ -408,6 +486,7 @@ BASH);
 set -euo pipefail
 if [[ "\${1:-}" == "compose" ]]; then
   printf 'PROMETHEUS_WEB_CONFIG_FILE=%s\n' "\${PROMETHEUS_WEB_CONFIG_FILE:-}" >> "{$dockerEnvLog}"
+  printf 'GRAFANA_DATASOURCES_FILE=%s\n' "\${GRAFANA_DATASOURCES_FILE:-}" >> "{$dockerEnvLog}"
   printf 'GRAFANA_ADMIN_SECRET_FILE=%s\n' "\${GRAFANA_ADMIN_SECRET_FILE:-}" >> "{$dockerEnvLog}"
   exit 7
 fi
@@ -431,8 +510,10 @@ BASH);
 
         $this->assertSame(7, $process->getExitCode());
         $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$generatedPrometheusPath}", $dockerEnvOutput);
+        $this->assertStringContainsString("GRAFANA_DATASOURCES_FILE={$generatedGrafanaDatasourcePath}", $dockerEnvOutput);
         $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$generatedGrafanaPath}", $dockerEnvOutput);
         $this->assertStringNotContainsString("PROMETHEUS_WEB_CONFIG_FILE={$repoEnvPrometheusPath}", $dockerEnvOutput);
+        $this->assertStringNotContainsString("GRAFANA_DATASOURCES_FILE={$repoEnvGrafanaDatasourcePath}", $dockerEnvOutput);
         $this->assertStringNotContainsString("GRAFANA_ADMIN_SECRET_FILE={$repoEnvGrafanaPath}", $dockerEnvOutput);
     }
 

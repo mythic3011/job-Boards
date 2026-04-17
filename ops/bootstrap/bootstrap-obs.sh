@@ -3,6 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # shellcheck source=../lib/common.sh
 source "${SCRIPT_DIR}/../lib/common.sh"
 
@@ -13,6 +14,9 @@ OBS_GENERATED_AUDIT_FILE="${BT_OBS_GENERATED_AUDIT_FILE:-${BT_RUNTIME_DIR}/obs.g
 OBS_RENDERED_DIR="${BT_OBS_RENDERED_DIR:-${BT_STATE_DIR}/rendered}"
 OBS_GRAFANA_ADMIN_SECRET_FILE="${BT_GRAFANA_ADMIN_SECRET_FILE:-${BT_RUNTIME_DIR}/grafana-admin-secret}"
 OBS_PROMETHEUS_WEB_CONFIG_FILE="${BT_PROMETHEUS_WEB_CONFIG_FILE:-${OBS_RENDERED_DIR}/prometheus.web-config.yml}"
+OBS_GRAFANA_DATASOURCE_TEMPLATE_FILE="${BT_OBS_GRAFANA_DATASOURCE_TEMPLATE_FILE:-${REPO_ROOT}/docker/grafana/provisioning/datasources/datasources.yaml}"
+OBS_GRAFANA_DATASOURCES_FILE="${BT_OBS_GRAFANA_DATASOURCES_FILE:-${OBS_RENDERED_DIR}/grafana.datasources.yml}"
+OBS_GRAFANA_SQLITE_HELPER_IMAGE="${BT_OBS_GRAFANA_SQLITE_HELPER_IMAGE:-python:3.12-alpine}"
 obs_statuses=()
 
 run_obs_check() {
@@ -81,6 +85,7 @@ verify_obs_required_env() {
         "GRAFANA_ADMIN_SECRET_FILE"
         "PROMETHEUS_PASSWORD_HASH"
         "PROMETHEUS_WEB_CONFIG_FILE"
+        "GRAFANA_DATASOURCES_FILE"
     )
     local var_name
     local missing=()
@@ -103,6 +108,11 @@ verify_obs_required_env() {
                 fi
                 ;;
             GRAFANA_ADMIN_SECRET_FILE|PROMETHEUS_WEB_CONFIG_FILE)
+                if [[ ! -r "${value}" ]]; then
+                    missing+=("${var_name}")
+                fi
+                ;;
+            GRAFANA_DATASOURCES_FILE)
                 if [[ ! -r "${value}" ]]; then
                     missing+=("${var_name}")
                 fi
@@ -154,6 +164,225 @@ EOF
     obs_set_generated_value "PROMETHEUS_WEB_CONFIG_FILE" "${OBS_PROMETHEUS_WEB_CONFIG_FILE}"
     if [[ "${current_path}" != "${OBS_PROMETHEUS_WEB_CONFIG_FILE}" ]]; then
         obs_emit_generated_audit "PROMETHEUS_WEB_CONFIG_FILE" "PROMETHEUS_PASSWORD_HASH" "rendered_runtime_config" "true" "false"
+    fi
+}
+
+obs_grafana_managed_datasources_json() {
+    python3 - "${OBS_GRAFANA_DATASOURCE_TEMPLATE_FILE}" <<'PY'
+import json
+import re
+import sys
+
+path = sys.argv[1]
+managed = []
+current = None
+in_datasources = False
+
+with open(path, encoding="utf-8") as handle:
+    for raw_line in handle:
+        line = raw_line.rstrip("\n")
+
+        if line == "datasources:":
+            in_datasources = True
+            continue
+
+        if not in_datasources:
+            continue
+
+        match = re.match(r"^  - name:\s*(.+?)\s*$", line)
+        if match:
+            if current is not None:
+                managed.append(current)
+            current = {"name": match.group(1), "orgId": 1, "uid": None}
+            continue
+
+        if current is None:
+            continue
+
+        match = re.match(r"^    orgId:\s*(\d+)\s*$", line)
+        if match:
+            current["orgId"] = int(match.group(1))
+            continue
+
+        match = re.match(r"^    uid:\s*(.+?)\s*$", line)
+        if match:
+            current["uid"] = match.group(1)
+
+if current is not None:
+    managed.append(current)
+
+if not managed or any(item.get("uid") in (None, "") for item in managed):
+    raise SystemExit("grafana datasource template must declare managed names and uids")
+
+print(json.dumps(managed, separators=(",", ":")))
+PY
+}
+
+obs_grafana_runtime_volume_name() {
+    local helper_script
+
+    helper_script="$(cat <<'PY'
+import json
+import sys
+
+config = json.load(sys.stdin)
+grafana_service = config.get("services", {}).get("grafana", {})
+grafana_volume_key = None
+
+for volume in grafana_service.get("volumes", []):
+    if volume.get("type") == "volume" and volume.get("target") == "/var/lib/grafana":
+        grafana_volume_key = volume.get("source")
+        break
+
+if not grafana_volume_key:
+    raise SystemExit(1)
+
+volume_config = config.get("volumes", {}).get(grafana_volume_key, {})
+print(volume_config.get("name") or grafana_volume_key, end="")
+PY
+)"
+
+    env "GRAFANA_DATASOURCES_FILE=${OBS_GRAFANA_DATASOURCES_FILE}" \
+        docker compose -f "${BT_COMPOSE_OBS_FILE}" config --format json | python3 -c "${helper_script}"
+}
+
+obs_detect_grafana_datasource_aliases() {
+    local managed_json="$1"
+    local volume_name
+    local detected_json
+    local helper_script
+
+    volume_name="$(obs_grafana_runtime_volume_name 2>/dev/null || true)"
+    if [[ -z "${volume_name}" ]]; then
+        printf '[]'
+        return 0
+    fi
+
+    if ! docker volume inspect "${volume_name}" >/dev/null 2>&1; then
+        printf '[]'
+        return 0
+    fi
+
+    helper_script="$(cat <<'PY'
+import json
+import os
+import sqlite3
+
+managed = json.loads(os.environ["MANAGED_DATASOURCES_JSON"])
+path = "/grafana/grafana.db"
+
+if not os.path.exists(path) or os.path.getsize(path) == 0:
+    print("[]")
+    raise SystemExit(0)
+
+connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
+connection.row_factory = sqlite3.Row
+tables = {
+    row["name"]
+    for row in connection.execute("select name from sqlite_master where type = ?", ("table",))
+}
+
+if "data_source" not in tables:
+    print("[]")
+    raise SystemExit(0)
+
+managed_by_uid = {item["uid"]: item for item in managed}
+query = "select org_id, name, uid from data_source where uid in ({})".format(
+    ",".join("?" for _ in managed_by_uid)
+)
+rows = connection.execute(query, tuple(managed_by_uid)).fetchall()
+
+aliases = []
+seen = set()
+
+for row in rows:
+    managed_item = managed_by_uid.get(row["uid"])
+    if managed_item is None:
+        continue
+
+    org_id = int(row["org_id"] or 1)
+    if org_id != int(managed_item.get("orgId", 1)):
+        continue
+
+    if row["name"] == managed_item["name"]:
+        continue
+
+    key = (org_id, row["name"])
+    if key in seen:
+        continue
+
+    seen.add(key)
+    aliases.append({"orgId": org_id, "name": row["name"], "uid": row["uid"]})
+
+aliases.sort(key=lambda item: (item["orgId"], item["name"]))
+print(json.dumps(aliases, separators=(",", ":")))
+PY
+)"
+
+    detected_json="$(
+        MANAGED_DATASOURCES_JSON="${managed_json}" docker run --rm \
+            -e MANAGED_DATASOURCES_JSON \
+            -v "${volume_name}:/grafana:ro" \
+            "${OBS_GRAFANA_SQLITE_HELPER_IMAGE}" \
+            python -c "${helper_script}"
+    )" || {
+        bt_warn "Unable to inspect existing Grafana datasource aliases; using managed datasource defaults."
+        printf '[]'
+        return 0
+    }
+
+    printf '%s' "${detected_json:-[]}"
+}
+
+obs_render_grafana_datasources_config() {
+    local managed_json
+    local detected_aliases_json
+    local current_path=""
+
+    managed_json="$(obs_grafana_managed_datasources_json)" || return 1
+    detected_aliases_json="$(obs_detect_grafana_datasource_aliases "${managed_json}")"
+
+    python3 - "${OBS_GRAFANA_DATASOURCE_TEMPLATE_FILE}" "${OBS_GRAFANA_DATASOURCES_FILE}" "${managed_json}" "${detected_aliases_json}" <<'PY'
+import json
+import pathlib
+import sys
+
+template_path = pathlib.Path(sys.argv[1])
+output_path = pathlib.Path(sys.argv[2])
+managed = json.loads(sys.argv[3])
+aliases = json.loads(sys.argv[4])
+template = template_path.read_text(encoding="utf-8")
+
+api_prefix = "apiVersion: 1\n\n"
+if not template.startswith(api_prefix):
+    raise SystemExit("grafana datasource template must start with 'apiVersion: 1'")
+
+delete_entries = []
+seen = set()
+for item in [*managed, *aliases]:
+    key = (int(item.get("orgId", 1)), item["name"])
+    if key in seen:
+        continue
+    seen.add(key)
+    delete_entries.append(key)
+
+lines = ["deleteDatasources:"]
+for org_id, name in delete_entries:
+    lines.append(f"  - name: {json.dumps(name)}")
+    lines.append(f"    orgId: {org_id}")
+lines.extend(["", "prune: true", ""])
+
+output_path.write_text(api_prefix + "\n".join(lines) + template[len(api_prefix):], encoding="utf-8")
+PY
+
+    if [[ "${BT_DRY_RUN}" != "1" ]]; then
+        chmod 0644 "${OBS_GRAFANA_DATASOURCES_FILE}"
+    fi
+
+    current_path="$(obs_effective_env_value "GRAFANA_DATASOURCES_FILE" || true)"
+    obs_set_generated_value "GRAFANA_DATASOURCES_FILE" "${OBS_GRAFANA_DATASOURCES_FILE}"
+    if [[ "${current_path}" != "${OBS_GRAFANA_DATASOURCES_FILE}" ]]; then
+        obs_emit_generated_audit "GRAFANA_DATASOURCES_FILE" "grafana_datasource_template" "rendered_runtime_config" "true" "false"
     fi
 }
 
@@ -291,6 +520,7 @@ ensure_obs_runtime_secrets() {
     obs_materialize_secret_file "GRAFANA_ADMIN_SECRET_FILE" "GRAFANA_PASSWORD" "${OBS_GRAFANA_ADMIN_SECRET_FILE}" || failed=1
     obs_load_generated_env
     obs_render_prometheus_web_config || failed=1
+    obs_render_grafana_datasources_config || failed=1
 
     return "${failed}"
 }
