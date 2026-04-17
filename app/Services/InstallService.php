@@ -171,6 +171,7 @@ class InstallService
                 request: request(),
                 targetType: 'system',
                 targetIdcode: 'setup',
+                meta: ['reason' => 'installation_complete'],
             );
 
             DB::commit();

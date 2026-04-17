@@ -100,7 +100,7 @@ trap cleanup EXIT
 status_code="$(curl -k -sS -o /dev/null -w '%{http_code}' "${FRONTDOOR_URL}" || true)"
 assert_eq "200" "${status_code}" "App front door must remain reachable when CrowdSec is down"
 
-"${RUNNER}" verify > "${tmp_output}" || true
+BT_COMPOSE_APP_FILE="${APP_COMPOSE_FILE}" "${RUNNER}" verify > "${tmp_output}" || true
 assert_jsonl_record_type "${tmp_output}" "app.crowdsec.health" "check"
 assert_jsonl_record_type "${tmp_output}" "app.crowdsec.bouncer_mode" "check"
 assert_jsonl_status "${tmp_output}" "app.crowdsec.health" "DEGRADED"
