@@ -80,7 +80,7 @@
                     <div class="space-y-1">
                         @foreach($adminDestinations as $destination)
                             @php($isSettingsLink = $destination['route_name'] === 'admin.settings.index')
-                            @if($isSettingsLink)
+                            @if($isSettingsLink && ! $loop->first)
                                 <div class="my-2 border-t" style="border-color: var(--app-panel-border);"></div>
                             @endif
                             <a href="{{ $destination['href'] }}" class="theme-text-strong flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)]" data-dropdown-item>

@@ -54,3 +54,18 @@ test("uses the same canonical IP for limiter keys and session binding", () => {
     assert.equal(resolveClientIp(request), "198.51.100.24");
     assert.equal(keyGenerator(request), "198.51.100.24");
 });
+
+test("falls back to request ip when the socket peer is unavailable", () => {
+    const resolveClientIp = createClientIpResolver({
+        trustedProxyIps: ["172.29.0.20"],
+    });
+
+    const request = {
+        ip: "203.0.113.77",
+        headers: {
+            "x-forwarded-for": "198.51.100.24, 172.29.0.20",
+        },
+    };
+
+    assert.equal(resolveClientIp(request), "203.0.113.77");
+});

@@ -24,6 +24,7 @@ class DropdownUiContractTest extends TestCase
         $this->assertStringContainsString('Workspace', $header);
         $this->assertStringContainsString('Security', $header);
         $this->assertStringContainsString('Session', $header);
+        $this->assertStringContainsString('! $loop->first', $navigation);
         $this->assertStringContainsString('max-h-[min(75vh,32rem)]', $header);
         $this->assertStringContainsString('overflow-y-auto', $header);
     }

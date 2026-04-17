@@ -52,13 +52,26 @@ const socketPeerIp = (request) =>
             "",
     );
 
+const requestIpFallback = (request) => {
+    const requestIp = normalizeIp(request?.ip);
+    if (requestIp !== "" && net.isIP(requestIp) !== 0) {
+        return requestIp;
+    }
+
+    return "unknown";
+};
+
 const createClientIpResolver = ({ trustedProxyIps = [] } = {}) => {
     const trustedPeers = new Set(trustedProxyIps.map((entry) => normalizeIp(entry)));
 
     return (request) => {
         const peerIp = socketPeerIp(request);
 
-        if (peerIp === "" || !trustedPeers.has(peerIp)) {
+        if (peerIp === "") {
+            return requestIpFallback(request);
+        }
+
+        if (!trustedPeers.has(peerIp)) {
             return peerIp;
         }
 
