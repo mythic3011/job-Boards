@@ -20,6 +20,15 @@ title('Admin - Settings');
 
 new class extends Component
 {
+    #[Validate('required|string|max:255')]
+    public string $app_name = 'Jobs Board';
+
+    #[Validate('nullable|url|max:255')]
+    public string $app_url = '';
+
+    #[Validate('required|timezone')]
+    public string $timezone = 'UTC';
+
     #[Validate('required|boolean')]
     public bool $demo_mode = false;
 
@@ -32,6 +41,9 @@ new class extends Component
     public bool $current_demo_mode = false;
     public bool $current_registrations_open = true;
     public bool $current_maintenance_mode = false;
+    public string $current_app_name = 'Jobs Board';
+    public string $current_app_url = '';
+    public string $current_timezone = 'UTC';
 
     public bool $showConfirmModal = false;
 
@@ -39,6 +51,9 @@ new class extends Component
 
     public function mount(): void
     {
+        $this->app_name = (string) Setting::get('app_name', config('app.name', 'Jobs Board'));
+        $this->app_url = (string) (Setting::get('app_url') ?? '');
+        $this->timezone = (string) Setting::get('timezone', config('app.timezone', 'UTC'));
         $this->demo_mode = Setting::getBool('demo_mode', false);
         $this->registrations_open = Setting::getBool('registrations_open', true);
         $this->maintenance_mode = Setting::getBool('maintenance_mode', false);
@@ -49,7 +64,10 @@ new class extends Component
 
     public function getHasChangesProperty(): bool
     {
-        return $this->demo_mode !== $this->current_demo_mode
+        return $this->app_name !== $this->current_app_name
+            || $this->app_url !== $this->current_app_url
+            || $this->timezone !== $this->current_timezone
+            || $this->demo_mode !== $this->current_demo_mode
             || $this->registrations_open !== $this->current_registrations_open
             || $this->maintenance_mode !== $this->current_maintenance_mode;
     }
@@ -111,14 +129,30 @@ new class extends Component
         $demoModeBefore = Setting::getBool('demo_mode', false);
         $registrationsOpenBefore = Setting::getBool('registrations_open', true);
         $maintenanceModeBefore = Setting::getBool('maintenance_mode', false);
+        $appNameBefore = (string) Setting::get('app_name', config('app.name', 'Jobs Board'));
+        $appUrlBefore = (string) (Setting::get('app_url') ?? '');
+        $timezoneBefore = (string) Setting::get('timezone', config('app.timezone', 'UTC'));
+        $normalizedAppName = trim($this->app_name);
+        $normalizedAppUrl = trim($this->app_url);
+        $normalizedTimezone = trim($this->timezone);
 
         $settingsActuallyChanged =
+            $normalizedAppName !== $appNameBefore ||
+            $normalizedAppUrl !== $appUrlBefore ||
+            $normalizedTimezone !== $timezoneBefore ||
             $this->demo_mode !== $demoModeBefore ||
             $this->registrations_open !== $registrationsOpenBefore ||
             $this->maintenance_mode !== $maintenanceModeBefore;
 
         if (! $settingsActuallyChanged) {
-            $this->syncCurrentStateFromDb($demoModeBefore, $registrationsOpenBefore, $maintenanceModeBefore);
+            $this->syncCurrentStateFromDb(
+                $appNameBefore,
+                $appUrlBefore,
+                $timezoneBefore,
+                $demoModeBefore,
+                $registrationsOpenBefore,
+                $maintenanceModeBefore
+            );
             $this->closeConfirmModal();
             session()->flash('info', 'Settings are already up to date.');
             return;
@@ -126,10 +160,19 @@ new class extends Component
 
         try {
             DB::transaction(function () use (
+                $appNameBefore,
+                $appUrlBefore,
+                $timezoneBefore,
                 $demoModeBefore,
                 $registrationsOpenBefore,
-                $maintenanceModeBefore
+                $maintenanceModeBefore,
+                $normalizedAppName,
+                $normalizedAppUrl,
+                $normalizedTimezone
             ) {
+                Setting::set('app_name', $normalizedAppName);
+                Setting::set('app_url', $normalizedAppUrl !== '' ? $normalizedAppUrl : null);
+                Setting::set('timezone', $normalizedTimezone);
                 Setting::setBool('demo_mode', $this->demo_mode);
                 Setting::setBool('registrations_open', $this->registrations_open);
                 Setting::setBool('maintenance_mode', $this->maintenance_mode);
@@ -144,6 +187,18 @@ new class extends Component
                     targetType: 'setting',
                     targetIdcode: null,
                     meta: [
+                        'app_name' => [
+                            'before' => $appNameBefore,
+                            'after' => $normalizedAppName,
+                        ],
+                        'app_url' => [
+                            'before' => $appUrlBefore,
+                            'after' => $normalizedAppUrl !== '' ? $normalizedAppUrl : null,
+                        ],
+                        'timezone' => [
+                            'before' => $timezoneBefore,
+                            'after' => $normalizedTimezone,
+                        ],
                         'demo_mode' => [
                             'before' => $demoModeBefore,
                             'after' => $this->demo_mode,
@@ -191,6 +246,9 @@ new class extends Component
     protected function validateOnlySettings(): void
     {
         $this->validate([
+            'app_name' => ['required', 'string', 'max:255'],
+            'app_url' => ['nullable', 'url', 'max:255'],
+            'timezone' => ['required', 'timezone'],
             'demo_mode' => ['required', 'boolean'],
             'registrations_open' => ['required', 'boolean'],
             'maintenance_mode' => ['required', 'boolean'],
@@ -199,13 +257,26 @@ new class extends Component
 
     protected function syncCurrentState(): void
     {
+        $this->current_app_name = $this->app_name;
+        $this->current_app_url = $this->app_url;
+        $this->current_timezone = $this->timezone;
         $this->current_demo_mode = $this->demo_mode;
         $this->current_registrations_open = $this->registrations_open;
         $this->current_maintenance_mode = $this->maintenance_mode;
     }
 
-    protected function syncCurrentStateFromDb(bool $demo, bool $registrations, bool $maintenance): void
+    protected function syncCurrentStateFromDb(
+        string $appName,
+        string $appUrl,
+        string $timezone,
+        bool $demo,
+        bool $registrations,
+        bool $maintenance
+    ): void
     {
+        $this->current_app_name = $appName;
+        $this->current_app_url = $appUrl;
+        $this->current_timezone = $timezone;
         $this->current_demo_mode = $demo;
         $this->current_registrations_open = $registrations;
         $this->current_maintenance_mode = $maintenance;
@@ -295,6 +366,52 @@ new class extends Component
     <x-ui.card padding="p-8">
         <form wire:submit.prevent="save" class="space-y-6">
             <div>
+                <h2 class="theme-text-strong text-lg font-semibold">System Identity</h2>
+                <p class="theme-text-muted mt-1 text-sm">Keep the application name, public website, and timezone editable after install.</p>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2">
+                <div class="space-y-1.5 md:col-span-2">
+                    <label for="app_name" class="theme-text-strong block text-sm font-medium">Application Name</label>
+                    <input
+                        id="app_name"
+                        type="text"
+                        wire:model.live="app_name"
+                        class="theme-input w-full rounded-lg border px-3 py-2.5 text-sm shadow-sm placeholder:text-[var(--app-text-muted)] focus:border-[var(--app-accent-soft-border)] focus:ring-2 focus:ring-[var(--app-focus-ring)] focus:outline-hidden transition"
+                        placeholder="Jobs Board"
+                    >
+                    @error('app_name') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
+                </div>
+
+                <div class="space-y-1.5">
+                    <label for="app_url" class="theme-text-strong block text-sm font-medium">Application URL</label>
+                    <input
+                        id="app_url"
+                        type="url"
+                        wire:model.live="app_url"
+                        class="theme-input w-full rounded-lg border px-3 py-2.5 text-sm shadow-sm placeholder:text-[var(--app-text-muted)] focus:border-[var(--app-accent-soft-border)] focus:ring-2 focus:ring-[var(--app-focus-ring)] focus:outline-hidden transition"
+                        placeholder="https://jobs.example.com"
+                    >
+                    <p class="theme-text-muted text-xs">Optional during install, but editable here for canonical links and operational fixes.</p>
+                    @error('app_url') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
+                </div>
+
+                <div class="space-y-1.5">
+                    <label for="timezone" class="theme-text-strong block text-sm font-medium">Timezone</label>
+                    <input
+                        id="timezone"
+                        type="text"
+                        wire:model.live="timezone"
+                        class="theme-input w-full rounded-lg border px-3 py-2.5 text-sm shadow-sm placeholder:text-[var(--app-text-muted)] focus:border-[var(--app-accent-soft-border)] focus:ring-2 focus:ring-[var(--app-focus-ring)] focus:outline-hidden transition"
+                        placeholder="Asia/Hong_Kong"
+                        spellcheck="false"
+                    >
+                    <p class="theme-text-muted text-xs">Use a valid IANA timezone, for example <code>Asia/Hong_Kong</code> or <code>UTC</code>.</p>
+                    @error('timezone') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
+                </div>
+            </div>
+
+            <div class="theme-table-divider border-t pt-6">
                 <h2 class="theme-text-strong text-lg font-semibold">Feature Toggles</h2>
                 <p class="theme-text-muted mt-1 text-sm">Configure system-wide settings and features.</p>
             </div>

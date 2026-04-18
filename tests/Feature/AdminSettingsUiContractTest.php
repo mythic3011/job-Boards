@@ -18,6 +18,10 @@ class AdminSettingsUiContractTest extends TestCase
         $this->assertStringContainsString('theme-modal-surface', $contents);
         $this->assertStringContainsString('theme-button', $contents);
         $this->assertStringContainsString('theme-input', $contents);
+        $this->assertStringContainsString('System Identity', $contents);
+        $this->assertStringContainsString('Application URL', $contents);
+        $this->assertStringContainsString('wire:model.live="app_url"', $contents);
+        $this->assertStringContainsString('wire:model.live="timezone"', $contents);
         $this->assertStringNotContainsString('bg-white', $contents);
         $this->assertStringNotContainsString('text-gray-900', $contents);
         $this->assertStringNotContainsString('border-gray-200', $contents);
