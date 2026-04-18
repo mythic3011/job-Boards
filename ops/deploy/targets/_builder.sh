@@ -9,11 +9,33 @@ deploy_require_value() {
     }
 }
 
+resolve_target_domain() {
+    if [[ -n "${TARGET_DOMAIN:-}" ]]; then
+        printf '%s\n' "${TARGET_DOMAIN}"
+        return 0
+    fi
+
+    if [[ -n "${TARGET_SUBDOMAIN:-}" && -n "${TARGET_ROOT_DOMAIN:-}" ]]; then
+        printf '%s.%s\n' "${TARGET_SUBDOMAIN}" "${TARGET_ROOT_DOMAIN}"
+        return 0
+    fi
+
+    printf 'ERROR: missing deploy domain input: set TARGET_DOMAIN or TARGET_SUBDOMAIN + TARGET_ROOT_DOMAIN\n' >&2
+    return 1
+}
+
 deploy_expand_path_template() {
     local template="$1"
     local domain="$2"
 
-    printf '%s\n' "${template//\{domain\}/${domain}}"
+    DOMAIN_PLACEHOLDER_VALUE="${domain}" python3 - "${template}" <<'PY'
+import os
+import sys
+
+template = sys.argv[1]
+domain = os.environ["DOMAIN_PLACEHOLDER_VALUE"]
+sys.stdout.write(template.replace("{domain}", domain))
+PY
 }
 
 build_reverse_proxy_tls_paths() {
@@ -21,15 +43,17 @@ build_reverse_proxy_tls_paths() {
     local cert_domain="$2"
     local cert_template
     local key_template
+    local default_cert_template
+    local default_key_template
 
     case "${tls_mode}" in
         letsencrypt)
-            cert_template="${TARGET_NGINX_CERT_PATH_TEMPLATE:-/etc/letsencrypt/live/{domain}/fullchain.pem}"
-            key_template="${TARGET_NGINX_KEY_PATH_TEMPLATE:-/etc/letsencrypt/live/{domain}/privkey.pem}"
+            default_cert_template='/etc/letsencrypt/live/{domain}/fullchain.pem'
+            default_key_template='/etc/letsencrypt/live/{domain}/privkey.pem'
             ;;
         cloudflare-origin|custom)
-            cert_template="${TARGET_NGINX_CERT_PATH_TEMPLATE:-/etc/nginx/cert/{domain}/cert.pem}"
-            key_template="${TARGET_NGINX_KEY_PATH_TEMPLATE:-/etc/nginx/cert/{domain}/key.pem}"
+            default_cert_template='/etc/nginx/cert/{domain}/cert.pem'
+            default_key_template='/etc/nginx/cert/{domain}/key.pem'
             ;;
         *)
             printf 'ERROR: unsupported target TLS mode: %s\n' "${tls_mode}" >&2
@@ -37,17 +61,18 @@ build_reverse_proxy_tls_paths() {
             ;;
     esac
 
+    cert_template="${TARGET_NGINX_CERT_PATH_TEMPLATE:-${default_cert_template}}"
+    key_template="${TARGET_NGINX_KEY_PATH_TEMPLATE:-${default_key_template}}"
     DEPLOY_NGINX_CERT_PATH="${TARGET_NGINX_CERT_PATH:-$(deploy_expand_path_template "${cert_template}" "${cert_domain}")}"
     DEPLOY_NGINX_KEY_PATH="${TARGET_NGINX_KEY_PATH:-$(deploy_expand_path_template "${key_template}" "${cert_domain}")}"
 }
 
 build_reverse_proxy_target() {
-    deploy_require_value TARGET_DOMAIN || return 1
     deploy_require_value TARGET_HOST || return 1
     deploy_require_value TARGET_REMOTE_ROOT || return 1
     deploy_require_value TARGET_COMPOSE_PROJECT_NAME || return 1
 
-    DEPLOY_DOMAIN="${TARGET_DOMAIN}"
+    DEPLOY_DOMAIN="$(resolve_target_domain)" || return 1
     DEPLOY_HOST="${TARGET_HOST}"
     DEPLOY_SSH_PORT="${TARGET_SSH_PORT:-22}"
     DEPLOY_SSH_USER="${TARGET_SSH_USER:-root}"
@@ -61,7 +86,7 @@ build_reverse_proxy_target() {
     DEPLOY_SKIP_HOST_PORT_EXPOSURE_CHECK="${TARGET_SKIP_HOST_PORT_EXPOSURE_CHECK:-false}"
     DEPLOY_NGINX_SITE_NAME="${TARGET_NGINX_SITE_NAME:-${DEPLOY_DOMAIN}.conf}"
     TARGET_TLS_MODE="${TARGET_TLS_MODE:-cloudflare-origin}"
-    DEPLOY_NGINX_CERT_DOMAIN="${TARGET_NGINX_CERT_DOMAIN:-${DEPLOY_DOMAIN}}"
+    DEPLOY_NGINX_CERT_DOMAIN="${TARGET_NGINX_CERT_DOMAIN:-${TARGET_ROOT_DOMAIN:-${DEPLOY_DOMAIN}}}"
     DEPLOY_NGINX_CERT_DIR="${TARGET_NGINX_CERT_DIR:-/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}}"
 
     DEPLOY_NGINX_PROXY_PASS="${TARGET_NGINX_PROXY_PASS:-https://127.0.0.1:${DEPLOY_APP_SSL_PORT##*:}/}"
