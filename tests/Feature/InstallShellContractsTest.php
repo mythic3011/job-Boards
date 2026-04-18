@@ -338,6 +338,133 @@ BASH);
         $this->assertStringNotContainsString('down --remove-orphans', $dockerOutput);
     }
 
+    public function test_install_full_probes_package_network_before_fallback_composer_install_when_vendor_is_missing(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
+cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
+PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
+EOF
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${4:-}" == "true" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${4:-}" == "test" && "\${5:-}" == "-f" && "\${6:-}" == "/var/www/html/vendor/autoload.php" ]]; then
+  exit 1
+fi
+if [[ "\${1:-}" == "exec" && "\${4:-}" == "curl" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${4:-}" == "composer" && "\${5:-}" == "install" ]]; then
+  exit 17
+fi
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'full', 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->run();
+
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+        $curlOffset = strpos($dockerOutput, 'exec -T jobs-boards-laravel.test curl ');
+        $composerOffset = strpos($dockerOutput, 'exec -T jobs-boards-laravel.test composer install --no-interaction --prefer-dist');
+
+        $this->assertSame(17, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $this->assertNotFalse($curlOffset, 'Expected install.sh to probe package-network reachability before composer repair.');
+        $this->assertNotFalse($composerOffset, 'Expected install.sh to attempt composer repair when the package network is reachable.');
+        $this->assertLessThan($composerOffset, $curlOffset, 'Package-network probe must happen before fallback composer install.');
+    }
+
+    public function test_install_full_fails_loudly_without_attempting_composer_install_when_vendor_is_missing_and_package_network_is_unreachable(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
+cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
+PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
+EOF
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${4:-}" == "true" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${4:-}" == "test" && "\${5:-}" == "-f" && "\${6:-}" == "/var/www/html/vendor/autoload.php" ]]; then
+  exit 1
+fi
+if [[ "\${1:-}" == "exec" && "\${4:-}" == "composer" && "\${5:-}" == "install" ]]; then
+  exit 23
+fi
+exit 1
+BASH);
+
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'full', 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+
+        $this->assertSame(1, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('local vendor/ is missing and package network access is unavailable', $combinedOutput);
+        $this->assertStringNotContainsString('exec -T jobs-boards-laravel.test composer install --no-interaction --prefer-dist', $dockerOutput);
+    }
+
     public function test_install_quick_restarts_the_app_container_without_combined_compose_interpolation(): void
     {
         $tempRoot = $this->makeTempDir();

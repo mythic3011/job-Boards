@@ -92,6 +92,36 @@ compose_file_display() {
 
     printf '%s\n' "${compose_file}"
 }
+
+has_local_vendor_lib() {
+    [[ -f "${ROOT_DIR}/vendor/autoload.php" ]]
+}
+
+package_network_available() {
+    app curl -fsS --connect-timeout 5 --max-time 15 \
+        https://repo.packagist.org/packages.json -o /dev/null
+}
+
+ensure_php_dependencies() {
+    if docker exec -T "$CONTAINER" test -f /var/www/html/vendor/autoload.php; then
+        return 0
+    fi
+
+    if has_local_vendor_lib; then
+        return 0
+    fi
+
+    if package_network_available; then
+        echo "Installing composer dependencies..."
+        app composer install --no-interaction --prefer-dist
+        return 0
+    fi
+
+    err "ERROR: local vendor/ is missing and package network access is unavailable."
+    err "Run composer install with network access, or restore vendor/ before retrying."
+    exit 1
+}
+
 prepare_obs_runtime() {
     local state_dir="${INSTALL_BT_STATE_DIR}"
     local runtime_dir="${state_dir}/runtime"
@@ -262,9 +292,9 @@ start_containers() {
         # that may already be running under the same project namespace.
         compose_local up -d
         wait_for "Container starting" 30 docker exec -T "$CONTAINER" true
-        echo "Installing composer dependencies..."
-        app composer install --no-interaction --prefer-dist
     fi
+    # Idempotent dependency repair for re-runs and zip distributions without vendor/.
+    ensure_php_dependencies
     wait_for "Container ready" 60 app php artisan --version
 }
 
