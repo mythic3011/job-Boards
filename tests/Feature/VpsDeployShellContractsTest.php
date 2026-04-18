@@ -204,6 +204,80 @@ BASH);
         $this->assertStringContainsString("DEPLOY_BOOTSTRAP_MODE='dev'", (string) file_get_contents($sshLog));
     }
 
+    public function test_vps_deploy_quotes_remote_env_values_for_shell_sensitive_install_inputs(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->deployScriptFixture($tempRoot);
+        $capturedEnv = $tempRoot.'/captured.remote.env';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/deploy/targets', 0777, true);
+        mkdir($tempRoot.'/ops/deploy/templates', 0777, true);
+
+        copy($this->repoRoot.'/ops/deploy/targets/jb.mythic3011.com.sh', $tempRoot.'/ops/deploy/targets/jb.mythic3011.com.sh');
+        copy($this->repoRoot.'/ops/deploy/targets/_builder.sh', $tempRoot.'/ops/deploy/targets/_builder.sh');
+        copy($this->repoRoot.'/ops/deploy/templates/nginx-site.conf.tpl', $tempRoot.'/ops/deploy/templates/nginx-site.conf.tpl');
+
+        $this->writeExecutable($fakeBin.'/git', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "status" ]]; then
+  exit 0
+fi
+if [[ "${1:-}" == "rev-parse" ]]; then
+  echo "0123456789abcdef0123456789abcdef01234567"
+  exit 0
+fi
+if [[ "${1:-}" == "archive" ]]; then
+  output=""
+  for arg in "$@"; do
+    case "${arg}" in
+      --output=*) output="${arg#--output=}" ;;
+    esac
+  done
+  printf 'archive' > "${output}"
+  exit 0
+fi
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/scp', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+for arg in "\$@"; do
+  case "\$(basename "\${arg}")" in
+    deploy.remote.env)
+      cp "\${arg}" "{$capturedEnv}"
+      ;;
+  esac
+done
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/ssh', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+BASH);
+
+        $process = new Process(
+            [$scriptPath, 'jb.mythic3011.com'],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'JB_INSTALL_ADMIN_EMAIL' => 'me@mythi3011.com',
+                'JB_INSTALL_ADMIN_PASSWORD' => 'V%U7&HX7A#N@eFvH',
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $this->assertStringContainsString("JB_INSTALL_ADMIN_PASSWORD=V%U7\\&HX7A#N@eFvH\n", (string) file_get_contents($capturedEnv));
+    }
+
     private function makeTempDir(): string
     {
         $dir = sys_get_temp_dir().'/jobs-boards-vps-deploy-'.bin2hex(random_bytes(8));
