@@ -50,6 +50,20 @@ app_frontdoor_https_url() {
     printf 'https://%s:%s/up\n' "$(app_frontdoor_host)" "$(app_frontdoor_port)"
 }
 
+app_frontdoor_server_name() {
+    local app_url="${APP_URL:-}"
+    app_url="${app_url#*://}"
+    app_url="${app_url%%/*}"
+    app_url="${app_url%%:*}"
+
+    if [[ -n "${app_url}" ]]; then
+        printf '%s\n' "${app_url}"
+        return 0
+    fi
+
+    printf '%s\n' "$(app_frontdoor_host)"
+}
+
 app_frontdoor_published_ports() {
     local binding
     local port
@@ -155,17 +169,40 @@ verify_frontdoor_ports_available_for_app() {
 }
 
 verify_https_frontdoor() {
-    curl -kfsS --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "$(app_frontdoor_https_url)" >/dev/null
+    local origin_host
+    local port
+    local server_name
+
+    origin_host="$(app_frontdoor_host)"
+    port="$(app_frontdoor_port)"
+    server_name="$(app_frontdoor_server_name)"
+
+    curl -kfsS --resolve "${server_name}:${port}:${origin_host}" --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "https://${server_name}:${port}/up" >/dev/null
 }
 
 verify_app_health_frontdoor() {
     local code
-    code="$(curl -kfsS -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "$(app_frontdoor_https_url)" || true)"
+    local origin_host
+    local port
+    local server_name
+
+    origin_host="$(app_frontdoor_host)"
+    port="$(app_frontdoor_port)"
+    server_name="$(app_frontdoor_server_name)"
+    code="$(curl -kfsS --resolve "${server_name}:${port}:${origin_host}" -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "https://${server_name}:${port}/up" || true)"
     [[ "${code}" == "200" ]]
 }
 
 crowdsec_frontdoor_mode() {
-    curl -kfsSI --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "$(app_frontdoor_https_url)" \
+    local origin_host
+    local port
+    local server_name
+
+    origin_host="$(app_frontdoor_host)"
+    port="$(app_frontdoor_port)"
+    server_name="$(app_frontdoor_server_name)"
+
+    curl -kfsSI --resolve "${server_name}:${port}:${origin_host}" --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "https://${server_name}:${port}/up" \
         | grep -i '^x-crowdsec-mode:' \
         | head -n 1 \
         | sed -E 's/^[^:]+:[[:space:]]*//; s/\r$//' \

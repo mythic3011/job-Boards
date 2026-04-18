@@ -46,6 +46,7 @@ class VpsDeployShellContractsTest extends TestCase
         $this->assertStringContainsString('TARGET_APP_SSL_PORT="${TARGET_APP_SSL_PORT:-127.0.0.1:18443}"', $contents);
         $this->assertStringContainsString('TARGET_REMOTE_ROOT="${TARGET_REMOTE_ROOT:-/opt/jobs-boards-jb}"', $contents);
         $this->assertStringContainsString('TARGET_SKIP_HOST_PORT_EXPOSURE_CHECK="${TARGET_SKIP_HOST_PORT_EXPOSURE_CHECK:-true}"', $contents);
+        $this->assertStringContainsString('TARGET_NGINX_CERT_DOMAIN="${TARGET_NGINX_CERT_DOMAIN:-mythic3011.com}"', $contents);
         $this->assertStringContainsString('build_reverse_proxy_target', $contents);
     }
 
@@ -57,7 +58,8 @@ class VpsDeployShellContractsTest extends TestCase
         $this->assertStringContainsString('DEPLOY_DOMAIN="${TARGET_DOMAIN}"', $contents);
         $this->assertStringContainsString('DEPLOY_HOST="${TARGET_HOST}"', $contents);
         $this->assertStringContainsString('TARGET_TLS_MODE="${TARGET_TLS_MODE:-cloudflare-origin}"', $contents);
-        $this->assertStringContainsString('DEPLOY_NGINX_CERT_DIR="${TARGET_NGINX_CERT_DIR:-/etc/nginx/cert/${DEPLOY_DOMAIN}}"', $contents);
+        $this->assertStringContainsString('DEPLOY_NGINX_CERT_DOMAIN="${TARGET_NGINX_CERT_DOMAIN:-${DEPLOY_DOMAIN}}"', $contents);
+        $this->assertStringContainsString('DEPLOY_NGINX_CERT_DIR="${TARGET_NGINX_CERT_DIR:-/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}}"', $contents);
         $this->assertStringContainsString('DEPLOY_NGINX_PROXY_PASS="${TARGET_NGINX_PROXY_PASS:-https://127.0.0.1:${DEPLOY_APP_SSL_PORT##*:}/}"', $contents);
         $this->assertStringContainsString('DEPLOY_SKIP_HOST_PORT_EXPOSURE_CHECK="${TARGET_SKIP_HOST_PORT_EXPOSURE_CHECK:-false}"', $contents);
         $this->assertStringContainsString('if [[ "${TARGET_TLS_MODE}" == "letsencrypt" ]]', $contents);

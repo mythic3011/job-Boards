@@ -1262,7 +1262,10 @@ BASH);
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('app_frontdoor_https_url()', $contents);
+        $this->assertStringContainsString('app_frontdoor_server_name()', $contents);
         $this->assertStringContainsString('app_frontdoor_published_ports()', $contents);
+        $this->assertStringContainsString('--resolve "${server_name}:${port}:${origin_host}"', $contents);
+        $this->assertStringContainsString('"https://${server_name}:${port}/up"', $contents);
         $this->assertStringNotContainsString('https://127.0.0.1/up', $contents);
         $this->assertStringNotContainsString('for port in 80 443; do', $contents);
     }
