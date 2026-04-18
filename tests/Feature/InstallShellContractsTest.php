@@ -480,6 +480,16 @@ BASH);
         $this->assertStringNotContainsString('curl -sf http://laravel.test:80/up || exit 1', $contents);
     }
 
+    public function test_install_script_relies_on_shared_compose_honeypot_preload_instead_of_inline_export(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/install.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringNotContainsString('export BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE:-${ROOT_DIR}/docker/nginx/includes/blue-team-honeypot.conf}"', $contents);
+        $this->assertStringNotContainsString('BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE}"', $contents);
+        $this->assertStringContainsString('bt_compose "$INSTALL_COMPOSE_FILE" "$@"', $contents);
+    }
+
     public function test_combined_compose_mirrors_app_plane_crowdsec_serving_path_contract(): void
     {
         $contents = file_get_contents($this->repoRoot.'/compose.yaml');

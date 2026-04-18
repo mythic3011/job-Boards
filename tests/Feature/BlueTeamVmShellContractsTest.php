@@ -357,6 +357,17 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString(': "${BT_HONEYPOT_SOURCE:=/opt/blue-team/nginx/includes/blue-team-honeypot.conf}"', $contents);
     }
 
+    public function test_blue_team_vm_common_preloads_repo_local_honeypot_source_for_compose_entrypoints(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/lib/common.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('bt_preload_compose_honeypot_source "${preserved_env_keys}"', $contents);
+        $this->assertStringContainsString('bt_repo_honeypot_source()', $contents);
+        $this->assertStringContainsString('printf \'%s\\n\' "${BT_ROOT_DIR}/docker/nginx/includes/blue-team-honeypot.conf"', $contents);
+        $this->assertStringContainsString('resolved_honeypot_source="$(bt_resolve_compose_honeypot_source)"', $contents);
+    }
+
     public function test_nginx_conf_maps_default_honeypot_probe_names_for_decoy_logs(): void
     {
         $contents = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');

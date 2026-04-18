@@ -40,13 +40,15 @@ class VpsDeployShellContractsTest extends TestCase
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('source "${TARGETS_DIR}/_builder.sh"', $contents);
-        $this->assertStringContainsString('TARGET_DOMAIN="${TARGET_DOMAIN:-jb.mythic3011.com}"', $contents);
+        $this->assertStringContainsString('TARGET_SUBDOMAIN="${TARGET_SUBDOMAIN:-jb}"', $contents);
+        $this->assertStringContainsString('TARGET_ROOT_DOMAIN="${TARGET_ROOT_DOMAIN:-mythic3011.com}"', $contents);
+        $this->assertStringContainsString('TARGET_DOMAIN="${TARGET_DOMAIN:-${TARGET_SUBDOMAIN}.${TARGET_ROOT_DOMAIN}}"', $contents);
         $this->assertStringContainsString('TARGET_HOST="${TARGET_HOST:-66.154.127.33}"', $contents);
         $this->assertStringContainsString('TARGET_APP_PORT="${TARGET_APP_PORT:-127.0.0.1:18080}"', $contents);
         $this->assertStringContainsString('TARGET_APP_SSL_PORT="${TARGET_APP_SSL_PORT:-127.0.0.1:18443}"', $contents);
         $this->assertStringContainsString('TARGET_REMOTE_ROOT="${TARGET_REMOTE_ROOT:-/opt/jobs-boards-jb}"', $contents);
         $this->assertStringContainsString('TARGET_SKIP_HOST_PORT_EXPOSURE_CHECK="${TARGET_SKIP_HOST_PORT_EXPOSURE_CHECK:-true}"', $contents);
-        $this->assertStringContainsString('TARGET_NGINX_CERT_DOMAIN="${TARGET_NGINX_CERT_DOMAIN:-mythic3011.com}"', $contents);
+        $this->assertStringContainsString('TARGET_NGINX_CERT_DOMAIN="${TARGET_NGINX_CERT_DOMAIN:-${TARGET_ROOT_DOMAIN}}"', $contents);
         $this->assertStringContainsString('build_reverse_proxy_target', $contents);
     }
 
@@ -55,22 +57,70 @@ class VpsDeployShellContractsTest extends TestCase
         $contents = file_get_contents($this->repoRoot.'/ops/deploy/targets/_builder.sh');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('DEPLOY_DOMAIN="${TARGET_DOMAIN}"', $contents);
+        $this->assertStringContainsString('resolve_target_domain()', $contents);
+        $this->assertStringContainsString('printf \'%s.%s\\n\' "${TARGET_SUBDOMAIN}" "${TARGET_ROOT_DOMAIN}"', $contents);
+        $this->assertStringContainsString('DEPLOY_DOMAIN="$(resolve_target_domain)" || return 1', $contents);
         $this->assertStringContainsString('DEPLOY_HOST="${TARGET_HOST}"', $contents);
         $this->assertStringContainsString('TARGET_TLS_MODE="${TARGET_TLS_MODE:-cloudflare-origin}"', $contents);
-        $this->assertStringContainsString('DEPLOY_NGINX_CERT_DOMAIN="${TARGET_NGINX_CERT_DOMAIN:-${DEPLOY_DOMAIN}}"', $contents);
+        $this->assertStringContainsString('DEPLOY_NGINX_CERT_DOMAIN="${TARGET_NGINX_CERT_DOMAIN:-${TARGET_ROOT_DOMAIN:-${DEPLOY_DOMAIN}}}"', $contents);
         $this->assertStringContainsString('DEPLOY_NGINX_CERT_DIR="${TARGET_NGINX_CERT_DIR:-/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}}"', $contents);
         $this->assertStringContainsString('deploy_expand_path_template()', $contents);
         $this->assertStringContainsString('build_reverse_proxy_tls_paths()', $contents);
         $this->assertStringContainsString('build_reverse_proxy_tls_paths "${TARGET_TLS_MODE}" "${DEPLOY_NGINX_CERT_DOMAIN}" || return 1', $contents);
         $this->assertStringContainsString('DEPLOY_NGINX_PROXY_PASS="${TARGET_NGINX_PROXY_PASS:-https://127.0.0.1:${DEPLOY_APP_SSL_PORT##*:}/}"', $contents);
         $this->assertStringContainsString('DEPLOY_SKIP_HOST_PORT_EXPOSURE_CHECK="${TARGET_SKIP_HOST_PORT_EXPOSURE_CHECK:-false}"', $contents);
-        $this->assertStringContainsString('cert_template="${TARGET_NGINX_CERT_PATH_TEMPLATE:-/etc/letsencrypt/live/{domain}/fullchain.pem}"', $contents);
-        $this->assertStringContainsString('key_template="${TARGET_NGINX_KEY_PATH_TEMPLATE:-/etc/letsencrypt/live/{domain}/privkey.pem}"', $contents);
-        $this->assertStringContainsString('cert_template="${TARGET_NGINX_CERT_PATH_TEMPLATE:-/etc/nginx/cert/{domain}/cert.pem}"', $contents);
-        $this->assertStringContainsString('key_template="${TARGET_NGINX_KEY_PATH_TEMPLATE:-/etc/nginx/cert/{domain}/key.pem}"', $contents);
+        $this->assertStringContainsString("default_cert_template='/etc/letsencrypt/live/{domain}/fullchain.pem'", $contents);
+        $this->assertStringContainsString("default_key_template='/etc/letsencrypt/live/{domain}/privkey.pem'", $contents);
+        $this->assertStringContainsString("default_cert_template='/etc/nginx/cert/{domain}/cert.pem'", $contents);
+        $this->assertStringContainsString("default_key_template='/etc/nginx/cert/{domain}/key.pem'", $contents);
+        $this->assertStringContainsString('cert_template="${TARGET_NGINX_CERT_PATH_TEMPLATE:-${default_cert_template}}"', $contents);
+        $this->assertStringContainsString('key_template="${TARGET_NGINX_KEY_PATH_TEMPLATE:-${default_key_template}}"', $contents);
         $this->assertStringContainsString('DEPLOY_NGINX_CERT_PATH="${TARGET_NGINX_CERT_PATH:-$(deploy_expand_path_template "${cert_template}" "${cert_domain}")}"', $contents);
         $this->assertStringContainsString('DEPLOY_NGINX_KEY_PATH="${TARGET_NGINX_KEY_PATH:-$(deploy_expand_path_template "${key_template}" "${cert_domain}")}"', $contents);
+    }
+
+    public function test_reverse_proxy_builder_expands_cert_domain_placeholders_at_runtime(): void
+    {
+        $script = <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+source ops/deploy/targets/_builder.sh
+TARGET_DOMAIN="jb.mythic3011.com"
+TARGET_HOST="66.154.127.33"
+TARGET_REMOTE_ROOT="/opt/jobs-boards-jb"
+TARGET_COMPOSE_PROJECT_NAME="jobs-boards-jb"
+TARGET_NGINX_CERT_DOMAIN="mythic3011.com"
+build_reverse_proxy_target
+printf '%s\n%s\n' "${DEPLOY_NGINX_CERT_PATH}" "${DEPLOY_NGINX_KEY_PATH}"
+BASH;
+
+        $process = Process::fromShellCommandline($script, $this->repoRoot, null, null, 10);
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $this->assertSame("/etc/nginx/cert/mythic3011.com/cert.pem\n/etc/nginx/cert/mythic3011.com/key.pem\n", $process->getOutput());
+    }
+
+    public function test_reverse_proxy_builder_can_compose_domain_from_subdomain_and_root_domain(): void
+    {
+        $script = <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+source ops/deploy/targets/_builder.sh
+TARGET_SUBDOMAIN="jb"
+TARGET_ROOT_DOMAIN="mythic3011.com"
+TARGET_HOST="66.154.127.33"
+TARGET_REMOTE_ROOT="/opt/jobs-boards-jb"
+TARGET_COMPOSE_PROJECT_NAME="jobs-boards-jb"
+build_reverse_proxy_target
+printf '%s\n%s\n' "${DEPLOY_DOMAIN}" "${DEPLOY_NGINX_CERT_DOMAIN}"
+BASH;
+
+        $process = Process::fromShellCommandline($script, $this->repoRoot, null, null, 10);
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $this->assertSame("jb.mythic3011.com\nmythic3011.com\n", $process->getOutput());
     }
 
     public function test_from_env_target_exposes_builder_as_generic_domain_ip_profile(): void
@@ -79,10 +129,10 @@ class VpsDeployShellContractsTest extends TestCase
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('source "${TARGETS_DIR}/_builder.sh"', $contents);
-        $this->assertStringContainsString(': "${TARGET_DOMAIN:?Set TARGET_DOMAIN for the reverse-proxy deploy target}"', $contents);
         $this->assertStringContainsString(': "${TARGET_HOST:?Set TARGET_HOST for the reverse-proxy deploy target}"', $contents);
         $this->assertStringContainsString(': "${TARGET_REMOTE_ROOT:?Set TARGET_REMOTE_ROOT for the reverse-proxy deploy target}"', $contents);
         $this->assertStringContainsString(': "${TARGET_COMPOSE_PROJECT_NAME:?Set TARGET_COMPOSE_PROJECT_NAME for the reverse-proxy deploy target}"', $contents);
+        $this->assertStringContainsString('Set TARGET_DOMAIN or TARGET_SUBDOMAIN + TARGET_ROOT_DOMAIN for the reverse-proxy deploy target', $contents);
         $this->assertStringContainsString('build_reverse_proxy_target', $contents);
     }
 
@@ -333,6 +383,23 @@ BASH);
         $this->assertStringContainsString('sync_release_env_to_shared()', $contents);
         $this->assertStringContainsString('cmp -s "${release_env}" "${remote_shared}/.env" && return 0', $contents);
         $this->assertSame(3, substr_count($contents, 'sync_release_env_to_shared'));
+    }
+
+    public function test_vps_deploy_uses_shared_compose_preload_for_honeypot_source_instead_of_target_local_export(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/vps-deploy.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('bt_preload_compose_env', $contents);
+        $this->assertStringNotContainsString('export BT_HONEYPOT_SOURCE="${remote_current}/docker/nginx/includes/blue-team-honeypot.conf"', $contents);
+        $this->assertMatchesRegularExpression(
+            '/export BT_STATE_DIR="\$\{DEPLOY_BT_STATE_DIR\}"\n'
+            .'export BT_RUNTIME_DIR="\$\{runtime_dir\}"\n'
+            .'.*'
+            .'bt_preload_compose_env\n\n'
+            .'hydrate_release_dependencies/s',
+            $contents,
+        );
     }
 
     public function test_vps_deploy_restarts_laravel_runtime_after_bootstrap_and_headless_install_before_final_proof(): void

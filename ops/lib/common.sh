@@ -441,6 +441,42 @@ bt_preload_compose_env() {
     if [[ -r "${obs_generated_env_file}" ]]; then
         bt_export_env_file_unless_preserved "${obs_generated_env_file}" "${preserved_env_keys}"
     fi
+
+    bt_preload_compose_honeypot_source "${preserved_env_keys}"
+}
+
+bt_repo_honeypot_source() {
+    printf '%s\n' "${BT_ROOT_DIR}/docker/nginx/includes/blue-team-honeypot.conf"
+}
+
+bt_resolve_compose_honeypot_source() {
+    local repo_honeypot_source
+
+    repo_honeypot_source="$(bt_repo_honeypot_source)"
+    if [[ -f "${repo_honeypot_source}" ]]; then
+        printf '%s\n' "${repo_honeypot_source}"
+        return 0
+    fi
+
+    printf '%s\n' "${BT_HONEYPOT_SOURCE}"
+}
+
+bt_preload_compose_honeypot_source() {
+    local preserved_env_keys="$1"
+    local resolved_honeypot_source
+
+    if bt_env_snapshot_has_key "${preserved_env_keys}" "BT_HONEYPOT_SOURCE"; then
+        export BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE}"
+        return 0
+    fi
+
+    if [[ -n "${BT_HONEYPOT_SOURCE:-}" && "${BT_HONEYPOT_SOURCE}" != "/opt/blue-team/nginx/includes/blue-team-honeypot.conf" ]]; then
+        export BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE}"
+        return 0
+    fi
+
+    resolved_honeypot_source="$(bt_resolve_compose_honeypot_source)"
+    export BT_HONEYPOT_SOURCE="${resolved_honeypot_source}"
 }
 
 bt_compose_service_container_id() {

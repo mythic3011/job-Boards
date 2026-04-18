@@ -391,9 +391,9 @@ sync_release_env_to_shared
 
 export BT_STATE_DIR="${DEPLOY_BT_STATE_DIR}"
 export BT_RUNTIME_DIR="${runtime_dir}"
-export BT_HONEYPOT_SOURCE="${remote_current}/docker/nginx/includes/blue-team-honeypot.conf"
 export BT_SKIP_HOST_LOCAL_PORTS_CHECK="${DEPLOY_SKIP_HOST_PORT_EXPOSURE_CHECK}"
 export COMPOSE_PROJECT_NAME="${DEPLOY_COMPOSE_PROJECT_NAME}"
+bt_preload_compose_env
 
 hydrate_release_dependencies
 
