@@ -11,6 +11,9 @@ const {
 } = require("./client-ip");
 
 const AUTH_SERVICE_LOG_FILE = process.env.AUTH_SERVICE_LOG_FILE?.trim() || "";
+const AUTH_SERVICE_PUBLIC_DIR =
+    process.env.AUTH_SERVICE_PUBLIC_DIR?.trim() ||
+    path.join(__dirname, "public");
 
 if (AUTH_SERVICE_LOG_FILE) {
     try {
@@ -91,11 +94,16 @@ app.use(express.json());
 app.use(cookieParser());
 
 // serve built frontend assets if present
-app.use(express.static(path.join(__dirname, "public")));
+const publicDir = AUTH_SERVICE_PUBLIC_DIR;
+app.use(express.static(publicDir));
+app.use("/monitoring", express.static(publicDir));
 
 // fallback for client-side routing (login page)
 app.get(["/", "/login"], (_req, res) => {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
+    res.sendFile(path.join(publicDir, "index.html"));
+});
+app.get("/monitoring/login", (_req, res) => {
+    res.sendFile(path.join(publicDir, "index.html"));
 });
 
 // ── In-memory session store ───────────────────────────────────────────────────

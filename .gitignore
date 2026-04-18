@@ -63,3 +63,4 @@ docker/nginx/htpasswd/monitoring.htpasswd
 /.blue-team-vm/
 /.worktrees/
 docs/plans/
+docker/auth-service/node_modules/
