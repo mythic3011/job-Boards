@@ -1278,7 +1278,8 @@ BASH);
         $this->assertStringContainsString('app_health_binding()', $contents);
         $this->assertStringContainsString('app_health_host()', $contents);
         $this->assertStringContainsString('app_health_port()', $contents);
-        $this->assertStringContainsString('"http://${server_name}:${port}/up"', $contents);
+        $this->assertStringContainsString('"http://${origin_host}:${port}/up"', $contents);
+        $this->assertStringNotContainsString('curl -fsS --resolve "${server_name}:${port}:${origin_host}" -o /dev/null -w \'%{http_code}\'', $contents);
     }
 
     public function test_https_nginx_server_keeps_a_dedicated_up_probe_location_instead_of_only_the_generic_route_handler(): void

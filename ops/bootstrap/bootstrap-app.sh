@@ -210,12 +210,10 @@ verify_app_health_frontdoor() {
     local code
     local origin_host
     local port
-    local server_name
 
     origin_host="$(app_health_host)"
     port="$(app_health_port)"
-    server_name="$(app_frontdoor_server_name)"
-    code="$(curl -fsS --resolve "${server_name}:${port}:${origin_host}" -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "http://${server_name}:${port}/up" || true)"
+    code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "http://${origin_host}:${port}/up" || true)"
     [[ "${code}" == "200" ]]
 }
 
