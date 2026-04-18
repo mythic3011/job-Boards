@@ -9,7 +9,7 @@ import "./install";
 import "./register";
 import "./avatar";
 import "./profile";
-import Alpine from "alpinejs";
+import Alpine from "@alpinejs/csp";
 
 // Initialize everything with jQuery
 $(() => {

@@ -42,42 +42,7 @@
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <title>{{ $fullTitle }}</title>
 
-    <script nonce="{{ csp_nonce() }}">
-        (() => {
-            const root = document.documentElement;
-            const preferenceKey = 'jobs-board.theme.preference';
-            const accentKey = 'jobs-board.theme.accent';
-            const validPreferences = new Set(['system', 'light', 'dark']);
-            const validAccents = new Set(['indigo', 'graphite', 'forest']);
-
-            let preference = 'system';
-            let accent = 'indigo';
-
-            try {
-                const storedPreference = window.localStorage.getItem(preferenceKey);
-                const storedAccent = window.localStorage.getItem(accentKey);
-
-                if (validPreferences.has(storedPreference)) {
-                    preference = storedPreference;
-                }
-
-                if (validAccents.has(storedAccent)) {
-                    accent = storedAccent;
-                }
-            } catch {
-                // Continue with defaults when storage is unavailable.
-            }
-
-            const mode = preference === 'system'
-                ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-                : preference;
-
-            root.dataset.themePreference = preference;
-            root.dataset.themeMode = mode;
-            root.dataset.themeAccent = accent;
-            root.style.colorScheme = mode;
-        })();
-    </script>
+    <script src="{{ asset('js/theme-bootstrap.js') }}"></script>
 
     @stack('meta')
     <x-layouts.assets />
