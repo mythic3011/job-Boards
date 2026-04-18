@@ -526,7 +526,7 @@ new class extends Component
             <div class="theme-table-divider flex items-center justify-start gap-4 border-t pt-4">
                 <button
                     type="submit"
-                    {{ ! $this->hasChanges ? 'disabled' : '' }}
+                    @disabled(! $this->hasChanges)
                     wire:loading.attr="disabled"
                     class="theme-button theme-button-primary min-w-[140px] rounded-lg border px-4 py-2 text-sm font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
                 >

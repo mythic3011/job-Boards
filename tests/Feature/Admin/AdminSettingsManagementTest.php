@@ -95,6 +95,28 @@ class AdminSettingsManagementTest extends TestCase
         ]);
     }
 
+    public function test_admin_toggle_changes_are_treated_as_pending_changes_before_confirmation(): void
+    {
+        Setting::set('demo_mode', 'false');
+        Setting::set('registrations_open', 'true');
+        Setting::set('maintenance_mode', 'false');
+        Setting::set('app_name', 'Jobs Board');
+        Setting::set('app_url', 'https://jb.mythic3011.com');
+        Setting::set('timezone', 'Asia/Hong_Kong');
+
+        $admin = $this->adminUser();
+
+        Volt::actingAs($admin)->test('admin.settings.index')
+            ->assertSet('demo_mode', false)
+            ->assertSet('current_demo_mode', false)
+            ->set('demo_mode', true)
+            ->assertSet('demo_mode', true)
+            ->assertSet('current_demo_mode', false)
+            ->call('save')
+            ->assertSet('showConfirmModal', true)
+            ->assertHasNoErrors();
+    }
+
     private function adminUser(): User
     {
         $user = User::factory()->create([

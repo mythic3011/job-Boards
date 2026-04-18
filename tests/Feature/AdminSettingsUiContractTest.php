@@ -22,6 +22,8 @@ class AdminSettingsUiContractTest extends TestCase
         $this->assertStringContainsString('Application URL', $contents);
         $this->assertStringContainsString('wire:model.live="app_url"', $contents);
         $this->assertStringContainsString('wire:model.live="timezone"', $contents);
+        $this->assertStringContainsString('@disabled(! $this->hasChanges)', $contents);
+        $this->assertStringNotContainsString("{{ ! \$this->hasChanges ? 'disabled' : '' }}", $contents);
         $this->assertStringNotContainsString('bg-white', $contents);
         $this->assertStringNotContainsString('text-gray-900', $contents);
         $this->assertStringNotContainsString('border-gray-200', $contents);
