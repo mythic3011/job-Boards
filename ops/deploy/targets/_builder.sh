@@ -72,6 +72,8 @@ build_reverse_proxy_target() {
     deploy_require_value TARGET_REMOTE_ROOT || return 1
     deploy_require_value TARGET_COMPOSE_PROJECT_NAME || return 1
 
+    # shellcheck disable=SC2034
+    # These DEPLOY_* variables are emitted as the sourced target contract for ops/deploy/vps-deploy.sh.
     DEPLOY_DOMAIN="$(resolve_target_domain)" || return 1
     DEPLOY_HOST="${TARGET_HOST}"
     DEPLOY_SSH_PORT="${TARGET_SSH_PORT:-22}"

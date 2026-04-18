@@ -100,6 +100,7 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 
 RESOLVED_REF="$(git rev-parse --verify "${REF}^{commit}")"
+# shellcheck source=/dev/null
 source "${TARGET_FILE}"
 export DEPLOY_DOMAIN DEPLOY_NGINX_CERT_PATH DEPLOY_NGINX_KEY_PATH DEPLOY_NGINX_PROXY_PASS
 

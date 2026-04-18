@@ -2,6 +2,8 @@
 
 : "${LAB_DEPLOY_HOST:?Set LAB_DEPLOY_HOST for the target lab VM}"
 
+# shellcheck disable=SC2034
+# These DEPLOY_* variables are the sourced output contract consumed by ops/deploy/vps-deploy.sh.
 DEPLOY_DOMAIN="${LAB_DEPLOY_DOMAIN:-jobs-board.lab}"
 DEPLOY_HOST="${LAB_DEPLOY_HOST}"
 DEPLOY_SSH_PORT="${LAB_DEPLOY_SSH_PORT:-22}"
