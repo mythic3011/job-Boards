@@ -912,6 +912,10 @@ if [[ "\${1:-}" == "compose" && "\${4:-}" == "up" && "\${5:-}" == "-d" ]]; then
   printf 'BT_APP_PLANE_NETWORK_NAME=%s\n' "\${BT_APP_PLANE_NETWORK_NAME:-}" >> "{$dockerEnvLog}"
   exit 0
 fi
+if [[ "\${1:-}" == "compose" && "\${4:-}" == "restart" && "\${5:-}" == "nginx" ]]; then
+  printf 'BT_APP_PLANE_NETWORK_NAME=%s\n' "\${BT_APP_PLANE_NETWORK_NAME:-}" >> "{$dockerEnvLog}"
+  exit 0
+fi
 exit 0
 BASH);
 
@@ -931,6 +935,12 @@ BASH);
         $this->assertSame(0, $process->getExitCode());
         $this->assertStringContainsString('network create --driver bridge --subnet 172.29.0.0/24 jobs-borads_app-plane', $dockerCommands);
         $this->assertStringContainsString('compose -f '.$tempDir.'/compose.app.yml up -d', $dockerCommands);
+        $this->assertStringContainsString('compose -f '.$tempDir.'/compose.app.yml restart nginx', $dockerCommands);
+        $upOffset = strpos($dockerCommands, 'compose -f '.$tempDir.'/compose.app.yml up -d');
+        $restartOffset = strpos($dockerCommands, 'compose -f '.$tempDir.'/compose.app.yml restart nginx');
+        $this->assertNotFalse($upOffset);
+        $this->assertNotFalse($restartOffset);
+        $this->assertLessThan($restartOffset, $upOffset, 'nginx restart must happen after compose up so upstream DNS is refreshed after laravel recreation.');
         $this->assertStringContainsString('BT_APP_PLANE_NETWORK_NAME=jobs-borads_app-plane', $dockerEnvOutput);
     }
 
