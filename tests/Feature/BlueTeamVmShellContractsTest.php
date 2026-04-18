@@ -1307,6 +1307,16 @@ BASH);
         $this->assertMatchesRegularExpression('/listen 443 ssl;.*?include \/etc\/nginx\/includes\/\*\.conf;.*?location \/up \{\s+try_files \$uri \/index\.php\?\$query_string;\s+\}/s', $contents);
     }
 
+    public function test_monitoring_auth_static_routes_preserve_prefixed_paths_when_proxying_to_auth_service(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($contents);
+        $this->assertStringNotContainsString('set $monitoring_auth_assets_upstream', $contents);
+        $this->assertMatchesRegularExpression('/location \^~ \/monitoring\/assets\/ \{\s+limit_req zone=static burst=40 nodelay;\s+proxy_pass http:\/\/auth-service:3000;\s+/s', $contents);
+        $this->assertMatchesRegularExpression('/location \^~ \/monitoring\/icons\/ \{\s+limit_req zone=static burst=40 nodelay;\s+proxy_pass http:\/\/auth-service:3000;\s+/s', $contents);
+    }
+
     public function test_honeypot_integration_probe_uses_configured_https_binding_instead_of_assuming_port_443(): void
     {
         $contents = file_get_contents($this->repoRoot.'/ops/host/04-honeypot-lite.sh');
