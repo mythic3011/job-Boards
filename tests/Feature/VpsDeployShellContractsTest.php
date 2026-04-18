@@ -345,13 +345,18 @@ BASH);
         $this->assertIsString($contents);
         $this->assertStringContainsString('docker compose -f compose.app.yml run --rm --build --no-deps --entrypoint composer laravel.test', $contents);
         $this->assertStringContainsString('install --no-interaction --prefer-dist --no-dev --optimize-autoloader', $contents);
+        $this->assertStringContainsString("docker compose -f compose.app.yml run --rm --build --no-deps --entrypoint sh laravel.test \\", $contents);
+        $this->assertStringContainsString("-lc 'npm ci --no-audit --no-fund && npm run build && rm -rf node_modules'", $contents);
 
         $composerOffset = strpos($contents, 'docker compose -f compose.app.yml run --rm --build --no-deps --entrypoint composer laravel.test');
+        $frontendOffset = strpos($contents, "docker compose -f compose.app.yml run --rm --build --no-deps --entrypoint sh laravel.test");
         $appSetupOffset = strpos($contents, './setup-blue-team-vm.sh app');
 
         $this->assertNotFalse($composerOffset, 'Expected dockerized composer hydration in remote deploy script.');
+        $this->assertNotFalse($frontendOffset, 'Expected dockerized frontend asset hydration in remote deploy script.');
         $this->assertNotFalse($appSetupOffset, 'Expected app bootstrap call in remote deploy script.');
         $this->assertLessThan($appSetupOffset, $composerOffset, 'Remote deploy must hydrate release dependencies before app bootstrap.');
+        $this->assertLessThan($appSetupOffset, $frontendOffset, 'Remote deploy must build frontend assets before app bootstrap.');
     }
 
     public function test_vps_deploy_repairs_legacy_shared_env_drift_from_previous_release_before_relinking(): void
@@ -428,7 +433,25 @@ BASH);
         $this->assertStringContainsString('mkdir -p "${writable_dirs[@]}"', $contents);
         $this->assertStringContainsString('chown -R 1337:1000', $contents);
         $this->assertStringContainsString('chmod -R ug+rwX', $contents);
-        $this->assertSame(3, substr_count($contents, 'prepare_release_runtime_permissions'));
+        $this->assertStringContainsString('chown 1337:1000 "${remote_release}/.env"', $contents);
+        $this->assertStringContainsString('chmod 0640 "${remote_release}/.env"', $contents);
+        $this->assertSame(4, substr_count($contents, 'prepare_release_runtime_permissions'));
+    }
+
+    public function test_vps_deploy_normalizes_release_env_permissions_immediately_after_bootstrap_env_mutation(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/vps-deploy.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString(<<<'BASH'
+if [[ "${DEPLOY_BOOTSTRAP_MODE}" == "production" ]]; then
+    ./bootstrap-env.sh production
+else
+    ./bootstrap-env.sh dev
+fi
+prepare_release_runtime_permissions
+sync_release_env_to_shared
+BASH, $contents);
     }
 
     private function makeTempDir(): string

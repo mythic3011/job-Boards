@@ -201,6 +201,9 @@ hydrate_release_dependencies() {
 
     docker compose -f compose.app.yml run --rm --build --no-deps --entrypoint composer laravel.test \
         install --no-interaction --prefer-dist --no-dev --optimize-autoloader
+
+    docker compose -f compose.app.yml run --rm --build --no-deps --entrypoint sh laravel.test \
+        -lc 'npm ci --no-audit --no-fund && npm run build && rm -rf node_modules'
 }
 
 repair_shared_env_from_previous_release() {
@@ -239,6 +242,11 @@ prepare_release_runtime_permissions() {
         "${remote_release}/storage/framework" \
         "${remote_release}/storage/logs" \
         "${remote_release}/bootstrap/cache"
+
+    if [[ -f "${remote_release}/.env" ]]; then
+        chown 1337:1000 "${remote_release}/.env"
+        chmod 0640 "${remote_release}/.env"
+    fi
 }
 
 materialize_release_env() {
@@ -387,6 +395,7 @@ if [[ "${DEPLOY_BOOTSTRAP_MODE}" == "production" ]]; then
 else
     ./bootstrap-env.sh dev
 fi
+prepare_release_runtime_permissions
 sync_release_env_to_shared
 
 export BT_STATE_DIR="${DEPLOY_BT_STATE_DIR}"
