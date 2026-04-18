@@ -1275,10 +1275,12 @@ BASH);
         $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-app.sh');
 
         $this->assertIsString($contents);
+        $this->assertStringContainsString('APP_HEALTH_PROBE_TIMEOUT_SECONDS="${BT_APP_HEALTH_PROBE_TIMEOUT_SECONDS:-${APP_WAIT_TIMEOUT_SECONDS}}"', $contents);
         $this->assertStringContainsString('app_health_binding()', $contents);
         $this->assertStringContainsString('app_health_host()', $contents);
         $this->assertStringContainsString('app_health_port()', $contents);
         $this->assertStringContainsString('"http://${origin_host}:${port}/up"', $contents);
+        $this->assertStringContainsString('deadline=$((SECONDS + APP_HEALTH_PROBE_TIMEOUT_SECONDS))', $contents);
         $this->assertStringContainsString('while (( SECONDS < deadline )); do', $contents);
         $this->assertStringContainsString('sleep 1', $contents);
         $this->assertStringNotContainsString('curl -fsS --resolve "${server_name}:${port}:${origin_host}" -o /dev/null -w \'%{http_code}\'', $contents);

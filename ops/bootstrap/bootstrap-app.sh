@@ -8,6 +8,7 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 
 ACTION="${1:-apply}"
 APP_WAIT_TIMEOUT_SECONDS="${BT_APP_WAIT_TIMEOUT_SECONDS:-90}"
+APP_HEALTH_PROBE_TIMEOUT_SECONDS="${BT_APP_HEALTH_PROBE_TIMEOUT_SECONDS:-${APP_WAIT_TIMEOUT_SECONDS}}"
 ROOT_ENV_FILE="${BT_ROOT_ENV_FILE:-${SCRIPT_DIR}/../../.env}"
 app_statuses=()
 
@@ -216,7 +217,7 @@ verify_app_health_frontdoor() {
     origin_host="$(app_health_host)"
     port="$(app_health_port)"
     url="http://${origin_host}:${port}/up"
-    deadline=$((SECONDS + BT_CROWDSEC_TIMEOUT_SECONDS))
+    deadline=$((SECONDS + APP_HEALTH_PROBE_TIMEOUT_SECONDS))
 
     while (( SECONDS < deadline )); do
         code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "${url}" || true)"
