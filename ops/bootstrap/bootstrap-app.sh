@@ -8,7 +8,12 @@ source "${SCRIPT_DIR}/../lib/common.sh"
 
 ACTION="${1:-apply}"
 APP_WAIT_TIMEOUT_SECONDS="${BT_APP_WAIT_TIMEOUT_SECONDS:-90}"
+ROOT_ENV_FILE="${BT_ROOT_ENV_FILE:-${SCRIPT_DIR}/../../.env}"
 app_statuses=()
+
+load_app_runtime_env() {
+    bt_export_env_file_if_unset "${ROOT_ENV_FILE}"
+}
 
 app_frontdoor_binding() {
     printf '%s\n' "${APP_SSL_PORT:-443}"
@@ -178,6 +183,7 @@ apply_action() {
         return 0
     fi
 
+    load_app_runtime_env
     require_baseline_marker
 
     run_app_check "app.frontdoor.host_port_conflicts" "${BT_STATUS_PASS}" "App front-door ports 80/443 are available for the app plane." "Stop or disable conflicting host listeners on 80/443 before starting app-plane nginx." verify_frontdoor_ports_available_for_app || {
@@ -202,6 +208,7 @@ apply_action() {
 }
 
 verify_action() {
+    load_app_runtime_env
     run_app_check "app.nginx.running" "${BT_STATUS_PASS}" "App-plane nginx is running." "Inspect compose app nginx service state." bt_compose_service_running "${BT_COMPOSE_APP_FILE}" nginx || true
     run_app_check "app.laravel.running" "${BT_STATUS_PASS}" "Laravel app service is running." "Inspect compose app laravel.test service state." bt_compose_service_running "${BT_COMPOSE_APP_FILE}" laravel.test || true
     run_app_check "app.postgres.healthy" "${BT_STATUS_PASS}" "Postgres is healthy." "Inspect compose app postgres service health." bt_compose_service_healthy "${BT_COMPOSE_APP_FILE}" postgres || true
@@ -245,6 +252,7 @@ verify_action() {
 }
 
 rollback_action() {
+    load_app_runtime_env
     bt_emit_plane_summary "app" "${BT_STATUS_FAIL}" "App rollback is not implemented." "Host rollback must not implicitly tear down app compose stacks."
     exit 1
 }

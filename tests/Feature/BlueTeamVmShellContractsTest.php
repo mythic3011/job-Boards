@@ -1143,6 +1143,8 @@ BASH);
         $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-app.sh');
 
         $this->assertIsString($contents);
+        $this->assertStringContainsString('ROOT_ENV_FILE="${BT_ROOT_ENV_FILE:-${SCRIPT_DIR}/../../.env}"', $contents);
+        $this->assertStringContainsString('bt_export_env_file_if_unset "${ROOT_ENV_FILE}"', $contents);
         $this->assertStringContainsString('app.host.local_ports', $contents);
         $this->assertStringContainsString('BT_STATUS_SKIPPED', $contents);
         $this->assertStringContainsString('Linux VM host exposure evidence is unavailable in this runtime.', $contents);
