@@ -1275,7 +1275,7 @@ BASH);
         $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-app.sh');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('APP_HEALTH_PROBE_TIMEOUT_SECONDS="${BT_APP_HEALTH_PROBE_TIMEOUT_SECONDS:-${APP_WAIT_TIMEOUT_SECONDS}}"', $contents);
+        $this->assertStringContainsString('APP_HEALTH_PROBE_TIMEOUT_SECONDS="${BT_APP_HEALTH_PROBE_TIMEOUT_SECONDS:-420}"', $contents);
         $this->assertStringContainsString('app_health_binding()', $contents);
         $this->assertStringContainsString('app_health_host()', $contents);
         $this->assertStringContainsString('app_health_port()', $contents);
