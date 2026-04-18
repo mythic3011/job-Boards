@@ -30,6 +30,17 @@ class BootstrapEnvShellContractsTest extends TestCase
         $this->assertStringContainsString('os.replace', $contents);
     }
 
+    public function test_bootstrap_env_audits_the_canonical_audit_auth_service_secret_contract(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
+        $example = file_get_contents($this->repoRoot.'/.env.example');
+
+        $this->assertIsString($contents);
+        $this->assertIsString($example);
+        $this->assertStringContainsString('audit_secret CANONICAL_AUDIT_AUTH_SERVICE_SECRET', $contents);
+        $this->assertStringContainsString('CANONICAL_AUDIT_AUTH_SERVICE_SECRET=', $example);
+    }
+
     public function test_set_env_preserves_special_character_semantics_with_portable_handoff(): void
     {
         $tempRoot = $this->makeTempDir();
