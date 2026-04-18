@@ -346,6 +346,18 @@ BASH);
         $this->assertLessThan($finalCurlOffset, $restartOffset, 'Laravel restart must happen before the final front-door proof.');
     }
 
+    public function test_vps_deploy_repairs_release_writable_dir_ownership_for_php_fpm_before_bootstrap_and_restart(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/vps-deploy.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('prepare_release_runtime_permissions()', $contents);
+        $this->assertStringContainsString('mkdir -p "${writable_dirs[@]}"', $contents);
+        $this->assertStringContainsString('chown -R 1337:1000', $contents);
+        $this->assertStringContainsString('chmod -R ug+rwX', $contents);
+        $this->assertSame(3, substr_count($contents, 'prepare_release_runtime_permissions'));
+    }
+
     private function makeTempDir(): string
     {
         $dir = sys_get_temp_dir().'/jobs-boards-vps-deploy-'.bin2hex(random_bytes(8));

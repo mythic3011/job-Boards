@@ -219,6 +219,28 @@ repair_shared_env_from_previous_release() {
     fi
 }
 
+prepare_release_runtime_permissions() {
+    local writable_dirs=(
+        "${remote_release}/storage/framework"
+        "${remote_release}/storage/framework/cache"
+        "${remote_release}/storage/framework/sessions"
+        "${remote_release}/storage/framework/testing"
+        "${remote_release}/storage/framework/views"
+        "${remote_release}/storage/logs"
+        "${remote_release}/bootstrap/cache"
+    )
+
+    mkdir -p "${writable_dirs[@]}"
+    chown -R 1337:1000 \
+        "${remote_release}/storage/framework" \
+        "${remote_release}/storage/logs" \
+        "${remote_release}/bootstrap/cache"
+    chmod -R ug+rwX \
+        "${remote_release}/storage/framework" \
+        "${remote_release}/storage/logs" \
+        "${remote_release}/bootstrap/cache"
+}
+
 materialize_release_env() {
     cp "${remote_shared}/.env" "${remote_release}/.env"
 }
@@ -311,6 +333,7 @@ mkdir -p "${DEPLOY_REMOTE_ROOT}/releases" "${remote_shared}" "${DEPLOY_BT_STATE_
 rm -rf "${remote_release}"
 mkdir -p "${remote_release}"
 tar -xzf "${release_archive}" -C "${remote_release}"
+prepare_release_runtime_permissions
 
 if [[ ! -f "${remote_shared}/.env" ]]; then
     cp "${remote_release}/.env.example" "${remote_shared}/.env"
@@ -396,6 +419,7 @@ if [[ -n "${JB_INSTALL_ADMIN_EMAIL:-}" ]]; then
     docker compose -f compose.app.yml exec -T laravel.test "${install_args[@]}"
 fi
 sync_release_env_to_shared
+prepare_release_runtime_permissions
 docker compose -f compose.app.yml restart laravel.test
 
 if [[ "${DEPLOY_INSTALL_HOST_NGINX:-true}" == "true" ]]; then
