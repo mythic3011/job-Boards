@@ -193,9 +193,13 @@ remote_release="${DEPLOY_REMOTE_ROOT}/releases/${release_sha}"
 runtime_dir="${DEPLOY_BT_STATE_DIR}/runtime"
 netplan_path="/etc/netplan/60-jobs-boards-lab.yaml"
 
-hydrate_release_dependencies() {
+source_release_common() {
     # shellcheck source=/dev/null
     source "${remote_release}/ops/lib/common.sh"
+}
+
+hydrate_release_dependencies() {
+    source_release_common
 
     bt_ensure_app_plane_network
     bt_preload_compose_env
@@ -403,6 +407,7 @@ export BT_STATE_DIR="${DEPLOY_BT_STATE_DIR}"
 export BT_RUNTIME_DIR="${runtime_dir}"
 export BT_SKIP_HOST_LOCAL_PORTS_CHECK="${DEPLOY_SKIP_HOST_PORT_EXPOSURE_CHECK}"
 export COMPOSE_PROJECT_NAME="${DEPLOY_COMPOSE_PROJECT_NAME}"
+source_release_common
 bt_preload_compose_env
 
 hydrate_release_dependencies
