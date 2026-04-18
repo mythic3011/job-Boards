@@ -278,6 +278,22 @@ BASH);
         $this->assertStringContainsString("JB_INSTALL_ADMIN_PASSWORD=V%U7\\&HX7A#N@eFvH\n", (string) file_get_contents($capturedEnv));
     }
 
+    public function test_vps_deploy_hydrates_release_dependencies_before_app_bootstrap(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/vps-deploy.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('docker compose -f compose.app.yml run --rm --build --no-deps --entrypoint composer laravel.test', $contents);
+        $this->assertStringContainsString('install --no-interaction --prefer-dist --no-dev --optimize-autoloader', $contents);
+
+        $composerOffset = strpos($contents, 'docker compose -f compose.app.yml run --rm --build --no-deps --entrypoint composer laravel.test');
+        $appSetupOffset = strpos($contents, './setup-blue-team-vm.sh app');
+
+        $this->assertNotFalse($composerOffset, 'Expected dockerized composer hydration in remote deploy script.');
+        $this->assertNotFalse($appSetupOffset, 'Expected app bootstrap call in remote deploy script.');
+        $this->assertLessThan($appSetupOffset, $composerOffset, 'Remote deploy must hydrate release dependencies before app bootstrap.');
+    }
+
     private function makeTempDir(): string
     {
         $dir = sys_get_temp_dir().'/jobs-boards-vps-deploy-'.bin2hex(random_bytes(8));

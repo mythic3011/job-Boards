@@ -191,6 +191,17 @@ remote_release="${DEPLOY_REMOTE_ROOT}/releases/${release_sha}"
 runtime_dir="${DEPLOY_BT_STATE_DIR}/runtime"
 netplan_path="/etc/netplan/60-jobs-boards-lab.yaml"
 
+hydrate_release_dependencies() {
+    # shellcheck source=/dev/null
+    source "${remote_current}/ops/lib/common.sh"
+
+    bt_ensure_app_plane_network
+    bt_preload_compose_env
+
+    docker compose -f compose.app.yml run --rm --build --no-deps --entrypoint composer laravel.test \
+        install --no-interaction --prefer-dist --no-dev --optimize-autoloader
+}
+
 configure_lab_netplan() {
     if [[ "${LAB_CONFIGURE_NETPLAN:-false}" != "true" ]]; then
         return 0
@@ -327,6 +338,8 @@ export BT_STATE_DIR="${DEPLOY_BT_STATE_DIR}"
 export BT_RUNTIME_DIR="${runtime_dir}"
 export BT_HONEYPOT_SOURCE="${remote_current}/docker/nginx/includes/blue-team-honeypot.conf"
 export COMPOSE_PROJECT_NAME="${DEPLOY_COMPOSE_PROJECT_NAME}"
+
+hydrate_release_dependencies
 
 ./setup-blue-team-vm.sh app
 ./setup-blue-team-vm.sh obs
