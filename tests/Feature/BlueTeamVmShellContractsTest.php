@@ -999,6 +999,15 @@ BASH);
         $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret", $dockerEnvOutput);
     }
 
+    public function test_app_runtime_uses_php_builtin_server_with_public_index_router_instead_of_artisan_serve(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/supervisord.conf');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('-S 0.0.0.0:80 /var/www/html/public/index.php', $contents);
+        $this->assertStringNotContainsString('/var/www/html/artisan serve', $contents);
+    }
+
     public function test_common_bt_compose_does_not_override_explicit_runtime_env_exports(): void
     {
         $tempRoot = $this->makeTempDir();
