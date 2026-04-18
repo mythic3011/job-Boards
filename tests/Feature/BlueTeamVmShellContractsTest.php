@@ -1270,6 +1270,17 @@ BASH);
         $this->assertStringNotContainsString('for port in 80 443; do', $contents);
     }
 
+    public function test_app_health_probe_uses_configured_http_binding_for_stable_up_checks(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-app.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('app_health_binding()', $contents);
+        $this->assertStringContainsString('app_health_host()', $contents);
+        $this->assertStringContainsString('app_health_port()', $contents);
+        $this->assertStringContainsString('"http://${server_name}:${port}/up"', $contents);
+    }
+
     public function test_https_nginx_server_keeps_a_dedicated_up_probe_location_instead_of_only_the_generic_route_handler(): void
     {
         $contents = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');

@@ -19,9 +19,12 @@ app_frontdoor_binding() {
     printf '%s\n' "${APP_SSL_PORT:-443}"
 }
 
-app_frontdoor_host() {
-    local binding
-    binding="$(app_frontdoor_binding)"
+app_health_binding() {
+    printf '%s\n' "${APP_PORT:-80}"
+}
+
+binding_host() {
+    local binding="$1"
 
     if [[ "${binding}" == *:* ]]; then
         local host_part="${binding%:*}"
@@ -40,10 +43,33 @@ app_frontdoor_host() {
     printf '%s\n' "127.0.0.1"
 }
 
+binding_port() {
+    local binding="$1"
+    printf '%s\n' "${binding##*:}"
+}
+
+app_frontdoor_host() {
+    local binding
+    binding="$(app_frontdoor_binding)"
+    binding_host "${binding}"
+}
+
 app_frontdoor_port() {
     local binding
     binding="$(app_frontdoor_binding)"
-    printf '%s\n' "${binding##*:}"
+    binding_port "${binding}"
+}
+
+app_health_host() {
+    local binding
+    binding="$(app_health_binding)"
+    binding_host "${binding}"
+}
+
+app_health_port() {
+    local binding
+    binding="$(app_health_binding)"
+    binding_port "${binding}"
 }
 
 app_frontdoor_https_url() {
@@ -186,10 +212,10 @@ verify_app_health_frontdoor() {
     local port
     local server_name
 
-    origin_host="$(app_frontdoor_host)"
-    port="$(app_frontdoor_port)"
+    origin_host="$(app_health_host)"
+    port="$(app_health_port)"
     server_name="$(app_frontdoor_server_name)"
-    code="$(curl -kfsS --resolve "${server_name}:${port}:${origin_host}" -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "https://${server_name}:${port}/up" || true)"
+    code="$(curl -fsS --resolve "${server_name}:${port}:${origin_host}" -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "http://${server_name}:${port}/up" || true)"
     [[ "${code}" == "200" ]]
 }
 
