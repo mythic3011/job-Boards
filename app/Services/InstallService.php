@@ -148,7 +148,7 @@ class InstallService
 
         try {
             // Ensure roles and permissions exist
-            Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\RolePermissionSeeder']);
+            Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\RolePermissionSeeder', '--force' => true]);
 
             // Create admin user
             $admin = $this->createAdminUser($data);
@@ -261,7 +261,7 @@ class InstallService
      */
     protected function installDemoData(): void
     {
-        Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\DemoDataSeeder']);
+        Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\DemoDataSeeder', '--force' => true]);
 
         $this->auditLogger->logBusinessEvent(
             eventType: 'setup.demo_data_seeded',
