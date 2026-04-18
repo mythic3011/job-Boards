@@ -396,6 +396,7 @@ if [[ -n "${JB_INSTALL_ADMIN_EMAIL:-}" ]]; then
     docker compose -f compose.app.yml exec -T laravel.test "${install_args[@]}"
 fi
 sync_release_env_to_shared
+docker compose -f compose.app.yml restart laravel.test
 
 if [[ "${DEPLOY_INSTALL_HOST_NGINX:-true}" == "true" ]]; then
     [[ -f "${DEPLOY_NGINX_CERT_PATH}" ]] || {

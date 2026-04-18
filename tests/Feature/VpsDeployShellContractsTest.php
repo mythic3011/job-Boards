@@ -327,6 +327,23 @@ BASH);
         $this->assertSame(3, substr_count($contents, 'sync_release_env_to_shared'));
     }
 
+    public function test_vps_deploy_restarts_laravel_runtime_after_bootstrap_and_headless_install_before_final_proof(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/vps-deploy.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('docker compose -f compose.app.yml restart laravel.test', $contents);
+
+        $installOffset = strpos($contents, 'docker compose -f compose.app.yml exec -T laravel.test "${install_args[@]}"');
+        $restartOffset = strpos($contents, 'docker compose -f compose.app.yml restart laravel.test');
+        $finalCurlOffset = strpos($contents, 'curl -kfsS --resolve "${DEPLOY_DOMAIN}:443:127.0.0.1" "https://${DEPLOY_DOMAIN}/up" >/dev/null');
+
+        $this->assertNotFalse($restartOffset, 'Expected remote deploy to refresh the laravel runtime before final proof.');
+        $this->assertNotFalse($finalCurlOffset, 'Expected final deploy proof curl in remote deploy script.');
+        $this->assertFalse($installOffset === false || $restartOffset < $installOffset, 'Laravel restart must happen after optional headless install.');
+        $this->assertLessThan($finalCurlOffset, $restartOffset, 'Laravel restart must happen before the final front-door proof.');
+    }
+
     private function makeTempDir(): string
     {
         $dir = sys_get_temp_dir().'/jobs-boards-vps-deploy-'.bin2hex(random_bytes(8));
