@@ -195,7 +195,7 @@ netplan_path="/etc/netplan/60-jobs-boards-lab.yaml"
 
 hydrate_release_dependencies() {
     # shellcheck source=/dev/null
-    source "${remote_current}/ops/lib/common.sh"
+    source "${remote_release}/ops/lib/common.sh"
 
     bt_ensure_app_plane_network
     bt_preload_compose_env

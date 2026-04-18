@@ -403,6 +403,8 @@ BASH);
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('bt_preload_compose_env', $contents);
+        $this->assertStringContainsString('source "${remote_release}/ops/lib/common.sh"', $contents);
+        $this->assertStringNotContainsString('source "${remote_current}/ops/lib/common.sh"', $contents);
         $this->assertStringNotContainsString('export BT_HONEYPOT_SOURCE="${remote_current}/docker/nginx/includes/blue-team-honeypot.conf"', $contents);
         $this->assertMatchesRegularExpression(
             '/export BT_STATE_DIR="\$\{DEPLOY_BT_STATE_DIR\}"\n'
