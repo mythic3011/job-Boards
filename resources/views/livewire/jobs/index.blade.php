@@ -269,8 +269,8 @@ new class extends Component
                     </div>
                 @empty
                     <x-ui.empty-state
-                        title="{{ $search ? 'No matching jobs found' : 'No job listings yet' }}"
-                        message="{{ $search ? 'Try a different search term or browse all listings.' : 'Check back soon or, if you\'re hiring, post the first opportunity.' }}"
+                        :title="$search ? 'No matching jobs found' : 'No job listings yet'"
+                        :message="$search ? 'Try a different search term or browse all listings.' : 'Check back soon or, if you\'re hiring, post the first opportunity.'"
                     >
                         <x-slot:action>
                             <div class="flex flex-wrap items-center justify-center gap-3">

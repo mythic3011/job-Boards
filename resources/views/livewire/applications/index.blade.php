@@ -286,8 +286,8 @@ new class extends Component
             </div>
         @empty
             <x-ui.empty-state
-                title="{{ $search || $statusFilter ? 'No matching applications' : ($isCompany ? 'No applications yet' : 'You have not applied to any jobs yet') }}"
-                message="{{ $search || $statusFilter ? 'Try adjusting your search or filters.' : ($isCompany ? 'Applications will appear here once candidates apply.' : 'Browse open positions and submit your first application.') }}"
+                :title="$search || $statusFilter ? 'No matching applications' : ($isCompany ? 'No applications yet' : 'You have not applied to any jobs yet')"
+                :message="$search || $statusFilter ? 'Try adjusting your search or filters.' : ($isCompany ? 'Applications will appear here once candidates apply.' : 'Browse open positions and submit your first application.')"
             >
                 @if($search || $statusFilter)
                     <x-slot:action>

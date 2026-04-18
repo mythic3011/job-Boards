@@ -26,4 +26,18 @@ class UiEmptyStateContractTest extends TestCase
         $this->assertStringContainsString('mt-6 flex flex-wrap items-center justify-center gap-3', $contents);
         $this->assertStringContainsString('theme-text-muted text-base leading-7', $contents);
     }
+
+    public function test_empty_state_callers_bind_dynamic_title_and_message_props_instead_of_passing_escaped_attribute_strings(): void
+    {
+        $jobsIndex = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/jobs/index.blade.php');
+        $applicationsIndex = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/applications/index.blade.php');
+
+        $this->assertIsString($jobsIndex);
+        $this->assertIsString($applicationsIndex);
+        $this->assertStringContainsString(':title="$search ? \'No matching jobs found\' : \'No job listings yet\'"', $jobsIndex);
+        $this->assertStringContainsString(':message="$search ? \'Try a different search term or browse all listings.\' : \'Check back soon or, if you\\\'re hiring, post the first opportunity.\'"', $jobsIndex);
+        $this->assertStringNotContainsString('message="{{ $search ? \'Try a different search term or browse all listings.\' : \'Check back soon or, if you\\\'re hiring, post the first opportunity.\' }}"', $jobsIndex);
+        $this->assertStringContainsString(':title="$search || $statusFilter ? \'No matching applications\' : ($isCompany ? \'No applications yet\' : \'You have not applied to any jobs yet\')"', $applicationsIndex);
+        $this->assertStringContainsString(':message="$search || $statusFilter ? \'Try adjusting your search or filters.\' : ($isCompany ? \'Applications will appear here once candidates apply.\' : \'Browse open positions and submit your first application.\')"', $applicationsIndex);
+    }
 }
