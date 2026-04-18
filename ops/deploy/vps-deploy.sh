@@ -98,6 +98,7 @@ export DEPLOY_DOMAIN DEPLOY_NGINX_CERT_PATH DEPLOY_NGINX_KEY_PATH DEPLOY_NGINX_P
 
 REMOTE="${DEPLOY_SSH_USER}@${DEPLOY_HOST}"
 SSH_TARGET=(-p "${DEPLOY_SSH_PORT}")
+SCP_TARGET=(-P "${DEPLOY_SSH_PORT}")
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "${TMP_DIR}"' EXIT
 
@@ -363,7 +364,7 @@ EOF
 
 chmod 0755 "${REMOTE_SCRIPT}"
 
-scp_args=("${SSH_TARGET[@]}" "${ARCHIVE_PATH}" "${REMOTE_SCRIPT}" "${REMOTE_ENV}")
+scp_args=("${SCP_TARGET[@]}" "${ARCHIVE_PATH}" "${REMOTE_SCRIPT}" "${REMOTE_ENV}")
 if [[ "${DEPLOY_INSTALL_HOST_NGINX:-true}" == "true" ]]; then
     scp_args+=("${REMOTE_SITE}")
 fi

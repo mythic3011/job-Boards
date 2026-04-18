@@ -24,6 +24,7 @@ class VpsDeployShellContractsTest extends TestCase
         $this->assertStringContainsString('git archive', $contents);
         $this->assertStringContainsString('scp', $contents);
         $this->assertStringContainsString('ssh', $contents);
+        $this->assertStringContainsString('SCP_TARGET=(-P "${DEPLOY_SSH_PORT}")', $contents);
         $this->assertStringNotContainsString('git clone', $contents);
         $this->assertStringContainsString('setup-blue-team-vm.sh app', $contents);
         $this->assertStringContainsString('setup-blue-team-vm.sh obs', $contents);
