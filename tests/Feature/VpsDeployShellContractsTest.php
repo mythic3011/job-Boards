@@ -306,6 +306,27 @@ BASH);
         $this->assertStringContainsString('cp "${previous_env}" "${remote_shared}/.env"', $contents);
     }
 
+    public function test_vps_deploy_materializes_release_env_from_shared_instead_of_absolute_symlink(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/vps-deploy.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('materialize_release_env()', $contents);
+        $this->assertStringContainsString('cp "${remote_shared}/.env" "${remote_release}/.env"', $contents);
+        $this->assertStringNotContainsString('ln -sfn "${remote_shared}/.env" "${remote_release}/.env"', $contents);
+        $this->assertStringContainsString('python3 - "${remote_release}/.env"', $contents);
+    }
+
+    public function test_vps_deploy_syncs_release_env_back_to_shared_after_bootstrap_and_install(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/vps-deploy.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('sync_release_env_to_shared()', $contents);
+        $this->assertStringContainsString('cmp -s "${release_env}" "${remote_shared}/.env" && return 0', $contents);
+        $this->assertSame(3, substr_count($contents, 'sync_release_env_to_shared'));
+    }
+
     private function makeTempDir(): string
     {
         $dir = sys_get_temp_dir().'/jobs-boards-vps-deploy-'.bin2hex(random_bytes(8));

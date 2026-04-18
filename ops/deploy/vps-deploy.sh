@@ -219,6 +219,19 @@ repair_shared_env_from_previous_release() {
     fi
 }
 
+materialize_release_env() {
+    cp "${remote_shared}/.env" "${remote_release}/.env"
+}
+
+sync_release_env_to_shared() {
+    local release_env="${remote_release}/.env"
+
+    [[ -f "${release_env}" ]] || return 0
+    cmp -s "${release_env}" "${remote_shared}/.env" && return 0
+
+    cp "${release_env}" "${remote_shared}/.env"
+}
+
 configure_lab_netplan() {
     if [[ "${LAB_CONFIGURE_NETPLAN:-false}" != "true" ]]; then
         return 0
@@ -304,8 +317,7 @@ if [[ ! -f "${remote_shared}/.env" ]]; then
 fi
 
 repair_shared_env_from_previous_release
-
-ln -sfn "${remote_shared}/.env" "${remote_release}/.env"
+materialize_release_env
 ln -sfn "${remote_release}" "${remote_current}"
 configure_lab_netplan
 
@@ -316,7 +328,7 @@ DEPLOY_APP_SSL_PORT="${DEPLOY_APP_SSL_PORT}" \
 DEPLOY_DB_DATABASE="${DEPLOY_DB_DATABASE}" \
 DEPLOY_DB_USERNAME="${DEPLOY_DB_USERNAME}" \
 DEPLOY_MONITORING_ADMIN_USERNAME="${DEPLOY_MONITORING_ADMIN_USERNAME}" \
-python3 - "${remote_shared}/.env" <<'PY'
+python3 - "${remote_release}/.env" <<'PY'
 import os
 import re
 import sys
@@ -352,6 +364,7 @@ if [[ "${DEPLOY_BOOTSTRAP_MODE}" == "production" ]]; then
 else
     ./bootstrap-env.sh dev
 fi
+sync_release_env_to_shared
 
 export BT_STATE_DIR="${DEPLOY_BT_STATE_DIR}"
 export BT_RUNTIME_DIR="${runtime_dir}"
@@ -382,6 +395,7 @@ if [[ -n "${JB_INSTALL_ADMIN_EMAIL:-}" ]]; then
     fi
     docker compose -f compose.app.yml exec -T laravel.test "${install_args[@]}"
 fi
+sync_release_env_to_shared
 
 if [[ "${DEPLOY_INSTALL_HOST_NGINX:-true}" == "true" ]]; then
     [[ -f "${DEPLOY_NGINX_CERT_PATH}" ]] || {
