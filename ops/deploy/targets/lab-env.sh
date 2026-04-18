@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
 
+TARGETS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./_builder.sh
+source "${TARGETS_DIR}/_builder.sh"
+
 : "${LAB_DEPLOY_HOST:?Set LAB_DEPLOY_HOST for the target lab VM}"
+
+TARGET_PROFILE_NAME="${TARGET_PROFILE_NAME:-lab-env}"
 
 # shellcheck disable=SC2034
 # These DEPLOY_* variables are the sourced output contract consumed by ops/deploy/vps-deploy.sh.
+DEPLOY_PROFILE_NAME="${TARGET_PROFILE_NAME:-lab-env}"
+DEPLOY_PROFILE_KIND="${TARGET_PROFILE_KIND:-lab}"
 DEPLOY_DOMAIN="${LAB_DEPLOY_DOMAIN:-jobs-board.lab}"
 DEPLOY_HOST="${LAB_DEPLOY_HOST}"
 DEPLOY_SSH_PORT="${LAB_DEPLOY_SSH_PORT:-22}"
@@ -18,6 +26,8 @@ DEPLOY_BT_STATE_DIR="${LAB_DEPLOY_BT_STATE_DIR:-/opt/jobs-boards-lab/state}"
 DEPLOY_DB_DATABASE="${LAB_DEPLOY_DB_DATABASE:-jobs_boards}"
 DEPLOY_DB_USERNAME="${LAB_DEPLOY_DB_USERNAME:-jobs_boards}"
 DEPLOY_MONITORING_ADMIN_USERNAME="${LAB_DEPLOY_MONITORING_ADMIN_USERNAME:-admin}"
+DEPLOY_MONITORING_ACCESS_MODE="${LAB_DEPLOY_MONITORING_ACCESS_MODE:-$(resolve_target_monitoring_access_mode)}"
+DEPLOY_MONITORING_ALLOWED_CIDRS="${LAB_DEPLOY_MONITORING_ALLOWED_CIDRS:-$(resolve_target_monitoring_allowed_cidrs)}"
 DEPLOY_TIMEZONE="${LAB_DEPLOY_TIMEZONE:-Asia/Hong_Kong}"
 DEPLOY_INSTALL_HOST_NGINX="false"
 DEPLOY_NGINX_SITE_NAME=""

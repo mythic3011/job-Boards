@@ -9,6 +9,33 @@ deploy_require_value() {
     }
 }
 
+resolve_target_monitoring_access_mode() {
+    local profile_name="${TARGET_PROFILE_NAME:-from-env}"
+
+    if [[ -n "${TARGET_MONITORING_ACCESS_MODE:-}" ]]; then
+        printf '%s\n' "${TARGET_MONITORING_ACCESS_MODE}"
+        return 0
+    fi
+
+    case "${profile_name}" in
+        jb.mythic3011.com)
+            printf '%s\n' "auth-only"
+            ;;
+        *)
+            printf '%s\n' "internal-only"
+            ;;
+    esac
+}
+
+resolve_target_monitoring_allowed_cidrs() {
+    if [[ -n "${TARGET_MONITORING_ALLOWED_CIDRS:-}" ]]; then
+        printf '%s\n' "${TARGET_MONITORING_ALLOWED_CIDRS}"
+        return 0
+    fi
+
+    printf '%s\n' "127.0.0.1/32,192.168.0.0/16"
+}
+
 resolve_target_domain() {
     if [[ -n "${TARGET_DOMAIN:-}" ]]; then
         printf '%s\n' "${TARGET_DOMAIN}"
@@ -74,6 +101,8 @@ build_reverse_proxy_target() {
 
     # shellcheck disable=SC2034
     # These DEPLOY_* variables are emitted as the sourced target contract for ops/deploy/vps-deploy.sh.
+    DEPLOY_PROFILE_NAME="${TARGET_PROFILE_NAME:-from-env}"
+    DEPLOY_PROFILE_KIND="${TARGET_PROFILE_KIND:-reverse-proxy}"
     DEPLOY_DOMAIN="$(resolve_target_domain)" || return 1
     DEPLOY_HOST="${TARGET_HOST}"
     DEPLOY_SSH_PORT="${TARGET_SSH_PORT:-22}"
@@ -95,6 +124,8 @@ build_reverse_proxy_target() {
     DEPLOY_DB_DATABASE="${TARGET_DB_DATABASE:-jobs_boards}"
     DEPLOY_DB_USERNAME="${TARGET_DB_USERNAME:-jobs_boards}"
     DEPLOY_MONITORING_ADMIN_USERNAME="${TARGET_MONITORING_ADMIN_USERNAME:-admin}"
+    DEPLOY_MONITORING_ACCESS_MODE="$(resolve_target_monitoring_access_mode)" || return 1
+    DEPLOY_MONITORING_ALLOWED_CIDRS="$(resolve_target_monitoring_allowed_cidrs)" || return 1
     DEPLOY_TIMEZONE="${TARGET_TIMEZONE:-Asia/Hong_Kong}"
     DEPLOY_INSTALL_HOST_NGINX="true"
 

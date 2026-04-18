@@ -10,10 +10,18 @@ This runbook keeps the course/demo evidence repeatable without mixing scanner lo
 
 ## HTTPS evidence
 
-Use a publicly reachable reverse-proxy deploy such as:
+Use a publicly reachable reverse-proxy deploy profile from [deploy-profile-guide.md](./deploy-profile-guide.md), typically:
 
 - `ops/deploy/vps-deploy.sh jb.mythic3011.com <git-ref>`
 - `ops/deploy/vps-deploy.sh from-env <git-ref>`
+
+Before deploying, inspect the chosen profile contract:
+
+```bash
+ops/deploy/vps-deploy.sh --describe jb.mythic3011.com
+# or
+ops/deploy/vps-deploy.sh --describe from-env
+```
 
 Required checks:
 
@@ -41,10 +49,7 @@ This writes:
 Notes:
 
 - If traffic is `client -> Cloudflare -> VPS -> project stack`, the public HTTPS screenshots reflect the Cloudflare edge certificate and TLS posture.
-- The VPS reverse-proxy target must still consume a valid origin certificate path:
-  - `TARGET_TLS_MODE=cloudflare-origin` for Cloudflare origin cert layouts
-  - `TARGET_TLS_MODE=letsencrypt` when the host directly presents the public certificate
-  - `TARGET_TLS_MODE=custom` when explicit cert/key paths are required
+- The VPS reverse-proxy target must still consume valid origin certificate paths. Use [deploy-profile-guide.md](./deploy-profile-guide.md) for profile defaults and [host-tls-modes.md](./host-tls-modes.md) for the host TLS boundary.
 
 ## ZAP before/after evidence
 

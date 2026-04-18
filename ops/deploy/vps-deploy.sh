@@ -7,10 +7,13 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 usage() {
     cat <<'EOF'
-Usage: ops/deploy/vps-deploy.sh <target> [git-ref]
+Usage:
+  ops/deploy/vps-deploy.sh <target> [git-ref]
+  ops/deploy/vps-deploy.sh --describe <target>
 
 Example:
   ops/deploy/vps-deploy.sh jb.mythic3011.com main
+  ops/deploy/vps-deploy.sh --describe jb.mythic3011.com
 
 Reverse-proxy target TLS inputs:
   TARGET_TLS_MODE=cloudflare-origin|letsencrypt|custom
@@ -81,12 +84,45 @@ with open(output_path, "w", encoding="utf-8") as handle:
 PY
 }
 
+normalize_deploy_profile_contract() {
+    DEPLOY_PROFILE_NAME="${DEPLOY_PROFILE_NAME:-${TARGET_PROFILE_NAME:-${TARGET_NAME}}}"
+    DEPLOY_PROFILE_KIND="${DEPLOY_PROFILE_KIND:-${TARGET_PROFILE_KIND:-unknown}}"
+}
+
+describe_target() {
+    cat <<EOF
+Profile: ${DEPLOY_PROFILE_NAME}
+Kind: ${DEPLOY_PROFILE_KIND}
+Domain: ${DEPLOY_DOMAIN}
+Host: ${DEPLOY_HOST}
+Install host nginx: ${DEPLOY_INSTALL_HOST_NGINX:-true}
+Monitoring access mode: ${DEPLOY_MONITORING_ACCESS_MODE}
+Monitoring allowed CIDRs: ${DEPLOY_MONITORING_ALLOWED_CIDRS}
+Monitoring admin username default: ${DEPLOY_MONITORING_ADMIN_USERNAME}
+Operator credentials: MONITORING_ADMIN_USERNAME, MONITORING_PASSWORD
+EOF
+}
+
+DESCRIBE_MODE="false"
+if [[ "${1:-}" == "--describe" ]]; then
+    DESCRIBE_MODE="true"
+    shift
+fi
+
 TARGET_NAME="${1:-}"
 REF="${2:-HEAD}"
 [[ -n "${TARGET_NAME}" ]] || { usage; exit 1; }
 
 TARGET_FILE="${SCRIPT_DIR}/targets/${TARGET_NAME}.sh"
 [[ -f "${TARGET_FILE}" ]] || die "Unknown deploy target: ${TARGET_NAME}"
+# shellcheck source=/dev/null
+source "${TARGET_FILE}"
+normalize_deploy_profile_contract
+
+if [[ "${DESCRIBE_MODE}" == "true" ]]; then
+    describe_target
+    exit 0
+fi
 
 require_cmd git
 require_cmd ssh
@@ -100,8 +136,6 @@ if [[ -n "$(git status --porcelain)" ]]; then
 fi
 
 RESOLVED_REF="$(git rev-parse --verify "${REF}^{commit}")"
-# shellcheck source=/dev/null
-source "${TARGET_FILE}"
 export DEPLOY_DOMAIN DEPLOY_NGINX_CERT_PATH DEPLOY_NGINX_KEY_PATH DEPLOY_NGINX_PROXY_PASS
 
 REMOTE="${DEPLOY_SSH_USER}@${DEPLOY_HOST}"
@@ -124,6 +158,8 @@ fi
 
 : > "${REMOTE_ENV}"
 for env_key in \
+    DEPLOY_PROFILE_NAME \
+    DEPLOY_PROFILE_KIND \
     DEPLOY_DOMAIN \
     DEPLOY_REMOTE_ROOT \
     DEPLOY_APP_PORT \
@@ -136,6 +172,8 @@ for env_key in \
     DEPLOY_DB_DATABASE \
     DEPLOY_DB_USERNAME \
     DEPLOY_MONITORING_ADMIN_USERNAME \
+    DEPLOY_MONITORING_ACCESS_MODE \
+    DEPLOY_MONITORING_ALLOWED_CIDRS \
     DEPLOY_TIMEZONE \
     DEPLOY_NGINX_SITE_NAME \
     DEPLOY_NGINX_CERT_PATH \
@@ -364,6 +402,8 @@ DEPLOY_APP_SSL_PORT="${DEPLOY_APP_SSL_PORT}" \
 DEPLOY_DB_DATABASE="${DEPLOY_DB_DATABASE}" \
 DEPLOY_DB_USERNAME="${DEPLOY_DB_USERNAME}" \
 DEPLOY_MONITORING_ADMIN_USERNAME="${DEPLOY_MONITORING_ADMIN_USERNAME}" \
+DEPLOY_MONITORING_ACCESS_MODE="${DEPLOY_MONITORING_ACCESS_MODE}" \
+DEPLOY_MONITORING_ALLOWED_CIDRS="${DEPLOY_MONITORING_ALLOWED_CIDRS}" \
 python3 - "${remote_release}/.env" <<'PY'
 import os
 import re
@@ -380,6 +420,8 @@ updates = {
     "DB_DATABASE": os.environ["DEPLOY_DB_DATABASE"],
     "DB_USERNAME": os.environ["DEPLOY_DB_USERNAME"],
     "MONITORING_ADMIN_USERNAME": os.environ["DEPLOY_MONITORING_ADMIN_USERNAME"],
+    "MONITORING_ACCESS_MODE": os.environ["DEPLOY_MONITORING_ACCESS_MODE"],
+    "MONITORING_ALLOWED_CIDRS": os.environ["DEPLOY_MONITORING_ALLOWED_CIDRS"],
 }
 with open(path, "r", encoding="utf-8") as handle:
     content = handle.read()

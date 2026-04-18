@@ -164,6 +164,43 @@ BASH;
         $this->assertStringContainsString('if [[ "${LAB_NETPLAN_APPLY:-false}" == "true" ]]', $contents);
     }
 
+    public function test_vps_deploy_persists_monitoring_access_policy_into_remote_env_and_release_env(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/vps-deploy.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('--describe', $contents);
+        $this->assertStringContainsString('DEPLOY_PROFILE_NAME', $contents);
+        $this->assertStringContainsString('DEPLOY_PROFILE_KIND', $contents);
+        $this->assertStringContainsString('DEPLOY_MONITORING_ACCESS_MODE', $contents);
+        $this->assertStringContainsString('DEPLOY_MONITORING_ALLOWED_CIDRS', $contents);
+        $this->assertStringContainsString('"MONITORING_ACCESS_MODE": os.environ["DEPLOY_MONITORING_ACCESS_MODE"]', $contents);
+        $this->assertStringContainsString('"MONITORING_ALLOWED_CIDRS": os.environ["DEPLOY_MONITORING_ALLOWED_CIDRS"]', $contents);
+    }
+
+    public function test_vps_deploy_describe_prints_operator_profile_summary_without_remote_access(): void
+    {
+        $process = new Process(
+            [$this->repoRoot.'/ops/deploy/vps-deploy.sh', '--describe', 'jb.mythic3011.com'],
+            $this->repoRoot,
+            [
+                'TARGET_HOST' => '203.0.113.10',
+            ],
+            null,
+            10,
+        );
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $output = $process->getOutput();
+        $this->assertStringContainsString('Profile: jb.mythic3011.com', $output);
+        $this->assertStringContainsString('Kind: reverse-proxy', $output);
+        $this->assertStringContainsString('Domain: jb.mythic3011.com', $output);
+        $this->assertStringContainsString('Install host nginx: true', $output);
+        $this->assertStringContainsString('Monitoring access mode: auth-only', $output);
+        $this->assertStringContainsString('Operator credentials: MONITORING_ADMIN_USERNAME, MONITORING_PASSWORD', $output);
+    }
+
     public function test_vps_deploy_selects_production_bootstrap_for_first_init_and_dev_for_repeat_runs(): void
     {
         $tempRoot = $this->makeTempDir();
