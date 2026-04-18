@@ -13,6 +13,7 @@ services:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/nginx/crowdsec-bouncer.conf.template:/etc/nginx/crowdsec-bouncer.conf.template:ro
       - ./docker/nginx/errors:/usr/share/nginx/html:ro
+      - ".:/var/www/html:ro"
       - ${BT_HONEYPOT_SOURCE:?Set BT_HONEYPOT_SOURCE before app apply}:/etc/nginx/includes/blue-team-honeypot.conf:ro
       - nginx-ssl:/etc/nginx/ssl
       - nginx-htpasswd:/etc/nginx/htpasswd
@@ -122,7 +123,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "php artisan route:list >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "php -r '$$socket=@fsockopen(\"127.0.0.1\", 9000); if (! $$socket) { exit(1); } fclose($$socket);'"]
       interval: 15s
       timeout: 5s
       retries: 3

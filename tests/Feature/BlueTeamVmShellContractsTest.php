@@ -1007,13 +1007,46 @@ BASH);
         $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret", $dockerEnvOutput);
     }
 
-    public function test_app_runtime_uses_php_builtin_server_with_public_index_router_instead_of_artisan_serve(): void
+    public function test_app_runtime_uses_php_fpm_foreground_instead_of_php_builtin_server_or_artisan_serve(): void
     {
+        $dockerfileContents = file_get_contents($this->repoRoot.'/docker/Dockerfile.sail');
         $contents = file_get_contents($this->repoRoot.'/docker/supervisord.conf');
 
+        $this->assertIsString($dockerfileContents);
         $this->assertIsString($contents);
-        $this->assertStringContainsString('-S 0.0.0.0:80 /var/www/html/public/index.php', $contents);
+        $this->assertStringContainsString('php8.5-fpm', $dockerfileContents);
+        $this->assertStringContainsString('php-fpm8.5 -F', $contents);
+        $this->assertStringNotContainsString('-S 0.0.0.0:80 /var/www/html/public/index.php', $contents);
         $this->assertStringNotContainsString('/var/www/html/artisan serve', $contents);
+    }
+
+    public function test_app_nginx_serves_laravel_via_fastcgi_front_controller_with_read_only_code_mount(): void
+    {
+        $composeContents = file_get_contents($this->repoRoot.'/compose.app.yml');
+        $nginxContents = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($composeContents);
+        $this->assertIsString($nginxContents);
+        $this->assertStringContainsString('- ".:/var/www/html:ro"', $composeContents);
+        $this->assertStringContainsString('server laravel.test:9000;', $nginxContents);
+        $this->assertStringContainsString('root /var/www/html/public;', $nginxContents);
+        $this->assertStringContainsString('try_files $uri $uri/ /index.php?$query_string;', $nginxContents);
+        $this->assertStringContainsString('location = /index.php {', $nginxContents);
+        $this->assertStringContainsString('fastcgi_pass laravel;', $nginxContents);
+        $this->assertStringContainsString('fastcgi_param SCRIPT_FILENAME /var/www/html/public/index.php;', $nginxContents);
+        $this->assertStringNotContainsString('server laravel.test:80;', $nginxContents);
+    }
+
+    public function test_app_runtime_healthcheck_probes_php_fpm_socket_without_compose_interpolation_drift(): void
+    {
+        $composeContents = file_get_contents($this->repoRoot.'/compose.app.yml');
+
+        $this->assertIsString($composeContents);
+        $this->assertStringContainsString(
+            'php -r \'$$socket=@fsockopen(\"127.0.0.1\", 9000); if (! $$socket) { exit(1); } fclose($$socket);\'',
+            $composeContents
+        );
+        $this->assertStringNotContainsString('php artisan route:list >/dev/null 2>&1 || exit 1', $composeContents);
     }
 
     public function test_common_bt_compose_does_not_override_explicit_runtime_env_exports(): void
