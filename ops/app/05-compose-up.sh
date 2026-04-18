@@ -13,4 +13,5 @@ fi
 
 bt_ensure_app_plane_network
 bt_compose "${BT_COMPOSE_APP_FILE}" up -d
+bt_compose "${BT_COMPOSE_APP_FILE}" restart laravel.test
 bt_compose "${BT_COMPOSE_APP_FILE}" restart nginx
