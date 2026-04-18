@@ -6,6 +6,120 @@ Laravel job board application with a split blue-team deployment contract:
 - `compose.obs.yml` is the obs-plane runtime truth.
 - `compose.yaml` is local/dev convenience only. It is not evidence that the blue-team VM runtime contract changed.
 
+## Remote Deployment Targets
+
+Repo-first remote deployment now lives under `ops/deploy/`:
+
+- `ops/deploy/vps-deploy.sh jb.mythic3011.com [git-ref]`
+  - production-style VPS target
+  - keeps the app behind host nginx on loopback high ports
+- `ops/deploy/vps-deploy.sh from-env [git-ref]`
+  - generic reverse-proxy target
+  - builds a production-style profile from `TARGET_*` environment variables
+- `ops/deploy/vps-deploy.sh lab-env [git-ref]`
+  - reusable lab target
+  - direct bind target for isolated lab VMs
+  - supports DHCP or static subnet provisioning through env overrides
+
+Example generic reverse-proxy deploy:
+
+```bash
+export TARGET_DOMAIN=demo.example.com
+export TARGET_HOST=203.0.113.10
+export TARGET_REMOTE_ROOT=/opt/jobs-boards-demo
+export TARGET_COMPOSE_PROJECT_NAME=jobs-boards-demo
+export TARGET_SSH_PORT=22
+./ops/deploy/vps-deploy.sh from-env main
+```
+
+The `from-env` target uses the shared builder and derives these defaults unless overridden:
+
+- `DEPLOY_APP_URL=https://${TARGET_DOMAIN}`
+- `DEPLOY_ASSET_URL=https://${TARGET_DOMAIN}`
+- `DEPLOY_NGINX_CERT_DIR=/etc/nginx/cert/${TARGET_DOMAIN}`
+- `DEPLOY_NGINX_CERT_PATH=${DEPLOY_NGINX_CERT_DIR}/cert.pem`
+- `DEPLOY_NGINX_KEY_PATH=${DEPLOY_NGINX_CERT_DIR}/key.pem`
+- `DEPLOY_NGINX_PROXY_PASS=https://127.0.0.1:${TARGET_APP_SSL_PORT##*:}/`
+
+Reverse-proxy TLS consumption modes:
+
+- `TARGET_TLS_MODE=cloudflare-origin` (default)
+  - consumes origin cert/key from `/etc/nginx/cert/${TARGET_DOMAIN}/`
+  - suitable when Cloudflare terminates the public certificate and the VPS only needs an origin certificate
+- `TARGET_TLS_MODE=letsencrypt`
+  - consumes `/etc/letsencrypt/live/${TARGET_DOMAIN}/fullchain.pem`
+  - consumes `/etc/letsencrypt/live/${TARGET_DOMAIN}/privkey.pem`
+  - suitable when the host itself presents the public certificate and Certbot/systemd handles renewal outside the app deploy workflow
+- `TARGET_TLS_MODE=custom`
+  - provide `TARGET_NGINX_CERT_PATH` and `TARGET_NGINX_KEY_PATH` explicitly when neither default layout applies
+
+Host firewall / TLS policy inputs:
+
+- `BT_HOST_TLS_MODE=cloudflare-origin|letsencrypt-http01|letsencrypt-dns01|custom`
+- `BT_ALLOW_HTTP_REDIRECT=1` keeps `80/tcp` open for redirect unless the chosen TLS mode already requires it
+- `letsencrypt-http01` requires `80/tcp` for Certbot renewal
+- `letsencrypt-dns01` can run with `BT_ALLOW_HTTP_REDIRECT=0` if you do not want public HTTP exposure
+
+Lab target inputs:
+
+- `LAB_DEPLOY_HOST`
+- `LAB_DEPLOY_DOMAIN=jobs-board.lab`
+- `LAB_CONFIGURE_NETPLAN=true|false`
+- `LAB_WAN_IFACE=eth0`
+- `LAB_WAN_MODE=dhcp|static`
+- `LAB_WAN_ADDRESS=158.132.209.50/24` when using `static`
+- `LAB_WAN_GATEWAY=158.132.209.28` when using `static`
+- `LAB_WAN_DNS=1.1.1.1,8.8.8.8`
+- `LAB_LAN_IFACE=eth1`
+- `LAB_LAN_ADDRESS=192.168.153.2/24`
+- `LAB_NETPLAN_APPLY=true` only when you explicitly want the deploy workflow to rewrite/apply guest netplan
+
+Example lab runs:
+
+```bash
+LAB_DEPLOY_HOST=192.168.153.2 \
+LAB_DEPLOY_DOMAIN=jobs-board.lab \
+LAB_CONFIGURE_NETPLAN=true \
+ops/deploy/vps-deploy.sh lab-env main
+
+LAB_DEPLOY_HOST=192.168.153.2 \
+LAB_DEPLOY_DOMAIN=jobs-board.lab \
+LAB_CONFIGURE_NETPLAN=true \
+LAB_WAN_MODE=static \
+LAB_WAN_IFACE=ens18 \
+LAB_WAN_ADDRESS=192.168.153.2/24 \
+LAB_WAN_GATEWAY=192.168.153.1 \
+LAB_NETPLAN_APPLY=true \
+ops/deploy/vps-deploy.sh lab-env main
+```
+
+`LAB_NETPLAN_APPLY=true` is intentionally explicit because applying a new subnet/gateway can interrupt the active SSH session.
+
+## Security Demo Workflow
+
+Keep deployment and demo evidence separate:
+
+- VPS HTTPS evidence:
+  - deploy a reverse-proxy target such as `jb.mythic3011.com` or `from-env`
+  - verify the public URL through `https://www.whynopadlock.com/index.html`
+  - verify the public certificate grade through `https://www.ssllabs.com/ssltest`
+  - if the site is fronted by Cloudflare CDN, those public checks validate the Cloudflare edge certificate; the origin cert mode still has to match the VPS reverse-proxy contract
+- Web vulnerability evidence:
+  - use external ZAP containers, not app deploy bootstrap
+  - capture one baseline report for the pre-remediation revision and one report for the remediated revision
+  - the reusable wrapper is `ops/demo/run-zap-baseline.sh`
+
+Example before/after ZAP run:
+
+```bash
+ops/demo/collect-security-demo-evidence.sh deployed https://jb.mythic3011.com demo-artifacts/security-demo
+ops/demo/run-zap-baseline.sh before https://jb.mythic3011.com demo-artifacts/zap
+ops/demo/run-zap-baseline.sh after https://jb.mythic3011.com demo-artifacts/zap
+```
+
+See [docs/runbooks/security-demo.md](docs/runbooks/security-demo.md) for the full evidence checklist.
+Host TLS/firewall mode details live in [docs/runbooks/host-tls-modes.md](docs/runbooks/host-tls-modes.md).
+
 ## Local Bring-Up
 
 For local testing, prepare the obs runtime artifacts first. The local install flow writes them under `.blue-team-vm/`.

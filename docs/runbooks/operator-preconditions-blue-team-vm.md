@@ -141,6 +141,71 @@ Observable grading contract:
 - Do not treat `compose.yaml` as evidence that the blue-team VM bootstrap contract has been updated.
 - If an operator, smoke, or verify command still references `compose.yaml`, treat that as drift and correct the split-file path instead of extending the combined file.
 - If local combined developer behavior needs to mirror the split-file security contract, open a dedicated `compose.yaml` reconcile slice instead of mixing it into bootstrap work.
+
+## Repo-first remote deploy profiles
+
+- `ops/deploy/vps-deploy.sh` is the reusable SSH deploy entrypoint. It deploys a committed ref via `git archive`; it does not clone from the remote host and it refuses to run from a dirty worktree.
+- `ops/deploy/targets/jb.mythic3011.com.sh` is the production/VPS profile:
+  - app plane binds to loopback high ports
+  - host nginx proxies `jb.mythic3011.com` to the app front door
+  - suitable when `80/443` are already owned by a host reverse proxy
+- `ops/deploy/targets/from-env.sh` is the generic reverse-proxy profile:
+  - takes `TARGET_DOMAIN`, `TARGET_HOST`, `TARGET_REMOTE_ROOT`, and `TARGET_COMPOSE_PROJECT_NAME`
+  - derives app URL, asset URL, TLS consumption path, and upstream proxy pass from the shared builder
+  - use this when you want a production-style deploy without creating a dedicated target file yet
+- `ops/deploy/targets/lab-env.sh` is the lab profile:
+  - parameterized by `LAB_DEPLOY_*` environment variables
+  - direct bind on the lab VM (`80/443` by default)
+  - skips host-nginx vhost installation entirely
+  - suitable for isolated pfSense / attacker lab topologies where the application VM is the front door
+
+Minimum generic reverse-proxy invocation:
+
+```bash
+export TARGET_DOMAIN=demo.example.com
+export TARGET_HOST=203.0.113.10
+export TARGET_REMOTE_ROOT=/opt/jobs-boards-demo
+export TARGET_COMPOSE_PROJECT_NAME=jobs-boards-demo
+./ops/deploy/vps-deploy.sh from-env main
+```
+
+Shared builder defaults:
+
+- app URL and asset URL default to `https://${TARGET_DOMAIN}`
+- `TARGET_TLS_MODE=cloudflare-origin` consumes `/etc/nginx/cert/${TARGET_DOMAIN}/cert.pem` and `key.pem`
+- `TARGET_TLS_MODE=letsencrypt` consumes `/etc/letsencrypt/live/${TARGET_DOMAIN}/fullchain.pem` and `privkey.pem`
+- `TARGET_TLS_MODE=custom` requires explicit `TARGET_NGINX_CERT_PATH` and `TARGET_NGINX_KEY_PATH`
+- nginx upstream defaults to `https://127.0.0.1:${TARGET_APP_SSL_PORT##*:}/`
+
+Minimum lab invocation:
+
+```bash
+export LAB_DEPLOY_HOST=192.168.153.2
+export LAB_DEPLOY_DOMAIN=jobs-board.lab
+export LAB_CONFIGURE_NETPLAN=true
+export LAB_WAN_MODE=dhcp
+export LAB_LAN_IFACE=eth1
+export LAB_LAN_ADDRESS=192.168.153.2/24
+export JB_INSTALL_ADMIN_EMAIL=admin@lab.local
+export JB_INSTALL_ADMIN_PASSWORD='ChangeMe123!'
+./ops/deploy/vps-deploy.sh lab-env main
+```
+
+If the lab VM should not expose `80/443` directly, override `LAB_DEPLOY_APP_PORT` and `LAB_DEPLOY_APP_SSL_PORT` before running the deploy.
+If the WAN side is static, replace `LAB_WAN_MODE=dhcp` with:
+
+```bash
+export LAB_WAN_MODE=static
+export LAB_WAN_ADDRESS=158.132.209.50/24
+export LAB_WAN_GATEWAY=158.132.209.28
+```
+
+`LAB_NETPLAN_APPLY=true` live-applies the rendered netplan on the remote host. Leave it unset/false if you only want the deployment to render and validate the netplan content without changing the active SSH network path.
+
+- The deploy workflow consumes an already-issued TLS certificate; it does not issue or renew certificates itself.
+- If the host is public-facing without Cloudflare termination, pair `TARGET_TLS_MODE=letsencrypt` with a host-level Certbot/systemd renewal path.
+- If the site is fronted by Cloudflare, keep the public edge certificate at Cloudflare and use `TARGET_TLS_MODE=cloudflare-origin` or explicit custom origin paths on the VPS.
+- Host firewall/TLS behavior is controlled separately by `BT_HOST_TLS_MODE` and `BT_ALLOW_HTTP_REDIRECT`; see [host-tls-modes.md](./host-tls-modes.md).
 - In the split blue-team VM contract, the app plane does not promise `/monitoring/*` ingress through the app front door. Monitoring services remain obs-plane internal until a dedicated ingress bridge is designed and verified.
 - Loki config changes must be validated against Loki's real config schema. Do not guess field names.
 - CrowdSec AppSec changes must keep acquisition and AppSec config contracts aligned. Do not infer bundle/config behavior from container startup alone.
@@ -165,3 +230,18 @@ Observable grading contract:
 - obs apply completed
 - smoke passed
 - verify ended with `overall.summary = PASS`
+
+## Security demo evidence
+
+The course-style security demo has two separate evidence surfaces:
+
+1. HTTPS screenshots on the VPS-facing public domain
+   - run the public URL through Why No Padlock
+   - run the public URL through SSL Labs
+   - keep screenshots with the deployed commit/ref noted beside them
+2. Web vulnerability reports
+   - run one ZAP baseline container against the "before" revision
+   - run one ZAP baseline container against the "after" revision
+   - keep both artifact folders so "major" findings can be compared directly
+
+Use [docs/runbooks/security-demo.md](./security-demo.md) as the repeatable evidence checklist.

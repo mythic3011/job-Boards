@@ -43,6 +43,7 @@ emit_host_summary() {
 verify_subset() {
     run_check "host.ssh.config_valid" "Managed SSH configuration validates." "Inspect SSH drop-in state and sshd validation output." "${OPS_DIR}/host/01-host-ssh-hardening.sh" verify || true
     run_check "host.ufw.managed_rules" "Managed UFW state is present." "Inspect UFW defaults and managed rule state." "${OPS_DIR}/host/02-host-ufw-base.sh" verify || true
+    run_check "host.certbot_renewal.managed_units" "Managed Certbot renewal contract is valid for the selected TLS mode." "Inspect Certbot systemd unit/timer wiring and host TLS mode inputs." env BT_HOST_TLS_MODE="${BT_HOST_TLS_MODE:-cloudflare-origin}" BT_CERTBOT_DOMAIN="${BT_CERTBOT_DOMAIN:-}" BT_CERTBOT_EMAIL="${BT_CERTBOT_EMAIL:-}" "${OPS_DIR}/host/05-host-certbot-renewal.sh" verify || true
     run_check "host.docker_firewall.managed_chain" "Managed Docker firewall chain is present." "Inspect DOCKER-USER jump and managed chain rules." "${OPS_DIR}/host/03-docker-firewall.sh" verify || true
     run_check "host.honeypot.source_artifact" "Managed honeypot source artifact is present." "Recreate the honeypot source artifact." test -f "${BT_HONEYPOT_SOURCE}" || true
 }
@@ -71,7 +72,15 @@ apply_action() {
     bt_mkdir "${BT_BACKUP_DIR}" "${BT_RUNTIME_DIR}"
 
     BT_SSH_ALLOW_USER="${BT_SSH_ALLOW_USER:-}" "${OPS_DIR}/host/01-host-ssh-hardening.sh" apply
-    BT_MGMT_SSH_CIDR="${BT_MGMT_SSH_CIDR:-}" BT_ALLOW_SSH_ANYWHERE_FOR_DEMO="${BT_ALLOW_SSH_ANYWHERE_FOR_DEMO:-0}" "${OPS_DIR}/host/02-host-ufw-base.sh" apply
+    BT_MGMT_SSH_CIDR="${BT_MGMT_SSH_CIDR:-}" \
+    BT_ALLOW_SSH_ANYWHERE_FOR_DEMO="${BT_ALLOW_SSH_ANYWHERE_FOR_DEMO:-0}" \
+    BT_HOST_TLS_MODE="${BT_HOST_TLS_MODE:-cloudflare-origin}" \
+    BT_ALLOW_HTTP_REDIRECT="${BT_ALLOW_HTTP_REDIRECT:-1}" \
+    "${OPS_DIR}/host/02-host-ufw-base.sh" apply
+    BT_HOST_TLS_MODE="${BT_HOST_TLS_MODE:-cloudflare-origin}" \
+    BT_CERTBOT_DOMAIN="${BT_CERTBOT_DOMAIN:-}" \
+    BT_CERTBOT_EMAIL="${BT_CERTBOT_EMAIL:-}" \
+    "${OPS_DIR}/host/05-host-certbot-renewal.sh" apply
     BT_EXTERNAL_INGRESS_NIC="${BT_EXTERNAL_INGRESS_NIC:-}" "${OPS_DIR}/host/03-docker-firewall.sh" apply
     "${OPS_DIR}/host/04-honeypot-lite.sh" manage-source
 
@@ -95,6 +104,7 @@ rollback_action() {
 
     "${OPS_DIR}/host/04-honeypot-lite.sh" rollback
     "${OPS_DIR}/host/03-docker-firewall.sh" rollback
+    BT_HOST_TLS_MODE="${BT_HOST_TLS_MODE:-cloudflare-origin}" BT_CERTBOT_DOMAIN="${BT_CERTBOT_DOMAIN:-}" BT_CERTBOT_EMAIL="${BT_CERTBOT_EMAIL:-}" "${OPS_DIR}/host/05-host-certbot-renewal.sh" rollback
     "${OPS_DIR}/host/02-host-ufw-base.sh" rollback
     "${OPS_DIR}/host/01-host-ssh-hardening.sh" rollback
     bt_invalidate_marker

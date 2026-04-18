@@ -12,11 +12,48 @@ UFW_RULES_FILE="${UFW_STATE_DIR}/managed-rules.txt"
 UFW_DEFAULTS_FILE="${UFW_STATE_DIR}/defaults.env"
 SSH_CIDR="${BT_MGMT_SSH_CIDR:-}"
 ALLOW_ANYWHERE="${BT_ALLOW_SSH_ANYWHERE_FOR_DEMO:-0}"
+TLS_MODE="${BT_HOST_TLS_MODE:-cloudflare-origin}"
+ALLOW_HTTP_REDIRECT="${BT_ALLOW_HTTP_REDIRECT:-1}"
 
 usage() {
     cat <<EOF
 Usage: $0 [apply|verify|rollback]
 EOF
+}
+
+validate_tls_policy_input() {
+    case "${TLS_MODE}" in
+        cloudflare-origin|letsencrypt-http01|letsencrypt-dns01|custom)
+            ;;
+        *)
+            bt_die "BT_HOST_TLS_MODE must be one of: cloudflare-origin, letsencrypt-http01, letsencrypt-dns01, custom"
+            ;;
+    esac
+
+    case "${ALLOW_HTTP_REDIRECT}" in
+        0|1|true|false)
+            ;;
+        *)
+            bt_die "BT_ALLOW_HTTP_REDIRECT must be 0, 1, true, or false"
+            ;;
+    esac
+}
+
+should_allow_http_port() {
+    case "${TLS_MODE}" in
+        letsencrypt-http01)
+            return 0
+            ;;
+    esac
+
+    case "${ALLOW_HTTP_REDIRECT}" in
+        1|true)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
 }
 
 require_ssh_policy_input() {
@@ -115,6 +152,7 @@ for number in sorted(numbers, reverse=True):
 apply_action() {
     bt_require_root
     require_ssh_policy_input
+    validate_tls_policy_input
 
     command -v ufw >/dev/null 2>&1 || bt_die "ufw is required but was not found."
 
@@ -131,18 +169,24 @@ apply_action() {
         ssh_rule="allow 22/tcp comment ${BT_MANAGED_COMMENT}:ssh-anywhere"
     fi
 
-    local http_rule="allow 80/tcp comment ${BT_MANAGED_COMMENT}:http"
+    local managed_rules=("${ssh_rule}")
     local https_rule="allow 443/tcp comment ${BT_MANAGED_COMMENT}:https"
 
     bt_run ufw ${ssh_rule}
-    bt_run ufw ${http_rule}
+    if should_allow_http_port; then
+        local http_rule="allow 80/tcp comment ${BT_MANAGED_COMMENT}:http"
+        bt_run ufw ${http_rule}
+        managed_rules+=("${http_rule}")
+    fi
     bt_run ufw ${https_rule}
+    managed_rules+=("${https_rule}")
     bt_run ufw --force enable
 
-    record_rules "${ssh_rule}" "${http_rule}" "${https_rule}"
+    record_rules "${managed_rules[@]}"
 }
 
 verify_action() {
+    validate_tls_policy_input
     command -v ufw >/dev/null 2>&1 || bt_die "ufw is required but was not found."
     [[ -f "${UFW_RULES_FILE}" ]] || bt_die "Managed UFW rules record is missing: ${UFW_RULES_FILE}"
     ufw status >/dev/null

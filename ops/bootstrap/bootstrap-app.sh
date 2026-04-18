@@ -10,6 +10,51 @@ ACTION="${1:-apply}"
 APP_WAIT_TIMEOUT_SECONDS="${BT_APP_WAIT_TIMEOUT_SECONDS:-90}"
 app_statuses=()
 
+app_frontdoor_binding() {
+    printf '%s\n' "${APP_SSL_PORT:-443}"
+}
+
+app_frontdoor_host() {
+    local binding
+    binding="$(app_frontdoor_binding)"
+
+    if [[ "${binding}" == *:* ]]; then
+        local host_part="${binding%:*}"
+        case "${host_part}" in
+            0.0.0.0|::|'')
+                printf '%s\n' "127.0.0.1"
+                return 0
+                ;;
+            *)
+                printf '%s\n' "${host_part}"
+                return 0
+                ;;
+        esac
+    fi
+
+    printf '%s\n' "127.0.0.1"
+}
+
+app_frontdoor_port() {
+    local binding
+    binding="$(app_frontdoor_binding)"
+    printf '%s\n' "${binding##*:}"
+}
+
+app_frontdoor_https_url() {
+    printf 'https://%s:%s/up\n' "$(app_frontdoor_host)" "$(app_frontdoor_port)"
+}
+
+app_frontdoor_published_ports() {
+    local binding
+    local port
+
+    for binding in "${APP_PORT:-80}" "${APP_SSL_PORT:-443}"; do
+        port="${binding##*:}"
+        [[ -n "${port}" ]] && printf '%s\n' "${port}"
+    done
+}
+
 run_app_check() {
     local check_id="$1"
     local status_on_success="$2"
@@ -91,29 +136,30 @@ verify_frontdoor_ports_available_for_app() {
 
     local port
     local listeners
-    for port in 80 443; do
+    while IFS= read -r port; do
+        [[ -n "${port}" ]] || continue
         listeners="$(ss -ltnpH "( sport = :${port} )" 2>/dev/null || true)"
         [[ -z "${listeners}" ]] && continue
         if printf '%s\n' "${listeners}" | grep -qv 'docker-proxy'; then
             return 1
         fi
-    done
+    done < <(app_frontdoor_published_ports)
 
     return 0
 }
 
 verify_https_frontdoor() {
-    curl -kfsS --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" https://127.0.0.1/up >/dev/null
+    curl -kfsS --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "$(app_frontdoor_https_url)" >/dev/null
 }
 
 verify_app_health_frontdoor() {
     local code
-    code="$(curl -kfsS -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" https://127.0.0.1/up || true)"
+    code="$(curl -kfsS -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "$(app_frontdoor_https_url)" || true)"
     [[ "${code}" == "200" ]]
 }
 
 crowdsec_frontdoor_mode() {
-    curl -kfsSI --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" https://127.0.0.1/up \
+    curl -kfsSI --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "$(app_frontdoor_https_url)" \
         | grep -i '^x-crowdsec-mode:' \
         | head -n 1 \
         | sed -E 's/^[^:]+:[[:space:]]*//; s/\r$//' \

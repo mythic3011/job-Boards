@@ -1194,6 +1194,17 @@ BASH);
         $this->assertStringNotContainsString('mapfile -t listeners', $contents);
     }
 
+    public function test_app_bootstrap_derives_frontdoor_probe_target_from_configured_https_binding_instead_of_hardcoded_443(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-app.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('app_frontdoor_https_url()', $contents);
+        $this->assertStringContainsString('app_frontdoor_published_ports()', $contents);
+        $this->assertStringNotContainsString('https://127.0.0.1/up', $contents);
+        $this->assertStringNotContainsString('for port in 80 443; do', $contents);
+    }
+
     public function test_top_level_runner_emits_fail_summary_when_child_bootstrap_exits_before_plane_summary(): void
     {
         $tempRoot = $this->makeTempDir();

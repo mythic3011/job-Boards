@@ -1,0 +1,45 @@
+<?php
+
+namespace Tests\Feature;
+
+use PHPUnit\Framework\TestCase;
+
+class SecurityDemoShellContractsTest extends TestCase
+{
+    private string $repoRoot;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->repoRoot = dirname(__DIR__, 2);
+    }
+
+    public function test_zap_demo_wrapper_uses_containerized_baseline_scan_and_labelled_output_contract(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/demo/run-zap-baseline.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('Usage: ops/demo/run-zap-baseline.sh <label> <target-url> [output-root]', $contents);
+        $this->assertStringContainsString('ghcr.io/zaproxy/zaproxy:stable', $contents);
+        $this->assertStringContainsString('zap-baseline.py', $contents);
+        $this->assertStringContainsString('report.html', $contents);
+        $this->assertStringContainsString('report.json', $contents);
+        $this->assertStringContainsString('report.md', $contents);
+        $this->assertStringContainsString('docker run --rm', $contents);
+    }
+
+    public function test_security_demo_evidence_collector_materializes_repeatable_target_artifacts_and_external_check_links(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/demo/collect-security-demo-evidence.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('Usage: ops/demo/collect-security-demo-evidence.sh <label> <target-url> [output-root]', $contents);
+        $this->assertStringContainsString('curl -kfsSIL', $contents);
+        $this->assertStringContainsString('openssl s_client', $contents);
+        $this->assertStringContainsString('manifest.json', $contents);
+        $this->assertStringContainsString('checklist.md', $contents);
+        $this->assertStringContainsString('ssllabs.com/ssltest', $contents);
+        $this->assertStringContainsString('whynopadlock.com', $contents);
+    }
+}
