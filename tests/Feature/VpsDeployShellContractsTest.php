@@ -425,15 +425,23 @@ BASH);
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('docker compose -f compose.app.yml restart laravel.test', $contents);
+        $this->assertStringContainsString('bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" laravel.test healthy 120', $contents);
+        $this->assertStringContainsString('bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" nginx healthy 120', $contents);
 
         $installOffset = strpos($contents, 'docker compose -f compose.app.yml exec -T laravel.test "${install_args[@]}"');
         $restartOffset = strpos($contents, 'docker compose -f compose.app.yml restart laravel.test');
+        $waitLaravelOffset = strpos($contents, 'bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" laravel.test healthy 120');
+        $waitNginxOffset = strpos($contents, 'bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" nginx healthy 120');
         $this->assertStringContainsString('curl --retry 10 --retry-delay 2 --retry-all-errors -kfsS \\', $contents);
         $finalCurlOffset = strpos($contents, '--resolve "${DEPLOY_DOMAIN}:443:127.0.0.1" "https://${DEPLOY_DOMAIN}/up" >/dev/null');
 
         $this->assertNotFalse($restartOffset, 'Expected remote deploy to refresh the laravel runtime before final proof.');
+        $this->assertNotFalse($waitLaravelOffset, 'Expected deploy to wait for laravel.test health after restart.');
+        $this->assertNotFalse($waitNginxOffset, 'Expected deploy to wait for nginx health after restart.');
         $this->assertNotFalse($finalCurlOffset, 'Expected final deploy proof curl in remote deploy script.');
         $this->assertFalse($installOffset === false || $restartOffset < $installOffset, 'Laravel restart must happen after optional headless install.');
+        $this->assertLessThan($waitLaravelOffset, $restartOffset, 'Laravel restart must happen before laravel.test health wait.');
+        $this->assertLessThan($waitNginxOffset, $waitLaravelOffset, 'laravel.test health wait must happen before nginx health wait.');
         $this->assertLessThan($finalCurlOffset, $restartOffset, 'Laravel restart must happen before the final front-door proof.');
     }
 

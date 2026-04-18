@@ -436,6 +436,8 @@ fi
 sync_release_env_to_shared
 prepare_release_runtime_permissions
 docker compose -f compose.app.yml restart laravel.test
+bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" laravel.test healthy 120
+bt_wait_for_container_state "${BT_COMPOSE_APP_FILE}" nginx healthy 120
 
 if [[ "${DEPLOY_INSTALL_HOST_NGINX:-true}" == "true" ]]; then
     [[ -f "${DEPLOY_NGINX_CERT_PATH}" ]] || {
