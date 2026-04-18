@@ -32,8 +32,20 @@ verify_integration() {
     command -v docker >/dev/null 2>&1 || bt_die "docker is required for verify-integration."
     docker compose -f "${BT_COMPOSE_APP_FILE}" exec -T nginx nginx -t >/dev/null
     docker compose -f "${BT_COMPOSE_APP_FILE}" exec -T nginx sh -c "[ -f '${BT_HONEYPOT_RUNTIME}' ] && grep -F 'location = /.env' '${BT_HONEYPOT_RUNTIME}' >/dev/null"
+    local binding host port
+    binding="${APP_SSL_PORT:-443}"
+    host="127.0.0.1"
+    port="${binding##*:}"
+    if [[ "${binding}" == *:* ]]; then
+        host="${binding%:*}"
+        case "${host}" in
+            0.0.0.0|::|'')
+                host="127.0.0.1"
+                ;;
+        esac
+    fi
     local status_code
-    status_code="$(curl -k -sS -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" https://127.0.0.1/.env || true)"
+    status_code="$(curl -k -sS -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "https://${host}:${port}/.env" || true)"
     [[ "${status_code}" == "403" ]] || bt_die "Expected honeypot decoy path /.env to return 403, got ${status_code:-none}."
 }
 

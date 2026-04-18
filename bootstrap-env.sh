@@ -35,8 +35,9 @@ import re, os, tempfile
 var = os.environ['BOOTSTRAP_ENV_SET_KEY']
 val = os.environ['BOOTSTRAP_ENV_SET_VALUE']
 path = '.env'
+target_path = os.path.realpath(path) if os.path.islink(path) else path
 
-with open(path, 'r') as f:
+with open(target_path, 'r') as f:
     content = f.read()
 
 pattern = r'^' + re.escape(var) + r'=.*$'
@@ -46,12 +47,12 @@ else:
     content = content.rstrip('\n') + '\n' + var + '=' + val + '\n'
 
 # Write to a sibling tmp file then atomically rename — crash-safe
-dir_ = os.path.dirname(os.path.abspath(path))
+dir_ = os.path.dirname(os.path.abspath(target_path))
 fd, tmp = tempfile.mkstemp(dir=dir_)
 try:
     with os.fdopen(fd, 'w') as f:
         f.write(content)
-    os.replace(tmp, path)   # atomic on POSIX; works on macOS + Linux
+    os.replace(tmp, target_path)   # atomic on POSIX; works on macOS + Linux
 except Exception:
     os.unlink(tmp)
     raise

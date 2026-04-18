@@ -131,6 +131,7 @@ verify_local_exposure() {
 }
 
 host_port_exposure_evidence_available() {
+    [[ "${BT_SKIP_HOST_LOCAL_PORTS_CHECK:-false}" == "true" ]] && return 1
     [[ "$(uname -s)" == "Linux" ]]
 }
 

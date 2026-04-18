@@ -131,6 +131,7 @@ for env_key in \
     DEPLOY_ASSET_URL \
     DEPLOY_COMPOSE_PROJECT_NAME \
     DEPLOY_BT_STATE_DIR \
+    DEPLOY_SKIP_HOST_PORT_EXPOSURE_CHECK \
     DEPLOY_DB_DATABASE \
     DEPLOY_DB_USERNAME \
     DEPLOY_MONITORING_ADMIN_USERNAME \
@@ -200,6 +201,22 @@ hydrate_release_dependencies() {
 
     docker compose -f compose.app.yml run --rm --build --no-deps --entrypoint composer laravel.test \
         install --no-interaction --prefer-dist --no-dev --optimize-autoloader
+}
+
+repair_shared_env_from_previous_release() {
+    local previous_env="${remote_current}/.env"
+
+    [[ -f "${remote_shared}/.env" ]] || return 0
+    [[ -f "${previous_env}" ]] || return 0
+    [[ ! -L "${previous_env}" ]] || return 0
+
+    if grep -Eq '^DB_PASSWORD=.+' "${remote_shared}/.env"; then
+        return 0
+    fi
+
+    if grep -Eq '^DB_PASSWORD=.+' "${previous_env}"; then
+        cp "${previous_env}" "${remote_shared}/.env"
+    fi
 }
 
 configure_lab_netplan() {
@@ -286,6 +303,8 @@ if [[ ! -f "${remote_shared}/.env" ]]; then
     cp "${remote_release}/.env.example" "${remote_shared}/.env"
 fi
 
+repair_shared_env_from_previous_release
+
 ln -sfn "${remote_shared}/.env" "${remote_release}/.env"
 ln -sfn "${remote_release}" "${remote_current}"
 configure_lab_netplan
@@ -337,6 +356,7 @@ fi
 export BT_STATE_DIR="${DEPLOY_BT_STATE_DIR}"
 export BT_RUNTIME_DIR="${runtime_dir}"
 export BT_HONEYPOT_SOURCE="${remote_current}/docker/nginx/includes/blue-team-honeypot.conf"
+export BT_SKIP_HOST_LOCAL_PORTS_CHECK="${DEPLOY_SKIP_HOST_PORT_EXPOSURE_CHECK}"
 export COMPOSE_PROJECT_NAME="${DEPLOY_COMPOSE_PROJECT_NAME}"
 
 hydrate_release_dependencies

@@ -1207,6 +1207,24 @@ BASH);
         $this->assertStringNotContainsString('for port in 80 443; do', $contents);
     }
 
+    public function test_honeypot_integration_probe_uses_configured_https_binding_instead_of_assuming_port_443(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/host/04-honeypot-lite.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('binding="${APP_SSL_PORT:-443}"', $contents);
+        $this->assertStringContainsString('https://${host}:${port}/.env', $contents);
+        $this->assertStringNotContainsString('https://127.0.0.1/.env', $contents);
+    }
+
+    public function test_app_bootstrap_can_skip_shared_host_local_port_verification_via_explicit_flag(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-app.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('[[ "${BT_SKIP_HOST_LOCAL_PORTS_CHECK:-false}" == "true" ]] && return 1', $contents);
+    }
+
     public function test_top_level_runner_emits_fail_summary_when_child_bootstrap_exits_before_plane_summary(): void
     {
         $tempRoot = $this->makeTempDir();

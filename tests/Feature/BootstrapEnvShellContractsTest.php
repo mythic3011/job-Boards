@@ -84,6 +84,42 @@ BASH;
         );
     }
 
+    public function test_set_env_updates_symlink_target_without_replacing_the_env_symlink(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        file_put_contents($tempRoot.'/shared.env', "DB_PASSWORD=old-secret\n");
+        symlink($tempRoot.'/shared.env', $tempRoot.'/.env');
+
+        $helperPath = $tempRoot.'/exercise-set-env-symlink.sh';
+        $setEnvFunction = $this->extractSetEnvFunction();
+
+        $script = <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+{$setEnvFunction}
+
+cd "\$1"
+set_env "DB_PASSWORD" "\${VALUE_DB_PASSWORD}"
+BASH;
+
+        $this->writeExecutable($helperPath, $script);
+
+        $process = new Process(
+            [$helperPath, $tempRoot],
+            $tempRoot,
+            [
+                'VALUE_DB_PASSWORD' => 'new-secret',
+            ],
+            null,
+            20,
+        );
+        $process->mustRun();
+
+        $this->assertTrue(is_link($tempRoot.'/.env'));
+        $this->assertSame($tempRoot.'/shared.env', readlink($tempRoot.'/.env'));
+        $this->assertSame("DB_PASSWORD=new-secret\n", file_get_contents($tempRoot.'/shared.env'));
+    }
+
     private function extractSetEnvFunction(): string
     {
         $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
