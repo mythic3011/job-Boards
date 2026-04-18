@@ -208,13 +208,25 @@ verify_https_frontdoor() {
 
 verify_app_health_frontdoor() {
     local code
+    local deadline
     local origin_host
     local port
+    local url
 
     origin_host="$(app_health_host)"
     port="$(app_health_port)"
-    code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "http://${origin_host}:${port}/up" || true)"
-    [[ "${code}" == "200" ]]
+    url="http://${origin_host}:${port}/up"
+    deadline=$((SECONDS + BT_CROWDSEC_TIMEOUT_SECONDS))
+
+    while (( SECONDS < deadline )); do
+        code="$(curl -fsS -o /dev/null -w '%{http_code}' --max-time "${BT_CROWDSEC_TIMEOUT_SECONDS}" "${url}" || true)"
+        if [[ "${code}" == "200" ]]; then
+            return 0
+        fi
+        sleep 1
+    done
+
+    return 1
 }
 
 crowdsec_frontdoor_mode() {
