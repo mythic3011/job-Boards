@@ -172,9 +172,11 @@ export TARGET_COMPOSE_PROJECT_NAME=jobs-boards-demo
 Shared builder defaults:
 
 - app URL and asset URL default to `https://${TARGET_DOMAIN}`
-- `TARGET_TLS_MODE=cloudflare-origin` consumes `/etc/nginx/cert/${TARGET_DOMAIN}/cert.pem` and `key.pem`
-- `TARGET_TLS_MODE=letsencrypt` consumes `/etc/letsencrypt/live/${TARGET_DOMAIN}/fullchain.pem` and `privkey.pem`
+- `TARGET_NGINX_CERT_DOMAIN` defaults to `TARGET_DOMAIN` and becomes the builder's certificate host identity
+- `TARGET_TLS_MODE=cloudflare-origin` consumes `/etc/nginx/cert/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/cert.pem` and `key.pem`
+- `TARGET_TLS_MODE=letsencrypt` consumes `/etc/letsencrypt/live/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/fullchain.pem` and `privkey.pem`
 - `TARGET_TLS_MODE=custom` requires explicit `TARGET_NGINX_CERT_PATH` and `TARGET_NGINX_KEY_PATH`
+- `TARGET_NGINX_CERT_PATH_TEMPLATE` and `TARGET_NGINX_KEY_PATH_TEMPLATE` may be supplied when the host keeps certs in a reusable non-default layout; `{domain}` is expanded from `TARGET_NGINX_CERT_DOMAIN`
 - nginx upstream defaults to `https://127.0.0.1:${TARGET_APP_SSL_PORT##*:}/`
 
 Minimum lab invocation:
@@ -205,6 +207,7 @@ export LAB_WAN_GATEWAY=158.132.209.28
 - The deploy workflow consumes an already-issued TLS certificate; it does not issue or renew certificates itself.
 - If the host is public-facing without Cloudflare termination, pair `TARGET_TLS_MODE=letsencrypt` with a host-level Certbot/systemd renewal path.
 - If the site is fronted by Cloudflare, keep the public edge certificate at Cloudflare and use `TARGET_TLS_MODE=cloudflare-origin` or explicit custom origin paths on the VPS.
+- If the deploy hostname and certificate hostname differ, set `TARGET_NGINX_CERT_DOMAIN` instead of hardcoding full cert paths into each target profile.
 - Host firewall/TLS behavior is controlled separately by `BT_HOST_TLS_MODE` and `BT_ALLOW_HTTP_REDIRECT`; see [host-tls-modes.md](./host-tls-modes.md).
 - In the split blue-team VM contract, the app plane does not promise `/monitoring/*` ingress through the app front door. Monitoring services remain obs-plane internal until a dedicated ingress bridge is designed and verified.
 - Loki config changes must be validated against Loki's real config schema. Do not guess field names.

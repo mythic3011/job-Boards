@@ -60,11 +60,17 @@ class VpsDeployShellContractsTest extends TestCase
         $this->assertStringContainsString('TARGET_TLS_MODE="${TARGET_TLS_MODE:-cloudflare-origin}"', $contents);
         $this->assertStringContainsString('DEPLOY_NGINX_CERT_DOMAIN="${TARGET_NGINX_CERT_DOMAIN:-${DEPLOY_DOMAIN}}"', $contents);
         $this->assertStringContainsString('DEPLOY_NGINX_CERT_DIR="${TARGET_NGINX_CERT_DIR:-/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}}"', $contents);
+        $this->assertStringContainsString('deploy_expand_path_template()', $contents);
+        $this->assertStringContainsString('build_reverse_proxy_tls_paths()', $contents);
+        $this->assertStringContainsString('build_reverse_proxy_tls_paths "${TARGET_TLS_MODE}" "${DEPLOY_NGINX_CERT_DOMAIN}" || return 1', $contents);
         $this->assertStringContainsString('DEPLOY_NGINX_PROXY_PASS="${TARGET_NGINX_PROXY_PASS:-https://127.0.0.1:${DEPLOY_APP_SSL_PORT##*:}/}"', $contents);
         $this->assertStringContainsString('DEPLOY_SKIP_HOST_PORT_EXPOSURE_CHECK="${TARGET_SKIP_HOST_PORT_EXPOSURE_CHECK:-false}"', $contents);
-        $this->assertStringContainsString('if [[ "${TARGET_TLS_MODE}" == "letsencrypt" ]]', $contents);
-        $this->assertStringContainsString('DEPLOY_NGINX_CERT_PATH="${TARGET_NGINX_CERT_PATH:-/etc/letsencrypt/live/${DEPLOY_DOMAIN}/fullchain.pem}"', $contents);
-        $this->assertStringContainsString('DEPLOY_NGINX_KEY_PATH="${TARGET_NGINX_KEY_PATH:-/etc/letsencrypt/live/${DEPLOY_DOMAIN}/privkey.pem}"', $contents);
+        $this->assertStringContainsString('cert_template="${TARGET_NGINX_CERT_PATH_TEMPLATE:-/etc/letsencrypt/live/{domain}/fullchain.pem}"', $contents);
+        $this->assertStringContainsString('key_template="${TARGET_NGINX_KEY_PATH_TEMPLATE:-/etc/letsencrypt/live/{domain}/privkey.pem}"', $contents);
+        $this->assertStringContainsString('cert_template="${TARGET_NGINX_CERT_PATH_TEMPLATE:-/etc/nginx/cert/{domain}/cert.pem}"', $contents);
+        $this->assertStringContainsString('key_template="${TARGET_NGINX_KEY_PATH_TEMPLATE:-/etc/nginx/cert/{domain}/key.pem}"', $contents);
+        $this->assertStringContainsString('DEPLOY_NGINX_CERT_PATH="${TARGET_NGINX_CERT_PATH:-$(deploy_expand_path_template "${cert_template}" "${cert_domain}")}"', $contents);
+        $this->assertStringContainsString('DEPLOY_NGINX_KEY_PATH="${TARGET_NGINX_KEY_PATH:-$(deploy_expand_path_template "${key_template}" "${cert_domain}")}"', $contents);
     }
 
     public function test_from_env_target_exposes_builder_as_generic_domain_ip_profile(): void

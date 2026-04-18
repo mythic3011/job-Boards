@@ -9,6 +9,38 @@ deploy_require_value() {
     }
 }
 
+deploy_expand_path_template() {
+    local template="$1"
+    local domain="$2"
+
+    printf '%s\n' "${template//\{domain\}/${domain}}"
+}
+
+build_reverse_proxy_tls_paths() {
+    local tls_mode="$1"
+    local cert_domain="$2"
+    local cert_template
+    local key_template
+
+    case "${tls_mode}" in
+        letsencrypt)
+            cert_template="${TARGET_NGINX_CERT_PATH_TEMPLATE:-/etc/letsencrypt/live/{domain}/fullchain.pem}"
+            key_template="${TARGET_NGINX_KEY_PATH_TEMPLATE:-/etc/letsencrypt/live/{domain}/privkey.pem}"
+            ;;
+        cloudflare-origin|custom)
+            cert_template="${TARGET_NGINX_CERT_PATH_TEMPLATE:-/etc/nginx/cert/{domain}/cert.pem}"
+            key_template="${TARGET_NGINX_KEY_PATH_TEMPLATE:-/etc/nginx/cert/{domain}/key.pem}"
+            ;;
+        *)
+            printf 'ERROR: unsupported target TLS mode: %s\n' "${tls_mode}" >&2
+            return 1
+            ;;
+    esac
+
+    DEPLOY_NGINX_CERT_PATH="${TARGET_NGINX_CERT_PATH:-$(deploy_expand_path_template "${cert_template}" "${cert_domain}")}"
+    DEPLOY_NGINX_KEY_PATH="${TARGET_NGINX_KEY_PATH:-$(deploy_expand_path_template "${key_template}" "${cert_domain}")}"
+}
+
 build_reverse_proxy_target() {
     deploy_require_value TARGET_DOMAIN || return 1
     deploy_require_value TARGET_HOST || return 1
@@ -32,18 +64,12 @@ build_reverse_proxy_target() {
     DEPLOY_NGINX_CERT_DOMAIN="${TARGET_NGINX_CERT_DOMAIN:-${DEPLOY_DOMAIN}}"
     DEPLOY_NGINX_CERT_DIR="${TARGET_NGINX_CERT_DIR:-/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}}"
 
-    if [[ "${TARGET_TLS_MODE}" == "letsencrypt" ]]; then
-        DEPLOY_NGINX_CERT_PATH="${TARGET_NGINX_CERT_PATH:-/etc/letsencrypt/live/${DEPLOY_DOMAIN}/fullchain.pem}"
-        DEPLOY_NGINX_KEY_PATH="${TARGET_NGINX_KEY_PATH:-/etc/letsencrypt/live/${DEPLOY_DOMAIN}/privkey.pem}"
-    else
-        DEPLOY_NGINX_CERT_PATH="${TARGET_NGINX_CERT_PATH:-${DEPLOY_NGINX_CERT_DIR}/cert.pem}"
-        DEPLOY_NGINX_KEY_PATH="${TARGET_NGINX_KEY_PATH:-${DEPLOY_NGINX_CERT_DIR}/key.pem}"
-    fi
-
     DEPLOY_NGINX_PROXY_PASS="${TARGET_NGINX_PROXY_PASS:-https://127.0.0.1:${DEPLOY_APP_SSL_PORT##*:}/}"
     DEPLOY_DB_DATABASE="${TARGET_DB_DATABASE:-jobs_boards}"
     DEPLOY_DB_USERNAME="${TARGET_DB_USERNAME:-jobs_boards}"
     DEPLOY_MONITORING_ADMIN_USERNAME="${TARGET_MONITORING_ADMIN_USERNAME:-admin}"
     DEPLOY_TIMEZONE="${TARGET_TIMEZONE:-Asia/Hong_Kong}"
     DEPLOY_INSTALL_HOST_NGINX="true"
+
+    build_reverse_proxy_tls_paths "${TARGET_TLS_MODE}" "${DEPLOY_NGINX_CERT_DOMAIN}" || return 1
 }

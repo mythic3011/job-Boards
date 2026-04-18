@@ -36,22 +36,33 @@ The `from-env` target uses the shared builder and derives these defaults unless 
 
 - `DEPLOY_APP_URL=https://${TARGET_DOMAIN}`
 - `DEPLOY_ASSET_URL=https://${TARGET_DOMAIN}`
-- `DEPLOY_NGINX_CERT_DIR=/etc/nginx/cert/${TARGET_DOMAIN}`
-- `DEPLOY_NGINX_CERT_PATH=${DEPLOY_NGINX_CERT_DIR}/cert.pem`
-- `DEPLOY_NGINX_KEY_PATH=${DEPLOY_NGINX_CERT_DIR}/key.pem`
+- `DEPLOY_NGINX_CERT_DOMAIN=${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}`
+- `DEPLOY_NGINX_CERT_DIR=/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}`
+- `DEPLOY_NGINX_CERT_PATH=${TARGET_NGINX_CERT_PATH:-/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}/cert.pem}`
+- `DEPLOY_NGINX_KEY_PATH=${TARGET_NGINX_KEY_PATH:-/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}/key.pem}`
 - `DEPLOY_NGINX_PROXY_PASS=https://127.0.0.1:${TARGET_APP_SSL_PORT##*:}/`
 
 Reverse-proxy TLS consumption modes:
 
 - `TARGET_TLS_MODE=cloudflare-origin` (default)
-  - consumes origin cert/key from `/etc/nginx/cert/${TARGET_DOMAIN}/`
+  - consumes origin cert/key from `/etc/nginx/cert/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/`
   - suitable when Cloudflare terminates the public certificate and the VPS only needs an origin certificate
 - `TARGET_TLS_MODE=letsencrypt`
-  - consumes `/etc/letsencrypt/live/${TARGET_DOMAIN}/fullchain.pem`
-  - consumes `/etc/letsencrypt/live/${TARGET_DOMAIN}/privkey.pem`
+  - consumes `/etc/letsencrypt/live/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/fullchain.pem`
+  - consumes `/etc/letsencrypt/live/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/privkey.pem`
   - suitable when the host itself presents the public certificate and Certbot/systemd handles renewal outside the app deploy workflow
 - `TARGET_TLS_MODE=custom`
   - provide `TARGET_NGINX_CERT_PATH` and `TARGET_NGINX_KEY_PATH` explicitly when neither default layout applies
+
+Optional builder overrides:
+
+- `TARGET_NGINX_CERT_DOMAIN`
+  - use when the deploy hostname and certificate hostname differ
+  - example: deploy `jb.mythic3011.com` while consuming `/etc/nginx/cert/mythic3011.com/...`
+- `TARGET_NGINX_CERT_PATH_TEMPLATE`
+- `TARGET_NGINX_KEY_PATH_TEMPLATE`
+  - support reusable path layouts via `{domain}` placeholder expansion
+  - example: `TARGET_NGINX_CERT_PATH_TEMPLATE=/srv/tls/{domain}/fullchain.pem`
 
 Host firewall / TLS policy inputs:
 
