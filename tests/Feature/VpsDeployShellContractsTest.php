@@ -43,7 +43,7 @@ class VpsDeployShellContractsTest extends TestCase
         $this->assertStringContainsString('TARGET_SUBDOMAIN="${TARGET_SUBDOMAIN:-jb}"', $contents);
         $this->assertStringContainsString('TARGET_ROOT_DOMAIN="${TARGET_ROOT_DOMAIN:-mythic3011.com}"', $contents);
         $this->assertStringContainsString('TARGET_DOMAIN="${TARGET_DOMAIN:-${TARGET_SUBDOMAIN}.${TARGET_ROOT_DOMAIN}}"', $contents);
-        $this->assertStringContainsString('TARGET_HOST="${TARGET_HOST:-66.154.127.33}"', $contents);
+        $this->assertStringContainsString(': "${TARGET_HOST:?Set TARGET_HOST for jb.mythic3011.com deploy target}"', $contents);
         $this->assertStringContainsString('TARGET_APP_PORT="${TARGET_APP_PORT:-127.0.0.1:18080}"', $contents);
         $this->assertStringContainsString('TARGET_APP_SSL_PORT="${TARGET_APP_SSL_PORT:-127.0.0.1:18443}"', $contents);
         $this->assertStringContainsString('TARGET_REMOTE_ROOT="${TARGET_REMOTE_ROOT:-/opt/jobs-boards-jb}"', $contents);
@@ -86,7 +86,7 @@ class VpsDeployShellContractsTest extends TestCase
 set -euo pipefail
 source ops/deploy/targets/_builder.sh
 TARGET_DOMAIN="jb.mythic3011.com"
-TARGET_HOST="66.154.127.33"
+TARGET_HOST="203.0.113.10"
 TARGET_REMOTE_ROOT="/opt/jobs-boards-jb"
 TARGET_COMPOSE_PROJECT_NAME="jobs-boards-jb"
 TARGET_NGINX_CERT_DOMAIN="mythic3011.com"
@@ -109,7 +109,7 @@ set -euo pipefail
 source ops/deploy/targets/_builder.sh
 TARGET_SUBDOMAIN="jb"
 TARGET_ROOT_DOMAIN="mythic3011.com"
-TARGET_HOST="66.154.127.33"
+TARGET_HOST="203.0.113.10"
 TARGET_REMOTE_ROOT="/opt/jobs-boards-jb"
 TARGET_COMPOSE_PROJECT_NAME="jobs-boards-jb"
 build_reverse_proxy_target
@@ -233,7 +233,10 @@ BASH);
         $first = new Process(
             [$scriptPath, 'jb.mythic3011.com'],
             $tempRoot,
-            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'TARGET_HOST' => '203.0.113.10',
+            ],
             null,
             20,
         );
@@ -254,7 +257,10 @@ BASH);
         $second = new Process(
             [$scriptPath, 'jb.mythic3011.com'],
             $tempRoot,
-            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'TARGET_HOST' => '203.0.113.10',
+            ],
             null,
             20,
         );
@@ -326,6 +332,7 @@ BASH);
             $tempRoot,
             [
                 'PATH' => $fakeBin.':'.getenv('PATH'),
+                'TARGET_HOST' => '203.0.113.10',
                 'JB_INSTALL_ADMIN_EMAIL' => 'me@mythi3011.com',
                 'JB_INSTALL_ADMIN_PASSWORD' => 'V%U7&HX7A#N@eFvH',
             ],
