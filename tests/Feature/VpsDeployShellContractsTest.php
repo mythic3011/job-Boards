@@ -428,7 +428,8 @@ BASH);
 
         $installOffset = strpos($contents, 'docker compose -f compose.app.yml exec -T laravel.test "${install_args[@]}"');
         $restartOffset = strpos($contents, 'docker compose -f compose.app.yml restart laravel.test');
-        $finalCurlOffset = strpos($contents, 'curl -kfsS --resolve "${DEPLOY_DOMAIN}:443:127.0.0.1" "https://${DEPLOY_DOMAIN}/up" >/dev/null');
+        $this->assertStringContainsString('curl --retry 10 --retry-delay 2 --retry-all-errors -kfsS \\', $contents);
+        $finalCurlOffset = strpos($contents, '--resolve "${DEPLOY_DOMAIN}:443:127.0.0.1" "https://${DEPLOY_DOMAIN}/up" >/dev/null');
 
         $this->assertNotFalse($restartOffset, 'Expected remote deploy to refresh the laravel runtime before final proof.');
         $this->assertNotFalse($finalCurlOffset, 'Expected final deploy proof curl in remote deploy script.');

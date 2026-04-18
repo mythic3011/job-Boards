@@ -450,9 +450,10 @@ if [[ "${DEPLOY_INSTALL_HOST_NGINX:-true}" == "true" ]]; then
     ln -sfn "/etc/nginx/sites-available/${DEPLOY_NGINX_SITE_NAME}" "/etc/nginx/sites-enabled/${DEPLOY_NGINX_SITE_NAME}"
     nginx -t
     systemctl reload nginx
-    curl -kfsS --resolve "${DEPLOY_DOMAIN}:443:127.0.0.1" "https://${DEPLOY_DOMAIN}/up" >/dev/null
+    curl --retry 10 --retry-delay 2 --retry-all-errors -kfsS \
+        --resolve "${DEPLOY_DOMAIN}:443:127.0.0.1" "https://${DEPLOY_DOMAIN}/up" >/dev/null
 else
-    curl -kfsS "https://127.0.0.1/up" >/dev/null
+    curl --retry 10 --retry-delay 2 --retry-all-errors -kfsS "https://127.0.0.1/up" >/dev/null
 fi
 EOF
 
