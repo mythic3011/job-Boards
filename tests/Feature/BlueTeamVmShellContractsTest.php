@@ -1270,6 +1270,15 @@ BASH);
         $this->assertStringNotContainsString('for port in 80 443; do', $contents);
     }
 
+    public function test_https_nginx_server_keeps_a_dedicated_up_probe_location_instead_of_only_the_generic_route_handler(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($contents);
+        $this->assertSame(2, substr_count($contents, 'location /up {'));
+        $this->assertMatchesRegularExpression('/listen 443 ssl;.*?include \/etc\/nginx\/includes\/\*\.conf;.*?location \/up \{\s+try_files \$uri \/index\.php\?\$query_string;\s+\}/s', $contents);
+    }
+
     public function test_honeypot_integration_probe_uses_configured_https_binding_instead_of_assuming_port_443(): void
     {
         $contents = file_get_contents($this->repoRoot.'/ops/host/04-honeypot-lite.sh');
