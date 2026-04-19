@@ -66,7 +66,7 @@ services:
 
     crowdsec:
         container_name: jobs-boards-crowdsec
-        image: crowdsecurity/crowdsec:v1.6.8
+        image: crowdsecurity/crowdsec:v1.7.7
         environment:
             CROWDSEC_REQUIRED_APPSEC_CONFIG: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"
             CROWDSEC_REQUIRED_APPSEC_COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"
@@ -97,7 +97,11 @@ services:
                 condition: service_started
         restart: unless-stopped
         healthcheck:
-            test: ["CMD-SHELL", "test -f /etc/crowdsec/config.yaml && cscli appsec-configs list -c /etc/crowdsec/config.yaml 2>/dev/null | grep -Fq \"${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}\" && cscli appsec-rules list -c /etc/crowdsec/config.yaml 2>/dev/null | grep -Fq 'crowdsecurity/vpatch-' && wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
+            test:
+                [
+                    "CMD-SHELL",
+                    'test -f /etc/crowdsec/config.yaml && cscli appsec-configs list -c /etc/crowdsec/config.yaml 2>/dev/null | grep -Fq "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}" && cscli appsec-rules list -c /etc/crowdsec/config.yaml 2>/dev/null | grep -Fq ''crowdsecurity/vpatch-'' && wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1',
+                ]
             interval: 10s
             timeout: 5s
             retries: 10
@@ -105,7 +109,7 @@ services:
 
     crowdsec-key-init:
         container_name: jobs-boards-crowdsec-key-init
-        image: crowdsecurity/crowdsec:v1.6.8
+        image: crowdsecurity/crowdsec:v1.7.7
         entrypoint: ["/init-bouncer-key.sh"]
         volumes:
             - ./docker/crowdsec/init-bouncer-key.sh:/init-bouncer-key.sh:ro
