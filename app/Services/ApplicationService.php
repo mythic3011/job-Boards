@@ -2,10 +2,13 @@
 
 namespace App\Services;
 
+use App\Enums\ApplicationDecisionOutcome;
+use App\Enums\ApplicationStatus;
 use App\Models\Application;
 use App\Models\JobPosting;
 use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class ApplicationService
@@ -57,12 +60,21 @@ class ApplicationService
             'cv_mime' => $metadata['mime'],
             'cv_size_bytes' => $metadata['size_bytes'],
             'cv_sha256' => $fileData['sha256'],
-            'status' => 'pending',
         ]);
 
         $this->logApplicationSubmission($application, $job);
 
         return $application;
+    }
+
+    public function approve(Application $application, ?string $decisionMessage): ApplicationDecisionOutcome
+    {
+        return $this->transitionDecision($application, ApplicationStatus::APPROVED, $decisionMessage);
+    }
+
+    public function reject(Application $application, ?string $decisionMessage): ApplicationDecisionOutcome
+    {
+        return $this->transitionDecision($application, ApplicationStatus::REJECTED, $decisionMessage);
     }
 
     /**
@@ -98,5 +110,58 @@ class ApplicationService
             'job_idcode' => $job->idcode,
             'ip' => $this->request->ip(),
         ]);
+    }
+
+    /**
+     * Status change and success audit logging are intentionally atomic here.
+     * This assumes AuditLogger::logBusinessEvent() persists synchronously
+     * inside the current transaction. If audit delivery becomes queued,
+     * event-driven, async, or otherwise out-of-transaction, redesign this
+     * consistency model in the same slice.
+     */
+    private function transitionDecision(
+        Application $application,
+        ApplicationStatus $targetStatus,
+        ?string $decisionMessage
+    ): ApplicationDecisionOutcome {
+        return DB::transaction(function () use ($application, $targetStatus, $decisionMessage): ApplicationDecisionOutcome {
+            $lockedApplication = Application::query()
+                ->whereKey($application->getKey())
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $currentStatus = $lockedApplication->status;
+            if ($currentStatus === $targetStatus) {
+                return ApplicationDecisionOutcome::NOOP_ALREADY_TARGET;
+            }
+
+            try {
+                $lockedApplication->status = $targetStatus;
+            } catch (\InvalidArgumentException) {
+                return ApplicationDecisionOutcome::INVALID_TRANSITION;
+            }
+
+            $lockedApplication->decision_message = $decisionMessage;
+            $lockedApplication->decision_message_read_at = null;
+            $lockedApplication->save();
+
+            $this->auditLogger->logBusinessEvent(
+                eventType: 'application.status_changed',
+                request: $this->request,
+                targetType: 'application',
+                targetIdcode: $lockedApplication->idcode,
+                meta: [
+                    'application_id' => $lockedApplication->id,
+                    'application_idcode' => $lockedApplication->idcode,
+                    'old_status' => $currentStatus->value,
+                    'new_status' => $targetStatus->value,
+                    'changed_by_user_id' => $this->auth->id(),
+                    'job_id' => $lockedApplication->job_id,
+                    'applicant_user_id' => $lockedApplication->applicant_user_id,
+                ],
+            );
+
+            return ApplicationDecisionOutcome::UPDATED;
+        });
     }
 }

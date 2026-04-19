@@ -54,18 +54,7 @@ class DashboardService
     {
         return Cache::remember(self::CACHE_KEY, self::CACHE_DURATION, function () {
             $today = now()->startOfDay();
-
-            $quotedSuspiciousEventTypes = collect(self::SUSPICIOUS_EVENT_TYPES)
-                ->map(fn (string $eventType): string => "'" . $eventType . "'")
-                ->implode(',');
-
-            $auditToday = AuditLog::where('occurred_at', '>=', $today)
-                ->selectRaw("
-                    COUNT(*) as total_today,
-                    COUNT(CASE WHEN event_type IN ('login_failed', 'audit.auth.verify.denied') THEN 1 END) as failed_logins,
-                    COUNT(CASE WHEN event_type IN ({$quotedSuspiciousEventTypes}) THEN 1 END) as suspicious
-                ")
-                ->first();
+            $auditToday = AuditLog::query()->where('occurred_at', '>=', $today);
 
             return [
                 'total_users'        => User::count(),
@@ -73,13 +62,17 @@ class DashboardService
                 'total_individuals'  => User::where('user_type', 'individual')->count(),
                 'total_jobs'         => JobPosting::count(),
                 'total_applications' => Application::count(),
-                'pending_applications' => Application::where('status', 'pending')->count(),
-                'locked_users'       => User::whereNotNull('locked_until')->where('locked_until', '>', now())->count(),
+                'pending_applications' => Application::pending()->count(),
+                'locked_users'       => User::locked()->count(),
                 'new_users_today'    => User::where('created_at', '>=', $today)->count(),
                 'new_jobs_today'     => JobPosting::where('created_at', '>=', $today)->count(),
-                'events_today'       => $auditToday?->total_today ?? 0,
-                'failed_logins_today' => $auditToday?->failed_logins ?? 0,
-                'suspicious_today'   => $auditToday?->suspicious ?? 0,
+                'events_today'       => (clone $auditToday)->count(),
+                'failed_logins_today' => (clone $auditToday)
+                    ->whereIn('event_type', ['login_failed', 'audit.auth.verify.denied'])
+                    ->count(),
+                'suspicious_today'   => (clone $auditToday)
+                    ->whereIn('event_type', self::SUSPICIOUS_EVENT_TYPES)
+                    ->count(),
             ];
         });
     }

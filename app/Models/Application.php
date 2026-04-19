@@ -26,7 +26,6 @@ class Application extends Model
         'cv_mime',
         'cv_size_bytes',
         'cv_sha256',
-        'status',
     ];
 
     protected static function boot(): void
@@ -65,6 +64,42 @@ class Application extends Model
     }
 
     /**
+     * Scope a query to applications with a specific status.
+     */
+    public function scopeByStatus(Builder $query, string|ApplicationStatus $status): Builder
+    {
+        $resolvedStatus = $status instanceof ApplicationStatus
+            ? $status
+            : ApplicationStatus::from($status);
+
+        return $query->where('status', $resolvedStatus->value);
+    }
+
+    /**
+     * Scope a query to pending applications.
+     */
+    public function scopePending(Builder $query): Builder
+    {
+        return $query->byStatus(ApplicationStatus::PENDING);
+    }
+
+    /**
+     * Scope a query to approved applications.
+     */
+    public function scopeApproved(Builder $query): Builder
+    {
+        return $query->byStatus(ApplicationStatus::APPROVED);
+    }
+
+    /**
+     * Scope a query to rejected applications.
+     */
+    public function scopeRejected(Builder $query): Builder
+    {
+        return $query->byStatus(ApplicationStatus::REJECTED);
+    }
+
+    /**
      * Scope a query to only include applications for jobs owned by a company.
      */
     public function scopeForCompanyJobs(Builder $query, string $companyUserId): Builder
@@ -95,6 +130,8 @@ class Application extends Model
      */
     public function setStatusAttribute($value): void
     {
+        // Business transition rules live here only. Do not duplicate them in
+        // model hooks, observers, or other hidden lifecycle gates.
         // Convert string to enum if needed
         $status = $value instanceof ApplicationStatus ? $value : ApplicationStatus::from($value);
 

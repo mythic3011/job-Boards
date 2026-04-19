@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\ApplicationController;
 use App\Http\Controllers\JobController;
+use App\Models\Application;
+use App\Models\JobPosting;
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
@@ -23,11 +25,13 @@ Route::middleware(\App\Http\Middleware\EnsureSetupCompleted::class)->group(funct
     // IMPORTANT: must be defined BEFORE /jobs/{idcode} so "create" is not matched as idcode
     Volt::route('/jobs/create', 'jobs.create')
         ->middleware(['auth', 'throttle:10,1'])
+        ->can('create', JobPosting::class)
         ->name('jobs.create');
 
     // Create job (POST). Handles form POST when Livewire is not used or as fallback.
     Route::post('/jobs', [JobController::class, 'store'])
         ->middleware(['auth', 'throttle:10,1'])
+        ->can('create', JobPosting::class)
         ->name('jobs.store');
 
     // View specific job
@@ -53,11 +57,13 @@ Route::middleware(['auth'])->group(function () {
     // Apply to a job
     Volt::route('/jobs/{jobIdcode}/apply', 'applications.create')
         ->middleware('throttle:3,1')
+        ->can('create', Application::class)
         ->name('applications.create');
 
     // Apply to a job (POST fallback)
     Route::post('/jobs/{jobIdcode}/apply', [ApplicationController::class, 'store'])
         ->middleware(['throttle:3,1'])
+        ->can('create', Application::class)
         ->name('applications.store');
 
     // View application details

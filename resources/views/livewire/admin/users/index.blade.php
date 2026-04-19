@@ -94,8 +94,8 @@ new class extends Component
 
         $user = User::findOrFail($userId);
         $before = $user->locked_until?->toDateTimeString();
-        
-        $user->update(['locked_until' => now()->addDays(30)]);
+
+        $user->forceFill(['locked_until' => now()->addDays(30)])->save();
 
         app(\App\Services\DashboardService::class)->clearCache();
 
@@ -124,8 +124,8 @@ new class extends Component
 
         $user = User::findOrFail($userId);
         $before = $user->locked_until?->toDateTimeString();
-        
-        $user->update(['locked_until' => null]);
+
+        $user->forceFill(['locked_until' => null])->save();
 
         app(\App\Services\DashboardService::class)->clearCache();
 

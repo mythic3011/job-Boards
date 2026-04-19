@@ -62,7 +62,7 @@ class AuthenticationService
     {
         // Clear any existing lockout
         if ($user->locked_until) {
-            $user->update(['locked_until' => null]);
+            $this->persistLockedUntil($user, null);
         }
 
         // Clear failed attempts cache
@@ -185,7 +185,7 @@ class AuthenticationService
     private function lockAccount(User $user, Request $request, int $attempts, int $lockoutMinutes): void
     {
         $lockedUntil = now()->addMinutes($lockoutMinutes);
-        $user->update(['locked_until' => $lockedUntil]);
+        $this->persistLockedUntil($user, $lockedUntil);
 
         $this->auditLogger->logRequestEvent(
             eventType: 'audit.auth.locked',
@@ -292,6 +292,11 @@ class AuthenticationService
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         $request->session()->regenerate();
+    }
+
+    private function persistLockedUntil(User $user, mixed $lockedUntil): void
+    {
+        $user->forceFill(['locked_until' => $lockedUntil])->save();
     }
 
     /**

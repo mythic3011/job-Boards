@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Cache\RateLimiter;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use PragmaRX\Google2FA\Google2FA;
@@ -276,13 +277,26 @@ class MaintenanceContractTest extends TestCase
 
     private function createUser(array $attributes): User
     {
-        return User::create([
+        $protectedState = Arr::only($attributes, [
+            'locked_until',
+            'two_factor_secret',
+            'two_factor_recovery_codes',
+            'two_factor_confirmed_at',
+        ]);
+
+        $user = User::create([
             'id' => (string) \Illuminate\Support\Str::uuid(),
             'idcode' => 'user_' . \Illuminate\Support\Str::uuid(),
             'nickname' => 'Test User',
             'password' => Hash::make('StrongPass123!'),
-            ...$attributes,
+            ...Arr::except($attributes, array_keys($protectedState)),
         ]);
+
+        if ($protectedState !== []) {
+            $user->forceFill($protectedState)->save();
+        }
+
+        return $user->fresh();
     }
 
     private function attachAdminRole(User $user): void

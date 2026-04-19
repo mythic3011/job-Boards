@@ -46,17 +46,25 @@ class ProfileController extends Controller
     {
         try {
             $user = Auth::user();
-            
+            $payload = [
+                'nickname' => $request->input('nickname'),
+                'email' => $request->input('email'),
+            ];
+
+            if ($request->hasFile('profile_image')) {
+                $payload['profile_image'] = $request->file('profile_image');
+            }
+
             // Log the incoming data for debugging
             \Log::info('Profile update attempt', [
                 'user_id' => $user->id,
-                'data_keys' => array_keys($request->all()),
-                'nickname' => $request->input('nickname'),
-                'email' => $request->input('email'),
-                'has_profile_image' => $request->hasFile('profile_image'),
+                'data_keys' => array_keys($payload),
+                'nickname' => $payload['nickname'],
+                'email' => $payload['email'],
+                'has_profile_image' => array_key_exists('profile_image', $payload),
             ]);
-            
-            $this->profileService->updateProfile($user, $request->all(), $request);
+
+            $this->profileService->updateProfile($user, $payload, $request);
 
             return redirect()->route('profile.show')
                 ->with('success', 'Profile updated successfully.');
@@ -102,7 +110,17 @@ class ProfileController extends Controller
     {
         try {
             $user = Auth::user();
-            $this->profileService->updatePassword($user, $request->all(), $request);
+            $payload = [
+                'current_password' => $request->input('current_password'),
+                'password' => $request->input('password'),
+                'password_confirmation' => $request->input('password_confirmation'),
+            ];
+
+            if ($request->has('two_factor_code')) {
+                $payload['two_factor_code'] = $request->input('two_factor_code');
+            }
+
+            $this->profileService->updatePassword($user, $payload, $request);
 
             return redirect()->route('profile.show')
                 ->with('success', 'Password updated successfully.');

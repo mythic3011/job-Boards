@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\JobPosting;
 use App\Services\JobService;
 use Illuminate\Http\Request;
 
@@ -16,6 +17,8 @@ class JobController extends Controller
         if (!auth()->check() || !auth()->user()->isCompany()) {
             abort(403, 'Only company users can create job postings.');
         }
+
+        $this->authorize('create', JobPosting::class);
 
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],

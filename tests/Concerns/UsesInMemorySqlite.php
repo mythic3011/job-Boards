@@ -107,7 +107,7 @@ trait UsesInMemorySqlite
             $table->string('cv_mime');
             $table->unsignedBigInteger('cv_size_bytes');
             $table->string('cv_sha256');
-            $table->string('status');
+            $table->string('status')->default('pending')->index();
             $table->timestamps();
         });
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\ApplicationDecisionOutcome;
 use App\Models\Application;
 use App\Models\JobPosting;
 use App\Services\ApplicationService;
@@ -257,7 +258,7 @@ class ApplicationController extends Controller
     /**
      * Approve an application (company owner only).
      */
-    public function approve(Request $request, string $idcode, AuditLogger $auditLogger)
+    public function approve(Request $request, string $idcode, ApplicationService $applicationService)
     {
         $application = Application::byIdcode($idcode)->firstOrFail();
         if (!$request->user()?->can('approve', $application)) {
@@ -271,41 +272,25 @@ class ApplicationController extends Controller
             abort(403, 'You are not authorized to approve this application.');
         }
 
-        if ($application->status->value === 'approved') {
-            return back()->with('info', 'This application has already been approved.');
-        }
-
         $validated = $request->validate([
             'decision_message' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $oldStatus = $application->status->value;
-
-        $application->update([
-            'status' => 'approved',
-            'decision_message' => $validated['decision_message'] ?? null,
-            'decision_message_read_at' => null,
-        ]);
-
-        $auditLogger->logBusinessEvent('application.status_changed', $request, 'application', $application->idcode, [
-            'application_id' => $application->id,
-            'application_idcode' => $application->idcode,
-            'old_status' => $oldStatus,
-            'new_status' => 'approved',
-            'changed_by_user_id' => auth()->id(),
-            'job_id' => $application->job_id,
-            'applicant_user_id' => $application->applicant_user_id,
-        ]);
-
-        return redirect()
-            ->route('my.applications.index')
-            ->with('success', 'Application approved successfully.');
+        return match ($applicationService->approve($application, $validated['decision_message'] ?? null)) {
+            ApplicationDecisionOutcome::UPDATED => redirect()
+                ->route('my.applications.index')
+                ->with('success', 'Application approved successfully.'),
+            ApplicationDecisionOutcome::NOOP_ALREADY_TARGET => back()
+                ->with('info', 'This application has already been approved.'),
+            ApplicationDecisionOutcome::INVALID_TRANSITION => back()
+                ->withErrors(['application' => 'This application could not be moved to the approved state.']),
+        };
     }
 
     /**
      * Reject an application (company owner only).
      */
-    public function reject(Request $request, string $idcode, AuditLogger $auditLogger)
+    public function reject(Request $request, string $idcode, ApplicationService $applicationService)
     {
         $application = Application::byIdcode($idcode)->firstOrFail();
         if (!$request->user()?->can('reject', $application)) {
@@ -319,34 +304,18 @@ class ApplicationController extends Controller
             abort(403, 'You are not authorized to reject this application.');
         }
 
-        if ($application->status->value === 'rejected') {
-            return back()->with('info', 'This application has already been rejected.');
-        }
-
         $validated = $request->validate([
             'decision_message' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $oldStatus = $application->status->value;
-
-        $application->update([
-            'status' => 'rejected',
-            'decision_message' => $validated['decision_message'] ?? null,
-            'decision_message_read_at' => null,
-        ]);
-
-        $auditLogger->logBusinessEvent('application.status_changed', $request, 'application', $application->idcode, [
-            'application_id' => $application->id,
-            'application_idcode' => $application->idcode,
-            'old_status' => $oldStatus,
-            'new_status' => 'rejected',
-            'changed_by_user_id' => auth()->id(),
-            'job_id' => $application->job_id,
-            'applicant_user_id' => $application->applicant_user_id,
-        ]);
-
-        return redirect()
-            ->route('my.applications.index')
-            ->with('success', 'Application rejected successfully.');
+        return match ($applicationService->reject($application, $validated['decision_message'] ?? null)) {
+            ApplicationDecisionOutcome::UPDATED => redirect()
+                ->route('my.applications.index')
+                ->with('success', 'Application rejected successfully.'),
+            ApplicationDecisionOutcome::NOOP_ALREADY_TARGET => back()
+                ->with('info', 'This application has already been rejected.'),
+            ApplicationDecisionOutcome::INVALID_TRANSITION => back()
+                ->withErrors(['application' => 'This application could not be moved to the rejected state.']),
+        };
     }
 }

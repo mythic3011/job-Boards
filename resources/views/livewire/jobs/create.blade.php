@@ -1,7 +1,6 @@
 <?php
 
 use App\Services\JobService;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 
@@ -46,9 +45,7 @@ new class extends Component
 
     public function mount(): void
     {
-        if (!Auth::check() || !Auth::user()->isCompany()) {
-            abort(403, 'Only company users can create job postings.');
-        }
+        $this->authorize('create', \App\Models\JobPosting::class);
     }
 
     public function create(JobService $jobService): mixed

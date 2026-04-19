@@ -89,10 +89,6 @@ class User extends Authenticatable
         'password',
         'user_type',
         'profile_image_path',
-        'locked_until',
-        'two_factor_secret',
-        'two_factor_recovery_codes',
-        'two_factor_confirmed_at',
         'password_changed_at',
     ];
 
@@ -161,6 +157,16 @@ class User extends Authenticatable
     public function isLocked(): bool
     {
         return $this->locked_until && $this->locked_until->isFuture();
+    }
+
+    /**
+     * Scope a query to users with an active lockout window.
+     */
+    public function scopeLocked(Builder $query): Builder
+    {
+        return $query
+            ->whereNotNull('locked_until')
+            ->where('locked_until', '>', now());
     }
 
     /**

@@ -35,9 +35,7 @@ new class extends Component
     {
         $this->jobIdcode = $jobIdcode;
 
-        if (!Auth::check() || !Auth::user()->isIndividual()) {
-            abort(403, 'Only individual users can submit applications.');
-        }
+        $this->authorize('create', \App\Models\Application::class);
 
         // OWASP A01: Job lookup is public (no scoping needed)
         $job = JobPosting::byIdcode($jobIdcode)->firstOrFail();
