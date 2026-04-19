@@ -12,6 +12,8 @@ This is a reusable contract for future runs. It is not a historical log.
 - If a host listener already owns `80/443`, app bootstrap is expected to fail loud with `app.frontdoor.host_port_conflicts = FAIL`.
 - This is intentional. App bootstrap must not auto-stop or auto-disable host listeners such as `nginx`.
 - In a controlled demo VM, the operator must clear the conflicting listener before rerunning app bootstrap.
+- Repo-local convenience bootstrap is a separate path: `bootstrap-env.sh` and `install.sh` may rewrite local `.env` values for `APP_PORT`, `APP_SSL_PORT`, `VITE_PORT`, `FORWARD_DB_PORT`, and `FORWARD_REDIS_PORT` into `3001-9001` when those local ports are already occupied.
+- That local rewrite is not blue-team VM proof evidence and does not relax the requirement that real host `80/443` ownership be cleared before `./setup-blue-team-vm.sh app`.
 
 ## Host Baseline Contract
 
@@ -60,6 +62,7 @@ Local repository note:
 
 - blue-team VM host runs default to `/var/lib/blue-team-vm`
 - local repo workflows may override `BT_STATE_DIR` to `${REPO_ROOT}/.blue-team-vm`
+- the repo-local convenience stack treats `APP_PORT`, `APP_SSL_PORT`, `VITE_PORT`, `FORWARD_DB_PORT`, and `FORWARD_REDIS_PORT` as the host-bound port set that bootstrap/install may populate or rewrite
 - when local developers start `compose.obs.yml` manually, they must export both source-layer `.env` values and `${BT_STATE_DIR}/runtime/obs.generated.env`
 - `obs.generated.env` is expected to carry both rendered file paths and the persisted compose-side runtime inputs needed for follow-up `bootstrap-obs.sh verify` calls
 - split-plane shell entrypoints treat `app-plane` as a shared external network, not a per-compose-owned network
@@ -69,6 +72,7 @@ Local repository note:
 - non-default app-plane subnets are not supported by the current compose contract because nginx and trusted-proxy addresses are pinned to `172.29.0.x`
 - raw `docker compose -f compose.app.yml ...` and `docker compose -f compose.obs.yml ...` do not perform shared-network detection or creation
 - a missing `PROMETHEUS_WEB_CONFIG_FILE` or `GRAFANA_ADMIN_SECRET_FILE` during local `docker compose` interpolation is a runtime artifact preparation failure, not by itself proof that the obs deployment contract is wrong
+- auth-service healthchecks in `compose.yaml` and `compose.obs.yml` follow `${PORT:-3000}`, so an explicit auth-service `PORT` override remains part of the supported runtime contract instead of requiring a parallel healthcheck edit
 
 ## Startup Gating Versus Functional Proof
 

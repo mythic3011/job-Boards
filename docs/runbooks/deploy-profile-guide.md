@@ -25,6 +25,15 @@ Profiles still need their minimum required inputs in order to resolve cleanly:
 - `from-env`: `TARGET_HOST`, `TARGET_REMOTE_ROOT`, `TARGET_COMPOSE_PROJECT_NAME`, and either `TARGET_DOMAIN` or `TARGET_SUBDOMAIN + TARGET_ROOT_DOMAIN`
 - `lab-env`: `LAB_DEPLOY_HOST`
 
+## Remote Bind Ports Versus Local Convenience Ports
+
+The deploy profiles in this runbook describe the remote application listener contract only.
+
+- The profile bind ports shown below are the remote-facing app-plane ports that host nginx or the lab VM consume.
+- `VITE_PORT`, `FORWARD_DB_PORT`, and `FORWARD_REDIS_PORT` are not deploy-target inputs. They belong to the repo-local `compose.yaml` convenience surface for local tooling only.
+- The repo-local `bootstrap-env.sh` and `install.sh` paths may rewrite the local host-bound set (`APP_PORT`, `APP_SSL_PORT`, `VITE_PORT`, `FORWARD_DB_PORT`, `FORWARD_REDIS_PORT`) into `3001-9001` when those local ports are occupied.
+- That local rewrite is convenience-only. It does not change the remote deploy profile contract described by `ops/deploy/vps-deploy.sh --describe ...`.
+
 ## Profile Selection
 
 ### `jb.mythic3011.com`

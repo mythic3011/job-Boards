@@ -142,6 +142,16 @@ For local testing, prepare the obs runtime artifacts first. The local install fl
 `install.sh full dev` remains the local convenience bring-up path. It now prepares obs runtime artifacts through the shared `ops/bootstrap/bootstrap-obs.sh` chain, but blue-team runtime contract evidence still comes from the split-plane compose files and verifiers below.
 The installer starts the local convenience stack with `docker compose -f compose.yaml ...` and intentionally avoids `down --remove-orphans`, so it does not tear down a split-plane stack that is already running in the same workspace.
 
+The local convenience bootstrap now treats these five values as the host-bound port contract:
+
+- `APP_PORT`
+- `APP_SSL_PORT`
+- `VITE_PORT`
+- `FORWARD_DB_PORT`
+- `FORWARD_REDIS_PORT`
+
+`bootstrap-env.sh` persists missing defaults for that full set and silently reassigns any occupied local port into `3001-9001` before its final audit. `install.sh` checks the same five variables before starting the combined stack and offers to rewrite blocked `.env` entries into the same range. That rewrite is local convenience only. It does not relax the blue-team VM proof requirement that real host `80/443` ownership be cleared before app-plane bootstrap.
+
 If you want to bring the split planes up manually, export the correct env files before each compose command.
 
 App plane:
@@ -159,6 +169,7 @@ zsh -lc 'set -a; source .env; source .blue-team-vm/runtime/obs.generated.env; se
 The obs plane depends on final runtime values such as `GRAFANA_ADMIN_SECRET_FILE` and `PROMETHEUS_WEB_CONFIG_FILE`. `.blue-team-vm/runtime/obs.generated.env` now also carries the compose-side runtime inputs that follow-up `bootstrap-obs.sh verify` needs for interpolation. A bare `docker compose` invocation without that generated env should be treated as missing runtime preparation, not as proof that the deployment contract is broken.
 The split-plane shell entrypoints now treat `app-plane` as a shared external network. `./ops/app/05-compose-up.sh` and `./ops/bootstrap/bootstrap-obs.sh apply` will create the default `${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane` when it is absent and only auto-detect an existing `*_app-plane` network when its subnet matches the fixed `172.29.0.0/24` contract used by the compose files. Raw `docker compose -f compose.app.yml ...` and `docker compose -f compose.obs.yml ...` still do not perform that detection or creation for you.
 If your local app plane is owned by another compose project or worktree, export `BT_APP_PLANE_NETWORK_NAME=<existing_app_plane_network>` before manual split-plane compose commands. Non-default app-plane subnets are not supported by the current compose contract because nginx and trusted-proxy bindings are pinned to `172.29.0.x`.
+Auth-service healthchecks in both `compose.yaml` and `compose.obs.yml` now probe `http://127.0.0.1:${PORT:-3000}/health`, so overriding auth-service `PORT` no longer leaves the compose startup gate pinned to a stale hardcoded `3000`.
 
 ## Runtime Artifact Contract
 
