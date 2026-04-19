@@ -20,32 +20,13 @@ OBS_GRAFANA_SQLITE_HELPER_IMAGE="${BT_OBS_GRAFANA_SQLITE_HELPER_IMAGE:-python:3.
 obs_statuses=()
 
 run_obs_check() {
-    local check_id="$1"
-    local message="$2"
-    local remediation="$3"
+    local check_id="$1" message="$2" remediation="$3"
     shift 3
-
-    if "$@"; then
-        bt_emit_check "${check_id}" "obs" "${BT_STATUS_PASS}" "${message}" "${remediation}"
-        obs_statuses+=("${BT_STATUS_PASS}")
-        return 0
-    fi
-
-    bt_emit_check "${check_id}" "obs" "${BT_STATUS_FAIL}" "${message}" "${remediation}"
-    obs_statuses+=("${BT_STATUS_FAIL}")
-    return 1
+    bt_run_plane_check "obs" obs_statuses "${check_id}" "${BT_STATUS_PASS}" "${message}" "${remediation}" "$@"
 }
 
 emit_obs_summary() {
-    local summary_message="$1"
-    local status
-    if [[ "${#obs_statuses[@]}" -eq 0 ]]; then
-        status="${BT_STATUS_SKIPPED}"
-    else
-        status="$(bt_aggregate_statuses "${obs_statuses[@]}")"
-    fi
-    bt_emit_plane_summary "obs" "${status}" "${summary_message}" "Inspect obs-plane checks."
-    [[ "${status}" != "${BT_STATUS_FAIL}" ]]
+    bt_emit_plane_check_summary "obs" obs_statuses "$1"
 }
 
 obs_check_id_suffix() {
@@ -250,6 +231,7 @@ print(volume_config.get("name") or grafana_volume_key, end="")
 PY
 )"
 
+    bt_preload_compose_env
     env "GRAFANA_DATASOURCES_FILE=${OBS_GRAFANA_DATASOURCES_FILE}" \
         docker compose -f "${BT_COMPOSE_OBS_FILE}" config --format json | python3 -c "${helper_script}"
 }
@@ -776,6 +758,7 @@ apply_action() {
         exit 1
     }
 
+    bt_repair_buildx_caches
     bt_compose "${BT_COMPOSE_OBS_FILE}" up -d --build
     bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" auth-service healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true
     bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" grafana healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true

@@ -12,32 +12,13 @@ ACTION="${1:-apply}"
 host_statuses=()
 
 run_check() {
-    local check_id="$1"
-    local message="$2"
-    local remediation="$3"
+    local check_id="$1" message="$2" remediation="$3"
     shift 3
-
-    if "$@"; then
-        bt_emit_check "${check_id}" "host" "${BT_STATUS_PASS}" "${message}" "${remediation}"
-        host_statuses+=("${BT_STATUS_PASS}")
-        return 0
-    fi
-
-    bt_emit_check "${check_id}" "host" "${BT_STATUS_FAIL}" "${message}" "${remediation}"
-    host_statuses+=("${BT_STATUS_FAIL}")
-    return 1
+    bt_run_plane_check "host" host_statuses "${check_id}" "${BT_STATUS_PASS}" "${message}" "${remediation}" "$@"
 }
 
 emit_host_summary() {
-    local summary_message="$1"
-    local status
-    if [[ "${#host_statuses[@]}" -eq 0 ]]; then
-        status="${BT_STATUS_SKIPPED}"
-    else
-        status="$(bt_aggregate_statuses "${host_statuses[@]}")"
-    fi
-    bt_emit_plane_summary "host" "${status}" "${summary_message}" "Inspect host bootstrap checks."
-    [[ "${status}" != "${BT_STATUS_FAIL}" ]]
+    bt_emit_plane_check_summary "host" host_statuses "$1"
 }
 
 verify_subset() {

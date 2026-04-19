@@ -166,6 +166,75 @@ bt_aggregate_statuses() {
     fi
 }
 
+bt_run_plane_check() {
+    local plane="$1"
+    local -n _bt_rpc_statuses="$2"
+    local check_id="$3"
+    local status_on_success="$4"
+    local message="$5"
+    local remediation="$6"
+    shift 6
+
+    if "$@"; then
+        bt_emit_check "${check_id}" "${plane}" "${status_on_success}" "${message}" "${remediation}"
+        _bt_rpc_statuses+=("${status_on_success}")
+        return 0
+    fi
+
+    local failure_status="${BT_STATUS_FAIL}"
+    if [[ "${status_on_success}" == "${BT_STATUS_DEGRADED}" ]]; then
+        failure_status="${BT_STATUS_DEGRADED}"
+    fi
+    bt_emit_check "${check_id}" "${plane}" "${failure_status}" "${message}" "${remediation}"
+    _bt_rpc_statuses+=("${failure_status}")
+    return 1
+}
+
+bt_emit_plane_check_summary() {
+    local plane="$1"
+    local -n _bt_epcs_statuses="$2"
+    local message="$3"
+    local status
+
+    if [[ "${#_bt_epcs_statuses[@]}" -eq 0 ]]; then
+        status="${BT_STATUS_SKIPPED}"
+    else
+        status="$(bt_aggregate_statuses "${_bt_epcs_statuses[@]}")"
+    fi
+    bt_emit_plane_summary "${plane}" "${status}" "${message}" "Inspect ${plane}-plane checks."
+    [[ "${status}" != "${BT_STATUS_FAIL}" ]]
+}
+
+: "${BT_LAST_ASSIGNED_PORT:=3000}"
+
+bt_find_free_port() {
+    local p=$(( BT_LAST_ASSIGNED_PORT + 1 ))
+    while [[ $p -le 9001 ]]; do
+        if ! bt_port_in_use "$p"; then
+            BT_LAST_ASSIGNED_PORT=$p
+            printf '%s\n' "$p"
+            return 0
+        fi
+        p=$((p + 1))
+    done
+    return 1
+}
+
+bt_port_in_use() {
+    local port="$1"
+    if command -v ss >/dev/null 2>&1; then
+        ss -tlnH 2>/dev/null | awk '{print $4}' | grep -qE "(^|[:.])${port}$" && return 0
+    fi
+    if command -v lsof >/dev/null 2>&1; then
+        lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1 && return 0
+    fi
+    if command -v netstat >/dev/null 2>&1; then
+        netstat -an 2>/dev/null | awk '/LISTEN/ {print $4}' | grep -qE "(^|[:.])${port}$" && return 0
+    fi
+    (echo >/dev/tcp/localhost/"${port}") >/dev/null 2>&1 && return 0
+    return 1
+}
+
 bt_restart_service() {
     local services=("$@")
     local service
@@ -564,8 +633,24 @@ bt_local_listen_ports() {
     return 1
 }
 
+bt_repair_buildx_caches() {
+    local cache_root="${BT_ROOT_DIR}/.docker/buildx-cache"
+    local cache_dir index_file
+
+    [[ -d "${cache_root}" ]] || return 0
+
+    while IFS= read -r -d '' cache_dir; do
+        index_file="${cache_dir}/index.json"
+        if [[ ! -f "${index_file}" ]] || ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "${index_file}" >/dev/null 2>&1; then
+            bt_log "Removing corrupt buildx cache: ${cache_dir}"
+            rm -rf "${cache_dir}"
+        fi
+    done < <(find "${cache_root}" -mindepth 1 -maxdepth 1 -type d -print0)
+}
+
 bt_compose_network_drivers() {
     local compose_file="$1"
+    bt_preload_compose_env
 
     docker compose -f "${compose_file}" config --format json | python3 -c '
 import json

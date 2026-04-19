@@ -102,37 +102,11 @@ app_frontdoor_published_ports() {
 }
 
 run_app_check() {
-    local check_id="$1"
-    local status_on_success="$2"
-    local message="$3"
-    local remediation="$4"
-    shift 4
-
-    if "$@"; then
-        bt_emit_check "${check_id}" "app" "${status_on_success}" "${message}" "${remediation}"
-        app_statuses+=("${status_on_success}")
-        return 0
-    fi
-
-    local failure_status="${BT_STATUS_FAIL}"
-    if [[ "${status_on_success}" == "${BT_STATUS_DEGRADED}" ]]; then
-        failure_status="${BT_STATUS_DEGRADED}"
-    fi
-    bt_emit_check "${check_id}" "app" "${failure_status}" "${message}" "${remediation}"
-    app_statuses+=("${failure_status}")
-    return 1
+    bt_run_plane_check "app" app_statuses "$@"
 }
 
 emit_app_summary() {
-    local summary_message="$1"
-    local status
-    if [[ "${#app_statuses[@]}" -eq 0 ]]; then
-        status="${BT_STATUS_SKIPPED}"
-    else
-        status="$(bt_aggregate_statuses "${app_statuses[@]}")"
-    fi
-    bt_emit_plane_summary "app" "${status}" "${summary_message}" "Inspect app-plane checks."
-    [[ "${status}" != "${BT_STATUS_FAIL}" ]]
+    bt_emit_plane_check_summary "app" app_statuses "$1"
 }
 
 require_baseline_marker() {

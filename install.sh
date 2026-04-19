@@ -37,7 +37,7 @@ export WWWUSER="${WWWUSER:-$(id -u)}"
 export WWWGROUP="${WWWGROUP:-$(id -g)}"
 
 # ── Track last assigned port to avoid assigning same free port twice ──────────
-LAST_ASSIGNED_PORT=3000
+BT_LAST_ASSIGNED_PORT=3000
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 # -T: non-TTY safe for CI/CD environments
@@ -61,26 +61,6 @@ is_choice_no() {
     [[ "$(normalized_choice "${1:-}")" == "n" ]]
 }
 
-export_env_file() {
-    local env_file="$1"
-    local line
-    local key
-    local value
-
-    [[ -r "${env_file}" ]] || return 1
-
-    while IFS= read -r line; do
-        [[ -n "${line}" ]] || continue
-        [[ "${line}" =~ ^[[:space:]]*# ]] && continue
-        line="${line#export }"
-        [[ "${line}" == *=* ]] || continue
-        key="${line%%=*}"
-        value="${line#*=}"
-        key="${key#"${key%%[![:space:]]*}"}"
-        key="${key%"${key##*[![:space:]]}"}"
-        export "${key}=${value}"
-    done < "${env_file}"
-}
 
 compose_file_display() {
     local compose_file="${INSTALL_COMPOSE_FILE}"
@@ -134,7 +114,7 @@ prepare_obs_runtime() {
     BT_COMPOSE_OBS_FILE="${ROOT_DIR}/compose.obs.yml" \
     "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" prepare
 
-    export_env_file "${generated_env}"
+    bt_export_env_file "${generated_env}"
 }
 
 check_deps() {
@@ -188,69 +168,23 @@ wait_for() {
     echo " done (${elapsed}s)"
 }
 
-port_in_use() {
-    local port="$1"
-    if command -v ss &>/dev/null; then
-        ss -tlnH 2>/dev/null | awk '{print $4}' | grep -qE "(^|[:.])${port}$" && return 0
-    fi
-    if command -v lsof &>/dev/null; then
-        lsof -nP -iTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1 && return 0
-    fi
-    if command -v netstat &>/dev/null; then
-        netstat -an 2>/dev/null | awk '/LISTEN/ {print $4}' | grep -qE "(^|[:.])${port}$" && return 0
-    fi
-    # Last resort: attempt TCP connection
-    (echo >/dev/tcp/localhost/"$port") &>/dev/null && return 0
-    return 1
-}
-
-find_free_port() {
-    local p=$(( LAST_ASSIGNED_PORT + 1 ))
-    while [[ $p -le 9001 ]]; do
-        if ! port_in_use "$p"; then
-            LAST_ASSIGNED_PORT=$p
-            echo "$p"
-            return
-        fi
-        p=$((p + 1))
-    done
-    echo ""
-}
-
-patch_env_port() {
-    local key="$1" value="$2"
-    if grep -qE "^${key}=" .env 2>/dev/null; then
-        python3 - "$key" "$value" <<'PYEOF'
-import re, sys
-key   = sys.argv[1]
-value = sys.argv[2]
-path  = '.env'
-with open(path, 'r') as f:
-    content = f.read()
-content = re.sub(
-    r'^' + re.escape(key) + r'=.*$',
-    key + '=' + value,
-    content,
-    flags=re.MULTILINE
-)
-with open(path, 'w') as f:
-    f.write(content)
-PYEOF
-    else
-        printf '%s=%s\n' "$key" "$value" >> .env
-    fi
+_install_read_port() {
+    local var="$1" default="$2"
+    local val
+    val=$(grep -E "^${var}=" .env 2>/dev/null | cut -d'=' -f2- || true)
+    printf '%s' "${val:-$default}"
 }
 
 check_ports() {
-    local app_port ssl_port
-    app_port=$(grep -E '^APP_PORT=' .env 2>/dev/null | cut -d'=' -f2- || echo "80")
-    ssl_port=$(grep -E '^APP_SSL_PORT=' .env 2>/dev/null | cut -d'=' -f2- || echo "443")
-    app_port="${app_port:-80}"
-    ssl_port="${ssl_port:-443}"
-
+    local -a port_vars=( APP_PORT:80 APP_SSL_PORT:443 VITE_PORT:5173 FORWARD_DB_PORT:5432 FORWARD_REDIS_PORT:6379 )
     local blocked=()
-    port_in_use "$app_port" && blocked+=("APP_PORT:$app_port")
-    port_in_use "$ssl_port" && blocked+=("APP_SSL_PORT:$ssl_port")
+
+    for entry in "${port_vars[@]}"; do
+        local var="${entry%%:*}" default="${entry##*:}"
+        local port
+        port=$(_install_read_port "$var" "$default")
+        bt_port_in_use "$port" && blocked+=("${var}:${port}")
+    done
 
     [[ ${#blocked[@]} -eq 0 ]] && return 0
 
@@ -262,21 +196,18 @@ check_ports() {
     echo ""
     read -r -p "Auto-assign free ports in range 3001-9001? [Y/n] " _ans
     if is_choice_no "${_ans}"; then
-        err "Aborted. Free the ports or update APP_PORT / APP_SSL_PORT in .env manually."
+        err "Aborted. Free the ports or update the relevant variables in .env manually."
         exit 1
     fi
 
     for entry in "${blocked[@]}"; do
-        local key="${entry%%:*}"
-        local old_port="${entry##*:}"
-        local new_port
-        new_port=$(find_free_port)
-        if [[ -z "$new_port" ]]; then
+        local key="${entry%%:*}" old_port="${entry##*:}" new_port
+        if ! new_port=$(bt_find_free_port); then
             err "ERROR: No free port found in range 3001-9001 for ${key}."
             exit 1
         fi
         echo "  ${key}: ${old_port} -> ${new_port}"
-        patch_env_port "$key" "$new_port"
+        bt_upsert_env_file_value ".env" "$key" "$new_port"
         export "$key"="$new_port"
     done
     echo ""

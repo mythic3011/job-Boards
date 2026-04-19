@@ -6,6 +6,10 @@
 #   test       — sync .env.testing with .env credentials (DB_PASSWORD, APP_KEY)
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=ops/lib/common.sh
+source "${SCRIPT_DIR}/ops/lib/common.sh"
+
 # ─── Mode validation ──────────────────────────────────────────────────────────
 MODE="${1:-dev}"
 [[ "$MODE" == "dev" || "$MODE" == "production" || "$MODE" == "test" ]] || {
@@ -75,31 +79,7 @@ gen_uuid() {
         $((0x8000 | (RANDOM & 0x3fff))) $((RANDOM * RANDOM * RANDOM))
 }
 
-# ─── Bcrypt helper: prefer host htpasswd, fall back to python3-bcrypt, then manual ──
-gen_htpasswd() {
-    local username="$1" password="$2"
-    if command -v htpasswd &>/dev/null; then
-        htpasswd -bnB "$username" "$password"
-    elif python3 -c "import bcrypt" &>/dev/null 2>&1; then
-        local hash
-        hash=$(python3 -c "
-import bcrypt, sys
-pw = sys.argv[1].encode()
-print(sys.argv[2] + ':' + bcrypt.hashpw(pw, bcrypt.gensalt(rounds=12)).decode())
-" "$password" "$username")
-        echo "$hash"
-    elif command -v docker &>/dev/null; then
-        docker run --rm httpd:alpine htpasswd -bnB "$username" "$password"
-    else
-        echo "  ✘ Cannot generate htpasswd: install 'apache2-utils' (htpasswd), 'python3-bcrypt', or Docker" >&2
-        return 1
-    fi
-}
-
-# Extract only hash portion from "user:hash" htpasswd output
-htpasswd_hash_only() {
-    gen_htpasswd "$1" "$2" | cut -d: -f2 | tr -d $'\n\r'
-}
+# bt_bcrypt_hash (from common.sh) generates the hash directly — no "user:hash" stripping needed.
 
 # ─── Boolean misconfiguration detection ──────────────────────────────────────
 is_misconfigured() {
@@ -131,6 +111,14 @@ is_derived_var() {
     [[ "$1" == "MONITORING_PASSWORD_HASH" ]] && return 0
     [[ "$1" == "PROMETHEUS_PASSWORD_HASH" ]] && return 0
     [[ "$1" == "GRAFANA_ADMIN_SECRET_FILE" ]] && return 0
+    return 1
+}
+
+# Optional override vars: intentionally empty unless an operator provides them
+is_optional_var() {
+    case "$1" in
+        GRAFANA_PASSWORD|PROMETHEUS_PASSWORD|CROWDSEC_ENROLL_KEY) return 0 ;;
+    esac
     return 1
 }
 
@@ -177,61 +165,8 @@ is_weak() {
     return 1
 }
 
-# ─── Bcrypt hash validator ────────────────────────────────────────────────────
-is_valid_bcrypt() {
-    [[ "$1" =~ ^\$2[aby]\$[0-9]{2}\$[./A-Za-z0-9]{53}$ ]]
-}
-
-# Verify plaintext password against an existing bcrypt hash.
-# Returns 0 for match, 1 for mismatch.
-bcrypt_matches() {
-    local username="$1" password="$2" hash="$3"
-
-    if command -v htpasswd &>/dev/null; then
-        local tmp
-        tmp=$(mktemp)
-        printf '%s:%s\n' "$username" "$hash" > "$tmp"
-        if htpasswd -vb "$tmp" "$username" "$password" >/dev/null 2>&1; then
-            rm -f "$tmp"
-            return 0
-        fi
-        rm -f "$tmp"
-        return 1
-    elif python3 -c "import bcrypt" &>/dev/null 2>&1; then
-        python3 - "$password" "$hash" <<'PYEOF'
-import bcrypt, sys
-pw = sys.argv[1].encode()
-hashed = sys.argv[2].encode()
-raise SystemExit(0 if bcrypt.checkpw(pw, hashed) else 1)
-PYEOF
-        return $?
-    elif command -v docker &>/dev/null; then
-        local tmp
-        tmp=$(mktemp)
-        printf '%s:%s\n' "$username" "$hash" > "$tmp"
-        if docker run --rm -v "$tmp:/tmp/htpasswd:ro" httpd:alpine \
-            htpasswd -vb /tmp/htpasswd "$username" "$password" >/dev/null 2>&1; then
-            rm -f "$tmp"
-            return 0
-        fi
-        rm -f "$tmp"
-        return 1
-    fi
-
-    return 1
-}
-
-# Docker Compose treats $ in .env values as interpolation markers.
-# Store bcrypt hashes escaped ("$$") and normalize back before validation/use.
-normalize_compose_dollars() {
-    local val="$1"
-    printf '%s' "${val//\$\$/\$}"
-}
-
-escape_compose_dollars() {
-    local val="$1"
-    printf '%s' "${val//\$/\$\$}"
-}
+# bt_is_valid_bcrypt_hash, bt_bcrypt_hash_matches, bt_normalize_compose_dollars,
+# bt_escape_compose_dollars — all provided by common.sh (sourced above).
 
 # ─── Per-variable generator ──────────────────────────────────────────────────
 generate_for_var() {
@@ -420,21 +355,21 @@ fi
 
 # Bcrypt hash — regenerate if missing, invalid, stale, or production mode
 EXISTING_HASH_RAW=$(get_env MONITORING_PASSWORD_HASH)
-EXISTING_HASH=$(normalize_compose_dollars "$EXISTING_HASH_RAW")
+EXISTING_HASH=$(bt_normalize_compose_dollars "$EXISTING_HASH_RAW")
 HASH_MISMATCH=false
-if [[ -n "$EXISTING_HASH" ]] && is_valid_bcrypt "$EXISTING_HASH"; then
-    if ! bcrypt_matches "$MONITORING_USER" "$MPW" "$EXISTING_HASH"; then
+if [[ -n "$EXISTING_HASH" ]] && bt_is_valid_bcrypt_hash "$EXISTING_HASH"; then
+    if ! bt_bcrypt_hash_matches "$EXISTING_HASH" "$MPW"; then
         HASH_MISMATCH=true
     fi
 fi
 
-if [[ -z "$EXISTING_HASH" ]] || ! is_valid_bcrypt "$EXISTING_HASH" || [[ "$MODE" == "production" ]] || [[ "$HASH_MISMATCH" == "true" ]]; then
+if [[ -z "$EXISTING_HASH" ]] || ! bt_is_valid_bcrypt_hash "$EXISTING_HASH" || [[ "$MODE" == "production" ]] || [[ "$HASH_MISMATCH" == "true" ]]; then
     echo "  Generating bcrypt hash for MONITORING_PASSWORD..."
-    HASH=$(htpasswd_hash_only "$MONITORING_USER" "$MPW") \
-        && set_env "MONITORING_PASSWORD_HASH" "$(escape_compose_dollars "$HASH")" \
+    HASH=$(bt_bcrypt_hash "$MONITORING_USER" "$MPW") \
+        && set_env "MONITORING_PASSWORD_HASH" "$(bt_escape_compose_dollars "$HASH")" \
         || echo "  ✘ bcrypt hash generation failed — set MONITORING_PASSWORD_HASH manually"
 else
-    EXPECTED_ESCAPED_HASH=$(escape_compose_dollars "$EXISTING_HASH")
+    EXPECTED_ESCAPED_HASH=$(bt_escape_compose_dollars "$EXISTING_HASH")
     if [[ "$EXISTING_HASH_RAW" != "$EXPECTED_ESCAPED_HASH" ]]; then
         set_env "MONITORING_PASSWORD_HASH" "$EXPECTED_ESCAPED_HASH"
         echo "  ✔ MONITORING_PASSWORD_HASH normalized for Docker Compose"
@@ -453,21 +388,21 @@ fi
 
 if [[ -n "$PROMETHEUS_PW" ]]; then
     EXISTING_PROM_HASH_RAW=$(get_env PROMETHEUS_PASSWORD_HASH)
-    EXISTING_PROM_HASH=$(normalize_compose_dollars "$EXISTING_PROM_HASH_RAW")
+    EXISTING_PROM_HASH=$(bt_normalize_compose_dollars "$EXISTING_PROM_HASH_RAW")
     PROM_HASH_MISMATCH=false
-    if [[ -n "$EXISTING_PROM_HASH" ]] && is_valid_bcrypt "$EXISTING_PROM_HASH"; then
-        if ! bcrypt_matches "admin" "$PROMETHEUS_PW" "$EXISTING_PROM_HASH"; then
+    if [[ -n "$EXISTING_PROM_HASH" ]] && bt_is_valid_bcrypt_hash "$EXISTING_PROM_HASH"; then
+        if ! bt_bcrypt_hash_matches "$EXISTING_PROM_HASH" "$PROMETHEUS_PW"; then
             PROM_HASH_MISMATCH=true
         fi
     fi
 
-    if [[ -z "$EXISTING_PROM_HASH" ]] || ! is_valid_bcrypt "$EXISTING_PROM_HASH" || [[ "$MODE" == "production" ]] || [[ "$PROM_HASH_MISMATCH" == "true" ]]; then
+    if [[ -z "$EXISTING_PROM_HASH" ]] || ! bt_is_valid_bcrypt_hash "$EXISTING_PROM_HASH" || [[ "$MODE" == "production" ]] || [[ "$PROM_HASH_MISMATCH" == "true" ]]; then
         echo "  Generating bcrypt hash for PROMETHEUS_PASSWORD_HASH from ${PROMETHEUS_SOURCE_KEY}..."
-        HASH=$(htpasswd_hash_only "admin" "$PROMETHEUS_PW") \
-            && set_env "PROMETHEUS_PASSWORD_HASH" "$(escape_compose_dollars "$HASH")" \
+        HASH=$(bt_bcrypt_hash "admin" "$PROMETHEUS_PW") \
+            && set_env "PROMETHEUS_PASSWORD_HASH" "$(bt_escape_compose_dollars "$HASH")" \
             || echo "  ✘ bcrypt hash generation failed — set PROMETHEUS_PASSWORD_HASH manually"
     else
-        EXPECTED_PROM_ESCAPED_HASH=$(escape_compose_dollars "$EXISTING_PROM_HASH")
+        EXPECTED_PROM_ESCAPED_HASH=$(bt_escape_compose_dollars "$EXISTING_PROM_HASH")
         if [[ "$EXISTING_PROM_HASH_RAW" != "$EXPECTED_PROM_ESCAPED_HASH" ]]; then
             set_env "PROMETHEUS_PASSWORD_HASH" "$EXPECTED_PROM_ESCAPED_HASH"
             echo "  ✔ PROMETHEUS_PASSWORD_HASH normalized for Docker Compose"
@@ -529,7 +464,37 @@ EOF
     echo "  ✔ docker/auth-service/frontend/.env written (public vars only)"
 fi
 
-# ── 5. Final audit ─────────────────────────────────────────────────────────────
+# ── 5. Port conflict auto-fix ─────────────────────────────────────────────────
+echo ""
+echo "── Port conflict check ──"
+
+_check_port_var() {
+    local var="$1" default="$2"
+    local current new_port
+    current=$(get_env "$var")
+    current="${current:-$default}"
+
+    if bt_port_in_use "$current"; then
+        if new_port=$(bt_find_free_port); then
+            set_env "$var" "$new_port"
+            echo "  ✔ ${var}: ${current} → ${new_port} (was in use, reassigned)"
+        else
+            echo "  ✘ ${var}: port ${current} in use — no free port found in 3001-9001"
+            ISSUES=$((ISSUES + 1))
+        fi
+    else
+        [[ -z "$(get_env "$var")" ]] && set_env "$var" "$current"
+        echo "  ✔ ${var}=${current}"
+    fi
+}
+
+_check_port_var APP_PORT        80
+_check_port_var APP_SSL_PORT    443
+_check_port_var VITE_PORT       5173
+_check_port_var FORWARD_DB_PORT   5432
+_check_port_var FORWARD_REDIS_PORT 6379
+
+# ── 6. Final audit ─────────────────────────────────────────────────────────────
 echo ""
 echo "── Final audit ──"
 ISSUES=0
@@ -549,8 +514,8 @@ audit_secret() {
 audit_bcrypt() {
     local var="$1"
     local val
-    val=$(normalize_compose_dollars "$(get_env "$var")")
-    if is_valid_bcrypt "$val"; then
+    val=$(bt_normalize_compose_dollars "$(get_env "$var")")
+    if bt_is_valid_bcrypt_hash "$val"; then
         echo "  ✔ ${var} — valid bcrypt hash"
     else
         echo "  ✘ ${var} — missing or invalid bcrypt hash"
@@ -599,21 +564,26 @@ audit_secret_file() {
     fi
 }
 
-audit_secret APP_KEY
-audit_secret APP_DEBUG
-audit_secret DB_PASSWORD
-audit_secret REDIS_PASSWORD
-audit_secret SESSION_ENCRYPT
-audit_secret SESSION_SECURE_COOKIE
-audit_secret SESSION_SECRET
-audit_secret CANONICAL_AUDIT_AUTH_SERVICE_SECRET
-audit_identifier MONITORING_ADMIN_USERNAME
-audit_secret MONITORING_PASSWORD
-audit_bcrypt  MONITORING_PASSWORD_HASH
-audit_secret_file GRAFANA_ADMIN_SECRET_FILE
-audit_optional_secret GRAFANA_PASSWORD
-audit_optional_secret PROMETHEUS_PASSWORD
-audit_bcrypt  PROMETHEUS_PASSWORD_HASH
+while IFS= read -r line; do
+    [[ "$line" =~ ^#.*$|^$ ]] && continue
+    [[ "$line" =~ ^([A-Z_][A-Z0-9_]*)= ]] || continue
+    var="${BASH_REMATCH[1]}"
+    val=$(get_env "$var")
+
+    if [[ "$var" == "GRAFANA_ADMIN_SECRET_FILE" ]]; then
+        audit_secret_file "$var"
+    elif is_derived_var "$var"; then
+        audit_bcrypt "$var"
+    elif is_identifier_var "$var"; then
+        audit_identifier "$var"
+    elif is_optional_var "$var"; then
+        audit_optional_secret "$var"
+    elif is_secret_var "$var"; then
+        audit_secret "$var"
+    elif is_misconfigured "$val" "$var"; then
+        audit_secret "$var"
+    fi
+done < .env.example
 
 if [[ "$MODE" == "production" ]]; then
     echo ""
