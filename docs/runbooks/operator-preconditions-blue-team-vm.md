@@ -23,9 +23,10 @@ This is a reusable contract for future runs. It is not a historical log.
 ## Obs Secret Policy
 
 - Obs bootstrap may auto-fix only when a safe source already exists.
-- `PROMETHEUS_PASSWORD_HASH` may be derived from `PROMETHEUS_PASSWORD`.
-- `GRAFANA_PASSWORD` is a plaintext source only. The final runtime contract for Grafana is `GRAFANA_ADMIN_SECRET_FILE`.
-- If `GRAFANA_ADMIN_SECRET_FILE` is not provided, obs bootstrap may materialize it from `GRAFANA_PASSWORD`.
+- `MONITORING_ADMIN_USERNAME` and `MONITORING_PASSWORD` are the canonical operator-facing monitoring inputs.
+- `PROMETHEUS_PASSWORD_HASH` may be derived from `PROMETHEUS_PASSWORD` or, when no explicit override is present, from `MONITORING_PASSWORD`.
+- `GRAFANA_PASSWORD` is an advanced plaintext override only. The final runtime contract for Grafana is `GRAFANA_ADMIN_SECRET_FILE`.
+- If `GRAFANA_ADMIN_SECRET_FILE` is not provided, obs bootstrap may materialize it from `GRAFANA_PASSWORD` or `MONITORING_PASSWORD`.
 - If no safe source exists, obs bootstrap must fail closed instead of inventing credentials.
 - Generated obs runtime values override source-layer `.env` values for the same key during obs bootstrap.
 - Runner statuses remain `PASS | DEGRADED | FAIL | SKIPPED`; auto-fix provenance belongs in generated artifacts, not in new status values.
@@ -133,7 +134,8 @@ Observable grading contract:
   - `./ops/bootstrap/bootstrap-app.sh verify` may emit `app.host.local_ports = SKIPPED`
   - `./setup-blue-team-vm.sh verify` still requires the actual Linux VM runtime and may fail preflight outside it
 - Source-layer operator inputs and final runtime values are distinct:
-  - plaintext sources: `MONITORING_PASSWORD`, `GRAFANA_PASSWORD`, `PROMETHEUS_PASSWORD`
+  - canonical operator inputs: `MONITORING_ADMIN_USERNAME`, `MONITORING_PASSWORD`
+  - advanced plaintext overrides: `GRAFANA_PASSWORD`, `PROMETHEUS_PASSWORD`
   - final runtime values: `MONITORING_PASSWORD_HASH`, `GRAFANA_ADMIN_SECRET_FILE`, `PROMETHEUS_PASSWORD_HASH`, `SESSION_SECRET`
 - `compose.obs.yml` must consume final runtime values only. It must not bypass bootstrap by reading plaintext Grafana or Prometheus credentials directly.
 - Any change that affects live blue-team VM runtime truth must land in `compose.app.yml` or `compose.obs.yml` first.

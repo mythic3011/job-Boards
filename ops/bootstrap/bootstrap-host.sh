@@ -41,11 +41,14 @@ emit_host_summary() {
 }
 
 verify_subset() {
+    local resolved_honeypot_source
+    resolved_honeypot_source="$(bt_resolve_honeypot_source host)"
+
     run_check "host.ssh.config_valid" "Managed SSH configuration validates." "Inspect SSH drop-in state and sshd validation output." "${OPS_DIR}/host/01-host-ssh-hardening.sh" verify || true
     run_check "host.ufw.managed_rules" "Managed UFW state is present." "Inspect UFW defaults and managed rule state." "${OPS_DIR}/host/02-host-ufw-base.sh" verify || true
     run_check "host.certbot_renewal.managed_units" "Managed Certbot renewal contract is valid for the selected TLS mode." "Inspect Certbot systemd unit/timer wiring and host TLS mode inputs." env BT_HOST_TLS_MODE="${BT_HOST_TLS_MODE:-cloudflare-origin}" BT_CERTBOT_DOMAIN="${BT_CERTBOT_DOMAIN:-}" BT_CERTBOT_EMAIL="${BT_CERTBOT_EMAIL:-}" "${OPS_DIR}/host/05-host-certbot-renewal.sh" verify || true
     run_check "host.docker_firewall.managed_chain" "Managed Docker firewall chain is present." "Inspect DOCKER-USER jump and managed chain rules." "${OPS_DIR}/host/03-docker-firewall.sh" verify || true
-    run_check "host.honeypot.source_artifact" "Managed honeypot source artifact is present." "Recreate the honeypot source artifact." test -f "${BT_HONEYPOT_SOURCE}" || true
+    run_check "host.honeypot.source_artifact" "Managed honeypot source artifact is present." "Recreate the honeypot source artifact." test -f "${resolved_honeypot_source}" || true
 }
 
 write_marker_after_success() {

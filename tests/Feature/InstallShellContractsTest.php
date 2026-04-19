@@ -620,11 +620,15 @@ BASH);
     public function test_install_script_relies_on_shared_compose_honeypot_preload_instead_of_inline_export(): void
     {
         $contents = file_get_contents($this->repoRoot.'/install.sh');
+        $commonContents = file_get_contents($this->repoRoot.'/ops/lib/common.sh');
 
         $this->assertIsString($contents);
+        $this->assertIsString($commonContents);
         $this->assertStringNotContainsString('export BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE:-${ROOT_DIR}/docker/nginx/includes/blue-team-honeypot.conf}"', $contents);
         $this->assertStringNotContainsString('BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE}"', $contents);
         $this->assertStringContainsString('bt_compose "$INSTALL_COMPOSE_FILE" "$@"', $contents);
+        $this->assertStringContainsString('bt_resolve_honeypot_source()', $commonContents);
+        $this->assertStringNotContainsString(': "${BT_HONEYPOT_SOURCE:=/opt/blue-team/nginx/includes/blue-team-honeypot.conf}"', $commonContents);
     }
 
     public function test_combined_compose_mirrors_app_plane_crowdsec_serving_path_contract(): void

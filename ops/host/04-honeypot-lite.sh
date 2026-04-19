@@ -22,13 +22,19 @@ honeypot_content() {
 }
 
 manage_source() {
+    local resolved_honeypot_source
+    resolved_honeypot_source="$(bt_resolve_honeypot_source host)"
+
     bt_require_root
-    bt_backup_file "${BT_HONEYPOT_SOURCE}" "${HONEYPOT_BACKUP_FILE}"
-    bt_write_file "${BT_HONEYPOT_SOURCE}" "$(honeypot_content)"
+    bt_backup_file "${resolved_honeypot_source}" "${HONEYPOT_BACKUP_FILE}"
+    bt_write_file "${resolved_honeypot_source}" "$(honeypot_content)"
 }
 
 verify_integration() {
-    [[ -f "${BT_HONEYPOT_SOURCE}" ]] || bt_die "Honeypot source artifact is missing: ${BT_HONEYPOT_SOURCE}"
+    local resolved_honeypot_source
+    resolved_honeypot_source="$(bt_resolve_honeypot_source host)"
+
+    [[ -f "${resolved_honeypot_source}" ]] || bt_die "Honeypot source artifact is missing: ${resolved_honeypot_source}"
     command -v docker >/dev/null 2>&1 || bt_die "docker is required for verify-integration."
     docker compose -f "${BT_COMPOSE_APP_FILE}" exec -T nginx nginx -t >/dev/null
     docker compose -f "${BT_COMPOSE_APP_FILE}" exec -T nginx sh -c "[ -f '${BT_HONEYPOT_RUNTIME}' ] && grep -F 'location = /.env' '${BT_HONEYPOT_RUNTIME}' >/dev/null"
@@ -50,6 +56,9 @@ verify_integration() {
 }
 
 rollback_action() {
+    local resolved_honeypot_source
+    resolved_honeypot_source="$(bt_resolve_honeypot_source host)"
+
     bt_require_root
 
     if [[ "${BT_DRY_RUN}" == "1" ]]; then
@@ -58,10 +67,10 @@ rollback_action() {
     fi
 
     if [[ -f "${HONEYPOT_BACKUP_FILE}" ]]; then
-        mkdir -p "$(dirname "${BT_HONEYPOT_SOURCE}")"
-        cp -a "${HONEYPOT_BACKUP_FILE}" "${BT_HONEYPOT_SOURCE}"
+        mkdir -p "$(dirname "${resolved_honeypot_source}")"
+        cp -a "${HONEYPOT_BACKUP_FILE}" "${resolved_honeypot_source}"
     else
-        rm -f "${BT_HONEYPOT_SOURCE}"
+        rm -f "${resolved_honeypot_source}"
     fi
 }
 

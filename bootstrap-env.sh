@@ -242,8 +242,9 @@ generate_for_var() {
         REDIS_PASSWORD)       new=$(gen_secret)   ;;
         SESSION_SECRET)       new=$(gen_secret)   ;;
         MONITORING_PASSWORD)  new=$(gen_mon_pass) ;;
-        GRAFANA_PASSWORD)     new=$(gen_mon_pass) ;;
-        PROMETHEUS_PASSWORD)  new=$(gen_mon_pass) ;;
+        GRAFANA_PASSWORD|PROMETHEUS_PASSWORD)
+            # Advanced monitoring overrides stay unset unless explicitly provided.
+            return ;;
         MONITORING_ADMIN_USERNAME)
             # Identifier: set to 'admin' only if currently empty; never randomize
             local cur
@@ -399,14 +400,14 @@ done < .env.example
 echo ""
 echo "── Monitoring credentials ──"
 
-for var in MONITORING_PASSWORD GRAFANA_PASSWORD PROMETHEUS_PASSWORD; do
-    val=$(get_env "$var")
-    if [[ "$MODE" == "production" ]] || is_weak "$val" "$var"; then
-        set_env "$var" "$(gen_mon_pass)"
-    else
-        echo "  ✔ ${var} already set"
-    fi
-done
+MONITORING_PASSWORD_VAL=$(get_env MONITORING_PASSWORD)
+if [[ "$MODE" == "production" ]] || is_weak "$MONITORING_PASSWORD_VAL" "MONITORING_PASSWORD"; then
+    set_env "MONITORING_PASSWORD" "$(gen_mon_pass)"
+    MPW=$(get_env MONITORING_PASSWORD)
+else
+    MPW="$MONITORING_PASSWORD_VAL"
+    echo "  ✔ MONITORING_PASSWORD already set"
+fi
 
 # Identifier — only set if absent, never randomize
 MONITORING_USER=$(get_env MONITORING_ADMIN_USERNAME)
@@ -416,9 +417,6 @@ if [[ -z "$MONITORING_USER" ]]; then
 else
     echo "  ✔ MONITORING_ADMIN_USERNAME already set (${MONITORING_USER})"
 fi
-
-# Re-read password now that it may have been regenerated
-MPW=$(get_env MONITORING_PASSWORD)
 
 # Bcrypt hash — regenerate if missing, invalid, stale, or production mode
 EXISTING_HASH_RAW=$(get_env MONITORING_PASSWORD_HASH)
@@ -445,8 +443,14 @@ else
     fi
 fi
 
-# Prometheus password hash — derive from explicit Prometheus plaintext source
+# Prometheus password hash — derive from an explicit override or the canonical monitoring password
+PROMETHEUS_SOURCE_KEY="PROMETHEUS_PASSWORD"
 PROMETHEUS_PW=$(get_env PROMETHEUS_PASSWORD)
+if [[ -z "$PROMETHEUS_PW" ]]; then
+    PROMETHEUS_SOURCE_KEY="MONITORING_PASSWORD"
+    PROMETHEUS_PW="$MPW"
+fi
+
 if [[ -n "$PROMETHEUS_PW" ]]; then
     EXISTING_PROM_HASH_RAW=$(get_env PROMETHEUS_PASSWORD_HASH)
     EXISTING_PROM_HASH=$(normalize_compose_dollars "$EXISTING_PROM_HASH_RAW")
@@ -458,7 +462,7 @@ if [[ -n "$PROMETHEUS_PW" ]]; then
     fi
 
     if [[ -z "$EXISTING_PROM_HASH" ]] || ! is_valid_bcrypt "$EXISTING_PROM_HASH" || [[ "$MODE" == "production" ]] || [[ "$PROM_HASH_MISMATCH" == "true" ]]; then
-        echo "  Generating bcrypt hash for PROMETHEUS_PASSWORD_HASH..."
+        echo "  Generating bcrypt hash for PROMETHEUS_PASSWORD_HASH from ${PROMETHEUS_SOURCE_KEY}..."
         HASH=$(htpasswd_hash_only "admin" "$PROMETHEUS_PW") \
             && set_env "PROMETHEUS_PASSWORD_HASH" "$(escape_compose_dollars "$HASH")" \
             || echo "  ✘ bcrypt hash generation failed — set PROMETHEUS_PASSWORD_HASH manually"
@@ -472,7 +476,35 @@ if [[ -n "$PROMETHEUS_PW" ]]; then
         fi
     fi
 else
-    echo "  ⚠ PROMETHEUS_PASSWORD not set — skipping PROMETHEUS_PASSWORD_HASH generation"
+    echo "  ⚠ no monitoring password source available — skipping PROMETHEUS_PASSWORD_HASH generation"
+fi
+
+# Grafana admin secret file — materialize from an explicit override or the canonical monitoring password
+GRAFANA_SOURCE_KEY="GRAFANA_PASSWORD"
+GRAFANA_SECRET_VALUE=$(get_env GRAFANA_PASSWORD)
+if [[ -z "$GRAFANA_SECRET_VALUE" ]]; then
+    GRAFANA_SOURCE_KEY="MONITORING_PASSWORD"
+    GRAFANA_SECRET_VALUE="$MPW"
+fi
+
+GRAFANA_SECRET_FILE=$(get_env GRAFANA_ADMIN_SECRET_FILE)
+if [[ -z "$GRAFANA_SECRET_FILE" ]]; then
+    GRAFANA_SECRET_FILE=".blue-team-vm/runtime/grafana-admin-secret"
+    set_env "GRAFANA_ADMIN_SECRET_FILE" "${GRAFANA_SECRET_FILE}"
+fi
+
+if [[ -n "$GRAFANA_SECRET_VALUE" ]]; then
+    mkdir -p "$(dirname "${GRAFANA_SECRET_FILE}")"
+    CURRENT_GRAFANA_SECRET="$(cat "${GRAFANA_SECRET_FILE}" 2>/dev/null || true)"
+    if [[ ! -f "${GRAFANA_SECRET_FILE}" ]] || [[ "$MODE" == "production" ]] || [[ "${CURRENT_GRAFANA_SECRET}" != "${GRAFANA_SECRET_VALUE}" ]]; then
+        printf '%s' "${GRAFANA_SECRET_VALUE}" > "${GRAFANA_SECRET_FILE}"
+        chmod 600 "${GRAFANA_SECRET_FILE}"
+        echo "  ✔ GRAFANA_ADMIN_SECRET_FILE materialized from ${GRAFANA_SOURCE_KEY}"
+    else
+        echo "  ✔ GRAFANA_ADMIN_SECRET_FILE already matches ${GRAFANA_SOURCE_KEY}"
+    fi
+else
+    echo "  ⚠ no monitoring password source available — skipping GRAFANA_ADMIN_SECRET_FILE materialization"
 fi
 
 # Session secret — server-side only, never exposed to frontend
@@ -497,29 +529,7 @@ EOF
     echo "  ✔ docker/auth-service/frontend/.env written (public vars only)"
 fi
 
-# ── 5. Nginx htpasswd ─────────────────────────────────────────────────────────
-echo ""
-echo "── Nginx htpasswd ──"
-
-MPW=$(get_env MONITORING_PASSWORD)
-MONITORING_USER=$(get_env MONITORING_ADMIN_USERNAME)
-MONITORING_USER="${MONITORING_USER:-admin}"
-
-if [[ -n "$MPW" ]]; then
-    mkdir -p docker/nginx/htpasswd
-    if gen_htpasswd "$MONITORING_USER" "$MPW" \
-        > docker/nginx/htpasswd/monitoring.htpasswd 2>/dev/null; then
-        chmod 600 docker/nginx/htpasswd/monitoring.htpasswd
-        echo "  ✔ docker/nginx/htpasswd/monitoring.htpasswd regenerated (user: ${MONITORING_USER})"
-    else
-        echo "  ✘ htpasswd generation failed — see instructions above"
-        echo "    Manual: htpasswd -bnB ${MONITORING_USER} '<password>' > docker/nginx/htpasswd/monitoring.htpasswd"
-    fi
-else
-    echo "  ⚠ MONITORING_PASSWORD not set — skipping htpasswd"
-fi
-
-# ── 6. Final audit ─────────────────────────────────────────────────────────────
+# ── 5. Final audit ─────────────────────────────────────────────────────────────
 echo ""
 echo "── Final audit ──"
 ISSUES=0
@@ -560,6 +570,35 @@ audit_identifier() {
     fi
 }
 
+audit_optional_secret() {
+    local var="$1"
+    local val
+    val=$(get_env "$var")
+    if [[ -z "$val" ]]; then
+        echo "  - ${var} — not set (advanced override inactive)"
+        return 0
+    fi
+
+    if is_weak "$val" "$var" || is_misconfigured "$val" "$var"; then
+        echo "  ✘ ${var} — weak or misconfigured"
+        ISSUES=$((ISSUES + 1))
+    else
+        echo "  ✔ ${var} — ok (len: ${#val})"
+    fi
+}
+
+audit_secret_file() {
+    local var="$1"
+    local path
+    path=$(get_env "$var")
+    if [[ -n "$path" && -r "$path" ]]; then
+        echo "  ✔ ${var} — readable file (${path})"
+    else
+        echo "  ✘ ${var} — missing or unreadable file"
+        ISSUES=$((ISSUES + 1))
+    fi
+}
+
 audit_secret APP_KEY
 audit_secret APP_DEBUG
 audit_secret DB_PASSWORD
@@ -571,8 +610,9 @@ audit_secret CANONICAL_AUDIT_AUTH_SERVICE_SECRET
 audit_identifier MONITORING_ADMIN_USERNAME
 audit_secret MONITORING_PASSWORD
 audit_bcrypt  MONITORING_PASSWORD_HASH
-audit_secret GRAFANA_PASSWORD
-audit_secret PROMETHEUS_PASSWORD
+audit_secret_file GRAFANA_ADMIN_SECRET_FILE
+audit_optional_secret GRAFANA_PASSWORD
+audit_optional_secret PROMETHEUS_PASSWORD
 audit_bcrypt  PROMETHEUS_PASSWORD_HASH
 
 if [[ "$MODE" == "production" ]]; then

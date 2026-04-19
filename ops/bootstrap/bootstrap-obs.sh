@@ -532,12 +532,14 @@ obs_effective_env_value() {
 
 obs_materialize_secret_file() {
     local target_key="$1"
-    local source_key="$2"
-    local default_path="$3"
+    local default_path="$2"
+    shift 2
     local current_path
     local desired_path
     local source_value
     local check_suffix
+    local source_key=""
+    local candidate_key
 
     current_path="$(obs_generated_env_value "${target_key}" || true)"
     desired_path="$(bt_env_value "${target_key}" || true)"
@@ -545,8 +547,23 @@ obs_materialize_secret_file() {
         desired_path="${current_path:-${default_path}}"
     fi
 
-    source_value="$(obs_requested_env_value "${source_key}" || true)"
-    if [[ -z "${source_value}" ]]; then
+    source_value=""
+    for candidate_key in "$@"; do
+        source_value="$(bt_env_value "${candidate_key}" || true)"
+        [[ -n "${source_value}" ]] || continue
+        source_key="${candidate_key}"
+        break
+    done
+    if [[ -z "${source_key}" ]]; then
+        for candidate_key in "$@"; do
+            source_value="$(obs_generated_env_value "${candidate_key}" || true)"
+            [[ -n "${source_value}" ]] || continue
+            source_key="${candidate_key}"
+            break
+        done
+    fi
+
+    if [[ -z "${source_key}" || -z "${source_value}" ]]; then
         [[ -r "${desired_path}" ]] || return 1
         if [[ "${current_path}" != "${desired_path}" ]]; then
             obs_set_generated_value "${target_key}" "${desired_path}"
@@ -711,8 +728,8 @@ ensure_obs_runtime_secrets() {
     obs_persist_runtime_input "GRAFANA_POSTGRES_SECRET" "GRAFANA_POSTGRES_SECRET" "DB_PASSWORD" || failed=1
     obs_autofix_session_secret || failed=1
     obs_autofix_password_hash "MONITORING_PASSWORD_HASH" "MONITORING_PASSWORD" || failed=1
-    obs_autofix_password_hash "PROMETHEUS_PASSWORD_HASH" "PROMETHEUS_PASSWORD" || failed=1
-    obs_materialize_secret_file "GRAFANA_ADMIN_SECRET_FILE" "GRAFANA_PASSWORD" "${OBS_GRAFANA_ADMIN_SECRET_FILE}" || failed=1
+    obs_autofix_password_hash "PROMETHEUS_PASSWORD_HASH" "PROMETHEUS_PASSWORD" "MONITORING_PASSWORD" || failed=1
+    obs_materialize_secret_file "GRAFANA_ADMIN_SECRET_FILE" "${OBS_GRAFANA_ADMIN_SECRET_FILE}" "GRAFANA_PASSWORD" "MONITORING_PASSWORD" || failed=1
     obs_render_prometheus_web_config || failed=1
     obs_render_grafana_datasources_config || failed=1
 

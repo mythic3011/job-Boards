@@ -23,7 +23,6 @@ BT_ROOT_DIR="$(cd "${BT_LIB_DIR}/../.." && pwd)"
 : "${BT_BASELINE_SCOPE:=host}"
 : "${BT_COMPOSE_APP_FILE:=${BT_ROOT_DIR}/compose.app.yml}"
 : "${BT_COMPOSE_OBS_FILE:=${BT_ROOT_DIR}/compose.obs.yml}"
-: "${BT_HONEYPOT_SOURCE:=/opt/blue-team/nginx/includes/blue-team-honeypot.conf}"
 : "${BT_HONEYPOT_RUNTIME:=/etc/nginx/includes/blue-team-honeypot.conf}"
 : "${BT_CROWDSEC_TIMEOUT_SECONDS:=5}"
 : "${BT_DRY_RUN:=0}"
@@ -445,20 +444,46 @@ bt_preload_compose_env() {
     bt_preload_compose_honeypot_source "${preserved_env_keys}"
 }
 
+bt_managed_honeypot_source() {
+    printf '%s\n' "/opt/blue-team/nginx/includes/blue-team-honeypot.conf"
+}
+
 bt_repo_honeypot_source() {
     printf '%s\n' "${BT_ROOT_DIR}/docker/nginx/includes/blue-team-honeypot.conf"
 }
 
-bt_resolve_compose_honeypot_source() {
+bt_resolve_honeypot_source() {
+    local mode="${1:-host}"
     local repo_honeypot_source
 
-    repo_honeypot_source="$(bt_repo_honeypot_source)"
-    if [[ -f "${repo_honeypot_source}" ]]; then
-        printf '%s\n' "${repo_honeypot_source}"
+    if [[ -n "${BT_HONEYPOT_SOURCE:-}" ]]; then
+        printf '%s\n' "${BT_HONEYPOT_SOURCE}"
         return 0
     fi
 
-    printf '%s\n' "${BT_HONEYPOT_SOURCE}"
+    case "${mode}" in
+        compose)
+            repo_honeypot_source="$(bt_repo_honeypot_source)"
+            if [[ -f "${repo_honeypot_source}" ]]; then
+                printf '%s\n' "${repo_honeypot_source}"
+                return 0
+            fi
+
+            bt_managed_honeypot_source
+            return 0
+            ;;
+        host)
+            bt_managed_honeypot_source
+            return 0
+            ;;
+        *)
+            bt_die "Unsupported honeypot source resolution mode: ${mode}"
+            ;;
+    esac
+}
+
+bt_resolve_compose_honeypot_source() {
+    bt_resolve_honeypot_source compose
 }
 
 bt_preload_compose_honeypot_source() {
@@ -470,12 +495,12 @@ bt_preload_compose_honeypot_source() {
         return 0
     fi
 
-    if [[ -n "${BT_HONEYPOT_SOURCE:-}" && "${BT_HONEYPOT_SOURCE}" != "/opt/blue-team/nginx/includes/blue-team-honeypot.conf" ]]; then
+    if [[ -n "${BT_HONEYPOT_SOURCE:-}" ]]; then
         export BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE}"
         return 0
     fi
 
-    resolved_honeypot_source="$(bt_resolve_compose_honeypot_source)"
+    resolved_honeypot_source="$(bt_resolve_honeypot_source compose)"
     export BT_HONEYPOT_SOURCE="${resolved_honeypot_source}"
 }
 

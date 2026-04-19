@@ -106,6 +106,102 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
     }
 
+    public function test_obs_prepare_derives_prometheus_hash_and_grafana_secret_from_monitoring_password_by_default(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
+        $scriptPath = $this->writeBootstrapObsFixture($tempDir);
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+
+        $process = new Process(
+            [$scriptPath, 'prepare'],
+            $tempDir,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $generatedEnv = @file_get_contents($tempDir.'/state/runtime/obs.generated.env') ?: '';
+        $grafanaPasswordFile = $tempDir.'/state/runtime/grafana-admin-secret';
+        $prometheusHashAudit = $this->findGeneratedSecretAuditRecord($tempDir.'/state/runtime/obs.generated-secrets.jsonl', 'PROMETHEUS_PASSWORD_HASH');
+        $grafanaSecretAudit = $this->findGeneratedSecretAuditRecord($tempDir.'/state/runtime/obs.generated-secrets.jsonl', 'GRAFANA_ADMIN_SECRET_FILE');
+
+        $this->assertSame(0, $process->getExitCode(), $combinedOutput);
+        $this->assertMatchesRegularExpression('/^MONITORING_PASSWORD_HASH=.+$/m', $generatedEnv);
+        $this->assertMatchesRegularExpression('/^PROMETHEUS_PASSWORD_HASH=.+$/m', $generatedEnv);
+        $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.$grafanaPasswordFile, $generatedEnv);
+        $this->assertFileExists($grafanaPasswordFile);
+        $this->assertSame($this->fixturePlainCredential('monitoring'), file_get_contents($grafanaPasswordFile));
+        $this->assertSame('MONITORING_PASSWORD', $prometheusHashAudit['source_field'] ?? null);
+        $this->assertSame('derived_bcrypt', $prometheusHashAudit['mode'] ?? null);
+        $this->assertSame('MONITORING_PASSWORD', $grafanaSecretAudit['source_field'] ?? null);
+        $this->assertSame('materialized_secret_file', $grafanaSecretAudit['mode'] ?? null);
+        $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
+    }
+
+    public function test_obs_prepare_prefers_explicit_service_specific_monitoring_overrides_when_present(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
+        $scriptPath = $this->writeBootstrapObsFixture($tempDir);
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+
+        $process = new Process(
+            [$scriptPath, 'prepare'],
+            $tempDir,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $grafanaPasswordFile = $tempDir.'/state/runtime/grafana-admin-secret';
+        $prometheusHashAudit = $this->findGeneratedSecretAuditRecord($tempDir.'/state/runtime/obs.generated-secrets.jsonl', 'PROMETHEUS_PASSWORD_HASH');
+        $grafanaSecretAudit = $this->findGeneratedSecretAuditRecord($tempDir.'/state/runtime/obs.generated-secrets.jsonl', 'GRAFANA_ADMIN_SECRET_FILE');
+
+        $this->assertSame(0, $process->getExitCode(), $combinedOutput);
+        $this->assertFileExists($grafanaPasswordFile);
+        $this->assertSame($this->fixturePlainCredential('grafana'), file_get_contents($grafanaPasswordFile));
+        $this->assertSame('PROMETHEUS_PASSWORD', $prometheusHashAudit['source_field'] ?? null);
+        $this->assertSame('GRAFANA_PASSWORD', $grafanaSecretAudit['source_field'] ?? null);
+        $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
+    }
+
     public function test_obs_prepare_refreshes_persisted_runtime_inputs_when_operator_env_changes(): void
     {
         $tempDir = $this->makeTempDir();
@@ -373,7 +469,10 @@ class BlueTeamVmShellContractsTest extends TestCase
         $contents = file_get_contents($this->repoRoot.'/ops/lib/common.sh');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString(': "${BT_HONEYPOT_SOURCE:=/opt/blue-team/nginx/includes/blue-team-honeypot.conf}"', $contents);
+        $this->assertStringContainsString('bt_managed_honeypot_source()', $contents);
+        $this->assertStringContainsString('printf \'%s\\n\' "/opt/blue-team/nginx/includes/blue-team-honeypot.conf"', $contents);
+        $this->assertStringContainsString('bt_resolve_honeypot_source()', $contents);
+        $this->assertStringNotContainsString(': "${BT_HONEYPOT_SOURCE:=/opt/blue-team/nginx/includes/blue-team-honeypot.conf}"', $contents);
     }
 
     public function test_blue_team_vm_common_preloads_repo_local_honeypot_source_for_compose_entrypoints(): void
@@ -383,8 +482,47 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString('bt_preload_compose_honeypot_source "${preserved_env_keys}"', $contents);
         $this->assertStringContainsString('bt_repo_honeypot_source()', $contents);
+        $this->assertStringContainsString('bt_managed_honeypot_source()', $contents);
         $this->assertStringContainsString('printf \'%s\\n\' "${BT_ROOT_DIR}/docker/nginx/includes/blue-team-honeypot.conf"', $contents);
-        $this->assertStringContainsString('resolved_honeypot_source="$(bt_resolve_compose_honeypot_source)"', $contents);
+        $this->assertStringContainsString('resolved_honeypot_source="$(bt_resolve_honeypot_source compose)"', $contents);
+    }
+
+    public function test_honeypot_source_resolver_distinguishes_managed_host_and_compose_paths(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        mkdir($tempRoot.'/ops/lib', 0777, true);
+        mkdir($tempRoot.'/docker/nginx/includes', 0777, true);
+        copy($this->repoRoot.'/ops/lib/common.sh', $tempRoot.'/ops/lib/common.sh');
+        file_put_contents($tempRoot.'/docker/nginx/includes/blue-team-honeypot.conf', "location = /.env { return 403; }\n");
+
+        $helperPath = $tempRoot.'/resolve-honeypot-source.sh';
+        $this->writeExecutable($helperPath, <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+source "$(dirname "$0")/ops/lib/common.sh"
+printf 'host=%s\n' "$(bt_resolve_honeypot_source host)"
+printf 'compose=%s\n' "$(bt_resolve_honeypot_source compose)"
+BASH);
+
+        $process = new Process([$helperPath], $tempRoot, null, null, 20);
+        $process->mustRun();
+        $output = $process->getOutput();
+
+        $this->assertStringContainsString("host=/opt/blue-team/nginx/includes/blue-team-honeypot.conf\n", $output);
+        $this->assertStringContainsString("compose={$tempRoot}/docker/nginx/includes/blue-team-honeypot.conf\n", $output);
+    }
+
+    public function test_host_bootstrap_and_honeypot_scripts_use_the_shared_honeypot_source_resolver(): void
+    {
+        $bootstrapContents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-host.sh');
+        $honeypotContents = file_get_contents($this->repoRoot.'/ops/host/04-honeypot-lite.sh');
+
+        $this->assertIsString($bootstrapContents);
+        $this->assertIsString($honeypotContents);
+        $this->assertStringContainsString('bt_resolve_honeypot_source host', $bootstrapContents);
+        $this->assertStringContainsString('bt_resolve_honeypot_source host', $honeypotContents);
+        $this->assertStringNotContainsString('/opt/blue-team/nginx/includes/blue-team-honeypot.conf', $bootstrapContents);
+        $this->assertStringNotContainsString('/opt/blue-team/nginx/includes/blue-team-honeypot.conf', $honeypotContents);
     }
 
     public function test_nginx_conf_maps_default_honeypot_probe_names_for_decoy_logs(): void
@@ -1523,6 +1661,26 @@ BASH;
         return "fixture-admin-file\n";
     }
 
+    private function writeBootstrapObsFixture(string $tempRoot): string
+    {
+        $scriptPath = $tempRoot.'/ops/bootstrap/bootstrap-obs.sh';
+        $commonPath = $tempRoot.'/ops/lib/common.sh';
+        $datasourceTemplatePath = $tempRoot.'/docker/grafana/provisioning/datasources/datasources.yaml';
+
+        mkdir(dirname($scriptPath), 0777, true);
+        mkdir(dirname($commonPath), 0777, true);
+        mkdir(dirname($datasourceTemplatePath), 0777, true);
+
+        copy($this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', $scriptPath);
+        copy($this->repoRoot.'/ops/lib/common.sh', $commonPath);
+        copy($this->repoRoot.'/docker/grafana/provisioning/datasources/datasources.yaml', $datasourceTemplatePath);
+
+        chmod($scriptPath, 0755);
+        chmod($commonPath, 0755);
+
+        return $scriptPath;
+    }
+
     /**
      * @param array<string> $command
      * @param array<string, string> $env
@@ -1601,5 +1759,37 @@ BASH;
 
         $suffix = $checkId === null ? '' : " and check_id {$checkId}";
         $this->fail("Did not find {$recordType} record for plane {$plane}{$suffix}");
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function findGeneratedSecretAuditRecord(string $path, string $targetField): array
+    {
+        $contents = @file_get_contents($path);
+        if (! is_string($contents)) {
+            $this->fail("Did not find generated secret audit file at {$path}");
+        }
+
+        foreach (preg_split('/\R/', $contents) as $line) {
+            if ($line === '') {
+                continue;
+            }
+
+            $record = json_decode($line, true);
+            if (! is_array($record)) {
+                continue;
+            }
+
+            if (($record['record_type'] ?? null) !== 'generated_secret') {
+                continue;
+            }
+
+            if (($record['target_field'] ?? null) === $targetField) {
+                return $record;
+            }
+        }
+
+        $this->fail("Did not find generated_secret audit record for {$targetField}");
     }
 }

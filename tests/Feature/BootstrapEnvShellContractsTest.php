@@ -41,6 +41,19 @@ class BootstrapEnvShellContractsTest extends TestCase
         $this->assertStringContainsString('CANONICAL_AUDIT_AUTH_SERVICE_SECRET=', $example);
     }
 
+    public function test_bootstrap_env_keeps_monitoring_password_as_the_only_primary_plaintext_operator_input(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
+        $example = file_get_contents($this->repoRoot.'/.env.example');
+
+        $this->assertIsString($contents);
+        $this->assertIsString($example);
+        $this->assertStringNotContainsString('for var in MONITORING_PASSWORD GRAFANA_PASSWORD PROMETHEUS_PASSWORD; do', $contents);
+        $this->assertStringNotContainsString('docker/nginx/htpasswd/monitoring.htpasswd', $contents);
+        $this->assertStringContainsString('# advanced override: plaintext source for Grafana admin bootstrap; defaults to MONITORING_PASSWORD when unset', $example);
+        $this->assertStringContainsString('# advanced override: plaintext source for Prometheus basic auth bootstrap; defaults to MONITORING_PASSWORD when unset', $example);
+    }
+
     public function test_set_env_preserves_special_character_semantics_with_portable_handoff(): void
     {
         $tempRoot = $this->makeTempDir();
