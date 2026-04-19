@@ -40,8 +40,7 @@ export WWWGROUP="${WWWGROUP:-$(id -g)}"
 BT_LAST_ASSIGNED_PORT=3000
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-# -T: non-TTY safe for CI/CD environments
-app() { docker exec -T "$CONTAINER" "$@"; }
+app() { docker exec "$CONTAINER" "$@"; }
 compose_local() {
     BT_STATE_DIR="${INSTALL_BT_STATE_DIR}" \
     BT_RUNTIME_DIR="${INSTALL_BT_STATE_DIR}/runtime" \
@@ -83,7 +82,7 @@ package_network_available() {
 }
 
 ensure_php_dependencies() {
-    if docker exec -T "$CONTAINER" test -f /var/www/html/vendor/autoload.php; then
+    if docker exec "$CONTAINER" test -f /var/www/html/vendor/autoload.php; then
         return 0
     fi
 
@@ -242,7 +241,7 @@ check_ports() {
 }
 
 start_containers() {
-    if ! docker exec -T "$CONTAINER" true &>/dev/null; then
+    if ! docker exec "$CONTAINER" true &>/dev/null; then
         check_ports
         echo "Building laravel.test image..."
         compose_local build laravel.test
@@ -250,7 +249,7 @@ start_containers() {
         # Keep the local convenience path from tearing down split-plane services
         # that may already be running under the same project namespace.
         compose_local up -d
-        wait_for "Container starting" 30 docker exec -T "$CONTAINER" true
+        wait_for "Container starting" 30 docker exec "$CONTAINER" true
     fi
     # Idempotent dependency repair for re-runs and zip distributions without vendor/.
     ensure_php_dependencies
@@ -267,7 +266,7 @@ build_assets() {
 }
 
 check_existing_install() {
-    if ! docker exec -T "$CONTAINER" true &>/dev/null; then
+    if ! docker exec "$CONTAINER" true &>/dev/null; then
         return 0
     fi
     if app php artisan tinker --execute="exit(App\Models\Setting::isSetupCompleted() ? 0 : 1);" &>/dev/null; then

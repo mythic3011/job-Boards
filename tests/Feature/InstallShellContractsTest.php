@@ -88,6 +88,115 @@ BASH);
         $this->assertStringNotContainsString('-tlnp', @file_get_contents($netstatLog) ?: '');
     }
 
+    public function test_install_full_uses_plain_docker_exec_for_container_startup_probes(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
+cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
+PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
+EOF
+exit 0
+BASH);
+
+        $scriptContents = file_get_contents($scriptPath);
+        $this->assertIsString($scriptContents);
+        file_put_contents(
+            $scriptPath,
+            str_replace('wait_for "Container starting" 30 docker exec -T "$CONTAINER" true', 'wait_for "Container starting" 1 docker exec -T "$CONTAINER" true', $scriptContents),
+        );
+        chmod($scriptPath, 0755);
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+state_file="{$tempRoot}/container.started"
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "compose" && ( "\${2:-}" == "build" || ( "\${2:-}" == "-f" && "\${4:-}" == "build" ) ) ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "compose" && ( "\${2:-}" == "up" || ( "\${2:-}" == "-f" && "\${4:-}" == "up" ) ) ]]; then
+  : > "\${state_file}"
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${2:-}" == "-T" ]]; then
+  echo "unknown shorthand flag: 'T' in -T" >&2
+  exit 125
+fi
+if [[ "\${1:-}" == "exec" ]]; then
+  shift
+  container="\${1:-}"
+  shift || true
+  if [[ ! -f "\${state_file}" ]]; then
+    exit 1
+  fi
+  if [[ "\${1:-}" == "true" ]]; then
+    exit 0
+  fi
+  if [[ "\${1:-}" == "test" && "\${2:-}" == "-f" ]]; then
+    exit 0
+  fi
+  if [[ "\${1:-}" == "php" && "\${2:-}" == "artisan" && "\${3:-}" == "--version" ]]; then
+    exit 0
+  fi
+  if [[ "\${1:-}" == "php" && "\${2:-}" == "artisan" && "\${3:-}" == "tinker" ]]; then
+    exit 1
+  fi
+  if [[ "\${1:-}" == "php" && "\${2:-}" == "artisan" && "\${3:-}" == "optimize:clear" ]]; then
+    exit 0
+  fi
+  if [[ "\${1:-}" == "npm" && "\${2:-}" == "install" ]]; then
+    exit 0
+  fi
+  if [[ "\${1:-}" == "npm" && "\${2:-}" == "run" && "\${3:-}" == "build" ]]; then
+    exit 0
+  fi
+  if [[ "\${1:-}" == "php" && "\${2:-}" == "artisan" && "\${3:-}" == "migrate:fresh" ]]; then
+    exit 17
+  fi
+  exit 0
+fi
+if [[ "\${1:-}" == "restart" ]]; then
+  exit 0
+fi
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'full', 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+
+        $this->assertSame(17, $process->getExitCode(), $combinedOutput);
+        $this->assertStringNotContainsString("unknown shorthand flag: 'T' in -T", $combinedOutput);
+        $this->assertStringContainsString('exec jobs-boards-laravel.test true', $dockerOutput);
+        $this->assertStringNotContainsString('exec -T jobs-boards-laravel.test true', $dockerOutput);
+    }
+
     public function test_install_full_prepares_obs_runtime_artifacts_before_docker_compose_build(): void
     {
         $tempRoot = $this->makeTempDir();
