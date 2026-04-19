@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import ReactDOM from "react-dom/client";
 import "./index.css";
 
 const REDIRECT_DEFAULT = "/monitoring/grafana/";
@@ -18,14 +19,39 @@ const SERVICES = [
     { key: "sail", label: "Sail" },
 ];
 
+const ACCESS_SURFACES = [
+    {
+        title: "Grafana",
+        description:
+            "Move into dashboards, alert panels, and operator telemetry without changing entry points.",
+    },
+    {
+        title: "Prometheus",
+        description:
+            "Inspect scrape health, metrics integrity, and service pressure from the same monitoring workspace.",
+    },
+    {
+        title: "Operator Scope",
+        description:
+            "Use this surface for monitoring operations only. Application account management stays inside the PHP webapp.",
+    },
+];
+
+const SECURITY_NOTES = [
+    "Monitoring access is audited separately from the main application sign-in flow.",
+    "Use these credentials only on devices and networks you control.",
+    "Keep application admin login and monitoring operator login as separate operational surfaces.",
+];
+
 function ShieldIcon() {
     return (
         <svg
-            className="w-8 h-8 text-brand-purple"
+            className="h-8 w-8"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth={1.5}
+            aria-hidden="true"
         >
             <path
                 strokeLinecap="round"
@@ -36,12 +62,37 @@ function ShieldIcon() {
     );
 }
 
+function SpinnerIcon() {
+    return (
+        <svg
+            className="h-4 w-4 animate-spin"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
+        >
+            <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+            />
+            <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8v8H4z"
+            />
+        </svg>
+    );
+}
+
 function InputField({ id, label, type, value, onChange, autoFocus, disabled }) {
     return (
         <div className="space-y-1.5">
             <label
                 htmlFor={id}
-                className="block text-xs font-medium uppercase tracking-widest text-brand-muted"
+                className="theme-text-strong block text-sm font-medium"
             >
                 {label}
             </label>
@@ -55,19 +106,34 @@ function InputField({ id, label, type, value, onChange, autoFocus, disabled }) {
                 autoComplete={
                     type === "password" ? "current-password" : "username"
                 }
-                className="
-          w-full px-4 py-3 rounded-lg text-sm text-white
-          bg-brand-bg border border-brand-border
-          focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent
-          disabled:opacity-50 disabled:cursor-not-allowed
-          transition-colors placeholder-brand-muted
-        "
+                className="theme-input block w-full rounded-xl border px-3 py-2.5 text-sm shadow-sm transition-shadow sm:leading-6"
             />
         </div>
     );
 }
 
-export default function App() {
+function ServiceGrid() {
+    return (
+        <div className="grid grid-cols-6 gap-2 sm:grid-cols-6">
+            {SERVICES.map((service) => (
+                <div
+                    key={service.key}
+                    className="theme-icon-tile flex h-10 w-10 items-center justify-center rounded-xl"
+                >
+                    <img
+                        src={`/monitoring/icons/services/${service.key}.svg`}
+                        alt={service.label}
+                        title={service.label}
+                        className="h-6 w-6"
+                        loading="lazy"
+                    />
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function App() {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -77,32 +143,44 @@ export default function App() {
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
-        const r = params.get("redirect");
-        if (r && r.startsWith("/monitoring/")) {
-            redirectRef.current = r;
+        const redirect = params.get("redirect");
+
+        if (redirect && redirect.startsWith("/monitoring/")) {
+            redirectRef.current = redirect;
         }
     }, []);
 
-    const handleLogin = async () => {
+    const handleLogin = async (event) => {
+        event.preventDefault();
+
         if (!username.trim() || !password) {
             setError("Please enter your username and password.");
             return;
         }
+
         setLoading(true);
         setError("");
+
         try {
-            const res = await fetch("/monitoring/auth/verify", {
+            const response = await fetch("/monitoring/auth/verify", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username: username.trim(), password }),
+                body: JSON.stringify({
+                    username: username.trim(),
+                    password,
+                }),
             });
 
-            if (res.ok) {
+            if (response.ok) {
                 setSuccess(true);
-                setTimeout(() => {
+                window.setTimeout(() => {
                     window.location.href = redirectRef.current;
                 }, 300);
-            } else if (res.status === 429) {
+
+                return;
+            }
+
+            if (response.status === 429) {
                 setError("Too many attempts. Please wait before trying again.");
             } else {
                 setError("Invalid credentials. Access denied.");
@@ -115,139 +193,156 @@ export default function App() {
         }
     };
 
-    const handleKeyDown = (e) => {
-        if (e.key === "Enter" && !loading) handleLogin();
-    };
-
     return (
-        <div className="min-h-screen bg-brand-bg flex items-center justify-center p-4">
-            <div className="w-full max-w-sm">
-                {/* Card */}
-                <div className="bg-brand-surface border border-brand-border rounded-2xl p-8 shadow-2xl">
-                    {/* Header */}
-                    <div className="flex flex-col items-center mb-8 space-y-3">
-                        <div className="p-3 rounded-full bg-brand-bg border border-brand-border">
+        <div className="theme-page-shell min-h-screen">
+            <div className="theme-auth-shell">
+                <div className="w-full max-w-5xl space-y-8 px-4">
+                    <div className="mx-auto max-w-lg text-center" data-auth-panel-copy>
+                        <div className="theme-auth-emblem mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl shadow-sm">
                             <ShieldIcon />
                         </div>
-                        <div className="text-center">
-                            <h1 className="text-lg font-semibold text-white tracking-tight">
-                                Monitoring Access
-                            </h1>
-                            <p className="text-xs text-brand-muted mt-1">
-                                Restricted · All attempts logged
-                            </p>
+
+                        <h1 className="theme-text-strong text-3xl font-bold tracking-tight">
+                            Sign in to your account
+                        </h1>
+
+                        <div className="theme-text-muted mt-2 text-sm leading-6">
+                            Use your monitoring operator credentials to continue
+                            with the protected observability workspace.
                         </div>
                     </div>
 
-                    {/* Error */}
-                    {error && (
-                        <div className="mb-5 px-4 py-3 rounded-lg bg-red-950/50 border border-red-800/50 text-red-400 text-sm">
-                            {error}
-                        </div>
-                    )}
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)] lg:items-start">
+                        <div className="theme-panel rounded-2xl border p-8 shadow-sm">
+                            <form className="space-y-6" onSubmit={handleLogin}>
+                                <InputField
+                                    id="username"
+                                    label="Username"
+                                    type="text"
+                                    value={username}
+                                    onChange={(event) =>
+                                        setUsername(event.target.value)
+                                    }
+                                    autoFocus
+                                    disabled={loading || success}
+                                />
 
-                    {/* Success */}
-                    {success && (
-                        <div className="mb-5 px-4 py-3 rounded-lg bg-green-950/50 border border-green-800/50 text-green-400 text-sm">
-                            Access granted. Redirecting…
-                        </div>
-                    )}
+                                <InputField
+                                    id="password"
+                                    label="Password"
+                                    type="password"
+                                    value={password}
+                                    onChange={(event) =>
+                                        setPassword(event.target.value)
+                                    }
+                                    disabled={loading || success}
+                                />
 
-                    {/* Form */}
-                    <div className="space-y-4" onKeyDown={handleKeyDown}>
-                        <InputField
-                            id="username"
-                            label="Username"
-                            type="text"
-                            value={username}
-                            onChange={(e) => setUsername(e.target.value)}
-                            autoFocus
-                            disabled={loading || success}
-                        />
-                        <InputField
-                            id="password"
-                            label="Password"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            disabled={loading || success}
-                        />
-                    </div>
+                                {error ? (
+                                    <div
+                                        className="theme-alert theme-alert-error rounded-2xl border px-4 py-3 text-sm"
+                                        role="alert"
+                                        aria-live="polite"
+                                    >
+                                        {error}
+                                    </div>
+                                ) : null}
 
-                    {/* Submit */}
-                    <button
-                        onClick={handleLogin}
-                        disabled={loading || success}
-                        className="
-              mt-6 w-full py-3 rounded-lg text-sm font-semibold
-              bg-brand-purple text-brand-bg
-              hover:opacity-90 active:scale-[0.98]
-              disabled:opacity-50 disabled:cursor-not-allowed
-              transition-all duration-150
-            "
-                    >
-                        {loading ? (
-                            <span className="flex items-center justify-center gap-2">
-                                <svg
-                                    className="w-4 h-4 animate-spin"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
+                                {success ? (
+                                    <div
+                                        className="theme-alert theme-alert-success rounded-2xl border px-4 py-3 text-sm"
+                                        role="status"
+                                        aria-live="polite"
+                                    >
+                                        Access granted. Redirecting...
+                                    </div>
+                                ) : null}
+
+                                <button
+                                    type="submit"
+                                    disabled={loading || success}
+                                    className="theme-button theme-button-primary inline-flex w-full items-center justify-center rounded-lg border px-6 py-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                    <circle
-                                        className="opacity-25"
-                                        cx="12"
-                                        cy="12"
-                                        r="10"
-                                        stroke="currentColor"
-                                        strokeWidth="4"
-                                    />
-                                    <path
-                                        className="opacity-75"
-                                        fill="currentColor"
-                                        d="M4 12a8 8 0 018-8v8H4z"
-                                    />
-                                </svg>
-                                Verifying…
-                            </span>
-                        ) : (
-                            "Access Monitoring"
-                        )}
-                    </button>
-                </div>
+                                    {loading ? (
+                                        <span className="flex items-center gap-2">
+                                            <SpinnerIcon />
+                                            Verifying...
+                                        </span>
+                                    ) : (
+                                        "Access Monitoring"
+                                    )}
+                                </button>
+                            </form>
+                        </div>
 
-                {/* Footer */}
-                <div className="mt-5 rounded-xl border border-brand-border bg-brand-surface/70 p-3">
-                    <p className="mb-2 text-center text-[11px] uppercase tracking-[0.18em] text-brand-muted">
-                        Monitored Services
-                    </p>
-                    <div className="grid grid-cols-6 gap-2 sm:grid-cols-6">
-                        {SERVICES.map((service) => (
-                            <img
-                                key={service.key}
-                                src={`/monitoring/icons/services/${service.key}.svg`}
-                                alt={service.label}
-                                title={service.label}
-                                className="h-8 w-8 rounded-md border border-brand-border/70"
-                                loading="lazy"
-                            />
-                        ))}
+                        <div className="space-y-4">
+                            <div className="theme-panel-subtle rounded-2xl border p-6 shadow-sm">
+                                <p className="theme-text-muted mb-2 text-xs font-semibold uppercase tracking-[0.16em]">
+                                    Access
+                                </p>
+                                <h2 className="theme-text-strong text-xl font-semibold">
+                                    Workspace Access
+                                </h2>
+
+                                <div className="mt-4 space-y-3">
+                                    {ACCESS_SURFACES.map((surface) => (
+                                        <div
+                                            key={surface.title}
+                                            className="theme-panel rounded-2xl border px-4 py-4 shadow-sm"
+                                        >
+                                            <p className="theme-text-strong text-sm font-semibold">
+                                                {surface.title}
+                                            </p>
+                                            <p className="theme-text-muted mt-1 text-sm leading-6">
+                                                {surface.description}
+                                            </p>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="mt-4">
+                                    <p className="theme-text-muted mb-3 text-xs font-semibold uppercase tracking-[0.16em]">
+                                        Monitored Services
+                                    </p>
+                                    <ServiceGrid />
+                                </div>
+                            </div>
+
+                            <div className="theme-panel rounded-2xl border p-6 shadow-sm">
+                                <p className="theme-text-muted mb-2 text-xs font-semibold uppercase tracking-[0.16em]">
+                                    Security
+                                </p>
+                                <h2 className="theme-text-strong text-xl font-semibold">
+                                    Security Notes
+                                </h2>
+
+                                <ul className="theme-text-muted mt-4 space-y-3 text-sm leading-6">
+                                    {SECURITY_NOTES.map((note) => (
+                                        <li key={note} className="flex gap-3">
+                                            <span className="mt-2 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]" />
+                                            <span>{note}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="theme-text-muted text-center text-sm">
+                        Monitoring access uses a separate operator credential
+                        set from the main PHP application login.
                     </div>
                 </div>
-
-                <p className="text-center text-xs text-brand-muted mt-6">
-                    JobBoard Infrastructure
-                </p>
             </div>
         </div>
     );
 }
 
-import ReactDOM from "react-dom/client";
 const rootElement = document.getElementById("root");
+
 if (rootElement) {
     const root = ReactDOM.createRoot(rootElement);
     root.render(<App />);
-    console.log("auth frontend bootstrapped");
 } else {
     console.error("root element not found");
 }

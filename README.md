@@ -157,7 +157,7 @@ If you want to bring the split planes up manually, export the correct env files 
 App plane:
 
 ```bash
-zsh -lc 'set -a; source .env; export BT_HONEYPOT_SOURCE="$(pwd)/docker/nginx/includes/blue-team-honeypot.conf"; set +a; docker compose -f compose.app.yml up -d'
+zsh -lc 'set -a; source .env; set +a; docker compose -f compose.app.yml up -d'
 ```
 
 Obs plane:
@@ -169,7 +169,8 @@ zsh -lc 'set -a; source .env; source .blue-team-vm/runtime/obs.generated.env; se
 The obs plane depends on final runtime values such as `GRAFANA_ADMIN_SECRET_FILE` and `PROMETHEUS_WEB_CONFIG_FILE`. `.blue-team-vm/runtime/obs.generated.env` now also carries the compose-side runtime inputs that follow-up `bootstrap-obs.sh verify` needs for interpolation. A bare `docker compose` invocation without that generated env should be treated as missing runtime preparation, not as proof that the deployment contract is broken.
 The split-plane shell entrypoints now treat `app-plane` as a shared external network. `./ops/app/05-compose-up.sh` and `./ops/bootstrap/bootstrap-obs.sh apply` will create the default `${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane` when it is absent and only auto-detect an existing `*_app-plane` network when its subnet matches the fixed `172.29.0.0/24` contract used by the compose files. Raw `docker compose -f compose.app.yml ...` and `docker compose -f compose.obs.yml ...` still do not perform that detection or creation for you.
 If your local app plane is owned by another compose project or worktree, export `BT_APP_PLANE_NETWORK_NAME=<existing_app_plane_network>` before manual split-plane compose commands. Non-default app-plane subnets are not supported by the current compose contract because nginx and trusted-proxy bindings are pinned to `172.29.0.x`.
-Auth-service healthchecks in both `compose.yaml` and `compose.obs.yml` now probe `http://127.0.0.1:${PORT:-3000}/health`, so overriding auth-service `PORT` no longer leaves the compose startup gate pinned to a stale hardcoded `3000`.
+Auth-service healthchecks in both `compose.yaml` and `compose.obs.yml` probe `http://127.0.0.1:3000/health` as a single fixed container-side authority. Host-shell `PORT` no longer affects the compose startup gate.
+Resolver-consumer precedence applies to shell/bootstrap wrappers only: explicit shell env wins, generated obs runtime env overrides source-layer `.env`, and source-layer `.env` only fills missing values. Compose keeps Docker's own interpolation and container-environment precedence rules.
 
 ## Runtime Artifact Contract
 
@@ -185,6 +186,10 @@ If those files are missing locally, regenerate them with:
 BT_STATE_DIR="$(pwd)/.blue-team-vm" BT_COMPOSE_OBS_FILE="$(pwd)/compose.obs.yml" ./ops/bootstrap/bootstrap-obs.sh prepare
 ```
 
+Obs path derivation authority now lives at `ops/config/config-contract.yml`.
+That file keeps a `.yml` path for contract stability, but its contents must be strict JSON text because `ops/bin/resolve-config-contract` parses it with Python stdlib `json`.
+YAML comments, unquoted keys, and other YAML-only syntax are invalid and will fail the resolver.
+
 ## Test Verification Paths
 
 This project has three intentional test entrypoints across two authority levels:
@@ -196,7 +201,7 @@ This project has three intentional test entrypoints across two authority levels:
 `composer test:sqlite` is not evidence that the full default or PostgreSQL path passed. Read [docs/runbooks/test-verification-paths.md](docs/runbooks/test-verification-paths.md) before treating sqlite-safe output as full verification.
 If you are working in a git worktree, do not symlink `vendor/` from another checkout; use a real worktree-local dependency install and `composer test:worktree` instead.
 
-For a running local stack, prefer `docker exec jobs-boards-laravel.test composer test` over bare `docker compose exec ...`; it avoids re-interpolating the combined compose file when obs runtime artifacts are already mounted. When project shell wrappers do invoke Compose, explicit shell exports win, generated obs runtime artifacts override source-layer `.env`, and source-layer `.env` only fills missing values.
+For a running local stack, prefer `docker exec jobs-boards-laravel.test composer test` over bare `docker compose exec ...`; it avoids re-interpolating the combined compose file when obs runtime artifacts are already mounted. When project shell wrappers do invoke Compose, that resolver-consumer precedence remains explicit shell exports first, generated obs runtime artifacts second, and source-layer `.env` last for missing values only.
 
 ## Verification
 
@@ -226,7 +231,6 @@ Split-plane runtime verification:
 
 ```bash
 BT_STATE_DIR="$(pwd)/.blue-team-vm" \
-BT_HONEYPOT_SOURCE="$(pwd)/docker/nginx/includes/blue-team-honeypot.conf" \
 ./ops/bootstrap/bootstrap-app.sh verify
 
 BT_STATE_DIR="$(pwd)/.blue-team-vm" \

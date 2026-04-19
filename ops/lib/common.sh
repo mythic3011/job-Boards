@@ -4,6 +4,8 @@ set -euo pipefail
 
 BT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BT_ROOT_DIR="$(cd "${BT_LIB_DIR}/../.." && pwd)"
+# shellcheck source=./config-contract.sh
+source "${BT_LIB_DIR}/config-contract.sh"
 
 : "${BT_STATE_DIR:=/var/lib/blue-team-vm}"
 : "${BT_BACKUP_DIR:=${BT_STATE_DIR}/backups}"

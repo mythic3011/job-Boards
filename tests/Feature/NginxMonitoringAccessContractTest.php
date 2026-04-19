@@ -43,4 +43,28 @@ class NginxMonitoringAccessContractTest extends TestCase
         $this->assertStringContainsString('auth-only', $contents);
         $this->assertStringContainsString('disabled', $contents);
     }
+
+    public function test_internal_only_monitoring_policy_uses_custom_forbidden_renderer_contract(): void
+    {
+        $entrypoint = file_get_contents($this->repoRoot.'/docker/nginx/entrypoint.sh');
+        $nginx = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+        $page = file_get_contents($this->repoRoot.'/docker/nginx/errors/403.html');
+
+        $this->assertIsString($entrypoint);
+        $this->assertIsString($nginx);
+        $this->assertIsString($page);
+        $this->assertStringContainsString("if (\$is_internal = 0) { rewrite ^ /_error/403 last; }", $entrypoint);
+        $this->assertStringContainsString('location = /_error/403 {', $nginx);
+        $this->assertStringContainsString("local response = ngx.location.capture('/403.html')", $nginx);
+        $this->assertStringContainsString('body = string.gsub(', $nginx);
+        $this->assertStringContainsString('<span class="reference-id" id="request-id"></span>', $nginx);
+        $this->assertStringContainsString('<span class="reference-id" id="request-id">\' .. (ngx.var.blue_team_request_id_final or \'-\') .. \'</span>', $nginx);
+        $this->assertStringContainsString('ngx.status = ngx.HTTP_FORBIDDEN', $nginx);
+        $this->assertStringContainsString('<h1>Access restricted</h1>', $page);
+        $this->assertStringContainsString('Request ID: <span class="reference-id" id="request-id"></span>', $page);
+        $this->assertStringContainsString('Check your session, account, or network context and try again.', $page);
+        $this->assertStringNotContainsString('nginx', $page);
+        $this->assertStringNotContainsString('install, monitoring, and privileged routes', $page);
+        $this->assertStringNotContainsString('policy', $page);
+    }
 }

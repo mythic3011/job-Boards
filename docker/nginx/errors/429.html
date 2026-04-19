@@ -4,24 +4,28 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="robots" content="noindex, nofollow" />
-        <title>429 Too Many Requests</title>
+        <title>429 Try Again Soon</title>
         <link rel="stylesheet" href="/_error/styles.css" />
     </head>
     <body>
-        <main class="surface card">
-            <div class="pill pill--warning">Rate limited</div>
+        <main class="surface card card--wide">
+            <div class="pill pill--warning">Request paused</div>
             <div class="code code--warning">429</div>
-            <h1>Too many requests</h1>
+            <h1>Try again soon</h1>
             <p>
-                The front door is throttling this client because too many
-                requests arrived in a short period.
+                This request cannot be completed right now because too many
+                attempts were made in a short period.
             </p>
             <div class="countdown" id="countdown">Retry in <span id="timer">30</span>s</div>
+            <p class="reference">
+                Request ID: <span class="reference-id" id="request-id"></span>
+            </p>
             <div class="actions">
                 <a href="/" class="action action--secondary retry-link" id="retry-link">Try again</a>
             </div>
             <p class="footer">
-                Slow down and retry after the cooldown window clears.
+                Wait for the cooldown to end, then try again. If the problem
+                continues, share the request ID with support.
             </p>
         </main>
         <script>

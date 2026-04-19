@@ -12,12 +12,13 @@ services:
             - "${APP_SSL_PORT:-443}:443"
         environment:
             MONITORING_ACCESS_MODE: "${MONITORING_ACCESS_MODE:-internal-only}"
-            MONITORING_ALLOWED_CIDRS: "${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,192.168.0.0/16}"
+            MONITORING_ALLOWED_CIDRS: "${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,172.30.0.0/24}"
         volumes:
             - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
             - ./docker/nginx/crowdsec-bouncer.conf.template:/etc/nginx/crowdsec-bouncer.conf.template:ro
             - ./docker/nginx/errors:/usr/share/nginx/html:ro
-            - ${BT_HONEYPOT_SOURCE:?Set BT_HONEYPOT_SOURCE before docker compose up}:/etc/nginx/includes/blue-team-honeypot.conf:ro
+            - ".:/var/www/html:ro"
+            - ${BT_HONEYPOT_SOURCE:-./docker/nginx/includes/blue-team-honeypot.conf}:/etc/nginx/includes/blue-team-honeypot.conf:ro
             - nginx-ssl:/etc/nginx/ssl
             - nginx-logs:/var/log/nginx
             - crowdsec-keys:/crowdsec-keys:ro
@@ -45,6 +46,7 @@ services:
             - MONITORING_ADMIN_USERNAME=${MONITORING_ADMIN_USERNAME:?Set MONITORING_ADMIN_USERNAME before docker compose up}
             - MONITORING_PASSWORD_HASH=${MONITORING_PASSWORD_HASH:?Set MONITORING_PASSWORD_HASH before docker compose up}
             - SESSION_SECRET=${SESSION_SECRET:?Set SESSION_SECRET before docker compose up}
+            - PORT=3000
             - CANONICAL_AUDIT_INGEST_URL=${CANONICAL_AUDIT_INGEST_URL:-http://laravel.test/api/internal/canonical-audit/events}
             - CANONICAL_AUDIT_KEY_ID=${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
             - CANONICAL_AUDIT_SECRET=${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}
@@ -57,14 +59,14 @@ services:
             - sail
         restart: unless-stopped
         healthcheck:
-            test: ["CMD", "sh", "-c", "wget -qO- http://127.0.0.1:${PORT:-3000}/health"]
+            test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
             interval: 10s
             timeout: 5s
             retries: 3
 
     crowdsec:
         container_name: jobs-boards-crowdsec
-        image: crowdsecurity/crowdsec:latest
+        image: crowdsecurity/crowdsec:v1.6.8
         environment:
             CROWDSEC_REQUIRED_APPSEC_CONFIG: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"
             CROWDSEC_REQUIRED_APPSEC_COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"
@@ -103,7 +105,7 @@ services:
 
     crowdsec-key-init:
         container_name: jobs-boards-crowdsec-key-init
-        image: crowdsecurity/crowdsec:latest
+        image: crowdsecurity/crowdsec:v1.6.8
         entrypoint: ["/init-bouncer-key.sh"]
         volumes:
             - ./docker/crowdsec/init-bouncer-key.sh:/init-bouncer-key.sh:ro
@@ -124,7 +126,7 @@ services:
             PROMETHEUS_PASSWORD_HASH: "${PROMETHEUS_PASSWORD_HASH:?Set PROMETHEUS_PASSWORD_HASH before docker compose up}"
         volumes:
             - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-            - ${PROMETHEUS_WEB_CONFIG_FILE:?Set PROMETHEUS_WEB_CONFIG_FILE before docker compose up}:/etc/prometheus/web-config.yml:ro
+            - ${PROMETHEUS_WEB_CONFIG_FILE:-${BT_STATE_DIR:-.blue-team-vm}/rendered/prometheus.web-config.yml}:/etc/prometheus/web-config.yml:ro
             - prometheus-data:/prometheus
         command:
             - "--config.file=/etc/prometheus/prometheus.yml"
@@ -200,8 +202,8 @@ services:
         volumes:
             - grafana-data:/var/lib/grafana
             - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
-            - ${GRAFANA_DATASOURCES_FILE:?Set GRAFANA_DATASOURCES_FILE before docker compose up}:/etc/grafana/provisioning/datasources/datasources.yaml:ro
-            - ${GRAFANA_ADMIN_SECRET_FILE:?Set GRAFANA_ADMIN_SECRET_FILE before docker compose up}:/run/secrets/grafana_admin_secret:ro
+            - ${GRAFANA_DATASOURCES_FILE:-${BT_STATE_DIR:-.blue-team-vm}/rendered/grafana.datasources.yml}:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+            - ${GRAFANA_ADMIN_SECRET_FILE:-${BT_STATE_DIR:-.blue-team-vm}/runtime/grafana-admin-secret}:/run/secrets/grafana_admin_secret:ro
         networks:
             - sail
         depends_on:

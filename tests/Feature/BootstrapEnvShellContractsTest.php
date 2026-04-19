@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
+use Tests\Support\ObsConfigContract;
 
 /**
  * Verification path: sqlite-safe.
@@ -30,14 +31,14 @@ class BootstrapEnvShellContractsTest extends TestCase
         $this->assertStringContainsString('os.replace', $contents);
     }
 
-    public function test_bootstrap_env_audits_the_canonical_audit_auth_service_secret_contract(): void
+    public function test_bootstrap_env_audits_the_canonical_audit_auth_service_secret_contract_via_generic_secret_classification(): void
     {
         $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
         $example = file_get_contents($this->repoRoot.'/.env.example');
 
         $this->assertIsString($contents);
         $this->assertIsString($example);
-        $this->assertStringContainsString('audit_secret CANONICAL_AUDIT_AUTH_SERVICE_SECRET', $contents);
+        $this->assertStringContainsString('SECRET|KEY|TOKEN|PASSWORD', $contents);
         $this->assertStringContainsString('CANONICAL_AUDIT_AUTH_SERVICE_SECRET=', $example);
     }
 
@@ -52,6 +53,15 @@ class BootstrapEnvShellContractsTest extends TestCase
         $this->assertStringNotContainsString('docker/nginx/htpasswd/monitoring.htpasswd', $contents);
         $this->assertStringContainsString('# advanced override: plaintext source for Grafana admin bootstrap; defaults to MONITORING_PASSWORD when unset', $example);
         $this->assertStringContainsString('# advanced override: plaintext source for Prometheus basic auth bootstrap; defaults to MONITORING_PASSWORD when unset', $example);
+    }
+
+    public function test_bootstrap_env_uses_shared_config_authority_for_grafana_secret_path_derivation(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('bt_config_resolve_key GRAFANA_ADMIN_SECRET_FILE', $contents);
+        $this->assertStringNotContainsString(ObsConfigContract::derivedPath(ObsConfigContract::DEFAULT_STATE_DIR, 'GRAFANA_ADMIN_SECRET_FILE'), $contents);
     }
 
     public function test_shell_port_reassignment_uses_named_allocator_calls_instead_of_command_substitution(): void

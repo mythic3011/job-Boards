@@ -11,11 +11,11 @@ ACTION="${1:-apply}"
 OBS_WAIT_TIMEOUT_SECONDS="${BT_OBS_WAIT_TIMEOUT_SECONDS:-90}"
 OBS_GENERATED_ENV_FILE="${BT_OBS_GENERATED_ENV_FILE:-${BT_RUNTIME_DIR}/obs.generated.env}"
 OBS_GENERATED_AUDIT_FILE="${BT_OBS_GENERATED_AUDIT_FILE:-${BT_RUNTIME_DIR}/obs.generated-secrets.jsonl}"
-OBS_RENDERED_DIR="${BT_OBS_RENDERED_DIR:-${BT_STATE_DIR}/rendered}"
-OBS_GRAFANA_ADMIN_SECRET_FILE="${BT_GRAFANA_ADMIN_SECRET_FILE:-${BT_RUNTIME_DIR}/grafana-admin-secret}"
-OBS_PROMETHEUS_WEB_CONFIG_FILE="${BT_PROMETHEUS_WEB_CONFIG_FILE:-${OBS_RENDERED_DIR}/prometheus.web-config.yml}"
+OBS_PROMETHEUS_WEB_CONFIG_FILE="${BT_PROMETHEUS_WEB_CONFIG_FILE:-$(bt_config_resolve_key PROMETHEUS_WEB_CONFIG_FILE)}"
+OBS_RENDERED_DIR="${BT_OBS_RENDERED_DIR:-$(dirname "${OBS_PROMETHEUS_WEB_CONFIG_FILE}")}"
+OBS_GRAFANA_ADMIN_SECRET_FILE="${BT_GRAFANA_ADMIN_SECRET_FILE:-$(bt_config_resolve_key GRAFANA_ADMIN_SECRET_FILE)}"
 OBS_GRAFANA_DATASOURCE_TEMPLATE_FILE="${BT_OBS_GRAFANA_DATASOURCE_TEMPLATE_FILE:-${REPO_ROOT}/docker/grafana/provisioning/datasources/datasources.yaml}"
-OBS_GRAFANA_DATASOURCES_FILE="${BT_OBS_GRAFANA_DATASOURCES_FILE:-${OBS_RENDERED_DIR}/grafana.datasources.yml}"
+OBS_GRAFANA_DATASOURCES_FILE="${BT_OBS_GRAFANA_DATASOURCES_FILE:-$(bt_config_resolve_key GRAFANA_DATASOURCES_FILE)}"
 OBS_GRAFANA_SQLITE_HELPER_IMAGE="${BT_OBS_GRAFANA_SQLITE_HELPER_IMAGE:-python:3.12-alpine}"
 obs_statuses=()
 
@@ -463,6 +463,16 @@ obs_generated_env_value() {
     bt_env_file_value "${OBS_GENERATED_ENV_FILE}" "${key}"
 }
 
+obs_explicit_env_value() {
+    local key="$1"
+    if [[ -n "${!key:-}" ]]; then
+        printf '%s\n' "${!key}"
+        return 0
+    fi
+
+    return 1
+}
+
 obs_requested_env_value() {
     local key="$1"
     bt_env_value "${key}" || obs_generated_env_value "${key}"
@@ -524,7 +534,7 @@ obs_materialize_secret_file() {
     local candidate_key
 
     current_path="$(obs_generated_env_value "${target_key}" || true)"
-    desired_path="$(bt_env_value "${target_key}" || true)"
+    desired_path="$(obs_explicit_env_value "${target_key}" || true)"
     if [[ -z "${desired_path}" ]]; then
         desired_path="${current_path:-${default_path}}"
     fi

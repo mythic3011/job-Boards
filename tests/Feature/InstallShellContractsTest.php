@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
+use Tests\Support\ObsConfigContract;
+use Tests\Support\ObsTestFixtures;
 
 class InstallShellContractsTest extends TestCase
 {
@@ -28,16 +30,7 @@ class InstallShellContractsTest extends TestCase
 
         file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
-        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
-#!/usr/bin/env bash
-set -euo pipefail
-mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
-cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
-PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
-GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
-EOF
-exit 0
-BASH);
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', ObsTestFixtures::bootstrapObsGeneratedEnvScript($tempRoot.'/.blue-team-vm'));
 
         $this->writeExecutable($fakeBin.'/docker', <<<'BASH'
 #!/usr/bin/env bash
@@ -100,22 +93,13 @@ BASH);
 
         file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
-        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
-#!/usr/bin/env bash
-set -euo pipefail
-mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
-cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
-PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
-GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
-EOF
-exit 0
-BASH);
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', ObsTestFixtures::bootstrapObsGeneratedEnvScript($tempRoot.'/.blue-team-vm'));
 
         $scriptContents = file_get_contents($scriptPath);
         $this->assertIsString($scriptContents);
         file_put_contents(
             $scriptPath,
-            str_replace('wait_for "Container starting" 30 docker exec -T "$CONTAINER" true', 'wait_for "Container starting" 1 docker exec -T "$CONTAINER" true', $scriptContents),
+            str_replace('wait_for "Container starting" 30 docker exec "$CONTAINER" true', 'wait_for "Container starting" 1 docker exec "$CONTAINER" true', $scriptContents),
         );
         chmod($scriptPath, 0755);
 
@@ -210,6 +194,7 @@ BASH);
 
         file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $generatedEnv = ObsConfigContract::generatedEnvContents($tempRoot.'/.blue-team-vm');
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
 #!/usr/bin/env bash
 set -euo pipefail
@@ -219,8 +204,7 @@ printf 'BT_RUNTIME_DIR=%s\n' "\${BT_RUNTIME_DIR:-}" >> "{$bootstrapLog}"
 printf 'BT_COMPOSE_OBS_FILE=%s\n' "\${BT_COMPOSE_OBS_FILE:-}" >> "{$bootstrapLog}"
 mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
 cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
-PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
-GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
+{$generatedEnv}
 EOF
 exit 0
 BASH);
@@ -283,16 +267,7 @@ GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/repo-env/grafana-admin-secret
 ENV);
 
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
-        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
-#!/usr/bin/env bash
-set -euo pipefail
-mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
-cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
-PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
-GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
-EOF
-exit 0
-BASH);
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', ObsTestFixtures::bootstrapObsGeneratedEnvScript($tempRoot.'/.blue-team-vm'));
 
         $this->writeExecutable($fakeBin.'/docker', <<<BASH
 #!/usr/bin/env bash
@@ -477,16 +452,16 @@ printf '%s\n' "\$*" >> "{$dockerLog}"
 if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
   exit 0
 fi
-if [[ "\${1:-}" == "exec" && "\${4:-}" == "true" ]]; then
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "true" ]]; then
   exit 0
 fi
-if [[ "\${1:-}" == "exec" && "\${4:-}" == "test" && "\${5:-}" == "-f" && "\${6:-}" == "/var/www/html/vendor/autoload.php" ]]; then
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "test" && "\${4:-}" == "-f" && "\${5:-}" == "/var/www/html/vendor/autoload.php" ]]; then
   exit 1
 fi
-if [[ "\${1:-}" == "exec" && "\${4:-}" == "curl" ]]; then
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "curl" ]]; then
   exit 0
 fi
-if [[ "\${1:-}" == "exec" && "\${4:-}" == "composer" && "\${5:-}" == "install" ]]; then
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "composer" && "\${4:-}" == "install" ]]; then
   exit 17
 fi
 exit 0
@@ -504,8 +479,8 @@ BASH);
         $process->run();
 
         $dockerOutput = (string) @file_get_contents($dockerLog);
-        $curlOffset = strpos($dockerOutput, 'exec -T jobs-boards-laravel.test curl ');
-        $composerOffset = strpos($dockerOutput, 'exec -T jobs-boards-laravel.test composer install --no-interaction --prefer-dist');
+        $curlOffset = strpos($dockerOutput, 'exec jobs-boards-laravel.test curl ');
+        $composerOffset = strpos($dockerOutput, 'exec jobs-boards-laravel.test composer install --no-interaction --prefer-dist');
 
         $this->assertSame(17, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
         $this->assertNotFalse($curlOffset, 'Expected install.sh to probe package-network reachability before composer repair.');
@@ -620,13 +595,13 @@ printf '%s\n' "\$*" >> "{$dockerLog}"
 if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
   exit 0
 fi
-if [[ "\${1:-}" == "exec" && "\${4:-}" == "true" ]]; then
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "true" ]]; then
   exit 0
 fi
-if [[ "\${1:-}" == "exec" && "\${4:-}" == "test" && "\${5:-}" == "-f" && "\${6:-}" == "/var/www/html/vendor/autoload.php" ]]; then
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "test" && "\${4:-}" == "-f" && "\${5:-}" == "/var/www/html/vendor/autoload.php" ]]; then
   exit 1
 fi
-if [[ "\${1:-}" == "exec" && "\${4:-}" == "composer" && "\${5:-}" == "install" ]]; then
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "composer" && "\${4:-}" == "install" ]]; then
   exit 23
 fi
 exit 1
@@ -648,7 +623,7 @@ BASH);
 
         $this->assertSame(1, $process->getExitCode(), $combinedOutput);
         $this->assertStringContainsString('local vendor/ is missing and package network access is unavailable', $combinedOutput);
-        $this->assertStringNotContainsString('exec -T jobs-boards-laravel.test composer install --no-interaction --prefer-dist', $dockerOutput);
+        $this->assertStringNotContainsString('exec jobs-boards-laravel.test composer install --no-interaction --prefer-dist', $dockerOutput);
     }
 
     public function test_install_quick_restarts_the_app_container_without_combined_compose_interpolation(): void
@@ -755,16 +730,16 @@ BASH);
         $this->assertStringContainsString('${MONITORING_PASSWORD_HASH:?Set MONITORING_PASSWORD_HASH before docker compose up}', $contents);
         $this->assertStringContainsString('${SESSION_SECRET:?Set SESSION_SECRET before docker compose up}', $contents);
         $this->assertStringContainsString('${PROMETHEUS_PASSWORD_HASH:?Set PROMETHEUS_PASSWORD_HASH before docker compose up}', $contents);
-        $this->assertStringContainsString('${PROMETHEUS_WEB_CONFIG_FILE:?Set PROMETHEUS_WEB_CONFIG_FILE before docker compose up}', $contents);
-        $this->assertStringContainsString('${GRAFANA_DATASOURCES_FILE:?Set GRAFANA_DATASOURCES_FILE before docker compose up}', $contents);
-        $this->assertStringContainsString('${GRAFANA_ADMIN_SECRET_FILE:?Set GRAFANA_ADMIN_SECRET_FILE before docker compose up}', $contents);
+        $this->assertStringContainsString(ObsConfigContract::fallbackExpression('PROMETHEUS_WEB_CONFIG_FILE'), $contents);
+        $this->assertStringContainsString(ObsConfigContract::fallbackExpression('GRAFANA_DATASOURCES_FILE'), $contents);
+        $this->assertStringContainsString(ObsConfigContract::fallbackExpression('GRAFANA_ADMIN_SECRET_FILE'), $contents);
         $this->assertStringContainsString('GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_secret', $contents);
         $this->assertStringContainsString('GRAFANA_POSTGRES_URL: ${GRAFANA_POSTGRES_URL:-postgres:5432}', $contents);
         $this->assertStringContainsString('GRAFANA_POSTGRES_DATABASE: ${DB_DATABASE}', $contents);
         $this->assertStringContainsString('GRAFANA_POSTGRES_USER: ${DB_USERNAME}', $contents);
         $this->assertStringContainsString('GRAFANA_POSTGRES_SECRET: ${DB_PASSWORD}', $contents);
         $this->assertStringContainsString('GRAFANA_POSTGRES_SSLMODE: ${GRAFANA_POSTGRES_SSLMODE:-prefer}', $contents);
-        $this->assertStringContainsString('${GRAFANA_DATASOURCES_FILE:?Set GRAFANA_DATASOURCES_FILE before docker compose up}:/etc/grafana/provisioning/datasources/datasources.yaml:ro', $contents);
+        $this->assertStringContainsString(ObsConfigContract::fallbackExpression('GRAFANA_DATASOURCES_FILE').':/etc/grafana/provisioning/datasources/datasources.yaml:ro', $contents);
         $this->assertStringNotContainsString('${PROMETHEUS_WEB_CONFIG_FILE:-./docker/prometheus/web-config.yml}', $contents);
         $this->assertStringNotContainsString('DB_DATABASE: "${DB_DATABASE}"', $contents);
         $this->assertStringNotContainsString('DB_USERNAME: "${DB_USERNAME}"', $contents);
@@ -788,7 +763,7 @@ BASH);
         $contents = file_get_contents($this->repoRoot.'/compose.yaml');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('${BT_HONEYPOT_SOURCE:?Set BT_HONEYPOT_SOURCE before docker compose up}:/etc/nginx/includes/blue-team-honeypot.conf:ro', $contents);
+        $this->assertStringContainsString('${BT_HONEYPOT_SOURCE:-./docker/nginx/includes/blue-team-honeypot.conf}:/etc/nginx/includes/blue-team-honeypot.conf:ro', $contents);
         $this->assertStringContainsString('curl -kfsS https://127.0.0.1/up || exit 1', $contents);
         $this->assertStringNotContainsString('curl -sf http://laravel.test:80/up || exit 1', $contents);
     }
@@ -799,8 +774,16 @@ BASH);
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('MONITORING_ACCESS_MODE: "${MONITORING_ACCESS_MODE:-internal-only}"', $contents);
-        $this->assertStringContainsString('MONITORING_ALLOWED_CIDRS: "${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,192.168.0.0/16}"', $contents);
+        $this->assertStringContainsString('MONITORING_ALLOWED_CIDRS: "${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,172.30.0.0/24}"', $contents);
         $this->assertStringNotContainsString('MONITORING_PASSWORD: "${MONITORING_PASSWORD}"', $contents);
+    }
+
+    public function test_combined_compose_mounts_the_laravel_public_tree_into_nginx_for_static_assets(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.yaml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('- ".:/var/www/html:ro"', $contents);
     }
 
     public function test_install_script_relies_on_shared_compose_honeypot_preload_instead_of_inline_export(): void
@@ -864,7 +847,7 @@ BASH);
 
         mkdir(dirname($commonLibPath), 0777, true);
         copy($this->repoRoot.'/install.sh', $scriptPath);
-        copy($this->repoRoot.'/ops/lib/common.sh', $commonLibPath);
+        ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
         chmod($scriptPath, 0755);
         chmod($commonLibPath, 0755);
 

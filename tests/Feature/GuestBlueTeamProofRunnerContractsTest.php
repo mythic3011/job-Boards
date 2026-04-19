@@ -6,6 +6,7 @@ namespace Tests\Feature;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
+use Tests\Support\ObsTestFixtures;
 
 /**
  * Verification path: sqlite-safe.
@@ -221,19 +222,7 @@ BASH);
 
         $sessionSecret = $this->fixtureSessionSecret();
         $grafanaSecretContents = $this->fixtureGrafanaAdminSecretContents();
-
-        file_put_contents($stateDir.'/runtime/grafana-admin-secret', $grafanaSecretContents);
-        file_put_contents($stateDir.'/rendered/prometheus.web-config.yml', "basic_auth_users:\n  admin: \"hidden\"\n");
-        file_put_contents(
-            $stateDir.'/runtime/obs.generated.env',
-            implode("\n", [
-                'SESSION_SECRET='.$sessionSecret,
-                'MONITORING_PASSWORD_HASH=$2y$12$aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-                'PROMETHEUS_PASSWORD_HASH=$2y$12$bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
-                'GRAFANA_ADMIN_SECRET_FILE='.$stateDir.'/runtime/grafana-admin-secret',
-                'PROMETHEUS_WEB_CONFIG_FILE='.$stateDir.'/rendered/prometheus.web-config.yml',
-            ])."\n",
-        );
+        ObsTestFixtures::materializeProofObsArtifacts($stateDir, $sessionSecret, $grafanaSecretContents);
         file_put_contents($stateDir.'/runtime/obs.generated-secrets.jsonl', implode("\n", [
             '{"record_type":"generated_secret","generated_at":"2026-04-14T00:00:00Z","generated_by":"blue-team-bootstrap","target_field":"SESSION_SECRET","source_field":"random","mode":"generated_secret","deterministic":false,"user_action_required":false}',
             '{"record_type":"generated_secret","generated_at":"2026-04-14T00:00:01Z","generated_by":"blue-team-bootstrap","target_field":"GRAFANA_ADMIN_SECRET_FILE","source_field":"GRAFANA_PASSWORD","mode":"materialized_secret_file","deterministic":true,"user_action_required":false}',

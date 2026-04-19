@@ -1,0 +1,187 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import json
+import os
+import re
+import shlex
+import sys
+from pathlib import Path
+
+
+SCRIPT_PATH = Path(__file__).resolve()
+REPO_ROOT = SCRIPT_PATH.parents[2]
+MANIFEST_PATH = Path(
+    os.environ.get(
+        "BT_CONFIG_CONTRACT_MANIFEST",
+        str(REPO_ROOT / "ops" / "config" / "config-contract.yml"),
+    )
+)
+PLACEHOLDER_PATTERN = re.compile(r"\$\{([A-Z0-9_]+)\}")
+
+
+class ConfigContractError(RuntimeError):
+    pass
+
+
+def usage() -> str:
+    return (
+        "Usage: resolve-config-contract [json|dotenv|shell|key <ENV_NAME>]\n"
+        "The shell output contract is POSIX-shell only.\n"
+        "Manifest contract: ops/config/config-contract.yml is a .yml path with strict JSON required; "
+        "YAML comments/unquoted keys are invalid."
+    )
+
+
+def load_manifest() -> dict[str, object]:
+    try:
+        with MANIFEST_PATH.open("r", encoding="utf-8") as handle:
+            manifest = json.load(handle)
+    except json.JSONDecodeError as exc:
+        raise ConfigContractError(
+            "Failed to parse ops/config/config-contract.yml: .yml path, strict JSON required, "
+            "YAML comments/unquoted keys invalid."
+        ) from exc
+    except FileNotFoundError as exc:
+        raise ConfigContractError(f"Missing config contract manifest: {MANIFEST_PATH}") from exc
+
+    if not isinstance(manifest, dict):
+        raise ConfigContractError("Config contract manifest must be a JSON object.")
+
+    defaults = manifest.get("defaults", {})
+    derived = manifest.get("derived", {})
+    if not isinstance(defaults, dict) or not isinstance(derived, dict):
+        raise ConfigContractError("Config contract manifest defaults/derived sections must be JSON objects.")
+
+    return manifest
+
+
+def load_contract() -> tuple[list[str], dict[str, str], dict[str, str]]:
+    manifest = load_manifest()
+    defaults = manifest["defaults"]
+    derived = manifest["derived"]
+
+    keys: list[str] = []
+    resolved_defaults: dict[str, str] = {}
+    resolved_derived: dict[str, str] = {}
+
+    for key, value in defaults.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ConfigContractError("Config contract defaults must be string:string pairs.")
+        keys.append(key)
+        resolved_defaults[key] = value
+
+    for key, value in derived.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ConfigContractError("Config contract derived values must be string:string pairs.")
+        keys.append(key)
+        resolved_derived[key] = value
+
+    return keys, resolved_defaults, resolved_derived
+
+
+def should_preserve_env(key: str) -> bool:
+    return key in os.environ and os.environ[key] != ""
+
+
+def resolve_value(
+    key: str,
+    defaults: dict[str, str],
+    derived: dict[str, str],
+    resolved: dict[str, str],
+    visiting: set[str],
+) -> str:
+    if key in resolved:
+        return resolved[key]
+
+    if should_preserve_env(key):
+        resolved[key] = os.environ[key]
+        return resolved[key]
+
+    if key in visiting:
+        raise ConfigContractError(f"Detected derivation cycle while resolving {key}.")
+
+    if key in defaults:
+        resolved[key] = defaults[key]
+        return resolved[key]
+
+    template = derived.get(key)
+    if template is None:
+        raise ConfigContractError(f"Unknown config contract key: {key}")
+
+    visiting.add(key)
+
+    def replace(match: re.Match[str]) -> str:
+        dependency = match.group(1)
+        return resolve_value(dependency, defaults, derived, resolved, visiting)
+
+    value = PLACEHOLDER_PATTERN.sub(replace, template)
+    if PLACEHOLDER_PATTERN.search(value):
+        raise ConfigContractError(f"Unresolved placeholder while resolving {key}.")
+
+    visiting.remove(key)
+    resolved[key] = value
+    return value
+
+
+def resolve_all() -> tuple[list[str], dict[str, str]]:
+    keys, defaults, derived = load_contract()
+    resolved: dict[str, str] = {}
+
+    for key in keys:
+        resolve_value(key, defaults, derived, resolved, set())
+
+    return keys, resolved
+
+
+def format_dotenv(keys: list[str], resolved: dict[str, str]) -> str:
+    return "\n".join(f"{key}={resolved[key]}" for key in keys)
+
+
+def format_shell(keys: list[str], resolved: dict[str, str]) -> str:
+    lines = [f"export {key}={shlex.quote(resolved[key])}" for key in keys]
+    return "\n".join(lines)
+
+
+def main(argv: list[str]) -> int:
+    if len(argv) < 2:
+        print(usage(), file=sys.stderr)
+        return 1
+
+    command = argv[1]
+
+    try:
+        keys, resolved = resolve_all()
+        if command == "json":
+            json.dump({key: resolved[key] for key in keys}, sys.stdout, separators=(",", ":"))
+            sys.stdout.write("\n")
+            return 0
+
+        if command == "dotenv":
+            print(format_dotenv(keys, resolved))
+            return 0
+
+        if command == "shell":
+            print(format_shell(keys, resolved))
+            return 0
+
+        if command == "key":
+            if len(argv) != 3:
+                print(usage(), file=sys.stderr)
+                return 1
+
+            key_name = argv[2]
+            if key_name not in resolved:
+                raise ConfigContractError(f"Unknown config contract key: {key_name}")
+            print(resolved[key_name])
+            return 0
+
+        print(usage(), file=sys.stderr)
+        return 1
+    except ConfigContractError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv))

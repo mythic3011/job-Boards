@@ -4,19 +4,22 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="robots" content="noindex, nofollow" />
-        <title>Service Error</title>
+        <title>Service Unavailable</title>
         <link rel="stylesheet" href="/_error/styles.css" />
     </head>
     <body>
-        <main class="surface card">
-            <div class="pill pill--danger">Service interruption</div>
+        <main class="surface card card--wide">
+            <div class="pill pill--danger">Temporary issue</div>
             <div class="code code--error">50x</div>
             <h1>Service unavailable</h1>
             <p>
-                Something went wrong upstream. The request reached the front
-                door, but the application stack did not complete cleanly.
+                The request could not be completed because the service is
+                temporarily unavailable.
             </p>
             <div class="meta">Time: <span id="ts"></span></div>
+            <p class="reference">
+                Request ID: <span class="reference-id" id="request-id"></span>
+            </p>
             <div class="actions">
                 <button class="action action--primary retry-btn" onclick="window.location.reload()">
                     Retry request
@@ -24,8 +27,8 @@
                 <a href="/" class="action action--secondary">Return home</a>
             </div>
             <p class="footer">
-                If this persists, inspect nginx upstream health and application
-                logs.
+                If this continues, try again later or share the request ID with
+                support.
             </p>
         </main>
         <script>

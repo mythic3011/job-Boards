@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
+use Tests\Support\ObsConfigContract;
+use Tests\Support\ObsTestFixtures;
 
 /**
  * Verification path: sqlite-safe.
@@ -85,9 +87,9 @@ class BlueTeamVmShellContractsTest extends TestCase
 
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
         $generatedEnv = @file_get_contents($tempDir.'/state/runtime/obs.generated.env') ?: '';
-        $renderedConfig = $tempDir.'/state/rendered/prometheus.web-config.yml';
-        $renderedGrafanaDatasources = $tempDir.'/state/rendered/grafana.datasources.yml';
-        $grafanaPasswordFile = $tempDir.'/state/runtime/grafana-admin-secret';
+        $renderedConfig = ObsConfigContract::derivedPath($tempDir.'/state', 'PROMETHEUS_WEB_CONFIG_FILE');
+        $renderedGrafanaDatasources = ObsConfigContract::derivedPath($tempDir.'/state', 'GRAFANA_DATASOURCES_FILE');
+        $grafanaPasswordFile = ObsConfigContract::derivedPath($tempDir.'/state', 'GRAFANA_ADMIN_SECRET_FILE');
 
         $this->assertSame(0, $process->getExitCode());
         $this->assertStringContainsString('"check_id":"obs.bootstrap.required_env"', $combinedOutput);
@@ -111,7 +113,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $tempDir = $this->makeTempDir();
         $dockerLog = $tempDir.'/docker.log';
         $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
-        $scriptPath = $this->writeBootstrapObsFixture($tempDir);
+        $scriptPath = ObsTestFixtures::installBootstrapObsFixture($this->repoRoot, $tempDir);
         file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
 
         $process = new Process(
@@ -161,7 +163,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $tempDir = $this->makeTempDir();
         $dockerLog = $tempDir.'/docker.log';
         $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
-        $scriptPath = $this->writeBootstrapObsFixture($tempDir);
+        $scriptPath = ObsTestFixtures::installBootstrapObsFixture($this->repoRoot, $tempDir);
         file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
 
         $process = new Process(
@@ -295,22 +297,33 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
     }
 
-    public function test_obs_compose_requires_explicit_prometheus_runtime_web_config_path(): void
+    public function test_obs_compose_defaults_prometheus_runtime_web_config_path_to_the_bootstrap_render_location(): void
     {
         $contents = file_get_contents($this->repoRoot.'/compose.obs.yml');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('${PROMETHEUS_WEB_CONFIG_FILE:?Set PROMETHEUS_WEB_CONFIG_FILE before obs apply}', $contents);
-        $this->assertStringNotContainsString('${PROMETHEUS_WEB_CONFIG_FILE:-./docker/prometheus/web-config.yml}', $contents);
+        $this->assertStringContainsString(ObsConfigContract::fallbackExpression('PROMETHEUS_WEB_CONFIG_FILE'), $contents);
+        $this->assertStringNotContainsString('${PROMETHEUS_WEB_CONFIG_FILE:?Set PROMETHEUS_WEB_CONFIG_FILE before obs apply}', $contents);
     }
 
-    public function test_obs_compose_requires_explicit_grafana_runtime_datasource_config_path(): void
+    public function test_obs_compose_defaults_grafana_runtime_artifact_paths_to_bootstrap_outputs(): void
     {
         $contents = file_get_contents($this->repoRoot.'/compose.obs.yml');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('${GRAFANA_DATASOURCES_FILE:?Set GRAFANA_DATASOURCES_FILE before obs apply}:/etc/grafana/provisioning/datasources/datasources.yaml:ro', $contents);
+        $this->assertStringContainsString(ObsConfigContract::fallbackExpression('GRAFANA_DATASOURCES_FILE').':/etc/grafana/provisioning/datasources/datasources.yaml:ro', $contents);
+        $this->assertStringContainsString(ObsConfigContract::fallbackExpression('GRAFANA_ADMIN_SECRET_FILE').':/run/secrets/grafana_admin_secret:ro', $contents);
         $this->assertStringNotContainsString('./docker/grafana/provisioning/datasources/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro', $contents);
+    }
+
+    public function test_obs_compose_auth_service_healthcheck_uses_a_single_explicit_port_authority(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.obs.yml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('PORT: "3000"', $contents);
+        $this->assertStringContainsString('"http://127.0.0.1:3000/health"', $contents);
+        $this->assertStringNotContainsString('${PORT:-3000}', $contents);
     }
 
     public function test_obs_compose_grafana_joins_app_plane_with_explicit_postgres_datasource_env(): void
@@ -408,7 +421,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $contents = file_get_contents($this->repoRoot.'/compose.app.yml');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('${BT_HONEYPOT_SOURCE:?Set BT_HONEYPOT_SOURCE before app apply}:/etc/nginx/includes/blue-team-honeypot.conf:ro', $contents);
+        $this->assertStringContainsString('${BT_HONEYPOT_SOURCE:-./docker/nginx/includes/blue-team-honeypot.conf}:/etc/nginx/includes/blue-team-honeypot.conf:ro', $contents);
         $this->assertStringNotContainsString('/opt/blue-team/nginx/includes/blue-team-honeypot.conf:/etc/nginx/includes/blue-team-honeypot.conf:ro', $contents);
     }
 
@@ -418,7 +431,7 @@ class BlueTeamVmShellContractsTest extends TestCase
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('MONITORING_ACCESS_MODE: "${MONITORING_ACCESS_MODE:-internal-only}"', $contents);
-        $this->assertStringContainsString('MONITORING_ALLOWED_CIDRS: "${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,192.168.0.0/16}"', $contents);
+        $this->assertStringContainsString('MONITORING_ALLOWED_CIDRS: "${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,172.29.0.0/24}"', $contents);
         $this->assertStringNotContainsString('MONITORING_PASSWORD: "${MONITORING_PASSWORD}"', $contents);
     }
 
@@ -444,9 +457,9 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"', $contents);
         $this->assertStringContainsString('APPSEC_CONFIGS: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"', $contents);
         $this->assertStringContainsString('cscli appsec-configs list -c /etc/crowdsec/config.yaml', $contents);
-        $this->assertStringContainsString('grep -Fq \"${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}\"', $contents);
+        $this->assertStringContainsString('grep -Fq "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"', $contents);
         $this->assertStringContainsString("cscli appsec-rules list -c /etc/crowdsec/config.yaml", $contents);
-        $this->assertStringContainsString("grep -Fq 'crowdsecurity/vpatch-'", $contents);
+        $this->assertStringContainsString("grep -Fq ''crowdsecurity/vpatch-''", $contents);
         $this->assertStringContainsString('name: crowdsecurity/appsec-default', $appsecConfig);
         $this->assertStringContainsString('crowdsecurity/appsec-generic-test', $appsecConfig);
         $this->assertStringNotContainsString('crowdsecurity/experimental-*', $appsecConfig);
@@ -490,9 +503,8 @@ class BlueTeamVmShellContractsTest extends TestCase
     public function test_honeypot_source_resolver_distinguishes_managed_host_and_compose_paths(): void
     {
         $tempRoot = $this->makeTempDir();
-        mkdir($tempRoot.'/ops/lib', 0777, true);
         mkdir($tempRoot.'/docker/nginx/includes', 0777, true);
-        copy($this->repoRoot.'/ops/lib/common.sh', $tempRoot.'/ops/lib/common.sh');
+        ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
         file_put_contents($tempRoot.'/docker/nginx/includes/blue-team-honeypot.conf', "location = /.env { return 403; }\n");
 
         $helperPath = $tempRoot.'/resolve-honeypot-source.sh';
@@ -1120,26 +1132,19 @@ BASH);
         $this->assertStringContainsString('BT_APP_PLANE_NETWORK_NAME=jobs-borads_app-plane', $dockerEnvOutput);
     }
 
-    public function test_common_bt_compose_exports_obs_generated_env_before_running_docker_compose(): void
+    public function test_common_bt_compose_exports_obs_generated_env_before_running_docker_compose_for_resolver_consumers_only(): void
     {
         $tempRoot = $this->makeTempDir();
         $dockerEnvLog = $tempRoot.'/docker-env.log';
         $fakeBin = $tempRoot.'/fake-bin';
 
         mkdir($fakeBin, 0777, true);
-        mkdir($tempRoot.'/ops/lib', 0777, true);
         mkdir($tempRoot.'/state/runtime', 0777, true);
-
-        $this->writeExecutable(
-            $tempRoot.'/ops/lib/common.sh',
-            (string) file_get_contents($this->repoRoot.'/ops/lib/common.sh'),
-        );
+        ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
 
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
-            "PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml\n".
-            "GRAFANA_DATASOURCES_FILE={$tempRoot}/state/rendered/grafana.datasources.yml\n".
-            "GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret\n"
+            ObsConfigContract::generatedEnvContents($tempRoot.'/state')
         );
 
         $this->writeExecutable($fakeBin.'/docker', <<<BASH
@@ -1170,9 +1175,9 @@ BASH);
         $dockerEnvOutput = (string) @file_get_contents($dockerEnvLog);
 
         $this->assertSame(7, $process->getExitCode());
-        $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml", $dockerEnvOutput);
-        $this->assertStringContainsString("GRAFANA_DATASOURCES_FILE={$tempRoot}/state/rendered/grafana.datasources.yml", $dockerEnvOutput);
-        $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret", $dockerEnvOutput);
+        $this->assertStringContainsString('PROMETHEUS_WEB_CONFIG_FILE='.ObsConfigContract::derivedPath($tempRoot.'/state', 'PROMETHEUS_WEB_CONFIG_FILE'), $dockerEnvOutput);
+        $this->assertStringContainsString('GRAFANA_DATASOURCES_FILE='.ObsConfigContract::derivedPath($tempRoot.'/state', 'GRAFANA_DATASOURCES_FILE'), $dockerEnvOutput);
+        $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.ObsConfigContract::derivedPath($tempRoot.'/state', 'GRAFANA_ADMIN_SECRET_FILE'), $dockerEnvOutput);
     }
 
     public function test_app_runtime_uses_php_fpm_foreground_instead_of_php_builtin_server_or_artisan_serve(): void
@@ -1211,13 +1216,13 @@ BASH);
 
         $this->assertIsString($composeContents);
         $this->assertStringContainsString(
-            'php -r \'$$socket=@fsockopen(\"127.0.0.1\", 9000); if (! $$socket) { exit(1); } fclose($$socket);\'',
+            '\'php -r \'\'$$socket=@fsockopen("127.0.0.1", 9000); if (! $$socket) { exit(1); } fclose($$socket);\'\'',
             $composeContents
         );
         $this->assertStringNotContainsString('php artisan route:list >/dev/null 2>&1 || exit 1', $composeContents);
     }
 
-    public function test_common_bt_compose_does_not_override_explicit_runtime_env_exports(): void
+    public function test_common_bt_compose_does_not_override_explicit_runtime_env_exports_for_resolver_consumers_only(): void
     {
         $tempRoot = $this->makeTempDir();
         $dockerEnvLog = $tempRoot.'/docker-env.log';
@@ -1227,19 +1232,12 @@ BASH);
         $explicitGrafanaPath = $tempRoot.'/explicit/grafana-admin-secret';
 
         mkdir($fakeBin, 0777, true);
-        mkdir($tempRoot.'/ops/lib', 0777, true);
         mkdir($tempRoot.'/state/runtime', 0777, true);
-
-        $this->writeExecutable(
-            $tempRoot.'/ops/lib/common.sh',
-            (string) file_get_contents($this->repoRoot.'/ops/lib/common.sh'),
-        );
+        ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
 
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
-            "PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/state/rendered/prometheus.web-config.yml\n".
-            "GRAFANA_DATASOURCES_FILE={$tempRoot}/state/rendered/grafana.datasources.yml\n".
-            "GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/state/runtime/grafana-admin-secret\n"
+            ObsConfigContract::generatedEnvContents($tempRoot.'/state')
         );
 
         $this->writeExecutable($fakeBin.'/docker', <<<BASH
@@ -1278,7 +1276,7 @@ BASH);
         $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$explicitGrafanaPath}", $dockerEnvOutput);
     }
 
-    public function test_common_bt_compose_prefers_generated_obs_runtime_values_over_repo_env_defaults(): void
+    public function test_common_bt_compose_prefers_generated_obs_runtime_values_over_repo_env_defaults_for_resolver_consumers_only(): void
     {
         $tempRoot = $this->makeTempDir();
         $dockerEnvLog = $tempRoot.'/docker-env.log';
@@ -1291,13 +1289,8 @@ BASH);
         $generatedGrafanaPath = $tempRoot.'/state/runtime/grafana-admin-secret';
 
         mkdir($fakeBin, 0777, true);
-        mkdir($tempRoot.'/ops/lib', 0777, true);
         mkdir($tempRoot.'/state/runtime', 0777, true);
-
-        $this->writeExecutable(
-            $tempRoot.'/ops/lib/common.sh',
-            (string) file_get_contents($this->repoRoot.'/ops/lib/common.sh'),
-        );
+        ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
 
         file_put_contents(
             $tempRoot.'/.env',
@@ -1308,9 +1301,7 @@ BASH);
 
         file_put_contents(
             $tempRoot.'/state/runtime/obs.generated.env',
-            "PROMETHEUS_WEB_CONFIG_FILE={$generatedPrometheusPath}\n".
-            "GRAFANA_DATASOURCES_FILE={$generatedGrafanaDatasourcePath}\n".
-            "GRAFANA_ADMIN_SECRET_FILE={$generatedGrafanaPath}\n"
+            ObsConfigContract::generatedEnvContents($tempRoot.'/state')
         );
 
         $this->writeExecutable($fakeBin.'/docker', <<<BASH
@@ -1503,10 +1494,7 @@ BASH);
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-host.sh', "#!/usr/bin/env bash\nexit 0\n");
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', "#!/usr/bin/env bash\nexit 0\n");
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-app.sh', "#!/usr/bin/env bash\nexit 2\n");
-        $this->writeExecutable(
-            $tempRoot.'/ops/lib/common.sh',
-            (string) file_get_contents($this->repoRoot.'/ops/lib/common.sh'),
-        );
+        ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
         file_put_contents($tempRoot.'/compose.app.yml', "services: {}\n");
         file_put_contents($tempRoot.'/compose.obs.yml', "services: {}\n");
 
@@ -1543,10 +1531,7 @@ BASH);
             $tempRoot.'/setup-blue-team-vm.sh',
             (string) file_get_contents($this->repoRoot.'/setup-blue-team-vm.sh'),
         );
-        $this->writeExecutable(
-            $tempRoot.'/ops/lib/common.sh',
-            (string) file_get_contents($this->repoRoot.'/ops/lib/common.sh'),
-        );
+        ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-host.sh', "#!/usr/bin/env bash\nexit 2\n");
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-app.sh', "#!/usr/bin/env bash\nexit 0\n");
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', "#!/usr/bin/env bash\nexit 0\n");
@@ -1590,10 +1575,7 @@ BASH);
             $tempRoot.'/setup-blue-team-vm.sh',
             (string) file_get_contents($this->repoRoot.'/setup-blue-team-vm.sh'),
         );
-        $this->writeExecutable(
-            $tempRoot.'/ops/lib/common.sh',
-            (string) file_get_contents($this->repoRoot.'/ops/lib/common.sh'),
-        );
+        ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-host.sh', "#!/usr/bin/env bash\nexit 0\n");
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-app.sh', "#!/usr/bin/env bash\nexit 0\n");
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', "#!/usr/bin/env bash\nexit 0\n");
@@ -1659,26 +1641,6 @@ BASH;
     private function fixtureGrafanaAdminSecretContents(): string
     {
         return "fixture-admin-file\n";
-    }
-
-    private function writeBootstrapObsFixture(string $tempRoot): string
-    {
-        $scriptPath = $tempRoot.'/ops/bootstrap/bootstrap-obs.sh';
-        $commonPath = $tempRoot.'/ops/lib/common.sh';
-        $datasourceTemplatePath = $tempRoot.'/docker/grafana/provisioning/datasources/datasources.yaml';
-
-        mkdir(dirname($scriptPath), 0777, true);
-        mkdir(dirname($commonPath), 0777, true);
-        mkdir(dirname($datasourceTemplatePath), 0777, true);
-
-        copy($this->repoRoot.'/ops/bootstrap/bootstrap-obs.sh', $scriptPath);
-        copy($this->repoRoot.'/ops/lib/common.sh', $commonPath);
-        copy($this->repoRoot.'/docker/grafana/provisioning/datasources/datasources.yaml', $datasourceTemplatePath);
-
-        chmod($scriptPath, 0755);
-        chmod($commonPath, 0755);
-
-        return $scriptPath;
     }
 
     /**

@@ -20,6 +20,7 @@ services:
       MONITORING_ADMIN_USERNAME: ${MONITORING_ADMIN_USERNAME:?Set MONITORING_ADMIN_USERNAME before obs apply}
       MONITORING_PASSWORD_HASH: ${MONITORING_PASSWORD_HASH:?Set MONITORING_PASSWORD_HASH before obs apply}
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET before obs apply}
+      PORT: "3000"
       CANONICAL_AUDIT_INGEST_URL: ${CANONICAL_AUDIT_INGEST_URL:-http://laravel.test/api/internal/canonical-audit/events}
       CANONICAL_AUDIT_KEY_ID: ${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
       CANONICAL_AUDIT_SECRET: ${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:?Set CANONICAL_AUDIT_AUTH_SERVICE_SECRET before obs apply}
@@ -36,7 +37,7 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "sh", "-c", "wget -qO- http://127.0.0.1:${PORT:-3000}/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -48,7 +49,7 @@ services:
       PROMETHEUS_PASSWORD_HASH: "${PROMETHEUS_PASSWORD_HASH:?Set PROMETHEUS_PASSWORD_HASH before obs apply}"
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ${PROMETHEUS_WEB_CONFIG_FILE:?Set PROMETHEUS_WEB_CONFIG_FILE before obs apply}:/etc/prometheus/web-config.yml:ro
+      - ${PROMETHEUS_WEB_CONFIG_FILE:-${BT_STATE_DIR:-.blue-team-vm}/rendered/prometheus.web-config.yml}:/etc/prometheus/web-config.yml:ro
       - prometheus-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
@@ -123,8 +124,8 @@ services:
     volumes:
       - grafana-data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ${GRAFANA_DATASOURCES_FILE:?Set GRAFANA_DATASOURCES_FILE before obs apply}:/etc/grafana/provisioning/datasources/datasources.yaml:ro
-      - ${GRAFANA_ADMIN_SECRET_FILE:?Set GRAFANA_ADMIN_SECRET_FILE before obs apply}:/run/secrets/grafana_admin_secret:ro
+      - ${GRAFANA_DATASOURCES_FILE:-${BT_STATE_DIR:-.blue-team-vm}/rendered/grafana.datasources.yml}:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - ${GRAFANA_ADMIN_SECRET_FILE:-${BT_STATE_DIR:-.blue-team-vm}/runtime/grafana-admin-secret}:/run/secrets/grafana_admin_secret:ro
     networks:
       - obs-plane
       - app-plane

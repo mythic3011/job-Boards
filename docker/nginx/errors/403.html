@@ -4,28 +4,30 @@
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="robots" content="noindex, nofollow" />
-        <title>403 Forbidden</title>
+        <title>403 Access Restricted</title>
         <link rel="stylesheet" href="/_error/styles.css" />
     </head>
     <body>
         <main class="surface card card--wide">
-            <div class="pill pill--warning">Front-door policy</div>
+            <div class="pill pill--warning">Access notice</div>
             <div class="code code--warning">403</div>
-            <h1>Forbidden</h1>
+            <h1>Access restricted</h1>
             <p>
-                This route is restricted by the nginx perimeter policy before
-                the application accepts the request.
+                This request could not be completed for the current session,
+                account, or network context.
             </p>
             <div class="meta">
-                Protected install, monitoring, and privileged routes may be
-                blocked from your current network or session.
+                Check your session, account, or network context and try again.
             </div>
+            <p class="reference">
+                Request ID: <span class="reference-id" id="request-id"></span>
+            </p>
             <div class="actions">
                 <a href="/" class="action action--primary">Return home</a>
             </div>
             <p class="footer">
-                If you expected access here, verify your account, session, and
-                network boundary first.
+                If you need support, share the reference ID so the request can
+                be traced in server logs.
             </p>
         </main>
     </body>

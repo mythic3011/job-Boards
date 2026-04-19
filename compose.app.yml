@@ -9,14 +9,13 @@ services:
       - "${APP_SSL_PORT:-443}:443"
     environment:
       MONITORING_ACCESS_MODE: "${MONITORING_ACCESS_MODE:-internal-only}"
-      MONITORING_ALLOWED_CIDRS: "${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,192.168.0.0/16}"
+      MONITORING_ALLOWED_CIDRS: "${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,172.29.0.0/24}"
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/nginx/crowdsec-bouncer.conf.template:/etc/nginx/crowdsec-bouncer.conf.template:ro
       - ./docker/nginx/errors:/usr/share/nginx/html:ro
       - ".:/var/www/html:ro"
-      - ./docker/nginx/include/blue-team-honeypot.conf:/etc/nginx/includes/blue-team-honeypot.conf:ro
-      # - ${BT_HONEYPOT_SOURCE:?Set BT_HONEYPOT_SOURCE before app apply}:/etc/nginx/includes/blue-team-honeypot.conf:ro
+      - ${BT_HONEYPOT_SOURCE:-./docker/nginx/includes/blue-team-honeypot.conf}:/etc/nginx/includes/blue-team-honeypot.conf:ro
       - nginx-ssl:/etc/nginx/ssl
       - nginx-logs:/var/log/nginx
       - crowdsec-keys:/crowdsec-keys:ro
@@ -38,7 +37,7 @@ services:
 
   crowdsec:
     container_name: jobs-boards-crowdsec
-    image: crowdsecurity/crowdsec:latest
+    image: crowdsecurity/crowdsec:v1.6.8
     environment:
       CROWDSEC_REQUIRED_APPSEC_CONFIG: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"
       CROWDSEC_REQUIRED_APPSEC_COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"
@@ -81,7 +80,7 @@ services:
 
   crowdsec-key-init:
     container_name: jobs-boards-crowdsec-key-init
-    image: crowdsecurity/crowdsec:latest
+    image: crowdsecurity/crowdsec:v1.6.8
     entrypoint: ["/init-bouncer-key.sh"]
     volumes:
       - ./docker/crowdsec/init-bouncer-key.sh:/init-bouncer-key.sh:ro

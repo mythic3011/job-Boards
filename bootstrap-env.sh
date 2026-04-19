@@ -424,7 +424,8 @@ fi
 
 GRAFANA_SECRET_FILE=$(get_env GRAFANA_ADMIN_SECRET_FILE)
 if [[ -z "$GRAFANA_SECRET_FILE" ]]; then
-    GRAFANA_SECRET_FILE=".blue-team-vm/runtime/grafana-admin-secret"
+    BOOTSTRAP_BT_STATE_DIR="$(get_env BT_STATE_DIR)"
+    GRAFANA_SECRET_FILE="$(BT_STATE_DIR="${BOOTSTRAP_BT_STATE_DIR}" bt_config_resolve_key GRAFANA_ADMIN_SECRET_FILE)"
     set_env "GRAFANA_ADMIN_SECRET_FILE" "${GRAFANA_SECRET_FILE}"
 fi
 

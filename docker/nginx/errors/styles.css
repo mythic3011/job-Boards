@@ -166,6 +166,16 @@ p {
     margin-bottom: 1.25rem;
 }
 
+.reference {
+    margin-bottom: 1.25rem;
+}
+
+.reference-id {
+    color: var(--error-text-strong);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.95rem;
+}
+
 .meta,
 .countdown,
 .error,

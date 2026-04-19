@@ -41,7 +41,7 @@ render_monitoring_access_conf() {
     case "${MONITORING_ACCESS_MODE}" in
         internal-only)
             cat > "${MONITORING_ACCESS_CONF}" <<'EOF'
-if ($is_internal = 0) { return 403; }
+if ($is_internal = 0) { rewrite ^ /_error/403 last; }
 EOF
             ;;
         auth-only)
