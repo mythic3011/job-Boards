@@ -4,6 +4,7 @@ TARGETS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./_builder.sh
 source "${TARGETS_DIR}/_builder.sh"
 
+TARGET_PROFILE_NAME="${TARGET_PROFILE_NAME:-from-env}"
 : "${TARGET_HOST:?Set TARGET_HOST for the reverse-proxy deploy target}"
 : "${TARGET_REMOTE_ROOT:?Set TARGET_REMOTE_ROOT for the reverse-proxy deploy target}"
 : "${TARGET_COMPOSE_PROJECT_NAME:?Set TARGET_COMPOSE_PROJECT_NAME for the reverse-proxy deploy target}"

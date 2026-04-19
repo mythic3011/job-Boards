@@ -4,6 +4,7 @@ TARGETS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./_builder.sh
 source "${TARGETS_DIR}/_builder.sh"
 
+TARGET_PROFILE_NAME="${TARGET_PROFILE_NAME:-jb.mythic3011.com}"
 TARGET_SUBDOMAIN="${TARGET_SUBDOMAIN:-jb}"
 TARGET_ROOT_DOMAIN="${TARGET_ROOT_DOMAIN:-mythic3011.com}"
 TARGET_DOMAIN="${TARGET_DOMAIN:-${TARGET_SUBDOMAIN}.${TARGET_ROOT_DOMAIN}}"
