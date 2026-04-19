@@ -282,6 +282,8 @@ BASH);
         $this->assertSame(0, $first->getExitCode(), $first->getOutput().$first->getErrorOutput());
         $this->assertStringContainsString('archive --format=tar.gz', (string) file_get_contents($gitLog));
         $this->assertStringContainsString("DEPLOY_BOOTSTRAP_MODE='production'", (string) file_get_contents($sshLog));
+        $this->assertStringContainsString("DEPLOY_MONITORING_ACCESS_MODE=auth-only\n", (string) file_get_contents($capturedEnv));
+        $this->assertStringContainsString("DEPLOY_MONITORING_ALLOWED_CIDRS=127.0.0.1/32\\,192.168.0.0/16\n", (string) file_get_contents($capturedEnv));
 
         file_put_contents($sshLog, '');
         $this->writeExecutable($fakeBin.'/ssh', <<<BASH

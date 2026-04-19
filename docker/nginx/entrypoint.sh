@@ -4,13 +4,84 @@ set -e
 
 CERT="/etc/nginx/ssl/selfsigned.crt"
 KEY="/etc/nginx/ssl/selfsigned.key"
-HTPASSWD="/etc/nginx/htpasswd/monitoring.htpasswd"
+MONITORING_GENERATED_DIR="/etc/nginx/generated"
+MONITORING_GEO_CONF="/etc/nginx/generated/monitoring-geo.conf"
+MONITORING_ACCESS_CONF="/etc/nginx/generated/monitoring-access.conf"
+MONITORING_SERVER_ACCESS_CONF="/etc/nginx/generated/monitoring-server-access.conf"
+MONITORING_ACCESS_MODE="${MONITORING_ACCESS_MODE:-internal-only}"
+MONITORING_ALLOWED_CIDRS="${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,192.168.0.0/16}"
 
 # ensure critical binaries available (nginx:alpine minimal)
-if ! command -v openssl >/dev/null 2>&1 || ! command -v htpasswd >/dev/null 2>&1; then
+if ! command -v openssl >/dev/null 2>&1; then
     echo "Installing missing dependencies..."
-    apk add --no-cache openssl apache2-utils >/dev/null 2>&1 || true
+    apk add --no-cache openssl >/dev/null 2>&1 || true
 fi
+
+render_monitoring_geo_conf() {
+    mkdir -p "${MONITORING_GENERATED_DIR}"
+
+    {
+        echo 'geo $is_internal {'
+        echo '    default 0;'
+
+        old_ifs="${IFS}"
+        IFS=','
+        for cidr in ${MONITORING_ALLOWED_CIDRS}; do
+            cidr="$(printf '%s' "${cidr}" | tr -d '[:space:]')"
+            [ -n "${cidr}" ] || continue
+            printf '    %s 1;\n' "${cidr}"
+        done
+        IFS="${old_ifs}"
+
+        echo '}'
+    } > "${MONITORING_GEO_CONF}"
+}
+
+render_monitoring_access_conf() {
+    case "${MONITORING_ACCESS_MODE}" in
+        internal-only)
+            cat > "${MONITORING_ACCESS_CONF}" <<'EOF'
+if ($is_internal = 0) { return 403; }
+EOF
+            ;;
+        auth-only)
+            : > "${MONITORING_ACCESS_CONF}"
+            ;;
+        disabled)
+            cat > "${MONITORING_ACCESS_CONF}" <<'EOF'
+return 404;
+EOF
+            ;;
+        *)
+            echo "ERROR: unsupported MONITORING_ACCESS_MODE: ${MONITORING_ACCESS_MODE}" >&2
+            exit 1
+            ;;
+    esac
+}
+
+render_monitoring_server_access_conf() {
+    case "${MONITORING_ACCESS_MODE}" in
+        internal-only|auth-only)
+            : > "${MONITORING_SERVER_ACCESS_CONF}"
+            ;;
+        disabled)
+            cat > "${MONITORING_SERVER_ACCESS_CONF}" <<'EOF'
+if ($request_uri ~ "^/monitoring/") { return 404; }
+EOF
+            ;;
+        *)
+            echo "ERROR: unsupported MONITORING_ACCESS_MODE: ${MONITORING_ACCESS_MODE}" >&2
+            exit 1
+            ;;
+    esac
+}
+
+render_monitoring_policy() {
+    render_monitoring_geo_conf
+    render_monitoring_access_conf
+    render_monitoring_server_access_conf
+    chmod 0644 "${MONITORING_GEO_CONF}" "${MONITORING_ACCESS_CONF}" "${MONITORING_SERVER_ACCESS_CONF}"
+}
 
 
 # SSL cert renewal logic
@@ -58,19 +129,7 @@ if [ "$RENEW_CERT" -eq 1 ]; then
     echo "SSL certificate generated (SANs: ${SAN_LIST})."
 fi
 
-if [ -n "$MONITORING_PASSWORD" ]; then
-    if [ ${#MONITORING_PASSWORD} -lt 16 ]; then
-        echo "WARNING: MONITORING_PASSWORD is less than 16 characters. This is not recommended for security reasons."
-    fi
-fi
-
-if [ -n "$MONITORING_PASSWORD" ] && [ ! -f "$HTPASSWD" ]; then
-    echo "Generating monitoring htpasswd..."
-    mkdir -p /etc/nginx/htpasswd
-    htpasswd -Bcb "$HTPASSWD" admin "$MONITORING_PASSWORD"
-    chmod 644 "$HTPASSWD"
-    echo "htpasswd generated with bcrypt."
-fi
+render_monitoring_policy
 
 mkdir -p /var/log/nginx
 touch /var/log/nginx/access.log /var/log/nginx/error.log /var/log/nginx/fp-trap.log

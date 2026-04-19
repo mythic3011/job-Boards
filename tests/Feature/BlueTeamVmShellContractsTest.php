@@ -316,6 +316,25 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringNotContainsString('/opt/blue-team/nginx/includes/blue-team-honeypot.conf:/etc/nginx/includes/blue-team-honeypot.conf:ro', $contents);
     }
 
+    public function test_app_compose_passes_monitoring_access_policy_env_to_nginx(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.app.yml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('MONITORING_ACCESS_MODE: "${MONITORING_ACCESS_MODE:-internal-only}"', $contents);
+        $this->assertStringContainsString('MONITORING_ALLOWED_CIDRS: "${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,192.168.0.0/16}"', $contents);
+        $this->assertStringNotContainsString('MONITORING_PASSWORD: "${MONITORING_PASSWORD}"', $contents);
+    }
+
+    public function test_nginx_entrypoint_does_not_generate_dead_monitoring_htpasswd_artifacts(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/nginx/entrypoint.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringNotContainsString('monitoring.htpasswd', $contents);
+        $this->assertStringNotContainsString('Generating monitoring htpasswd', $contents);
+    }
+
     public function test_app_compose_keeps_crowdsec_image_bootstrap_and_healthchecks_appsec_readiness(): void
     {
         $contents = file_get_contents($this->repoRoot.'/compose.app.yml');

@@ -607,6 +607,16 @@ BASH);
         $this->assertStringNotContainsString('curl -sf http://laravel.test:80/up || exit 1', $contents);
     }
 
+    public function test_combined_compose_passes_monitoring_access_policy_env_to_nginx(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.yaml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('MONITORING_ACCESS_MODE: "${MONITORING_ACCESS_MODE:-internal-only}"', $contents);
+        $this->assertStringContainsString('MONITORING_ALLOWED_CIDRS: "${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,192.168.0.0/16}"', $contents);
+        $this->assertStringNotContainsString('MONITORING_PASSWORD: "${MONITORING_PASSWORD}"', $contents);
+    }
+
     public function test_install_script_relies_on_shared_compose_honeypot_preload_instead_of_inline_export(): void
     {
         $contents = file_get_contents($this->repoRoot.'/install.sh');

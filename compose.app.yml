@@ -8,7 +8,8 @@ services:
       - "${APP_PORT:-80}:80"
       - "${APP_SSL_PORT:-443}:443"
     environment:
-      MONITORING_PASSWORD: "${MONITORING_PASSWORD}"
+      MONITORING_ACCESS_MODE: "${MONITORING_ACCESS_MODE:-internal-only}"
+      MONITORING_ALLOWED_CIDRS: "${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,192.168.0.0/16}"
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./docker/nginx/crowdsec-bouncer.conf.template:/etc/nginx/crowdsec-bouncer.conf.template:ro
@@ -16,7 +17,6 @@ services:
       - ".:/var/www/html:ro"
       - ${BT_HONEYPOT_SOURCE:?Set BT_HONEYPOT_SOURCE before app apply}:/etc/nginx/includes/blue-team-honeypot.conf:ro
       - nginx-ssl:/etc/nginx/ssl
-      - nginx-htpasswd:/etc/nginx/htpasswd
       - nginx-logs:/var/log/nginx
       - crowdsec-keys:/crowdsec-keys:ro
     networks:
@@ -207,8 +207,6 @@ volumes:
   sail-redis:
     driver: local
   nginx-ssl:
-    driver: local
-  nginx-htpasswd:
     driver: local
   nginx-logs:
     driver: local
