@@ -54,6 +54,17 @@ class BootstrapEnvShellContractsTest extends TestCase
         $this->assertStringContainsString('# advanced override: plaintext source for Prometheus basic auth bootstrap; defaults to MONITORING_PASSWORD when unset', $example);
     }
 
+    public function test_shell_port_reassignment_uses_named_allocator_calls_instead_of_command_substitution(): void
+    {
+        $bootstrapContents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
+        $installContents = file_get_contents($this->repoRoot.'/install.sh');
+
+        $this->assertIsString($bootstrapContents);
+        $this->assertIsString($installContents);
+        $this->assertStringNotContainsString('new_port=$(bt_find_free_port)', $bootstrapContents);
+        $this->assertStringNotContainsString('new_port=$(bt_find_free_port)', $installContents);
+    }
+
     public function test_set_env_preserves_special_character_semantics_with_portable_handoff(): void
     {
         $tempRoot = $this->makeTempDir();

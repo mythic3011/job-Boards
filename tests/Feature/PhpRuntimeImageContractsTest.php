@@ -41,20 +41,20 @@ class PhpRuntimeImageContractsTest extends TestCase
         $this->assertStringContainsString('dockerfile: docker/Dockerfile.sail', $appComposeContents);
     }
 
-    public function test_shared_php_runtime_builds_export_and_reuse_a_local_builder_cache(): void
+    public function test_shared_php_runtime_builds_do_not_configure_local_builder_cache_exports(): void
     {
         $composeContents = file_get_contents($this->repoRoot.'/compose.yaml');
         $appComposeContents = file_get_contents($this->repoRoot.'/compose.app.yml');
 
         $this->assertIsString($composeContents);
         $this->assertIsString($appComposeContents);
-        $this->assertStringContainsString('cache_from:', $composeContents);
-        $this->assertStringContainsString('cache_to:', $composeContents);
-        $this->assertStringContainsString('type=local,src=.docker/buildx-cache/php-runtime', $composeContents);
-        $this->assertStringContainsString('type=local,dest=.docker/buildx-cache/php-runtime,mode=max', $composeContents);
-        $this->assertStringContainsString('cache_from:', $appComposeContents);
-        $this->assertStringContainsString('cache_to:', $appComposeContents);
-        $this->assertStringContainsString('type=local,src=.docker/buildx-cache/php-runtime', $appComposeContents);
-        $this->assertStringContainsString('type=local,dest=.docker/buildx-cache/php-runtime,mode=max', $appComposeContents);
+        $this->assertStringNotContainsString('cache_from:', $composeContents);
+        $this->assertStringNotContainsString('cache_to:', $composeContents);
+        $this->assertStringNotContainsString('type=local,src=.docker/buildx-cache/php-runtime', $composeContents);
+        $this->assertStringNotContainsString('type=local,dest=.docker/buildx-cache/php-runtime,mode=max', $composeContents);
+        $this->assertStringNotContainsString('cache_from:', $appComposeContents);
+        $this->assertStringNotContainsString('cache_to:', $appComposeContents);
+        $this->assertStringNotContainsString('type=local,src=.docker/buildx-cache/php-runtime', $appComposeContents);
+        $this->assertStringNotContainsString('type=local,dest=.docker/buildx-cache/php-runtime,mode=max', $appComposeContents);
     }
 }

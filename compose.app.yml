@@ -15,7 +15,8 @@ services:
       - ./docker/nginx/crowdsec-bouncer.conf.template:/etc/nginx/crowdsec-bouncer.conf.template:ro
       - ./docker/nginx/errors:/usr/share/nginx/html:ro
       - ".:/var/www/html:ro"
-      - ${BT_HONEYPOT_SOURCE:?Set BT_HONEYPOT_SOURCE before app apply}:/etc/nginx/includes/blue-team-honeypot.conf:ro
+      - ./docker/nginx/include/blue-team-honeypot.conf:/etc/nginx/includes/blue-team-honeypot.conf:ro
+      # - ${BT_HONEYPOT_SOURCE:?Set BT_HONEYPOT_SOURCE before app apply}:/etc/nginx/includes/blue-team-honeypot.conf:ro
       - nginx-ssl:/etc/nginx/ssl
       - nginx-logs:/var/log/nginx
       - crowdsec-keys:/crowdsec-keys:ro
@@ -68,7 +69,11 @@ services:
         condition: service_started
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "test -f /etc/crowdsec/config.yaml && cscli appsec-configs list -c /etc/crowdsec/config.yaml 2>/dev/null | grep -Fq \"${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}\" && cscli appsec-rules list -c /etc/crowdsec/config.yaml 2>/dev/null | grep -Fq 'crowdsecurity/vpatch-' && wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          'test -f /etc/crowdsec/config.yaml && cscli appsec-configs list -c /etc/crowdsec/config.yaml 2>/dev/null | grep -Fq "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}" && cscli appsec-rules list -c /etc/crowdsec/config.yaml 2>/dev/null | grep -Fq ''crowdsecurity/vpatch-'' && wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1',
+        ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -95,10 +100,6 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.sail
-      cache_from:
-        - type=local,src=.docker/buildx-cache/php-runtime
-      cache_to:
-        - type=local,dest=.docker/buildx-cache/php-runtime,mode=max
       args:
         WWWGROUP: ${WWWGROUP}
         INSTALL_PLAYWRIGHT: "false"
@@ -127,7 +128,11 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "php -r '$$socket=@fsockopen(\"127.0.0.1\", 9000); if (! $$socket) { exit(1); } fclose($$socket);'"]
+      test:
+        [
+          "CMD-SHELL",
+          'php -r ''$$socket=@fsockopen("127.0.0.1", 9000); if (! $$socket) { exit(1); } fclose($$socket);''',
+        ]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -138,10 +143,6 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.sail
-      cache_from:
-        - type=local,src=.docker/buildx-cache/php-runtime
-      cache_to:
-        - type=local,dest=.docker/buildx-cache/php-runtime,mode=max
       args:
         WWWGROUP: ${WWWGROUP}
         INSTALL_PLAYWRIGHT: "false"
@@ -169,7 +170,8 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "ps aux | grep -q '[p]hp artisan queue:work' || exit 1"]
+      test:
+        ["CMD-SHELL", "ps aux | grep -q '[p]hp artisan queue:work' || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -188,7 +190,11 @@ services:
       - app-plane
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE} -h localhost || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE} -h localhost || exit 1",
+        ]
       interval: 5s
       timeout: 5s
       retries: 5

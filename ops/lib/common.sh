@@ -207,12 +207,34 @@ bt_emit_plane_check_summary() {
 
 : "${BT_LAST_ASSIGNED_PORT:=3000}"
 
+bt_port_is_reserved() {
+    local port="$1"
+    shift
+
+    local reserved
+    for reserved in "$@"; do
+        [[ -n "${reserved}" && "${reserved}" == "${port}" ]] && return 0
+    done
+
+    return 1
+}
+
 bt_find_free_port() {
+    local out_var=""
+    if [[ $# -gt 0 && ! "${1}" =~ ^[0-9]+$ ]]; then
+        out_var="$1"
+        shift
+    fi
+
     local p=$(( BT_LAST_ASSIGNED_PORT + 1 ))
     while [[ $p -le 9001 ]]; do
-        if ! bt_port_in_use "$p"; then
+        if ! bt_port_in_use "$p" && ! bt_port_is_reserved "$p" "$@"; then
             BT_LAST_ASSIGNED_PORT=$p
-            printf '%s\n' "$p"
+            if [[ -n "${out_var}" ]]; then
+                printf -v "${out_var}" '%s' "$p"
+            else
+                printf '%s\n' "$p"
+            fi
             return 0
         fi
         p=$((p + 1))
@@ -631,21 +653,6 @@ bt_local_listen_ports() {
     fi
 
     return 1
-}
-
-bt_repair_buildx_caches() {
-    local cache_root="${BT_ROOT_DIR}/.docker/buildx-cache"
-    local cache_dir index_file
-
-    [[ -d "${cache_root}" ]] || return 0
-
-    while IFS= read -r -d '' cache_dir; do
-        index_file="${cache_dir}/index.json"
-        if [[ ! -f "${index_file}" ]] || ! python3 -c "import json,sys; json.load(open(sys.argv[1]))" "${index_file}" >/dev/null 2>&1; then
-            bt_log "Removing corrupt buildx cache: ${cache_dir}"
-            rm -rf "${cache_dir}"
-        fi
-    done < <(find "${cache_root}" -mindepth 1 -maxdepth 1 -type d -print0)
 }
 
 bt_compose_network_drivers() {

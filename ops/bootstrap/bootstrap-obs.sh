@@ -758,7 +758,6 @@ apply_action() {
         exit 1
     }
 
-    bt_repair_buildx_caches
     bt_compose "${BT_COMPOSE_OBS_FILE}" up -d --build
     bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" auth-service healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true
     bt_wait_for_container_state "${BT_COMPOSE_OBS_FILE}" grafana healthy "${OBS_WAIT_TIMEOUT_SECONDS}" || true

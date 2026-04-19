@@ -176,22 +176,47 @@ _install_read_port() {
 }
 
 check_ports() {
+    local -a reserved_port_vars=( PORT:3000 )
     local -a port_vars=( APP_PORT:80 APP_SSL_PORT:443 VITE_PORT:5173 FORWARD_DB_PORT:5432 FORWARD_REDIS_PORT:6379 )
-    local blocked=()
+    local -a reserved_ports=()
+    local -a blocked_entries=()
+    local -a blocked_messages=()
+    local entry var default port
 
-    for entry in "${port_vars[@]}"; do
-        local var="${entry%%:*}" default="${entry##*:}"
-        local port
+    for entry in "${reserved_port_vars[@]}"; do
+        var="${entry%%:*}"
+        default="${entry##*:}"
         port=$(_install_read_port "$var" "$default")
-        bt_port_in_use "$port" && blocked+=("${var}:${port}")
+        reserved_ports+=("$port")
     done
 
-    [[ ${#blocked[@]} -eq 0 ]] && return 0
+    for entry in "${port_vars[@]}"; do
+        var="${entry%%:*}"
+        default="${entry##*:}"
+        port=$(_install_read_port "$var" "$default")
+
+        if bt_port_is_reserved "$port" "${reserved_ports[@]}"; then
+            blocked_entries+=("${var}:${port}")
+            blocked_messages+=("  ${var} = ${port} conflicts with another defined port")
+            continue
+        fi
+
+        if bt_port_in_use "$port"; then
+            blocked_entries+=("${var}:${port}")
+            blocked_messages+=("  ${var} = ${port} is already in use")
+            continue
+        fi
+
+        reserved_ports+=("$port")
+    done
+
+    [[ ${#blocked_entries[@]} -eq 0 ]] && return 0
 
     echo ""
     err "Port conflict detected:"
-    for entry in "${blocked[@]}"; do
-        err "  ${entry%%:*} = ${entry##*:} is already in use"
+    local message
+    for message in "${blocked_messages[@]}"; do
+        err "${message}"
     done
     echo ""
     read -r -p "Auto-assign free ports in range 3001-9001? [Y/n] " _ans
@@ -200,15 +225,18 @@ check_ports() {
         exit 1
     fi
 
-    for entry in "${blocked[@]}"; do
-        local key="${entry%%:*}" old_port="${entry##*:}" new_port
-        if ! new_port=$(bt_find_free_port); then
+    local key old_port new_port
+    for entry in "${blocked_entries[@]}"; do
+        key="${entry%%:*}"
+        old_port="${entry##*:}"
+        if ! bt_find_free_port new_port "${reserved_ports[@]}"; then
             err "ERROR: No free port found in range 3001-9001 for ${key}."
             exit 1
         fi
         echo "  ${key}: ${old_port} -> ${new_port}"
         bt_upsert_env_file_value ".env" "$key" "$new_port"
         export "$key"="$new_port"
+        reserved_ports+=("$new_port")
     done
     echo ""
 }

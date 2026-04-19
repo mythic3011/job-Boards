@@ -470,16 +470,25 @@ echo "── Port conflict check ──"
 
 _check_port_var() {
     local var="$1" default="$2"
-    local current new_port
+    shift 2
+
+    local current new_port reason=""
+    local -a reserved_ports=( "$@" )
     current=$(get_env "$var")
     current="${current:-$default}"
 
-    if bt_port_in_use "$current"; then
-        if new_port=$(bt_find_free_port); then
+    if bt_port_is_reserved "$current" "${reserved_ports[@]}"; then
+        reason="conflicted with another defined port"
+    elif bt_port_in_use "$current"; then
+        reason="was in use"
+    fi
+
+    if [[ -n "${reason}" ]]; then
+        if bt_find_free_port new_port "${reserved_ports[@]}"; then
             set_env "$var" "$new_port"
-            echo "  ✔ ${var}: ${current} → ${new_port} (was in use, reassigned)"
+            echo "  ✔ ${var}: ${current} → ${new_port} (${reason}, reassigned)"
         else
-            echo "  ✘ ${var}: port ${current} in use — no free port found in 3001-9001"
+            echo "  ✘ ${var}: port ${current} ${reason} — no free port found in 3001-9001"
             ISSUES=$((ISSUES + 1))
         fi
     else
@@ -488,11 +497,31 @@ _check_port_var() {
     fi
 }
 
-_check_port_var APP_PORT        80
-_check_port_var APP_SSL_PORT    443
-_check_port_var VITE_PORT       5173
-_check_port_var FORWARD_DB_PORT   5432
-_check_port_var FORWARD_REDIS_PORT 6379
+port_conflict_check() {
+    local -a reserved_port_vars=( PORT:3000 )
+    local -a port_vars=( APP_PORT:80 APP_SSL_PORT:443 VITE_PORT:5173 FORWARD_DB_PORT:5432 FORWARD_REDIS_PORT:6379 )
+    local -a reserved_ports=()
+    local entry var default current
+
+    for entry in "${reserved_port_vars[@]}"; do
+        var="${entry%%:*}"
+        default="${entry##*:}"
+        current=$(get_env "$var")
+        current="${current:-$default}"
+        reserved_ports+=("$current")
+    done
+
+    for entry in "${port_vars[@]}"; do
+        var="${entry%%:*}"
+        default="${entry##*:}"
+        _check_port_var "$var" "$default" "${reserved_ports[@]}"
+        current=$(get_env "$var")
+        current="${current:-$default}"
+        reserved_ports+=("$current")
+    done
+}
+
+port_conflict_check
 
 # ── 6. Final audit ─────────────────────────────────────────────────────────────
 echo ""

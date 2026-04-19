@@ -223,10 +223,6 @@ services:
         build:
             context: .
             dockerfile: docker/Dockerfile.sail
-            cache_from:
-                - type=local,src=.docker/buildx-cache/php-runtime
-            cache_to:
-                - type=local,dest=.docker/buildx-cache/php-runtime,mode=max
             args:
                 WWWGROUP: ${WWWGROUP}
                 INSTALL_PLAYWRIGHT: "false"
@@ -265,10 +261,6 @@ services:
         build:
             context: .
             dockerfile: docker/Dockerfile.sail
-            cache_from:
-                - type=local,src=.docker/buildx-cache/php-runtime
-            cache_to:
-                - type=local,dest=.docker/buildx-cache/php-runtime,mode=max
             args:
                 WWWGROUP: ${WWWGROUP}
                 INSTALL_PLAYWRIGHT: "false"

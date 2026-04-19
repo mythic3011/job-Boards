@@ -404,6 +404,83 @@ BASH);
         $this->assertLessThan($composerOffset, $curlOffset, 'Package-network probe must happen before fallback composer install.');
     }
 
+    public function test_install_full_treats_defined_ports_as_reserved_when_auto_assigning_conflicts(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+
+        file_put_contents($tempRoot.'/.env', <<<ENV
+PORT=3001
+APP_PORT=80
+APP_SSL_PORT=443
+VITE_PORT=18173
+FORWARD_DB_PORT=15432
+FORWARD_REDIS_PORT=16379
+ENV);
+
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
+cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
+PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
+EOF
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/docker', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "compose" && "${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "${1:-}" == "exec" ]]; then
+  exit 1
+fi
+if [[ "${1:-}" == "compose" && ( "${2:-}" == "build" || ( "${2:-}" == "-f" && "${4:-}" == "build" ) ) ]]; then
+  exit 7
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        $this->writeExecutable($fakeBin.'/ss', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+LISTEN 0 128 0.0.0.0:80 0.0.0.0:*
+LISTEN 0 128 0.0.0.0:443 0.0.0.0:*
+EOF
+BASH);
+        $this->writeExecutable($fakeBin.'/lsof', "#!/usr/bin/env bash\nset -euo pipefail\nexit 1\n");
+        $this->writeExecutable($fakeBin.'/netstat', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'full', 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            "Y\n",
+            20,
+        );
+        $process->run();
+
+        $envContents = file_get_contents($tempRoot.'/.env');
+
+        $this->assertSame(7, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $this->assertIsString($envContents);
+        $this->assertMatchesRegularExpression('/^PORT=3001$/m', $envContents);
+        $this->assertSame(1, preg_match('/^APP_PORT=(\d+)$/m', $envContents, $appPortMatches));
+        $this->assertSame(1, preg_match('/^APP_SSL_PORT=(\d+)$/m', $envContents, $sslPortMatches));
+        $this->assertNotSame('3001', $appPortMatches[1]);
+        $this->assertNotSame('3001', $sslPortMatches[1]);
+        $this->assertNotSame($appPortMatches[1], $sslPortMatches[1]);
+    }
+
     public function test_install_full_fails_loudly_without_attempting_composer_install_when_vendor_is_missing_and_package_network_is_unreachable(): void
     {
         $tempRoot = $this->makeTempDir();
