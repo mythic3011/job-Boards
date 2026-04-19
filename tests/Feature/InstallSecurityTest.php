@@ -139,6 +139,12 @@ class InstallSecurityTest extends TestCase
             ->set('app_name', 'Jobs Board')
             ->set('app_url', 'https://jobboard.example.com')
             ->set('timezone', 'Asia/Hong_Kong')
+            ->set('checksLoaded', true)
+            ->set('systemChecks', [
+                'database' => true,
+                'storage' => true,
+                'cache' => true,
+            ])
             ->set('twoFactorSecret', 'JBSWY3DPEHPK3PXP')
             ->set('recoveryCodes', ['RCODE-1', 'RCODE-2'])
             ->set('testSuccess', true)

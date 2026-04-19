@@ -3,10 +3,13 @@
 namespace App\Livewire\Install;
 
 use App\Services\InstallService;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rules\Password;
 use Laravel\Fortify\RecoveryCode;
 use Livewire\Component;
 use PragmaRX\Google2FALaravel\Google2FA;
+use Throwable;
 
 class Wizard extends Component
 {
@@ -23,6 +26,9 @@ class Wizard extends Component
     public string $app_name = 'Jobs Board';
     public string $app_url = '';
     public string $timezone = 'Asia/Hong_Kong';
+    public array $systemChecks = [];
+    public bool $checksLoaded = false;
+    public string $checksError = '';
 
     // Step 3: Two-Factor Authentication
     public string $twoFactorSecret = '';
@@ -58,11 +64,15 @@ class Wizard extends Component
             if ($this->currentStep < 4) {
                 $this->currentStep++;
 
+                if ($this->currentStep === 2) {
+                    $this->refreshSystemChecks();
+                }
+
                 if ($this->currentStep === 3) {
                     $this->generate2FA();
                 }
             }
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             $this->error = collect($e->errors())->flatten()->first();
         }
     }
@@ -95,6 +105,8 @@ class Wizard extends Component
             'app_url'  => ['required', 'url', 'max:255'],
             'timezone' => ['required', 'string', 'max:255'],
         ]);
+
+        $this->ensureSystemChecksPass();
     }
 
     protected function validateStep3(): void
@@ -114,35 +126,35 @@ class Wizard extends Component
 
     public function generate2FA(): void
     {
+        $this->resetTwoFactorState();
+
         try {
-            $google2fa = new Google2FA();
+            $google2fa = app(Google2FA::class);
             $this->twoFactorSecret = $google2fa->generateSecretKey();
-
-            $qrCodeUrl = $google2fa->getQRCodeUrl(
-                $this->app_name,
-                $this->email,
-                $this->twoFactorSecret
-            );
-
-            $this->qrCodeDataUrl = $this->generateQRCodeSVG($qrCodeUrl);
+            $this->qrCodeDataUrl = $this->generateQRCodeSVG();
 
             $this->recoveryCodes = collect(range(1, 10))
                 ->map(fn() => RecoveryCode::generate())
                 ->toArray();
 
-        } catch (\Exception $e) {
-            $this->error = 'Failed to generate 2FA codes. Please try again.';
-            \Illuminate\Support\Facades\Log::error('2FA generation failed', ['error' => $e->getMessage()]);
+        } catch (Throwable $e) {
+            $this->currentStep = 2;
+            $this->resetTwoFactorState();
+            $this->error = 'Installation setup failed. Fix the issue and try again.';
+
+            Log::error('2FA generation failed', [
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
-    protected function generateQRCodeSVG(string $text): string
+    protected function generateQRCodeSVG(): string
     {
-        return '<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" class="w-48 h-48">' .
-               '<rect width="256" height="256" fill="#f3f4f6"/>' .
-               '<text x="128" y="120" text-anchor="middle" font-size="14" fill="#374151" font-family="sans-serif">Use the manual entry key below</text>' .
-               '<text x="128" y="145" text-anchor="middle" font-size="12" fill="#6b7280" font-family="sans-serif">to add to your authenticator app</text>' .
-               '</svg>';
+        return app(Google2FA::class)->getQRCodeInline(
+            $this->app_name,
+            $this->email,
+            $this->twoFactorSecret
+        );
     }
 
     public function testOTP(): void
@@ -156,17 +168,16 @@ class Wizard extends Component
         }
 
         try {
-            $google2fa = new Google2FA();
+            $google2fa = app(Google2FA::class);
             $valid = $google2fa->verifyKey($this->twoFactorSecret, $this->testCode);
 
             if ($valid) {
                 $this->testSuccess = true;
                 $this->testResult = 'Valid code! 2FA is working correctly.';
-                $this->dispatch('2fa-verified');
             } else {
                 $this->testResult = 'Invalid code. Please check your authenticator app.';
             }
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             $this->testResult = 'Verification failed. Please try again.';
         }
 
@@ -217,22 +228,89 @@ class Wizard extends Component
             session()->flash('success', 'Installation completed successfully!');
             $this->redirect('/login', navigate: true);
 
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             $this->processing = false;
             $this->error = collect($e->errors())->flatten()->first();
-        } catch (\Exception $e) {
+        } catch (Throwable $e) {
             $this->processing = false;
-            $this->error = 'Installation failed: ' . $e->getMessage();
-            \Illuminate\Support\Facades\Log::error('Installation failed', [
+            $this->error = 'Installation failed. Please try again.';
+
+            Log::error('Installation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
         }
     }
 
+    public function refreshSystemChecks(): void
+    {
+        $this->checksError = '';
+
+        try {
+            $checks = app(InstallService::class)->runSystemChecks();
+
+            $this->systemChecks = [
+                'database' => ($checks['database'] ?? false) === true,
+                'storage' => ($checks['storage'] ?? false) === true,
+                'cache' => ($checks['cache'] ?? false) === true,
+            ];
+            $this->checksLoaded = true;
+        } catch (Throwable $e) {
+            $this->systemChecks = [
+                'database' => false,
+                'storage' => false,
+                'cache' => false,
+            ];
+            $this->checksLoaded = true;
+            $this->checksError = 'System requirements could not be checked.';
+
+            Log::error('Install system checks failed', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    public function getSystemRequirementsPassingProperty(): bool
+    {
+        if (! $this->checksLoaded || $this->checksError !== '') {
+            return false;
+        }
+
+        foreach (['database', 'storage', 'cache'] as $check) {
+            if (($this->systemChecks[$check] ?? false) !== true) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public function getFormattedSecretProperty(): string
     {
         return chunk_split($this->twoFactorSecret, 4, ' ');
+    }
+
+    protected function ensureSystemChecksPass(): void
+    {
+        if (! $this->checksLoaded) {
+            $this->refreshSystemChecks();
+        }
+
+        if (! $this->systemRequirementsPassing) {
+            throw ValidationException::withMessages([
+                'systemChecks' => 'Fix the failed system requirements before continuing.',
+            ]);
+        }
+    }
+
+    protected function resetTwoFactorState(): void
+    {
+        $this->twoFactorSecret = '';
+        $this->recoveryCodes = [];
+        $this->qrCodeDataUrl = '';
+        $this->testCode = '';
+        $this->testResult = '';
+        $this->testSuccess = false;
     }
 
     public function render()
