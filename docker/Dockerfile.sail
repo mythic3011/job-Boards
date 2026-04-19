@@ -34,6 +34,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
  && install -d -m 0755 /etc/apt/keyrings \
  && LC_ALL=C.UTF-8 add-apt-repository -y ppa:ondrej/php \
  && apt-get update \
+ && apt-get upgrade -y \
  && apt-get install -y --no-install-recommends \
         php8.5-cli php8.5-dev php8.5-fpm php8.5-pgsql php8.5-sqlite3 php8.5-gd php8.5-curl \
         php8.5-mbstring php8.5-xml php8.5-zip php8.5-bcmath php8.5-intl php8.5-readline \
@@ -58,12 +59,13 @@ RUN groupadd --force -g $WWWGROUP sail \
 RUN git config --global --add safe.directory /var/www/html
 
 COPY docker/start-container /usr/local/bin/start-container
+COPY docker/prepare-laravel-runtime /usr/local/bin/prepare-laravel-runtime
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php.ini /etc/php/8.5/cli/conf.d/99-sail.ini
 COPY docker/php.ini /etc/php/8.5/fpm/conf.d/99-sail.ini
 COPY docker/php-fpm-www.conf /etc/php/8.5/fpm/pool.d/zz-jobs-boards.conf
 COPY --from=composer_stage /usr/bin/composer /usr/bin/composer
-RUN chmod +x /usr/local/bin/start-container || true
+RUN chmod +x /usr/local/bin/start-container /usr/local/bin/prepare-laravel-runtime || true
 
 EXPOSE 9000/tcp
 ENTRYPOINT ["start-container"]

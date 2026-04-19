@@ -95,6 +95,10 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.sail
+      cache_from:
+        - type=local,src=.docker/buildx-cache/php-runtime
+      cache_to:
+        - type=local,dest=.docker/buildx-cache/php-runtime,mode=max
       args:
         WWWGROUP: ${WWWGROUP}
         INSTALL_PLAYWRIGHT: "false"
@@ -134,12 +138,21 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.sail
+      cache_from:
+        - type=local,src=.docker/buildx-cache/php-runtime
+      cache_to:
+        - type=local,dest=.docker/buildx-cache/php-runtime,mode=max
       args:
         WWWGROUP: ${WWWGROUP}
         INSTALL_PLAYWRIGHT: "false"
         INSTALL_BUN: "false"
     image: sail-8.5/app
-    entrypoint: ["php", "artisan", "queue:work", "--sleep=1", "--tries=3", "--backoff=10", "--timeout=300"]
+    entrypoint:
+      [
+        "/bin/bash",
+        "-lc",
+        "/usr/local/bin/prepare-laravel-runtime /var/www/html && exec php artisan queue:work --sleep=1 --tries=3 --backoff=10 --timeout=300",
+      ]
     environment:
       WWWUSER: ${WWWUSER}
       DB_HOST: postgres

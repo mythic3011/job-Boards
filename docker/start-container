@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 PHP_BIN=${PHP_BIN:-$(command -v php || true)}
 if [ -z "$PHP_BIN" ] || [ ! -x "$PHP_BIN" ]; then
@@ -8,7 +8,9 @@ if [ -z "$PHP_BIN" ] || [ ! -x "$PHP_BIN" ]; then
 fi
 export PHP_BIN
 
-mkdir -p /var/log/laravel /var/www/html/storage/logs
+/usr/local/bin/prepare-laravel-runtime /var/www/html
+
+mkdir -p /var/log/laravel
 ln -sf /var/www/html/storage/logs/laravel.log /var/log/laravel/laravel.log 2>/dev/null || true
 
 $PHP_BIN /var/www/html/artisan migrate --force 2>&1 || true

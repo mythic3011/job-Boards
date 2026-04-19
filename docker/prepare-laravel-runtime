@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_ROOT="${1:-/var/www/html}"
+
+mkdir -p \
+    "${APP_ROOT}/bootstrap/cache" \
+    "${APP_ROOT}/storage/logs" \
+    "${APP_ROOT}/storage/framework/cache/data" \
+    "${APP_ROOT}/storage/framework/sessions" \
+    "${APP_ROOT}/storage/framework/testing" \
+    "${APP_ROOT}/storage/framework/views/livewire"
