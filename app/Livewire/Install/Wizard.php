@@ -17,14 +17,20 @@ class Wizard extends Component
 
     // Step 1: Admin Account
     public string $username = '';
+
     public string $name = '';
+
     public string $email = '';
+
     public string $password = '';
+
     public string $password_confirmation = '';
 
     // Step 2: System Configuration
     public string $app_name = 'Jobs Board';
+
     public string $app_url = '';
+
     public string $timezone = 'Asia/Hong_Kong';
     public array $systemChecks = [];
     public bool $checksLoaded = false;
@@ -32,16 +38,22 @@ class Wizard extends Component
 
     // Step 3: Two-Factor Authentication
     public string $twoFactorSecret = '';
+
     public array $recoveryCodes = [];
+
     public string $qrCodeDataUrl = '';
+
     public string $testCode = '';
+
     public string $testResult = '';
+
     public bool $testSuccess = false;
 
     // Step 4: Review & Complete
     public bool $installDemo = false;
 
     public bool $processing = false;
+
     public string $error = '';
 
     public function mount(): void
@@ -54,7 +66,7 @@ class Wizard extends Component
         $this->error = '';
 
         try {
-            match($this->currentStep) {
+            match ($this->currentStep) {
                 1 => $this->validateStep1(),
                 2 => $this->validateStep2(),
                 3 => $this->validateStep3(),
@@ -89,12 +101,12 @@ class Wizard extends Component
     {
         $this->validate([
             'username' => ['required', 'string', 'min:3', 'max:255', 'regex:/^[a-zA-Z0-9_]+$/'],
-            'name'     => ['required', 'string', 'min:2', 'max:255'],
-            'email'    => ['required', 'email:rfc,dns', 'max:255'],
+            'name' => ['required', 'string', 'min:2', 'max:255'],
+            'email' => ['required', 'email:rfc', 'max:255'],
             'password' => ['required', 'confirmed', Password::min(12)->mixedCase()->numbers()],
         ], [
             'username.regex' => 'Username can only contain letters, numbers, and underscores.',
-            'password.min'   => 'Password must be at least 12 characters.',
+            'password.min' => 'Password must be at least 12 characters.',
         ]);
     }
 
@@ -102,7 +114,7 @@ class Wizard extends Component
     {
         $this->validate([
             'app_name' => ['required', 'string', 'max:255'],
-            'app_url'  => ['required', 'url', 'max:255'],
+            'app_url' => ['required', 'url', 'max:255'],
             'timezone' => ['required', 'string', 'max:255'],
         ]);
 
@@ -117,7 +129,7 @@ class Wizard extends Component
             ]);
         }
 
-        if (!$this->testSuccess) {
+        if (! $this->testSuccess) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'testCode' => 'You must verify your 2FA code before continuing.',
             ]);
@@ -134,7 +146,7 @@ class Wizard extends Component
             $this->qrCodeDataUrl = $this->generateQRCodeSVG();
 
             $this->recoveryCodes = collect(range(1, 10))
-                ->map(fn() => RecoveryCode::generate())
+                ->map(fn () => RecoveryCode::generate())
                 ->toArray();
 
         } catch (Throwable $e) {
@@ -143,7 +155,7 @@ class Wizard extends Component
             $this->error = 'Installation setup failed. Fix the issue and try again.';
 
             Log::error('2FA generation failed', [
-                'error' => $e->getMessage(),
+                'error_class' => $e::class,
             ]);
         }
     }
@@ -162,8 +174,9 @@ class Wizard extends Component
         $this->testResult = '';
         $this->testSuccess = false;
 
-        if (empty($this->testCode) || !preg_match('/^\d{6}$/', $this->testCode)) {
+        if (empty($this->testCode) || ! preg_match('/^\d{6}$/', $this->testCode)) {
             $this->testResult = 'Please enter a valid 6-digit code.';
+
             return;
         }
 
@@ -189,15 +202,15 @@ class Wizard extends Component
         $lines = [
             "{$this->app_name} - Recovery Codes",
             "Generated for: {$this->email}",
-            "Generated on: " . now()->toDateTimeString(),
-            "",
-            "IMPORTANT: Store these codes securely. Each code can only be used once.",
-            "",
-            "Recovery Codes:",
+            'Generated on: '.now()->toDateTimeString(),
+            '',
+            'IMPORTANT: Store these codes securely. Each code can only be used once.',
+            '',
+            'Recovery Codes:',
         ];
 
         foreach ($this->recoveryCodes as $i => $code) {
-            $lines[] = ($i + 1) . ". " . $code;
+            $lines[] = ($i + 1).'. '.$code;
         }
 
         return implode("\n", $lines);
@@ -214,15 +227,15 @@ class Wizard extends Component
             $this->validateStep3();
 
             app(InstallService::class)->completeInstallation([
-                'admin_name'         => $this->name,
-                'admin_email'        => $this->email,
-                'admin_password'     => $this->password,
-                'two_factor_secret'  => $this->twoFactorSecret,
-                'recovery_codes'     => $this->recoveryCodes,
-                'app_name'           => $this->app_name,
-                'app_url'            => $this->app_url,
-                'timezone'           => $this->timezone,
-                'install_demo_data'  => $this->installDemo,
+                'admin_name' => $this->name,
+                'admin_email' => $this->email,
+                'admin_password' => $this->password,
+                'two_factor_secret' => $this->twoFactorSecret,
+                'recovery_codes' => $this->recoveryCodes,
+                'app_name' => $this->app_name,
+                'app_url' => $this->app_url,
+                'timezone' => $this->timezone,
+                'install_demo_data' => $this->installDemo,
             ]);
 
             session()->flash('success', 'Installation completed successfully!');
@@ -234,10 +247,17 @@ class Wizard extends Component
         } catch (Throwable $e) {
             $this->processing = false;
             $this->error = 'Installation failed. Please try again.';
-
             Log::error('Installation failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'error_class' => $e::class,
+                'submitted_fields' => [
+                    'username',
+                    'name',
+                    'email',
+                    'app_name',
+                    'app_url',
+                    'timezone',
+                    'installDemo',
+                ],
             ]);
         }
     }

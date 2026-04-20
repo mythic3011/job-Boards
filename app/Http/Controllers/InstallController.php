@@ -14,12 +14,19 @@ use PragmaRX\Google2FALaravel\Google2FA;
 class InstallController extends Controller
 {
     private const REQUEST_MAX_AGE_CHECKS = 300;
+
     private const REQUEST_MAX_AGE_COMPLETE = 1800;
+
     private const REQUEST_TOLERANCE = 60;
+
     private const MAX_INSTALL_ATTEMPTS = 5;
+
     private const INSTALL_ATTEMPT_CACHE_TTL = 10;
+
     private const INSTALL_SESSION_KEY = 'IP_INSTALL_SESSION';
+
     private const INSTALL_SESSION_TIMEOUT = 3600;
+
     private const INSTALL_MAX_ATTEMPTS_DURING_SESSION = 20;
 
     public function __construct(
@@ -60,7 +67,7 @@ class InstallController extends Controller
 
         $this->setInstallSession($request);
 
-        if (!$this->isInstallSessionValid($request)) {
+        if (! $this->isInstallSessionValid($request)) {
             $this->validateRequestAge($request, self::REQUEST_MAX_AGE_CHECKS);
         } else {
             $this->validateRequestAge($request, self::REQUEST_MAX_AGE_CHECKS * 6);
@@ -113,12 +120,12 @@ class InstallController extends Controller
         }
 
         // Check if this is a Livewire request (no timestamp/session validation needed)
-        $isLivewireRequest = !$request->has('timestamp') || !$request->has('session');
+        $isLivewireRequest = ! $request->has('timestamp') || ! $request->has('session');
 
-        if (!$isLivewireRequest) {
+        if (! $isLivewireRequest) {
             // JavaScript installer - validate timestamp
             $this->validateCompleteRequest($request);
-            
+
             $isActiveSession = $this->isInstallSessionValid($request);
 
             if ($isActiveSession) {
@@ -146,7 +153,7 @@ class InstallController extends Controller
 
         $this->checkSuspiciousActivity($request);
 
-        if (!$isLivewireRequest) {
+        if (! $isLivewireRequest) {
             $isActiveSession = $this->isInstallSessionValid($request);
             if ($isActiveSession) {
                 $this->checkRateLimitDuringInstall($request);
@@ -172,7 +179,7 @@ class InstallController extends Controller
                 'install_demo_data' => $installDemo,
             ]);
 
-            if (!$isLivewireRequest) {
+            if (! $isLivewireRequest) {
                 $this->clearRateLimit($request);
                 $this->clearInstallSession($request);
             }
@@ -184,10 +191,10 @@ class InstallController extends Controller
             ]);
         } catch (\Exception $e) {
             Log::error('Installation failed', [
-                'error' => $e->getMessage(),
+                'error_class' => $e::class,
                 'session' => $request->session()->getId(),
                 'ip' => $request->ip(),
-                'trace' => $e->getTraceAsString(),
+                'submitted_fields' => $this->safeInstallSubmittedFields($request),
             ]);
 
             return $this->secureJsonResponse([
@@ -278,7 +285,7 @@ class InstallController extends Controller
      */
     private function checkRateLimitDuringInstall(Request $request): void
     {
-        $key = $this->getRateLimitKey($request) . '_install';
+        $key = $this->getRateLimitKey($request).'_install';
         $attempts = Cache::get($key, 0);
 
         if ($attempts >= self::INSTALL_MAX_ATTEMPTS_DURING_SESSION) {
@@ -306,7 +313,7 @@ class InstallController extends Controller
      */
     private function getRateLimitKey(Request $request): string
     {
-        return 'install_attempts_' . $request->ip();
+        return 'install_attempts_'.$request->ip();
     }
 
     /**
@@ -366,7 +373,7 @@ class InstallController extends Controller
     {
         $sessionData = $request->session()->get(self::INSTALL_SESSION_KEY);
 
-        if (!$sessionData || !is_array($sessionData)) {
+        if (! $sessionData || ! is_array($sessionData)) {
             return false;
         }
 
@@ -374,6 +381,7 @@ class InstallController extends Controller
         $startedAt = $sessionData['started_at'] ?? 0;
         if (now()->timestamp - $startedAt > self::INSTALL_SESSION_TIMEOUT) {
             $this->clearInstallSession($request);
+
             return false;
         }
 
@@ -385,6 +393,7 @@ class InstallController extends Controller
                 'session_id' => $request->session()->getId(),
             ]);
             $this->clearInstallSession($request);
+
             return false;
         }
 
@@ -399,7 +408,7 @@ class InstallController extends Controller
         $secret = $request->input('two_factor_secret') ?? $request->input('twoFactorSecret');
         $code = $request->input('otp_code');
 
-        if (!$secret || !$code) {
+        if (! $secret || ! $code) {
             throw ValidationException::withMessages([
                 'otp_code' => ['OTP verification is required.'],
             ]);
@@ -407,7 +416,7 @@ class InstallController extends Controller
 
         $valid = app(Google2FA::class)->verifyKey($secret, $code);
 
-        if (!$valid) {
+        if (! $valid) {
             throw ValidationException::withMessages([
                 'otp_code' => ['The verification code is invalid. Please check your authenticator app.'],
             ]);
@@ -431,5 +440,23 @@ class InstallController extends Controller
             ->header('X-Content-Type-Options', 'nosniff')
             ->header('X-Frame-Options', 'DENY')
             ->header('X-XSS-Protection', '1; mode=block');
+    }
+
+    /**
+     * Capture only non-sensitive field names for install failure diagnostics.
+     *
+     * @return list<string>
+     */
+    private function safeInstallSubmittedFields(Request $request): array
+    {
+        return array_values(array_keys($request->except([
+            'admin_password',
+            'admin_password_confirmation',
+            'two_factor_secret',
+            'recovery_codes',
+            'otp_code',
+            'session',
+            'timestamp',
+        ])));
     }
 }

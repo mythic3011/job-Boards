@@ -25,9 +25,14 @@ new class extends Component
         title($job->title);
 
         $user = auth()->user();
+        $existingApplication = ($user && $user->isIndividual())
+            ? \App\Models\Application::forJob($job->id)->byApplicant($user->id)->first()
+            : null;
+
         return [
             'job' => $job,
-            'canApply' => $user && $user->isIndividual(),
+            'canApply' => $user && $user->isIndividual() && $existingApplication === null,
+            'existingApplication' => $existingApplication,
             'isOwner' => $user && $user->isCompany() && $job->company_user_id === $user->id,
         ];
     }
@@ -116,6 +121,10 @@ new class extends Component
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                             </svg>
                             Apply for this Job
+                        </x-ui.button>
+                    @elseif($existingApplication)
+                        <x-ui.button href="{{ route('applications.show', $existingApplication->idcode) }}" variant="secondary" size="lg">
+                            View your application
                         </x-ui.button>
                     @endif
 

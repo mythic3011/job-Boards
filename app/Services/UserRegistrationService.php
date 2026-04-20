@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -18,8 +19,7 @@ class UserRegistrationService
         private readonly ProfileImageService $profileImageService,
         private readonly AuditLogger $auditLogger,
         private readonly TwoFactorService $twoFactorService
-    ) {
-    }
+    ) {}
 
     /**
      * Register a new user with validation and security features.
@@ -27,7 +27,7 @@ class UserRegistrationService
     public function register(array $data, Request $request): User
     {
         if (
-            (!isset($data['profile_image']) || !$data['profile_image'] instanceof UploadedFile)
+            (! isset($data['profile_image']) || ! $data['profile_image'] instanceof UploadedFile)
             && $request->hasFile('profile_image')
         ) {
             $data['profile_image'] = $request->file('profile_image');
@@ -35,19 +35,30 @@ class UserRegistrationService
 
         $this->validateRegistrationData($data);
 
-        $user = $this->createUser($data);
+        $storedProfileImagePath = null;
 
-        $this->handleProfileImage($user, $data);
-        $this->assignUserRole($user, $data['user_type']);
-        
-        // Enable 2FA if requested during registration
-        if (!empty($data['enable_2fa'])) {
-            $this->twoFactorService->enable($user);
+        try {
+            return DB::transaction(function () use ($data, $request, &$storedProfileImagePath): User {
+                $user = $this->createUser($data);
+
+                $storedProfileImagePath = $this->handleProfileImage($user, $data);
+                $this->assignUserRole($user, $data['user_type']);
+
+                if (! empty($data['enable_2fa'])) {
+                    $this->twoFactorService->enable($user);
+                }
+
+                $this->logRegistration($user, $request);
+
+                return $user;
+            });
+        } catch (\Throwable $e) {
+            if ($storedProfileImagePath !== null) {
+                $this->profileImageService->deleteImage($storedProfileImagePath);
+            }
+
+            throw $e;
         }
-        
-        $this->logRegistration($user, $request);
-
-        return $user;
     }
 
     /**
@@ -96,7 +107,7 @@ class UserRegistrationService
                 'nullable',
                 'image',
                 'max:2048', // 2MB max
-                'mimetypes:' . implode(',', ProfileImageService::ALLOWED_MIME_TYPES),
+                'mimetypes:'.implode(',', ProfileImageService::ALLOWED_MIME_TYPES),
             ],
             'enable_2fa' => [
                 'nullable',
@@ -116,13 +127,16 @@ class UserRegistrationService
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
             'user_type' => $data['user_type'],
+            'registration_state' => ! empty($data['enable_2fa'])
+                ? User::REGISTRATION_STATE_PENDING_2FA
+                : User::REGISTRATION_STATE_ACTIVE,
         ]);
     }
 
     /**
      * Handle profile image upload if provided.
      */
-    private function handleProfileImage(User $user, array $data): void
+    private function handleProfileImage(User $user, array $data): ?string
     {
         if (
             isset($data['profile_image'])
@@ -130,8 +144,19 @@ class UserRegistrationService
             && $data['profile_image']->isValid()
         ) {
             $path = $this->profileImageService->storeImage($data['profile_image']);
-            $user->update(['profile_image_path' => $path]);
+
+            try {
+                $user->update(['profile_image_path' => $path]);
+            } catch (\Throwable $e) {
+                $this->profileImageService->deleteImage($path);
+
+                throw $e;
+            }
+
+            return $path;
         }
+
+        return null;
     }
 
     /**
@@ -168,9 +193,10 @@ class UserRegistrationService
         try {
             Log::info('User registered successfully', [
                 'user_id' => $user->id,
-                'username' => $user->login_id,
-                'email' => $user->email,
                 'user_type' => $user->user_type,
+                'registration_state' => $user->registration_state,
+                'two_factor_enabled' => $user->isRegistrationPending(),
+                'has_profile_image' => $user->profile_image_path !== null,
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
@@ -181,9 +207,10 @@ class UserRegistrationService
                 targetType: 'user',
                 targetIdcode: $user->idcode,
                 meta: [
-                    'username' => $user->login_id,
-                    'email' => $user->email,
                     'user_type' => $user->user_type,
+                    'registration_state' => $user->registration_state,
+                    'two_factor_requested' => $user->isRegistrationPending(),
+                    'has_profile_image' => $user->profile_image_path !== null,
                 ]
             );
         } catch (\Throwable $e) {

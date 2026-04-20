@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 use Tests\Support\ObsConfigContract;
+use Tests\Support\ObsTestFixtures;
 
 /**
  * Verification path: sqlite-safe.
@@ -165,13 +166,189 @@ BASH;
         $this->assertSame("DB_PASSWORD=new-secret\n", file_get_contents($tempRoot.'/shared.env'));
     }
 
+    public function test_empty_local_only_aws_values_are_not_treated_as_weak_secrets(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $helperPath = $tempRoot.'/exercise-is-weak.sh';
+        $isLocalOnlyAwsVarFunction = $this->extractFunction('is_local_only_aws_var');
+        $isSecretVarFunction = $this->extractFunction('is_secret_var');
+        $isDerivedVarFunction = $this->extractFunction('is_derived_var');
+        $isIdentifierVarFunction = $this->extractFunction('is_identifier_var');
+        $isWeakFunction = $this->extractFunction('is_weak');
+
+        $script = <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+{$isLocalOnlyAwsVarFunction}
+{$isSecretVarFunction}
+{$isDerivedVarFunction}
+{$isIdentifierVarFunction}
+{$isWeakFunction}
+
+if is_weak "" "AWS_SECRET_ACCESS_KEY"; then
+    printf 'weak\n'
+else
+    printf 'ok\n'
+fi
+BASH;
+
+        $this->writeExecutable($helperPath, $script);
+
+        $process = new Process([$helperPath], $tempRoot, null, null, 20);
+        $process->mustRun();
+
+        $this->assertSame("ok\n", $process->getOutput());
+    }
+
+    public function test_final_audit_dispatches_local_only_aws_vars_to_the_inactive_local_stack_handler(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('audit_inactive_local_stack_secret()', $contents);
+        $this->assertStringContainsString('elif is_local_only_aws_var "$var"; then', $contents);
+        $this->assertStringContainsString('audit_inactive_local_stack_secret "$var"', $contents);
+
+        $localOnlyOffset = strpos($contents, 'elif is_local_only_aws_var "$var"; then');
+        $secretOffset = strpos($contents, 'elif is_secret_var "$var"; then');
+
+        $this->assertNotFalse($localOnlyOffset);
+        $this->assertNotFalse($secretOffset);
+        $this->assertLessThan($secretOffset, $localOnlyOffset);
+    }
+
+    public function test_bootstrap_env_keeps_ports_already_owned_by_the_running_stack(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->bootstrapEnvFixture($tempRoot);
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_PORT=80
+APP_SSL_PORT=443
+VITE_PORT=5173
+FORWARD_DB_PORT=5432
+FORWARD_REDIS_PORT=6379
+MONITORING_ADMIN_USERNAME=admin
+MONITORING_PASSWORD=already-set-monitoring-password
+ENV);
+
+        $this->writeExecutable($fakeBin.'/docker', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "compose" && "${2:-}" == "-f" && "${4:-}" == "ps" && "${5:-}" == "-q" ]]; then
+  if [[ "${6:-}" == "nginx" ]]; then
+    echo "nginx-container"
+  fi
+  exit 0
+fi
+if [[ "${1:-}" == "inspect" && "${2:-}" == "-f" && "${4:-}" == "nginx-container" ]]; then
+  echo "running"
+  exit 0
+fi
+if [[ "${1:-}" == "port" && "${2:-}" == "nginx-container" ]]; then
+  cat <<'EOF'
+80/tcp -> 0.0.0.0:80
+443/tcp -> 0.0.0.0:443
+EOF
+  exit 0
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/ss', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+LISTEN 0 128 0.0.0.0:80 0.0.0.0:*
+LISTEN 0 128 0.0.0.0:443 0.0.0.0:*
+EOF
+BASH);
+        $this->writeExecutable($fakeBin.'/lsof', "#!/usr/bin/env bash\nset -euo pipefail\nexit 1\n");
+        $this->writeExecutable($fakeBin.'/netstat', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->mustRun();
+
+        $output = $process->getOutput().$process->getErrorOutput();
+        $envContents = file_get_contents($tempRoot.'/.env');
+
+        $this->assertIsString($envContents);
+        $this->assertMatchesRegularExpression('/^APP_PORT=80$/m', $envContents);
+        $this->assertMatchesRegularExpression('/^APP_SSL_PORT=443$/m', $envContents);
+        $this->assertStringContainsString('✔ APP_PORT=80', $output);
+        $this->assertStringContainsString('✔ APP_SSL_PORT=443', $output);
+        $this->assertStringNotContainsString('APP_PORT: 80 →', $output);
+        $this->assertStringNotContainsString('APP_SSL_PORT: 443 →', $output);
+    }
+
+    public function test_bootstrap_env_fails_closed_for_true_port_conflicts_in_non_interactive_mode(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->bootstrapEnvFixture($tempRoot);
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_PORT=80
+APP_SSL_PORT=443
+VITE_PORT=5173
+FORWARD_DB_PORT=5432
+FORWARD_REDIS_PORT=6379
+MONITORING_ADMIN_USERNAME=admin
+MONITORING_PASSWORD=already-set-monitoring-password
+ENV);
+
+        $this->writeExecutable($fakeBin.'/docker', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        $this->writeExecutable($fakeBin.'/ss', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+LISTEN 0 128 0.0.0.0:80 0.0.0.0:*
+EOF
+BASH);
+        $this->writeExecutable($fakeBin.'/lsof', "#!/usr/bin/env bash\nset -euo pipefail\nexit 1\n");
+        $this->writeExecutable($fakeBin.'/netstat', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->run();
+
+        $output = $process->getOutput().$process->getErrorOutput();
+        $envContents = file_get_contents($tempRoot.'/.env');
+
+        $this->assertSame(1, $process->getExitCode(), $output);
+        $this->assertIsString($envContents);
+        $this->assertMatchesRegularExpression('/^APP_PORT=80$/m', $envContents);
+        $this->assertStringContainsString('Port conflicts detected in non-interactive mode', $output);
+        $this->assertStringContainsString('⚠ 1 issue(s) remaining — review manually', $output);
+        $this->assertStringNotContainsString('APP_PORT: 80 →', $output);
+    }
+
     private function extractSetEnvFunction(): string
+    {
+        return $this->extractFunction('set_env');
+    }
+
+    private function extractFunction(string $name): string
     {
         $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
         $this->assertIsString($contents);
 
-        if (! preg_match('/^set_env\\(\\) \\{\n.*?^\\}/ms', $contents, $matches)) {
-            $this->fail('Could not extract set_env() from bootstrap-env.sh');
+        $pattern = sprintf('/^%s\\(\\) \\{\n.*?^\\}/ms', preg_quote($name, '/'));
+        if (! preg_match($pattern, $contents, $matches)) {
+            $this->fail(sprintf('Could not extract %s() from bootstrap-env.sh', $name));
         }
 
         return $matches[0];
@@ -183,6 +360,18 @@ BASH;
         mkdir($dir, 0777, true);
 
         return $dir;
+    }
+
+    private function bootstrapEnvFixture(string $tempRoot): string
+    {
+        $scriptPath = $tempRoot.'/bootstrap-env.sh';
+
+        copy($this->repoRoot.'/bootstrap-env.sh', $scriptPath);
+        copy($this->repoRoot.'/.env.example', $tempRoot.'/.env.example');
+        ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
+        chmod($scriptPath, 0755);
+
+        return $scriptPath;
     }
 
     private function writeExecutable(string $path, string $contents): void

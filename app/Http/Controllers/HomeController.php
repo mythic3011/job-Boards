@@ -21,14 +21,19 @@ class HomeController extends Controller
 
     public function __invoke(Request $request): View|RedirectResponse
     {
-        if (!Schema::hasTable('settings') || !Setting::isSetupCompleted()) {
+        if (! Schema::hasTable('settings') || ! Setting::isSetupCompleted()) {
             return redirect()->route('install.index');
         }
 
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return view('welcome', $this->guestPayload());
+        }
+
+        if ($user->isRegistrationPending()) {
+            return redirect()->route('profile.two-factor')
+                ->with('error', 'Please complete two-factor setup to finish activating your account.');
         }
 
         if ($user->isAdmin()) {

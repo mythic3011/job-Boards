@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Application;
+use Livewire\Attributes\Url;
 use Livewire\Volt\Component;
 
 use function Livewire\Volt\{layout, title};
@@ -10,6 +11,8 @@ layout('layouts.app');
 new class extends Component
 {
     public string $idcode;
+    #[Url]
+    public ?string $jobIdcode = null;
 
     public function mount(string $idcode)
     {
@@ -19,6 +22,10 @@ new class extends Component
     public function with(): array
     {
         $user = auth()->user();
+        $requestedJobIdcode = request()->query('jobIdcode');
+        $scopedJobIdcode = is_string($requestedJobIdcode) && $requestedJobIdcode !== ''
+            ? $requestedJobIdcode
+            : $this->jobIdcode;
 
         // Scope query to authorized applications before fetching
         $query = Application::byIdcode($this->idcode)
@@ -47,16 +54,19 @@ new class extends Component
         return [
             'application' => $application,
             'isJobOwner' => $isJobOwner,
+            'scopedJobIdcode' => $scopedJobIdcode,
+            'backRoute' => $scopedJobIdcode
+                ? route('my.applications.index', ['jobIdcode' => $scopedJobIdcode])
+                : route('my.applications.index'),
         ];
     }
 
 }; ?>
 
 <div class="max-w-4xl mx-auto" x-data="{ showApprove: false, showReject: false }">
-
     {{-- Breadcrumb --}}
     <nav class="theme-text-muted mb-4 flex items-center gap-2 text-sm">
-        <a href="{{ route('my.applications.index') }}" class="theme-link transition-colors">Applications</a>
+        <a href="{{ $backRoute }}" class="theme-link transition-colors">Applications</a>
         <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
         </svg>
@@ -87,7 +97,7 @@ new class extends Component
                     </button>
                 @endif
             @endif
-            <a href="{{ route('my.applications.index') }}"
+            <a href="{{ $backRoute }}"
                class="theme-button theme-button-outline inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium cursor-pointer">
                 <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
@@ -134,6 +144,9 @@ new class extends Component
                 </div>
                 <form method="POST" action="{{ route('applications.approve', $application->idcode) }}">
                     @csrf
+                    @if($scopedJobIdcode)
+                        <input type="hidden" name="job_idcode" value="{{ $scopedJobIdcode }}">
+                    @endif
                     <div class="px-6 pb-4">
                         <label for="decision_message_approve" class="theme-text-strong mb-1.5 block text-sm font-medium">Message (Optional)</label>
                         <textarea
@@ -194,6 +207,9 @@ new class extends Component
                 </div>
                 <form method="POST" action="{{ route('applications.reject', $application->idcode) }}">
                     @csrf
+                    @if($scopedJobIdcode)
+                        <input type="hidden" name="job_idcode" value="{{ $scopedJobIdcode }}">
+                    @endif
                     <div class="px-6 pb-4">
                         <label for="decision_message_reject" class="theme-text-strong mb-1.5 block text-sm font-medium">Message (Optional)</label>
                         <textarea

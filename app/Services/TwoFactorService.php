@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\User;
-use Illuminate\Support\Str;
 use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
 use Laravel\Fortify\Actions\DisableTwoFactorAuthentication;
 use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
@@ -33,7 +32,7 @@ class TwoFactorService
      */
     public function isSetupInProgress(User $user): bool
     {
-        return $user->two_factor_secret !== null && !$this->isEnabled($user);
+        return $user->two_factor_secret !== null && ! $this->isEnabled($user);
     }
 
     /**
@@ -41,7 +40,7 @@ class TwoFactorService
      */
     public function verifyCode(User $user, string $code): bool
     {
-        if (empty($code) || !$user->two_factor_secret) {
+        if (empty($code) || ! $user->two_factor_secret) {
             return false;
         }
 
@@ -55,12 +54,14 @@ class TwoFactorService
     {
         try {
             $secret = decrypt($user->two_factor_secret);
+
             return $this->provider->verify($secret, $code);
         } catch (\Exception $e) {
             \Log::error('2FA verification failed', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -71,7 +72,7 @@ class TwoFactorService
      */
     public function enable(User $user): void
     {
-        if (!$user->two_factor_secret) {
+        if (! $user->two_factor_secret) {
             ($this->enableAction)($user);
 
             $this->auditLogger->logBusinessEvent(
@@ -93,7 +94,7 @@ class TwoFactorService
      */
     public function confirm(User $user, string $code): bool
     {
-        if (empty($code) || !$user->two_factor_secret) {
+        if (empty($code) || ! $user->two_factor_secret) {
             return false;
         }
 
@@ -104,7 +105,24 @@ class TwoFactorService
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
+        }
+
+        $user->refresh();
+
+        if (! $this->isEnabled($user)) {
+            \Log::warning('2FA confirmation did not persist', [
+                'user_id' => $user->id,
+            ]);
+
+            return false;
+        }
+
+        if ($user->isRegistrationPending()) {
+            $user->forceFill([
+                'registration_state' => User::REGISTRATION_STATE_ACTIVE,
+            ])->save();
         }
 
         $this->auditLogger->logBusinessEvent(
@@ -169,7 +187,7 @@ class TwoFactorService
      */
     public function regenerateRecoveryCodes(User $user): array
     {
-        if (!$this->isEnabled($user)) {
+        if (! $this->isEnabled($user)) {
             throw new \RuntimeException('Two-factor authentication must be enabled to regenerate recovery codes.');
         }
 
@@ -199,7 +217,7 @@ class TwoFactorService
      */
     public function getRecoveryCodes(User $user): array
     {
-        if (!$this->isEnabled($user) || !$user->two_factor_recovery_codes) {
+        if (! $this->isEnabled($user) || ! $user->two_factor_recovery_codes) {
             return [];
         }
 
@@ -225,7 +243,7 @@ class TwoFactorService
     private function generateRecoveryCodes(int $count = 8): array
     {
         return collect(range(1, $count))
-            ->map(fn() => RecoveryCode::generate())
+            ->map(fn () => RecoveryCode::generate())
             ->toArray();
     }
 
@@ -239,7 +257,7 @@ class TwoFactorService
 
         $remaining = array_values(array_filter(
             $codes,
-            fn($c) => !hash_equals(str_replace('-', '', $c), $normalized)
+            fn ($c) => ! hash_equals(str_replace('-', '', $c), $normalized)
         ));
 
         $user->forceFill([
@@ -252,7 +270,7 @@ class TwoFactorService
      */
     public function getQrCodeSvg(User $user): ?string
     {
-        if (!$user->two_factor_secret) {
+        if (! $user->two_factor_secret) {
             return null;
         }
 
@@ -263,6 +281,7 @@ class TwoFactorService
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -272,7 +291,7 @@ class TwoFactorService
      */
     public function getSecret(User $user): ?string
     {
-        if (!$user->two_factor_secret) {
+        if (! $user->two_factor_secret) {
             return null;
         }
 
@@ -284,6 +303,7 @@ class TwoFactorService
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -299,7 +319,7 @@ class TwoFactorService
             ]);
         }
 
-        if (!$this->verifyCode($user, $code)) {
+        if (! $this->verifyCode($user, $code)) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'two_factor_code' => ['The provided two-factor authentication code is invalid.'],
             ]);

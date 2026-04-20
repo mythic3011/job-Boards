@@ -15,8 +15,7 @@ class ThemeUiContractTest extends TestCase
         $this->assertStringContainsString('data-theme-preference', $contents);
         $this->assertStringContainsString('data-theme-mode', $contents);
         $this->assertStringContainsString('data-theme-accent', $contents);
-        $this->assertStringContainsString('jobs-board.theme.preference', $contents);
-        $this->assertStringContainsString('jobs-board.theme.accent', $contents);
+        $this->assertStringContainsString("asset('js/theme-bootstrap.js')", $contents);
     }
 
     public function test_base_layout_includes_a_global_back_to_top_control(): void
@@ -79,7 +78,7 @@ class ThemeUiContractTest extends TestCase
         $this->assertStringContainsString('prefers-color-scheme: dark', $contents);
         $this->assertStringContainsString('data-theme-preference-option', $contents);
         $this->assertStringContainsString('data-theme-accent-option', $contents);
-        $this->assertStringContainsString("theme:changed", $contents);
+        $this->assertStringContainsString('theme:changed', $contents);
     }
 
     public function test_app_javascript_bootstraps_the_back_to_top_controller(): void

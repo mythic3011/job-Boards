@@ -3,7 +3,6 @@
 use App\Models\Application;
 use App\Services\ApplicationQueryService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -225,13 +224,6 @@ new class extends Component
                                 <span class="theme-text-muted text-sm">{{ $application->jobPosting->companyUser?->nickname }}</span>
                             @endif
 
-                            {{-- New message badge --}}
-                            @if(!$isCompany && Cache::has('application_new_message_' . $application->id))
-                                <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-xs font-medium text-blue-700">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                    New message
-                                </span>
-                            @endif
                         </div>
 
                         {{-- Cover message snippet --}}
@@ -269,7 +261,7 @@ new class extends Component
 
                             {{-- Actions --}}
                             <div class="flex items-center gap-2">
-                                <a href="{{ route('applications.show', $application->idcode) }}"
+                                <a href="{{ route('applications.show', ['idcode' => $application->idcode] + ($jobIdcode ? ['jobIdcode' => $jobIdcode] : [])) }}"
                                    class="theme-input inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-medium transition-all duration-150 cursor-pointer hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-accent-soft-bg)] hover:text-[var(--app-accent-soft-fg)]">
                                     View details &rarr;
                                 </a>

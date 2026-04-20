@@ -15,14 +15,32 @@ class CreateAdminUser extends Command
     protected $signature = 'admin:create
                             {--email= : Admin email address}
                             {--password= : Admin password}
+                            {--password-env= : Environment variable containing the admin password}
+                            {--password-file= : File path containing the admin password; use php://stdin for piped input}
                             {--name= : Admin name}';
 
     protected $description = 'Create the first admin user (fallback for headless deployments)';
 
     public function handle(): int
     {
+        $passwordEnv = (string) ($this->option('password-env') ?? '');
+        $passwordFile = trim((string) ($this->option('password-file') ?? ''));
         $email = $this->option('email') ?: $this->ask('Email address');
-        $password = $this->option('password') ?: $this->secret('Password');
+        $password = $this->option('password');
+        if ($passwordEnv !== '') {
+            $password = env($passwordEnv) ?: $_ENV[$passwordEnv] ?? $_SERVER[$passwordEnv] ?? getenv($passwordEnv) ?: null;
+            if (! is_string($password) || $password === '') {
+                $this->error("Password environment variable [{$passwordEnv}] is empty or missing.");
+
+                return CommandAlias::FAILURE;
+            }
+        } elseif ($passwordFile !== '') {
+            $password = $this->readPasswordFromFile($passwordFile);
+            if ($password === null) {
+                return CommandAlias::FAILURE;
+            }
+        }
+        $password = $password ?: $this->secret('Password');
         $name = $this->option('name') ?: $this->ask('Name/Nickname', 'Admin User');
 
         $validator = Validator::make([
@@ -31,7 +49,7 @@ class CreateAdminUser extends Command
             'name' => $name,
         ], [
             'email' => ['required', 'email', 'unique:users,email'],
-            'password' => ['required', 'min:8'],
+            'password' => ['required', 'min:12'],
             'name' => ['required', 'string', 'max:255'],
         ]);
 
@@ -54,7 +72,7 @@ class CreateAdminUser extends Command
             'nickname' => $name,
             'email' => $email,
             'password' => Hash::make($password),
-            'user_type' => 'company', // Admin uses company type for now
+            'user_type' => 'admin',
         ]);
 
         $user->assignRole($adminRole);
@@ -65,5 +83,24 @@ class CreateAdminUser extends Command
         $this->warn("Please enable 2FA for this admin account!");
 
         return CommandAlias::SUCCESS;
+    }
+
+    private function readPasswordFromFile(string $passwordFile): ?string
+    {
+        $password = @file_get_contents($passwordFile);
+        if ($password === false) {
+            $this->error("Password file [{$passwordFile}] is unreadable.");
+
+            return null;
+        }
+
+        $password = rtrim($password, "\r\n");
+        if ($password === '') {
+            $this->error("Password file [{$passwordFile}] is empty.");
+
+            return null;
+        }
+
+        return $password;
     }
 }

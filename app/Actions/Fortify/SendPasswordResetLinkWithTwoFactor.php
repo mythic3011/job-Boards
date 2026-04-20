@@ -23,7 +23,7 @@ class SendPasswordResetLinkWithTwoFactor
     public function __invoke(array $input): array
     {
         // Rate limiting
-        $key = 'password-reset-2fa:' . $input['email'];
+        $key = 'password-reset-2fa:'.$input['email'];
         if (RateLimiter::tooManyAttempts($key, 3)) {
             $seconds = RateLimiter::availableIn($key);
             throw ValidationException::withMessages([
@@ -34,7 +34,7 @@ class SendPasswordResetLinkWithTwoFactor
         // Find user by email
         $user = User::where('email', $input['email'])->first();
 
-        if (!$user) {
+        if (! $user) {
             // Don't reveal if user exists
             RateLimiter::hit($key, 300); // 5 minutes
             throw ValidationException::withMessages([
@@ -43,7 +43,7 @@ class SendPasswordResetLinkWithTwoFactor
         }
 
         // Check if user has 2FA enabled
-        if (!$user->two_factor_secret) {
+        if (! $user->two_factor_secret) {
             RateLimiter::hit($key, 300);
             throw ValidationException::withMessages([
                 'email' => ['Two-factor authentication is not enabled for this account. Please contact support.'],
@@ -53,28 +53,27 @@ class SendPasswordResetLinkWithTwoFactor
         // Verify 2FA code or recovery code
         $verified = false;
 
-        if (!empty($input['code'])) {
+        if (! empty($input['code'])) {
             // Verify OTP code
             $verified = $this->twoFactorService->verifyCode($user, $input['code']);
-            
-            if (!$verified) {
+
+            if (! $verified) {
                 RateLimiter::hit($key, 60);
-                
+
                 $this->auditLogger->logSecurityEvent(
                     eventType: 'password_reset.invalid_2fa_code',
                     request: request(),
                     userId: $user->id,
                     meta: [
-                        'email' => $user->email,
                         'ip' => request()->ip(),
                     ]
                 );
-                
+
                 throw ValidationException::withMessages([
                     'code' => ['The authentication code is invalid.'],
                 ]);
             }
-        } elseif (!empty($input['recovery_code'])) {
+        } elseif (! empty($input['recovery_code'])) {
             // Verify recovery code via TwoFactorService
             $inputCode = str_replace('-', '', $input['recovery_code']);
             $recoveryCodes = $this->twoFactorService->getRecoveryCodes($user);
@@ -89,19 +88,18 @@ class SendPasswordResetLinkWithTwoFactor
                 $this->twoFactorService->consumeRecoveryCode($user, $input['recovery_code']);
             }
 
-            if (!$verified) {
+            if (! $verified) {
                 RateLimiter::hit($key, 60);
-                
+
                 $this->auditLogger->logSecurityEvent(
                     eventType: 'password_reset.invalid_recovery_code',
                     request: request(),
                     userId: $user->id,
                     meta: [
-                        'email' => $user->email,
                         'ip' => request()->ip(),
                     ]
                 );
-                
+
                 throw ValidationException::withMessages([
                     'recovery_code' => ['The recovery code is invalid.'],
                 ]);
@@ -128,9 +126,8 @@ class SendPasswordResetLinkWithTwoFactor
                 request: request(),
                 userId: $user->id,
                 meta: [
-                    'email' => $user->email,
                     'ip' => request()->ip(),
-                    'verified_with' => !empty($input['code']) ? '2fa_code' : 'recovery_code',
+                    'verified_with' => ! empty($input['code']) ? '2fa_code' : 'recovery_code',
                 ]
             );
 
@@ -150,9 +147,8 @@ class SendPasswordResetLinkWithTwoFactor
                 request: request(),
                 userId: $user->id,
                 meta: [
-                    'email' => $user->email,
                     'ip' => request()->ip(),
-                    'verified_with' => !empty($input['code']) ? '2fa_code' : 'recovery_code',
+                    'verified_with' => ! empty($input['code']) ? '2fa_code' : 'recovery_code',
                 ]
             );
 
@@ -167,5 +163,4 @@ class SendPasswordResetLinkWithTwoFactor
             'email' => [__($status)],
         ]);
     }
-
 }

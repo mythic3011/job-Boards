@@ -1,35 +1,45 @@
 @props([
     'active' => 'show',
     'twoFactorEnabled' => false,
+    'registrationPending' => false,
 ])
 
 @php
-    $items = [
-        [
-            'key' => 'show',
-            'label' => 'Overview',
-            'href' => route('profile.show'),
-            'enabled' => true,
-        ],
-        [
-            'key' => 'edit',
-            'label' => 'Edit Profile',
-            'href' => route('profile.edit'),
-            'enabled' => true,
-        ],
-        [
-            'key' => 'password',
-            'label' => 'Change Password',
-            'href' => $twoFactorEnabled ? route('profile.password') : null,
-            'enabled' => $twoFactorEnabled,
-        ],
-        [
-            'key' => 'two-factor',
-            'label' => 'Security',
-            'href' => route('profile.two-factor'),
-            'enabled' => true,
-        ],
-    ];
+    $items = $registrationPending
+        ? [
+            [
+                'key' => 'two-factor',
+                'label' => 'Finish Activation',
+                'href' => route('profile.two-factor'),
+                'enabled' => true,
+            ],
+        ]
+        : [
+            [
+                'key' => 'show',
+                'label' => 'Overview',
+                'href' => route('profile.show'),
+                'enabled' => true,
+            ],
+            [
+                'key' => 'edit',
+                'label' => 'Edit Profile',
+                'href' => route('profile.edit'),
+                'enabled' => true,
+            ],
+            [
+                'key' => 'password',
+                'label' => 'Change Password',
+                'href' => $twoFactorEnabled ? route('profile.password') : null,
+                'enabled' => $twoFactorEnabled,
+            ],
+            [
+                'key' => 'two-factor',
+                'label' => 'Security',
+                'href' => route('profile.two-factor'),
+                'enabled' => true,
+            ],
+        ];
 @endphp
 
 <div class="theme-panel mb-6 rounded-xl border p-1.5 shadow-sm">

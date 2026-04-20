@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Profile images (require authentication)
-Route::middleware(['auth', 'throttle:60,1'])->group(function () {
+Route::middleware(['auth', 'registration.active', 'throttle:60,1'])->group(function () {
     Route::get('/images/profile/{path}', [ImageController::class, 'showProfileImage'])
         ->name('images.profile')
         ->where('path', '[A-Za-z0-9_-]+'); // Base64 URL-safe pattern

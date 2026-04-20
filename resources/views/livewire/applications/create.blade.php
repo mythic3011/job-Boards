@@ -63,8 +63,8 @@ new class extends Component
     {
         $this->profileImageNotice = null;
         $this->validateOnly('profile_image');
-        $this->profileImageNotice = 'image successfully uploaded. Will be applied after application.';
-        $this->dispatch('profile-image-uploaded');
+        $this->profileImageNotice = 'Photo ready. It will be saved when you submit.';
+        $this->dispatch('profile-image-ready');
     }
 
     public function submit(ApplicationService $applicationService, ProfileImageService $profileImageService): mixed
@@ -93,7 +93,11 @@ new class extends Component
 
                 // Store new profile image if provided
                 if ($this->profile_image) {
-                    $newImagePath = $profileImageService->storeImage($this->profile_image);
+                    try {
+                        $newImagePath = $profileImageService->storeImage($this->profile_image);
+                    } catch (\InvalidArgumentException $e) {
+                        throw new \App\Exceptions\ProfileImageStoreException($e->getMessage(), 0, $e);
+                    }
                     $user->update(['profile_image_path' => $newImagePath]);
                 }
 
@@ -125,13 +129,16 @@ new class extends Component
             session()->flash('message', $successMessage);
 
             return redirect()->route('jobs.show', $this->jobIdcode);
+        } catch (\App\Exceptions\ProfileImageStoreException $e) {
+            $this->addError('profile_image', $e->getMessage());
+            return null;
         } catch (\InvalidArgumentException $e) {
             $this->addError('cv_file', $e->getMessage());
             return null;
         }
     }
 }; ?>
-<div x-on:profile-image-uploaded.window="window.toast && window.toast.success('Profile photo uploaded')">
+<div x-on:profile-image-ready.window="window.toast && window.toast.info('Photo ready - will be saved on submit')">
     <div class="max-w-4xl mx-auto">
         {{-- Breadcrumb --}}
         <nav class="theme-text-muted mb-4 flex items-center gap-2 text-sm">

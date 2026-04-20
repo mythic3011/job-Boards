@@ -376,7 +376,7 @@ bt_invalidate_marker() {
 bt_compose() {
     local compose_file="$1"
     shift
-    bt_preload_compose_env
+    bt_preload_compose_env "${compose_file}"
     docker compose -f "${compose_file}" "$@"
 }
 
@@ -519,7 +519,38 @@ bt_ensure_app_plane_network() {
     return 0
 }
 
+bt_compose_uses_shared_app_plane_network() {
+    local compose_file="$1"
+
+    [[ -r "${compose_file}" ]] || return 1
+    grep -Fq 'BT_APP_PLANE_NETWORK_NAME' "${compose_file}" || return 1
+    grep -Fq 'external: true' "${compose_file}"
+}
+
+bt_preload_compose_app_plane_network() {
+    local compose_file="${1:-}"
+    local preserved_env_keys="${2:-}"
+    local detected=""
+
+    [[ -n "${compose_file}" ]] || return 0
+    bt_compose_uses_shared_app_plane_network "${compose_file}" || return 0
+
+    if [[ -n "${preserved_env_keys}" ]] && bt_env_snapshot_has_key "${preserved_env_keys}" "BT_APP_PLANE_NETWORK_NAME"; then
+        return 0
+    fi
+
+    if [[ -n "${BT_APP_PLANE_NETWORK_NAME:-}" ]]; then
+        return 0
+    fi
+
+    detected="$(bt_auto_detect_app_plane_network_name || true)"
+    if [[ -n "${detected}" ]]; then
+        export BT_APP_PLANE_NETWORK_NAME="${detected}"
+    fi
+}
+
 bt_preload_compose_env() {
+    local compose_file="${1:-}"
     local root_env_file="${BT_ROOT_DIR}/.env"
     local obs_generated_env_file="${BT_OBS_GENERATED_ENV_FILE:-${BT_RUNTIME_DIR}/obs.generated.env}"
     local preserved_env_keys
@@ -534,6 +565,7 @@ bt_preload_compose_env() {
         bt_export_env_file_unless_preserved "${obs_generated_env_file}" "${preserved_env_keys}"
     fi
 
+    bt_preload_compose_app_plane_network "${compose_file}" "${preserved_env_keys}"
     bt_preload_compose_honeypot_source "${preserved_env_keys}"
 }
 
@@ -545,12 +577,28 @@ bt_repo_honeypot_source() {
     printf '%s\n' "${BT_ROOT_DIR}/docker/nginx/includes/blue-team-honeypot.conf"
 }
 
+bt_normalize_honeypot_source() {
+    local honeypot_source="$1"
+
+    case "${honeypot_source}" in
+        /*)
+            printf '%s\n' "${honeypot_source}"
+            ;;
+        ./*)
+            printf '%s\n' "${BT_ROOT_DIR}/${honeypot_source#./}"
+            ;;
+        *)
+            printf '%s\n' "${BT_ROOT_DIR}/${honeypot_source}"
+            ;;
+    esac
+}
+
 bt_resolve_honeypot_source() {
     local mode="${1:-host}"
     local repo_honeypot_source
 
     if [[ -n "${BT_HONEYPOT_SOURCE:-}" ]]; then
-        printf '%s\n' "${BT_HONEYPOT_SOURCE}"
+        bt_normalize_honeypot_source "${BT_HONEYPOT_SOURCE}"
         return 0
     fi
 
@@ -584,12 +632,12 @@ bt_preload_compose_honeypot_source() {
     local resolved_honeypot_source
 
     if bt_env_snapshot_has_key "${preserved_env_keys}" "BT_HONEYPOT_SOURCE"; then
-        export BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE}"
+        export BT_HONEYPOT_SOURCE="$(bt_normalize_honeypot_source "${BT_HONEYPOT_SOURCE}")"
         return 0
     fi
 
     if [[ -n "${BT_HONEYPOT_SOURCE:-}" ]]; then
-        export BT_HONEYPOT_SOURCE="${BT_HONEYPOT_SOURCE}"
+        export BT_HONEYPOT_SOURCE="$(bt_normalize_honeypot_source "${BT_HONEYPOT_SOURCE}")"
         return 0
     fi
 
@@ -607,9 +655,35 @@ bt_compose_service_running() {
     local compose_file="$1"
     local service="$2"
     local container_id
-    container_id="$(bt_compose_service_container_id "${compose_file}" "${service}")"
+    container_id="$(bt_compose_service_container_id "${compose_file}" "${service}" 2>/dev/null || true)"
     [[ -n "${container_id}" ]] || return 1
     [[ "$(docker inspect -f '{{.State.Status}}' "${container_id}" 2>/dev/null)" == "running" ]]
+}
+
+bt_compose_service_publishes_host_port() {
+    local compose_file="$1"
+    local service="$2"
+    local expected_port="$3"
+    local container_id=""
+    local bindings=""
+    local binding=""
+    local host_port=""
+
+    container_id="$(bt_compose_service_container_id "${compose_file}" "${service}" 2>/dev/null || true)"
+    [[ -n "${container_id}" ]] || return 1
+    bt_compose_service_running "${compose_file}" "${service}" || return 1
+
+    bindings="$(docker port "${container_id}" 2>/dev/null || true)"
+    [[ -n "${bindings}" ]] || return 1
+
+    while IFS= read -r binding; do
+        [[ "${binding}" == *"-> "* ]] || continue
+        host_port="${binding#*-> }"
+        host_port="${host_port##*:}"
+        [[ "${host_port}" == "${expected_port}" ]] && return 0
+    done <<< "${bindings}"
+
+    return 1
 }
 
 bt_compose_service_healthy() {
@@ -659,7 +733,7 @@ bt_local_listen_ports() {
 
 bt_compose_network_drivers() {
     local compose_file="$1"
-    bt_preload_compose_env
+    bt_preload_compose_env "${compose_file}"
 
     docker compose -f "${compose_file}" config --format json | python3 -c '
 import json

@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Setting;
 use App\Models\User;
-use App\Services\AuditLogger;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
@@ -32,7 +31,7 @@ class InstallService
     public function isInstallationCompleted(): bool
     {
         try {
-            if (!Schema::hasTable('settings')) {
+            if (! Schema::hasTable('settings')) {
                 return false;
             }
 
@@ -40,8 +39,9 @@ class InstallService
         } catch (Exception $e) {
             Log::debug('Error checking installation status', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return false;
         }
     }
@@ -59,9 +59,9 @@ class InstallService
         }
 
         // Check HTTPS (except localhost)
-        if (!$request->secure() &&
+        if (! $request->secure() &&
             $request->getHost() !== 'localhost' &&
-            !str_starts_with($request->getHost(), '127.')) {
+            ! str_starts_with($request->getHost(), '127.')) {
             $issues[] = 'HTTPS required for installation';
         }
 
@@ -71,7 +71,7 @@ class InstallService
         }
 
         // Check rate limiting
-        $key = 'install_attempts_' . $request->ip();
+        $key = 'install_attempts_'.$request->ip();
         $attempts = Cache::get($key, 0);
         if ($attempts >= 5) {
             $issues[] = 'Too many installation attempts';
@@ -79,7 +79,7 @@ class InstallService
 
         return [
             'allowed' => empty($issues),
-            'issues' => $issues
+            'issues' => $issues,
         ];
     }
 
@@ -102,9 +102,11 @@ class InstallService
     {
         try {
             DB::connection()->getPdo();
+
             return true;
         } catch (Exception $e) {
             Log::debug('Database check failed', ['error' => $e->getMessage()]);
+
             return false;
         }
     }
@@ -119,6 +121,7 @@ class InstallService
                 && Storage::disk('local')->delete('test.txt');
         } catch (Exception $e) {
             Log::debug('Storage check failed', ['error' => $e->getMessage()]);
+
             return false;
         }
     }
@@ -132,9 +135,11 @@ class InstallService
             cache()->put('test', 'test', 1);
             $result = cache()->get('test') === 'test';
             cache()->forget('test');
+
             return $result;
         } catch (Exception $e) {
             Log::debug('Cache check failed', ['error' => $e->getMessage()]);
+
             return false;
         }
     }
@@ -177,7 +182,11 @@ class InstallService
             DB::commit();
         } catch (Exception $e) {
             DB::rollBack();
-            Log::error('Installation failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            Log::error('Installation failed', [
+                'error_class' => $e::class,
+                'stage' => 'complete_installation',
+                'install_demo_data' => (bool) ($data['install_demo_data'] ?? false),
+            ]);
             throw $e;
         }
     }
@@ -207,13 +216,13 @@ class InstallService
     {
         $adminRole = Role::where('name', 'admin')->first();
 
-        if (!$adminRole) {
+        if (! $adminRole) {
             throw new Exception('Admin role not found. Please run RolePermissionSeeder first.');
         }
 
         $admin = User::create([
-            'idcode' => 'user_admin_' . Str::uuid()->toString(),
-            'login_id' => 'admin_' . Str::random(8),
+            'idcode' => 'user_admin_'.Str::uuid()->toString(),
+            'login_id' => 'admin_'.Str::random(8),
             'nickname' => $data['admin_name'],
             'email' => $data['admin_email'],
             'password' => Hash::make($data['admin_password']),
@@ -231,7 +240,7 @@ class InstallService
      */
     protected function enableTwoFactor(User $user, ?string $base32Secret, array $recoveryCodes = []): void
     {
-        if (!$base32Secret) {
+        if (! $base32Secret) {
             return;
         }
 

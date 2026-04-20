@@ -285,9 +285,7 @@ new class extends Component
                                                 Create a job
                                             </x-ui.button>
                                         @else
-                                            <x-ui.button href="{{ route('register') }}" variant="primary">
-                                                register to apply
-                                            </x-ui.button>
+                                            <p class="theme-text-muted text-sm">Check back soon - new roles are posted regularly.</p>
                                         @endif
                                     @else
                                         <x-ui.button href="{{ route('register') }}" variant="primary">

@@ -24,13 +24,13 @@ Route::middleware(\App\Http\Middleware\EnsureSetupCompleted::class)->group(funct
     // Create new job (authenticated users only)
     // IMPORTANT: must be defined BEFORE /jobs/{idcode} so "create" is not matched as idcode
     Volt::route('/jobs/create', 'jobs.create')
-        ->middleware(['auth', 'throttle:10,1'])
+        ->middleware(['auth', 'registration.active', 'throttle:10,1'])
         ->can('create', JobPosting::class)
         ->name('jobs.create');
 
     // Create job (POST). Handles form POST when Livewire is not used or as fallback.
     Route::post('/jobs', [JobController::class, 'store'])
-        ->middleware(['auth', 'throttle:10,1'])
+        ->middleware(['auth', 'registration.active', 'throttle:10,1'])
         ->can('create', JobPosting::class)
         ->name('jobs.store');
 
@@ -48,7 +48,7 @@ Route::middleware(\App\Http\Middleware\EnsureSetupCompleted::class)->group(funct
 |
 */
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'registration.active'])->group(function () {
     // List user's applications
     Volt::route('/my-applications', 'applications.index')
         ->middleware('throttle:30,1')

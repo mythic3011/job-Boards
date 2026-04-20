@@ -150,7 +150,7 @@ if [[ "\${1:-}" == "exec" ]]; then
   if [[ "\${1:-}" == "npm" && "\${2:-}" == "run" && "\${3:-}" == "build" ]]; then
     exit 0
   fi
-  if [[ "\${1:-}" == "php" && "\${2:-}" == "artisan" && "\${3:-}" == "migrate:fresh" ]]; then
+  if [[ "\${1:-}" == "php" && "\${2:-}" == "artisan" && "\${3:-}" == "migrate" && "\${4:-}" == "--force" ]]; then
     exit 17
   fi
   exit 0
@@ -352,7 +352,10 @@ BASH);
         $process = new Process(
             [$scriptPath, 'full', 'dev'],
             $tempRoot,
-            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            [
+                'BT_HONEYPOT_SOURCE' => './docker/nginx/includes/blue-team-honeypot.conf',
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+            ],
             null,
             20,
         );
@@ -547,7 +550,10 @@ BASH);
         $process = new Process(
             [$scriptPath, 'full', 'dev'],
             $tempRoot,
-            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_AUTO_ASSIGN_PORTS' => 'true',
+            ],
             "Y\n",
             20,
         );
@@ -563,6 +569,99 @@ BASH);
         $this->assertNotSame('3001', $appPortMatches[1]);
         $this->assertNotSame('3001', $sslPortMatches[1]);
         $this->assertNotSame($appPortMatches[1], $sslPortMatches[1]);
+    }
+
+    public function test_install_bootstrap_keeps_ports_already_owned_by_the_running_stack(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_PORT=80
+APP_SSL_PORT=443
+VITE_PORT=5173
+FORWARD_DB_PORT=5432
+FORWARD_REDIS_PORT=6379
+ENV);
+
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
+cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
+PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
+EOF
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/docker', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "compose" && "${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "${1:-}" == "compose" && "${2:-}" == "-f" && "${4:-}" == "ps" && "${5:-}" == "-q" ]]; then
+  if [[ "${6:-}" == "nginx" ]]; then
+    echo "nginx-container"
+  fi
+  exit 0
+fi
+if [[ "${1:-}" == "inspect" && "${2:-}" == "-f" && "${4:-}" == "nginx-container" ]]; then
+  echo "running"
+  exit 0
+fi
+if [[ "${1:-}" == "port" && "${2:-}" == "nginx-container" ]]; then
+  cat <<'EOF'
+80/tcp -> 0.0.0.0:80
+443/tcp -> 0.0.0.0:443
+EOF
+  exit 0
+fi
+if [[ "${1:-}" == "exec" ]]; then
+  exit 1
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        $this->writeExecutable($fakeBin.'/ss', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+LISTEN 0 128 0.0.0.0:80 0.0.0.0:*
+LISTEN 0 128 0.0.0.0:443 0.0.0.0:*
+EOF
+BASH);
+        $this->writeExecutable($fakeBin.'/lsof', "#!/usr/bin/env bash\nset -euo pipefail\nexit 1\n");
+        $this->writeExecutable($fakeBin.'/netstat', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'bootstrap', 'dev'],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_AUTO_ASSIGN_PORTS' => 'true',
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $envContents = file_get_contents($tempRoot.'/.env');
+
+        $this->assertSame(0, $process->getExitCode(), $combinedOutput);
+        $this->assertIsString($envContents);
+        $this->assertMatchesRegularExpression('/^APP_PORT=80$/m', $envContents);
+        $this->assertMatchesRegularExpression('/^APP_SSL_PORT=443$/m', $envContents);
+        $this->assertStringNotContainsString('Port conflict detected:', $combinedOutput);
+        $this->assertStringNotContainsString('APP_PORT: 80 ->', $combinedOutput);
+        $this->assertStringNotContainsString('APP_SSL_PORT: 443 ->', $combinedOutput);
     }
 
     public function test_install_full_fails_loudly_without_attempting_composer_install_when_vendor_is_missing_and_package_network_is_unreachable(): void
@@ -634,8 +733,11 @@ BASH);
         $fakeBin = $tempRoot.'/fake-bin';
 
         mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
 
         file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', ObsTestFixtures::bootstrapObsGeneratedEnvScript($tempRoot.'/.blue-team-vm'));
 
         $this->writeExecutable($fakeBin.'/docker', <<<BASH
 #!/usr/bin/env bash
@@ -661,7 +763,10 @@ BASH);
         $process = new Process(
             [$scriptPath, 'quick', 'dev'],
             $tempRoot,
-            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'INSTALL_ASSUME_YES' => 'true',
+            ],
             "y\n",
             20,
         );
@@ -670,9 +775,520 @@ BASH);
         $dockerOutput = (string) @file_get_contents($dockerLog);
 
         $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
-        $this->assertStringContainsString('restart jobs-boards-laravel.test', $dockerOutput);
+        $this->assertStringNotContainsString('restart jobs-boards-laravel.test', $dockerOutput);
         $this->assertStringNotContainsString('compose -f', $dockerOutput);
         $this->assertStringNotContainsString('compose restart laravel.test', $dockerOutput);
+    }
+
+    public function test_install_setup_admin_fast_fails_when_the_app_container_is_not_running(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', ObsTestFixtures::bootstrapObsGeneratedEnvScript($tempRoot.'/.blue-team-vm'));
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" ]]; then
+  exit 1
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        $this->writeExecutable($fakeBin.'/python3', "#!/usr/bin/env bash\nset -euo pipefail\npython3 \"$@\"\n");
+        $this->writeExecutable($fakeBin.'/openssl', "#!/usr/bin/env bash\nset -euo pipefail\nopenssl \"$@\"\n");
+
+        $process = new Process(
+            [$scriptPath, 'setupAdmin', 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+
+        $this->assertSame(1, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString("Container 'jobs-boards-laravel.test' is not running.", $combinedOutput);
+        $this->assertStringNotContainsString('Container ready', $combinedOutput);
+        $this->assertStringNotContainsString('php artisan --version', $dockerOutput);
+    }
+
+    public function test_install_quick_refuses_destructive_reset_without_explicit_non_interactive_confirmation(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $bootstrapEnvLog = $tempRoot.'/bootstrap-env.log';
+        $bootstrapObsLog = $tempRoot.'/bootstrap-obs.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$bootstrapEnvLog}"
+exit 0
+BASH);
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$bootstrapObsLog}"
+mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${2:-}" == "jobs-boards-laravel.test" && "\${3:-}" == "true" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" ]]; then
+  exit 0
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'quick', 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+        $bootstrapEnvOutput = is_file($bootstrapEnvLog) ? (string) file_get_contents($bootstrapEnvLog) : '';
+        $bootstrapObsOutput = is_file($bootstrapObsLog) ? (string) file_get_contents($bootstrapObsLog) : '';
+
+        $this->assertSame(1, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('Refusing interactive prompt in non-interactive mode', $combinedOutput);
+        $this->assertStringNotContainsString('php artisan migrate:fresh --force', $dockerOutput);
+        $this->assertSame('', $bootstrapEnvOutput, $combinedOutput);
+        $this->assertSame('', $bootstrapObsOutput, $combinedOutput);
+        $this->assertStringNotContainsString('exec jobs-boards-laravel.test true', $dockerOutput);
+    }
+
+    public function test_install_reset_demo_requires_admin_password_before_destructive_reset(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $bootstrapEnvLog = $tempRoot.'/bootstrap-env.log';
+        $bootstrapObsLog = $tempRoot.'/bootstrap-obs.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$bootstrapEnvLog}"
+exit 0
+BASH);
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$bootstrapObsLog}"
+mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${2:-}" == "jobs-boards-laravel.test" && "\${3:-}" == "true" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" ]]; then
+  exit 0
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'reset-demo', 'dev'],
+            $tempRoot,
+            [
+                'INSTALL_ASSUME_YES' => 'true',
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+        $bootstrapEnvOutput = is_file($bootstrapEnvLog) ? (string) file_get_contents($bootstrapEnvLog) : '';
+        $bootstrapObsOutput = is_file($bootstrapObsLog) ? (string) file_get_contents($bootstrapObsLog) : '';
+
+        $this->assertSame(1, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('Admin password is required in non-interactive mode.', $combinedOutput);
+        $this->assertStringNotContainsString('php artisan migrate:fresh --force', $dockerOutput);
+        $this->assertSame('', $bootstrapEnvOutput, $combinedOutput);
+        $this->assertSame('', $bootstrapObsOutput, $combinedOutput);
+        $this->assertStringNotContainsString('exec jobs-boards-laravel.test true', $dockerOutput);
+    }
+
+    public function test_install_full_uses_non_destructive_migrate_and_npm_ci_without_container_restart(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', ObsTestFixtures::bootstrapObsGeneratedEnvScript($tempRoot.'/.blue-team-vm'));
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${2:-}" == "jobs-boards-laravel.test" && "\${3:-}" == "true" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "test" && "\${4:-}" == "-f" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "--version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "optimize:clear" ]]; then
+  exit 17
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "npm" && "\${4:-}" == "ci" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "npm" && "\${4:-}" == "run" && "\${5:-}" == "build" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "migrate" && "\${6:-}" == "--force" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "db:seed" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "restart" ]]; then
+  exit 23
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'full', 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+        $migrateOffset = strpos($dockerOutput, 'exec jobs-boards-laravel.test php artisan migrate --force');
+        $npmCiOffset = strpos($dockerOutput, 'exec jobs-boards-laravel.test npm ci');
+        $optimizeOffset = strpos($dockerOutput, 'exec jobs-boards-laravel.test php artisan optimize:clear');
+
+        $this->assertSame(17, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('exec jobs-boards-laravel.test npm ci', $dockerOutput);
+        $this->assertStringContainsString('exec jobs-boards-laravel.test php artisan migrate --force', $dockerOutput);
+        $this->assertNotFalse($migrateOffset);
+        $this->assertNotFalse($npmCiOffset);
+        $this->assertNotFalse($optimizeOffset);
+        $this->assertLessThan($npmCiOffset, $migrateOffset);
+        $this->assertLessThan($optimizeOffset, $npmCiOffset);
+        $this->assertStringNotContainsString('exec jobs-boards-laravel.test npm install', $dockerOutput);
+        $this->assertStringNotContainsString('exec jobs-boards-laravel.test php artisan migrate:fresh --force', $dockerOutput);
+        $this->assertStringNotContainsString('restart jobs-boards-laravel.test', $dockerOutput);
+    }
+
+    public function test_install_full_runs_migrations_before_optimize_clear_when_database_cache_tables_are_missing(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', ObsTestFixtures::bootstrapObsGeneratedEnvScript($tempRoot.'/.blue-team-vm'));
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+state_file="{$tempRoot}/migrated"
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${2:-}" == "jobs-boards-laravel.test" && "\${3:-}" == "true" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "test" && "\${4:-}" == "-f" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "--version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "down" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "migrate" && "\${6:-}" == "--force" ]]; then
+  : > "\${state_file}"
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "db:seed" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "npm" && "\${4:-}" == "ci" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "npm" && "\${4:-}" == "run" && "\${5:-}" == "build" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "optimize:clear" ]]; then
+  if [[ -f "\${state_file}" ]]; then
+    exit 17
+  fi
+  exit 23
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "up" ]]; then
+  exit 0
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'full', 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+        $migrateOffset = strpos($dockerOutput, 'exec jobs-boards-laravel.test php artisan migrate --force');
+        $optimizeOffset = strpos($dockerOutput, 'exec jobs-boards-laravel.test php artisan optimize:clear');
+
+        $this->assertSame(17, $process->getExitCode(), $combinedOutput);
+        $this->assertNotFalse($migrateOffset, 'Expected deploy flow to run migrations.');
+        $this->assertNotFalse($optimizeOffset, 'Expected deploy flow to clear optimized caches after schema setup.');
+        $this->assertLessThan($optimizeOffset, $migrateOffset, 'Migrations must happen before optimize:clear when database-backed cache tables do not exist yet.');
+    }
+
+    public function test_install_full_does_not_treat_host_vendor_as_runtime_truth_when_container_vendor_is_missing(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+        mkdir($tempRoot.'/vendor', 0777, true);
+
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        file_put_contents($tempRoot.'/vendor/autoload.php', "<?php\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', ObsTestFixtures::bootstrapObsGeneratedEnvScript($tempRoot.'/.blue-team-vm'));
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${2:-}" == "jobs-boards-laravel.test" && "\${3:-}" == "true" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "test" && "\${4:-}" == "-f" && "\${5:-}" == "/var/www/html/vendor/autoload.php" ]]; then
+  exit 1
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "curl" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "composer" && "\${4:-}" == "install" ]]; then
+  exit 17
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'full', 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+
+        $this->assertSame(17, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('exec jobs-boards-laravel.test composer install --no-interaction --prefer-dist', $dockerOutput);
+    }
+
+    public function test_install_script_drops_external_qr_fallback_and_tmp_secret_spoolers_by_default(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/install.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringNotContainsString('api.qrserver.com', $contents);
+        $this->assertStringNotContainsString('/tmp/admin-', $contents);
+        $this->assertStringNotContainsString('/tmp/monitoring-', $contents);
+        $this->assertStringNotContainsString('INSTALL_ADMIN_PASSWORD=', $contents);
+        $this->assertStringNotContainsString('INSTALL_HEADLESS_ADMIN_PASSWORD=', $contents);
+        $this->assertStringContainsString('--password-file=php://stdin', $contents);
+        $this->assertStringContainsString('--admin-password-file=php://stdin', $contents);
+    }
+
+    public function test_install_test_prepare_rejects_invalid_testing_database_identifier_before_invoking_psql(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\nDB_USERNAME=jobs_user\n");
+        file_put_contents($tempRoot.'/.env.testing', "DB_DATABASE=testing;DROP DATABASE jobs_boards;--\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${2:-}" == "jobs-boards-laravel.test" && "\${3:-}" == "true" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "-f" && "\${4:-}" == "ps" && "\${5:-}" == "-q" && "\${6:-}" == "postgres" ]]; then
+  printf 'jobs-boards-postgres\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" ]]; then
+  exit 0
+fi
+exit 0
+BASH);
+
+        $process = new Process(
+            [$scriptPath, 'test', 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+
+        $this->assertSame(1, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('Invalid PostgreSQL identifier for DB_DATABASE', $combinedOutput);
+        $this->assertStringNotContainsString('exec jobs-boards-postgres psql', $dockerOutput);
+    }
+
+    public function test_install_test_prepare_uses_sanitized_env_values_when_creating_the_testing_database(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\nDB_USERNAME=\"jobs_user\"\n");
+        file_put_contents($tempRoot.'/.env.testing', "DB_DATABASE='testing_db'\n");
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${2:-}" == "jobs-boards-laravel.test" && "\${3:-}" == "true" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "-f" && "\${4:-}" == "ps" && "\${5:-}" == "-q" && "\${6:-}" == "postgres" ]]; then
+  printf 'jobs-boards-postgres\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${2:-}" == "jobs-boards-postgres" && "\${3:-}" == "psql" ]]; then
+  exit 17
+fi
+if [[ "\${1:-}" == "exec" ]]; then
+  exit 0
+fi
+exit 0
+BASH);
+
+        $process = new Process(
+            [$scriptPath, 'test', 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+
+        $this->assertSame(0, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('compose -f '.$tempRoot.'/compose.yaml ps -q postgres', $dockerOutput);
+        $this->assertStringContainsString('exec jobs-boards-postgres psql -U jobs_user -d postgres -c CREATE DATABASE testing_db;', $dockerOutput);
+        $this->assertStringNotContainsString('Invalid PostgreSQL identifier', $combinedOutput);
     }
 
     public function test_install_skip_reports_the_effective_compose_file_in_summary(): void

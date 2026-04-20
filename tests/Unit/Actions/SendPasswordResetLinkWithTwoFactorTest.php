@@ -2,10 +2,12 @@
 
 namespace Tests\Unit\Actions;
 
-require_once __DIR__ . '/../../../app/Actions/Fortify/SendPasswordResetLinkWithTwoFactor.php';
+require_once __DIR__.'/../../../app/Actions/Fortify/SendPasswordResetLinkWithTwoFactor.php';
 
 use App\Actions\Fortify\SendPasswordResetLinkWithTwoFactor;
 use App\Models\User;
+use App\Services\AuditLogger;
+use App\Services\TwoFactorService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
@@ -88,5 +90,52 @@ class SendPasswordResetLinkWithTwoFactorTest extends TestCase
         } finally {
             $this->app->instance('env', $previousEnv);
         }
+    }
+
+    public function test_non_canonical_password_reset_audit_metadata_excludes_raw_email(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'user@example.com',
+            'two_factor_secret' => encrypt('secret'),
+            'two_factor_confirmed_at' => now(),
+        ]);
+
+        RateLimiter::shouldReceive('tooManyAttempts')->once()->andReturn(false);
+        RateLimiter::shouldReceive('clear')->once();
+        Password::shouldReceive('sendResetLink')
+            ->once()
+            ->with(['email' => $user->email])
+            ->andReturn(Password::RESET_LINK_SENT);
+
+        $auditLogger = Mockery::mock(AuditLogger::class);
+        $auditLogger->shouldReceive('logSecurityEvent')
+            ->once()
+            ->withArgs(function (
+                string $eventType,
+                Request $request,
+                ?string $userId,
+                array $meta
+            ) use ($user): bool {
+                return $eventType === 'password_reset.link_sent'
+                    && $userId === $user->id
+                    && ! array_key_exists('email', $meta)
+                    && ($meta['verified_with'] ?? null) === '2fa_code';
+            });
+
+        $twoFactorService = Mockery::mock(TwoFactorService::class);
+        $twoFactorService->shouldReceive('verifyCode')
+            ->once()
+            ->with(Mockery::on(fn (User $candidate) => $candidate->is($user)), '123456')
+            ->andReturn(true);
+
+        $action = new SendPasswordResetLinkWithTwoFactor($auditLogger, $twoFactorService);
+
+        $result = $action([
+            'email' => $user->email,
+            'code' => '123456',
+        ]);
+
+        $this->assertSame(Password::RESET_LINK_SENT, $result['status']);
+        $this->assertFalse($result['local']);
     }
 }

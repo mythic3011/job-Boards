@@ -13,12 +13,18 @@ use Illuminate\Validation\Rules\Password;
 
 class ProfileService
 {
+    private const SENSITIVE_AUDIT_FIELDS = ['nickname', 'email'];
+
+    private const REDACTED_AUDIT_CHANGE = [
+        'changed' => true,
+        'sensitive' => true,
+    ];
+
     public function __construct(
         private readonly ProfileImageService $profileImageService,
         private readonly TwoFactorService $twoFactorService,
         private readonly AuditLogger $auditLogger
-    ) {
-    }
+    ) {}
 
     /**
      * Update user profile information.
@@ -30,11 +36,11 @@ class ProfileService
         if (isset($validationData['profile_image']) && empty($validationData['profile_image'])) {
             unset($validationData['profile_image']);
         }
-        
+
         $this->validateProfileData($user, $validationData);
 
         $originalData = $user->only(['nickname', 'email', 'profile_image_path']);
-        
+
         // Handle profile image upload
         if (isset($data['profile_image']) && $data['profile_image'] instanceof UploadedFile && $data['profile_image']->isValid()) {
             $this->handleProfileImageUpdate($user, $data['profile_image']);
@@ -59,7 +65,7 @@ class ProfileService
         $this->validatePasswordData($user, $data);
 
         // Verify current password
-        if (!Hash::check($data['current_password'], $user->password)) {
+        if (! Hash::check($data['current_password'], $user->password)) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'current_password' => ['The provided password does not match your current password.'],
             ]);
@@ -109,7 +115,7 @@ class ProfileService
     {
         $userData = $user->only([
             'id', 'idcode', 'login_id', 'nickname', 'email',
-            'user_type', 'profile_image_path', 'created_at'
+            'user_type', 'profile_image_path', 'created_at',
         ]);
 
         // Add formatted user type label
@@ -118,7 +124,7 @@ class ProfileService
         return [
             'user' => $userData,
             'two_factor_enabled' => $this->twoFactorService->isEnabled($user),
-            'has_profile_image' => !empty($user->profile_image_path),
+            'has_profile_image' => ! empty($user->profile_image_path),
             'profile_image_url' => $user->profile_image_path
                 ? $this->profileImageService->getImageUrl($user->profile_image_path)
                 : null,
@@ -152,7 +158,7 @@ class ProfileService
                 'nullable',
                 'image',
                 'max:2048', // 2MB max
-                'mimetypes:' . implode(',', ProfileImageService::ALLOWED_MIME_TYPES),
+                'mimetypes:'.implode(',', ProfileImageService::ALLOWED_MIME_TYPES),
             ];
         }
 
@@ -205,21 +211,25 @@ class ProfileService
      */
     private function handleProfileImageUpdate(User $user, UploadedFile $image): void
     {
-        try {
-            // Delete old image if exists
-            if ($user->profile_image_path) {
-                $this->profileImageService->deleteImage($user->profile_image_path);
-            }
+        $oldPath = $user->profile_image_path;
 
-            // Store new image (with validation)
-            $path = $this->profileImageService->storeImage($image);
-            $user->update(['profile_image_path' => $path]);
-            
+        try {
+            $newPath = $this->profileImageService->storeImage($image);
         } catch (\InvalidArgumentException $e) {
-            // Re-throw validation errors from ProfileImageService
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'profile_image' => [$e->getMessage()],
             ]);
+        }
+
+        try {
+            $user->update(['profile_image_path' => $newPath]);
+        } catch (\Throwable $e) {
+            $this->profileImageService->deleteImage($newPath);
+            throw $e;
+        }
+
+        if ($oldPath) {
+            $this->profileImageService->deleteImage($oldPath);
         }
     }
 
@@ -230,17 +240,18 @@ class ProfileService
     {
         $changes = [];
         $currentData = $user->only(['nickname', 'email', 'profile_image_path']);
-        
+
         foreach ($currentData as $key => $value) {
             if ($originalData[$key] !== $value) {
-                $changes[$key] = [
-                    'from' => $originalData[$key],
-                    'to' => $value,
-                ];
+                $changes[$key] = $this->formatAuditChange(
+                    field: $key,
+                    from: $originalData[$key],
+                    to: $value,
+                );
             }
         }
 
-        if (!empty($changes)) {
+        if (! empty($changes)) {
             $this->auditLogger->logBusinessEvent(
                 eventType: 'profile_updated',
                 request: $request,
@@ -258,6 +269,21 @@ class ProfileService
                 'ip' => $request->ip(),
             ]);
         }
+    }
+
+    /**
+     * Keep audit semantics for changed fields without persisting raw PII.
+     */
+    private function formatAuditChange(string $field, mixed $from, mixed $to): array
+    {
+        if (in_array($field, self::SENSITIVE_AUDIT_FIELDS, true)) {
+            return self::REDACTED_AUDIT_CHANGE;
+        }
+
+        return [
+            'from' => $from,
+            'to' => $to,
+        ];
     }
 
     /**

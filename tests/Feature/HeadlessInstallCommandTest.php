@@ -7,6 +7,7 @@ use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Role;
 use Symfony\Component\Console\Command\Command as CommandAlias;
@@ -79,5 +80,62 @@ class HeadlessInstallCommandTest extends TestCase
 
         $this->assertNull(User::query()->where('email', 'admin@example.com')->first());
         $this->assertSame(0, AuditLog::query()->where('event_type', 'setup.completed')->count());
+    }
+
+    public function test_headless_install_can_read_the_admin_password_from_an_environment_variable_and_suppress_secret_output(): void
+    {
+        putenv('HEADLESS_INSTALL_PASSWORD=StrongPass123!');
+        $_ENV['HEADLESS_INSTALL_PASSWORD'] = 'StrongPass123!';
+        $_SERVER['HEADLESS_INSTALL_PASSWORD'] = 'StrongPass123!';
+
+        $exitCode = Artisan::call('install:headless', [
+            '--admin-email' => 'admin@example.com',
+            '--admin-password-env' => 'HEADLESS_INSTALL_PASSWORD',
+            '--admin-name' => 'Root Admin',
+            '--app-name' => 'Jobs Boards',
+            '--app-url' => 'https://jb.mythic3011.com',
+            '--timezone' => 'Asia/Hong_Kong',
+            '--credential-output' => 'none',
+        ]);
+
+        $output = Artisan::output();
+        $admin = User::query()->where('email', 'admin@example.com')->first();
+
+        $this->assertSame(CommandAlias::SUCCESS, $exitCode);
+        $this->assertIsString($output);
+        $this->assertStringNotContainsString('Two-factor secret:', $output);
+        $this->assertStringNotContainsString('Recovery codes:', $output);
+        $this->assertNotNull($admin);
+        $this->assertSame('admin', $admin->user_type);
+        $this->assertTrue(Setting::isSetupCompleted());
+    }
+
+    public function test_headless_install_can_read_the_admin_password_from_a_file(): void
+    {
+        $passwordFile = tempnam(sys_get_temp_dir(), 'headless-install-password-');
+        $this->assertNotFalse($passwordFile);
+        file_put_contents($passwordFile, "StrongPass123!\n");
+
+        try {
+            $exitCode = Artisan::call('install:headless', [
+                '--admin-email' => 'file-admin@example.com',
+                '--admin-password-file' => $passwordFile,
+                '--admin-name' => 'File Admin',
+                '--credential-output' => 'none',
+            ]);
+        } finally {
+            @unlink($passwordFile);
+        }
+
+        $output = Artisan::output();
+        $admin = User::query()->where('email', 'file-admin@example.com')->first();
+
+        $this->assertSame(CommandAlias::SUCCESS, $exitCode);
+        $this->assertIsString($output);
+        $this->assertStringNotContainsString('Two-factor secret:', $output);
+        $this->assertStringNotContainsString('Recovery codes:', $output);
+        $this->assertNotNull($admin);
+        $this->assertSame('admin', $admin->user_type);
+        $this->assertTrue(Setting::isSetupCompleted());
     }
 }

@@ -1180,6 +1180,128 @@ BASH);
         $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.ObsConfigContract::derivedPath($tempRoot.'/state', 'GRAFANA_ADMIN_SECRET_FILE'), $dockerEnvOutput);
     }
 
+    public function test_common_bt_compose_auto_detects_and_exports_shared_app_plane_network_for_worktree_compose_consumers(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $dockerEnvLog = $tempRoot.'/docker-env.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
+        file_put_contents(
+            $tempRoot.'/compose.app.yml',
+            <<<YAML
+services: {}
+networks:
+  app-plane:
+    external: true
+    name: "\${BT_APP_PLANE_NETWORK_NAME:-\${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane}"
+YAML
+        );
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "\${1:-}" == "inspect" && "\${2:-}" == "-f" && "\${4:-}" == "jobs-boards-nginx" ]]; then
+  printf 'jobs-borads_app-plane\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_app-plane" ]]; then
+  cat <<'JSON'
+[{"IPAM":{"Config":[{"Subnet":"172.29.0.0/24"}]}}]
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "-f" && "\${5:-}" == "jobs-borads_app-plane" ]]; then
+  printf '172.29.0.0/24\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "compose" ]]; then
+  printf 'BT_APP_PLANE_NETWORK_NAME=%s\n' "\${BT_APP_PLANE_NETWORK_NAME:-}" >> "{$dockerEnvLog}"
+  exit 7
+fi
+exit 0
+BASH);
+
+        $process = new Process(
+            ['bash', '-c', 'source ./ops/lib/common.sh && bt_compose ./compose.app.yml ps'],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $dockerEnvOutput = (string) @file_get_contents($dockerEnvLog);
+
+        $this->assertSame(7, $process->getExitCode());
+        $this->assertStringContainsString('BT_APP_PLANE_NETWORK_NAME=jobs-borads_app-plane', $dockerEnvOutput);
+    }
+
+    public function test_common_bt_compose_preserves_explicit_app_plane_network_export_over_auto_detection(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $dockerEnvLog = $tempRoot.'/docker-env.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
+        file_put_contents(
+            $tempRoot.'/compose.app.yml',
+            <<<YAML
+services: {}
+networks:
+  app-plane:
+    external: true
+    name: "\${BT_APP_PLANE_NETWORK_NAME:-\${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane}"
+YAML
+        );
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "\${1:-}" == "inspect" && "\${2:-}" == "-f" && "\${4:-}" == "jobs-boards-nginx" ]]; then
+  printf 'jobs-borads_app-plane\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "jobs-borads_app-plane" ]]; then
+  cat <<'JSON'
+[{"IPAM":{"Config":[{"Subnet":"172.29.0.0/24"}]}}]
+JSON
+  exit 0
+fi
+if [[ "\${1:-}" == "network" && "\${2:-}" == "inspect" && "\${3:-}" == "-f" && "\${5:-}" == "jobs-borads_app-plane" ]]; then
+  printf '172.29.0.0/24\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "compose" ]]; then
+  printf 'BT_APP_PLANE_NETWORK_NAME=%s\n' "\${BT_APP_PLANE_NETWORK_NAME:-}" >> "{$dockerEnvLog}"
+  exit 7
+fi
+exit 0
+BASH);
+
+        $process = new Process(
+            ['bash', '-c', 'source ./ops/lib/common.sh && bt_compose ./compose.app.yml ps'],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_APP_PLANE_NETWORK_NAME' => 'explicit-app-plane',
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $dockerEnvOutput = (string) @file_get_contents($dockerEnvLog);
+
+        $this->assertSame(7, $process->getExitCode());
+        $this->assertStringContainsString('BT_APP_PLANE_NETWORK_NAME=explicit-app-plane', $dockerEnvOutput);
+        $this->assertStringNotContainsString('BT_APP_PLANE_NETWORK_NAME=jobs-borads_app-plane', $dockerEnvOutput);
+    }
+
     public function test_app_runtime_uses_php_fpm_foreground_instead_of_php_builtin_server_or_artisan_serve(): void
     {
         $dockerfileContents = file_get_contents($this->repoRoot.'/docker/Dockerfile.sail');

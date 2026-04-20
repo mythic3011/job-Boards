@@ -3,14 +3,16 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
-use App\Services\AntiBot\ChallengeVerifier;
 use App\Services\AntiBot\ChallengeVerificationResult;
+use App\Services\AntiBot\ChallengeVerifier;
 use App\Services\AuditLogger;
 use App\Services\InstallService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Livewire\Livewire;
 use Mockery;
 use PragmaRX\Google2FA\Google2FA;
+use Psr\Log\AbstractLogger;
 use Tests\Concerns\InteractsWithBrowserRequests;
 use Tests\Concerns\UsesInMemorySqlite;
 use Tests\TestCase;
@@ -153,6 +155,116 @@ class InstallSecurityTest extends TestCase
             ->assertSet('error', '');
 
         $this->assertSame(1, AuditLog::query()->where('event_type', 'setup.completed')->count());
+    }
+
+    public function test_install_controller_failure_log_does_not_contain_raw_admin_email_or_trace(): void
+    {
+        config(['app.install_token' => 'bootstrap-secret']);
+        $this->createUsersTable();
+
+        $logger = new class extends AbstractLogger
+        {
+            /** @var array<int, array{level: string, message: string, context: array}> */
+            public array $records = [];
+
+            public function log($level, $message, array $context = []): void
+            {
+                $this->records[] = [
+                    'level' => (string) $level,
+                    'message' => (string) $message,
+                    'context' => $context,
+                ];
+            }
+        };
+
+        Log::swap($logger);
+
+        $secret = 'JBSWY3DPEHPK3PXP';
+        $installService = Mockery::mock(InstallService::class);
+        $installService->shouldReceive('completeInstallation')
+            ->once()
+            ->andThrow(new \RuntimeException('controller install exploded for admin@example.com'));
+        $this->app->instance(InstallService::class, $installService);
+
+        $this->withBrowser()->postJson('/install/complete?token=bootstrap-secret', [
+            'admin_name' => 'Admin User',
+            'admin_email' => 'admin@example.com',
+            'admin_password' => 'StrongPass123!',
+            'two_factor_secret' => $secret,
+            'otp_code' => app(Google2FA::class)->getCurrentOtp($secret),
+        ])->assertStatus(500)
+            ->assertJson(['success' => false]);
+
+        $record = collect($logger->records)
+            ->firstWhere('message', 'Installation failed');
+
+        $this->assertNotNull($record);
+        $this->assertArrayNotHasKey('error', $record['context']);
+        $this->assertArrayNotHasKey('trace', $record['context']);
+
+        $encodedLogs = json_encode($logger->records);
+
+        $this->assertIsString($encodedLogs);
+        $this->assertStringNotContainsString('admin@example.com', $encodedLogs);
+    }
+
+    public function test_livewire_install_failure_does_not_expose_raw_exception_message_or_log_pii(): void
+    {
+        $logger = new class extends AbstractLogger
+        {
+            /** @var array<int, array{level: string, message: string, context: array}> */
+            public array $records = [];
+
+            public function log($level, $message, array $context = []): void
+            {
+                $this->records[] = [
+                    'level' => (string) $level,
+                    'message' => (string) $message,
+                    'context' => $context,
+                ];
+            }
+        };
+
+        Log::swap($logger);
+
+        $installService = Mockery::mock(InstallService::class);
+        $installService->shouldReceive('completeInstallation')
+            ->once()
+            ->andThrow(new \RuntimeException('livewire install exploded for admin@gmail.com'));
+        $this->app->instance(InstallService::class, $installService);
+
+        $wizard = Mockery::mock(\App\Livewire\Install\Wizard::class)
+            ->makePartial()
+            ->shouldAllowMockingProtectedMethods();
+        $wizard->shouldReceive('validateStep1')->once()->andReturnNull();
+        $wizard->shouldReceive('validateStep2')->once()->andReturnNull();
+        $wizard->shouldReceive('validateStep3')->once()->andReturnNull();
+
+        $wizard->name = 'Admin User';
+        $wizard->email = 'admin@gmail.com';
+        $wizard->password = 'StrongPass123!';
+        $wizard->twoFactorSecret = 'JBSWY3DPEHPK3PXP';
+        $wizard->recoveryCodes = ['RCODE-1', 'RCODE-2'];
+        $wizard->app_name = 'Jobs Board';
+        $wizard->app_url = 'https://jobboard.example.com';
+        $wizard->timezone = 'Asia/Hong_Kong';
+        $wizard->installDemo = false;
+
+        $wizard->complete();
+
+        $this->assertSame('Installation failed. Please try again.', $wizard->error);
+
+        $record = collect($logger->records)
+            ->firstWhere('message', 'Installation failed');
+
+        $this->assertNotNull($record);
+        $this->assertArrayNotHasKey('error', $record['context']);
+        $this->assertArrayNotHasKey('trace', $record['context']);
+
+        $encodedLogs = json_encode($logger->records);
+
+        $this->assertIsString($encodedLogs);
+        $this->assertStringNotContainsString('admin@gmail.com', $encodedLogs);
     }
 
     public function test_install_enforcement_returns_challenge_required_when_step_up_is_triggered_without_token(): void

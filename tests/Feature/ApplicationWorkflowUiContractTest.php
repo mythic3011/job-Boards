@@ -33,6 +33,15 @@ class ApplicationWorkflowUiContractTest extends TestCase
         $this->assertStringNotContainsString('bg-white', $contents);
     }
 
+    public function test_applications_index_does_not_render_dead_new_message_badge_logic(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/applications/index.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringNotContainsString('application_new_message_', $contents);
+        $this->assertStringNotContainsString('New message', $contents);
+    }
+
     public function test_file_upload_component_uses_theme_aware_dropzone_tokens(): void
     {
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/components/ui/file-upload.blade.php');

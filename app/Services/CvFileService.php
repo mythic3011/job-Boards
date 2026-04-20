@@ -49,31 +49,32 @@ class CvFileService
         $extension = strtolower($file->getClientOriginalExtension());
 
         // 1. Whitelist validation - allowed extensions
-        if (!in_array($extension, self::ALLOWED_EXTENSIONS, true)) {
+        if (! in_array($extension, self::ALLOWED_EXTENSIONS, true)) {
             return [
                 'valid' => false,
                 'error' => 'Invalid file extension. Only PDF, DOC, and DOCX files are allowed.',
             ];
         }
 
-        // 2. Double extension detection - reject files like cv.pdf.php, image.jpg.php
-        $parts = explode('.', $originalName);
-        if (count($parts) > 2) {
-            return [
-                'valid' => false,
-                'error' => 'Invalid filename. Double extensions are not allowed.',
-            ];
-        }
+        // 2. Double-extension detection - allow benign multi-dot filenames, but
+        // reject names where the segment before the final allowed extension is
+        // itself a dangerous executable/code extension (for example:
+        // "resume.php.pdf" or "resume.phtml.docx").
+        $basename = pathinfo($originalName, PATHINFO_FILENAME);
+        if (str_contains($basename, '.')) {
+            $penultimate = strtolower(substr($basename, strrpos($basename, '.') + 1));
+            $dangerous = ['php', 'phtml', 'phar', 'exe', 'sh', 'bat', 'cmd', 'js', 'html', 'htm', 'cgi', 'pl'];
 
-        if (count($parts) < 2) {
-            return [
-                'valid' => false,
-                'error' => 'Invalid filename. File must have an extension.',
-            ];
+            if (in_array($penultimate, $dangerous, true)) {
+                return [
+                    'valid' => false,
+                    'error' => 'Invalid filename. Double extensions are not allowed.',
+                ];
+            }
         }
 
         // 3. Validate MIME type (don't trust Content-Type header alone)
-        if (!in_array($mime, self::ALLOWED_MIME_TYPES, true)) {
+        if (! in_array($mime, self::ALLOWED_MIME_TYPES, true)) {
             return [
                 'valid' => false,
                 'error' => 'Invalid file type. Only PDF, DOC, and DOCX files are allowed.',
@@ -100,7 +101,7 @@ class CvFileService
     public function storeFile(UploadedFile $file): array
     {
         $extension = strtolower($file->getClientOriginalExtension());
-        $filename = Str::uuid()->toString() . '.' . $extension;
+        $filename = Str::uuid()->toString().'.'.$extension;
         $path = $file->storeAs(self::STORAGE_PATH, $filename, self::STORAGE_DISK);
 
         $content = Storage::disk(self::STORAGE_DISK)->get($path);

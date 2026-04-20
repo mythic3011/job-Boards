@@ -3,13 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Enums\ApplicationDecisionOutcome;
+use App\Exceptions\ProfileImageStoreException;
 use App\Models\Application;
 use App\Models\JobPosting;
 use App\Services\ApplicationService;
 use App\Services\AuditLogger;
 use App\Services\ProfileImageService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
@@ -17,8 +17,7 @@ class ApplicationController extends Controller
 {
     public function __construct(
         private readonly AuditLogger $auditLogger
-    ) {
-    }
+    ) {}
 
     /**
      * Download CV file with authorization check.
@@ -27,14 +26,14 @@ class ApplicationController extends Controller
     {
         $user = auth()->user();
 
-        if (!$user) {
+        if (! $user) {
             abort(401);
         }
 
         $application = $this->findAuthorizedApplication($idcode, $user);
 
         // Additional policy check (defense in depth)
-        if (!$user->can('downloadCv', $application)) {
+        if (! $user->can('downloadCv', $application)) {
             $this->logApplicationAuthorizationDenied(
                 application: $application,
                 user: $user,
@@ -80,7 +79,7 @@ class ApplicationController extends Controller
      */
     private function verifyFileExists(Application $application): void
     {
-        if (!Storage::disk('private')->exists($application->cv_file_path)) {
+        if (! Storage::disk('private')->exists($application->cv_file_path)) {
             Log::error('CV file not found', [
                 'application_id' => $application->id,
                 'file_path' => $application->cv_file_path,
@@ -99,8 +98,7 @@ class ApplicationController extends Controller
         string $policy,
         string $eventType,
         Request $request,
-    ): void
-    {
+    ): void {
         $this->auditLogger->logRequestEvent(
             eventType: $eventType,
             request: $request,
@@ -170,7 +168,7 @@ class ApplicationController extends Controller
             echo $file;
         }, $filename, [
             'Content-Type' => $application->cv_mime ?? 'application/octet-stream',
-            'Content-Disposition' => 'attachment; filename="' . addslashes($filename) . '"', // Force attachment, never inline
+            'Content-Disposition' => 'attachment; filename="'.addslashes($filename).'"', // Force attachment, never inline
             'X-Content-Type-Options' => 'nosniff', // Prevent MIME sniffing attacks
             'Content-Length' => strlen($file),
         ]);
@@ -181,7 +179,7 @@ class ApplicationController extends Controller
      */
     private function sanitizeFilename(Application $application): string
     {
-        $filename = $application->cv_original_name ?? 'cv.' . pathinfo($application->cv_file_path, PATHINFO_EXTENSION);
+        $filename = $application->cv_original_name ?? 'cv.'.pathinfo($application->cv_file_path, PATHINFO_EXTENSION);
         $filename = preg_replace('/[^a-zA-Z0-9._-]/', '_', $filename);
 
         return substr($filename, 0, 255);
@@ -198,7 +196,7 @@ class ApplicationController extends Controller
     ) {
         $user = $request->user();
 
-        if (!$user || !$user->isIndividual()) {
+        if (! $user || ! $user->isIndividual()) {
             abort(403, 'Only individual users can submit applications.');
         }
 
@@ -217,13 +215,17 @@ class ApplicationController extends Controller
         }
 
         try {
-            \DB::transaction(function () use ($user, $validated, $applicationService, $profileImageService, $job, $jobIdcode) {
+            \DB::transaction(function () use ($user, $validated, $applicationService, $profileImageService, $job) {
                 $oldProfileImagePath = $user->profile_image_path;
                 $newImagePath = null;
 
                 // Store new profile image if provided
-                if (!empty($validated['profile_image'])) {
-                    $newImagePath = $profileImageService->storeImage($validated['profile_image']);
+                if (! empty($validated['profile_image'])) {
+                    try {
+                        $newImagePath = $profileImageService->storeImage($validated['profile_image']);
+                    } catch (\InvalidArgumentException $e) {
+                        throw new ProfileImageStoreException($e->getMessage(), 0, $e);
+                    }
                     $user->update(['profile_image_path' => $newImagePath]);
                 }
 
@@ -250,6 +252,8 @@ class ApplicationController extends Controller
             return redirect()
                 ->route('jobs.show', $jobIdcode)
                 ->with('message', 'Application submitted successfully!');
+        } catch (ProfileImageStoreException $e) {
+            return back()->withErrors(['profile_image' => $e->getMessage()]);
         } catch (\InvalidArgumentException $e) {
             return back()->withErrors(['cv_file' => $e->getMessage()]);
         }
@@ -261,7 +265,7 @@ class ApplicationController extends Controller
     public function approve(Request $request, string $idcode, ApplicationService $applicationService)
     {
         $application = Application::byIdcode($idcode)->firstOrFail();
-        if (!$request->user()?->can('approve', $application)) {
+        if (! $request->user()?->can('approve', $application)) {
             $this->logApplicationAuthorizationDenied(
                 application: $application,
                 user: $request->user(),
@@ -274,11 +278,16 @@ class ApplicationController extends Controller
 
         $validated = $request->validate([
             'decision_message' => ['nullable', 'string', 'max:2000'],
+            'job_idcode' => ['nullable', 'string'],
         ]);
+
+        $scopedParams = $request->filled('job_idcode')
+            ? ['jobIdcode' => $request->string('job_idcode')->toString()]
+            : [];
 
         return match ($applicationService->approve($application, $validated['decision_message'] ?? null)) {
             ApplicationDecisionOutcome::UPDATED => redirect()
-                ->route('my.applications.index')
+                ->route('my.applications.index', $scopedParams)
                 ->with('success', 'Application approved successfully.'),
             ApplicationDecisionOutcome::NOOP_ALREADY_TARGET => back()
                 ->with('info', 'This application has already been approved.'),
@@ -293,7 +302,7 @@ class ApplicationController extends Controller
     public function reject(Request $request, string $idcode, ApplicationService $applicationService)
     {
         $application = Application::byIdcode($idcode)->firstOrFail();
-        if (!$request->user()?->can('reject', $application)) {
+        if (! $request->user()?->can('reject', $application)) {
             $this->logApplicationAuthorizationDenied(
                 application: $application,
                 user: $request->user(),
@@ -306,11 +315,16 @@ class ApplicationController extends Controller
 
         $validated = $request->validate([
             'decision_message' => ['nullable', 'string', 'max:2000'],
+            'job_idcode' => ['nullable', 'string'],
         ]);
+
+        $scopedParams = $request->filled('job_idcode')
+            ? ['jobIdcode' => $request->string('job_idcode')->toString()]
+            : [];
 
         return match ($applicationService->reject($application, $validated['decision_message'] ?? null)) {
             ApplicationDecisionOutcome::UPDATED => redirect()
-                ->route('my.applications.index')
+                ->route('my.applications.index', $scopedParams)
                 ->with('success', 'Application rejected successfully.'),
             ApplicationDecisionOutcome::NOOP_ALREADY_TARGET => back()
                 ->with('info', 'This application has already been rejected.'),

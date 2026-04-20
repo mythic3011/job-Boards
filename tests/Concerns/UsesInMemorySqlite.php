@@ -29,6 +29,7 @@ trait UsesInMemorySqlite
             $table->string('email')->unique();
             $table->string('password');
             $table->string('user_type');
+            $table->string('registration_state')->default('active');
             $table->text('profile_image_path')->nullable();
             $table->timestamp('locked_until')->nullable();
             $table->text('two_factor_secret')->nullable();

@@ -8,10 +8,20 @@ use Illuminate\Support\Str;
 
 class AuditLogger
 {
+    /**
+     * @var list<string>
+     */
+    private const NON_CANONICAL_PII_KEYS = [
+        'admin_email',
+        'email',
+        'login_id',
+        'nickname',
+        'username',
+    ];
+
     public function __construct(
         private readonly CanonicalAuditContract $canonicalAuditContract,
-    ) {
-    }
+    ) {}
 
     /**
      * Log a security-related event.
@@ -148,7 +158,7 @@ class AuditLogger
                 $value = preg_replace('/[\x00-\x1F\x7F]/', '', $value);
                 // Truncate very long strings
                 if (strlen($value) > 1000) {
-                    $value = substr($value, 0, 1000) . '... [truncated]';
+                    $value = substr($value, 0, 1000).'... [truncated]';
                 }
             }
             $sanitized[$key] = $value;
@@ -158,7 +168,7 @@ class AuditLogger
             return $this->sanitizeCanonicalMetadata($sanitized);
         }
 
-        return $sanitized;
+        return $this->sanitizeNonCanonicalMetadata($sanitized);
     }
 
     /**
@@ -197,6 +207,18 @@ class AuditLogger
         return $sanitized;
     }
 
+    /**
+     * Non-canonical business events must not retain raw direct identifiers in metadata.
+     */
+    private function sanitizeNonCanonicalMetadata(array $meta): array
+    {
+        foreach (self::NON_CANONICAL_PII_KEYS as $key) {
+            unset($meta[$key]);
+        }
+
+        return $meta;
+    }
+
     private function canonicalOutcome(string $eventType, int $statusCode): string
     {
         $contractOutcome = $this->canonicalAuditContract->eventOutcome($eventType);
@@ -228,7 +250,7 @@ class AuditLogger
      */
     private function truncateUserAgent(?string $userAgent): ?string
     {
-        if (!$userAgent) {
+        if (! $userAgent) {
             return null;
         }
 

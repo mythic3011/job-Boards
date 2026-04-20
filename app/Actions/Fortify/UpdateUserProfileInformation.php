@@ -12,8 +12,7 @@ class UpdateUserProfileInformation implements UpdatesUserProfileInformation
 {
     public function __construct(
         private readonly ProfileImageService $profileImageService
-    ) {
-    }
+    ) {}
 
     /**
      * Update the user's profile information.
@@ -33,21 +32,33 @@ class UpdateUserProfileInformation implements UpdatesUserProfileInformation
                 'nullable',
                 'image',
                 'max:2048',
-                'mimetypes:' . implode(',', ProfileImageService::ALLOWED_MIME_TYPES),
+                'mimetypes:'.implode(',', ProfileImageService::ALLOWED_MIME_TYPES),
             ],
         ])->validateWithBag('updateProfileInformation');
 
-        // Delete old profile image if new one is being uploaded
+        $oldPath = $user->profile_image_path;
+        $newPath = null;
+
         if (isset($input['profile_image']) && $input['profile_image']->isValid()) {
-            $this->profileImageService->deleteImage($user->profile_image_path);
-            $path = $this->profileImageService->storeImage($input['profile_image']);
-            $input['profile_image_path'] = $path;
+            $newPath = $this->profileImageService->storeImage($input['profile_image']);
         }
 
-        $user->forceFill([
-            'nickname' => $input['nickname'],
-            'email' => $input['email'],
-            'profile_image_path' => $input['profile_image_path'] ?? $user->profile_image_path,
-        ])->save();
+        try {
+            $user->forceFill([
+                'nickname' => $input['nickname'],
+                'email' => $input['email'],
+                'profile_image_path' => $newPath ?? $user->profile_image_path,
+            ])->save();
+        } catch (\Throwable $e) {
+            if ($newPath) {
+                $this->profileImageService->deleteImage($newPath);
+            }
+
+            throw $e;
+        }
+
+        if ($newPath && $oldPath) {
+            $this->profileImageService->deleteImage($oldPath);
+        }
     }
 }

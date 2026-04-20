@@ -18,10 +18,11 @@ Route::middleware([
     'auth',
     'anti-bot.admin',
     'hide.admin',
+    'registration.active',
     'admin.2fa',
     'throttle:30,1', // Rate limit: 30 requests per minute
 ])->prefix('admin')->name('admin.')->group(function () {
-    
+
     // Dashboard
     Volt::route('/', 'admin.dashboard')
         ->middleware('permission:admin.system.view')

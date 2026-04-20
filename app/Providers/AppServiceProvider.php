@@ -16,8 +16,8 @@ use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Str;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 
 class AppServiceProvider extends ServiceProvider
@@ -79,20 +79,36 @@ class AppServiceProvider extends ServiceProvider
                 // High-risk paths: 5 requests per 10 minutes
                 return Limit::perMinutes(10, 5)->by($request->ip());
             }
-            
+
             // Normal paths: 20 requests per 5 minutes
             return Limit::perMinutes(5, 20)->by($request->ip());
         });
 
         Event::listen(JobFailed::class, function (JobFailed $event) {
-            Log::error('Queue job failed', [
-                'connection' => $event->connectionName,
-                'queue' => $event->job?->getQueue(),
-                'job' => $event->job?->resolveName(),
-                'payload' => $event->job?->payload(),
-                'exception' => $event->exception->getMessage(),
-            ]);
+            Log::error('Queue job failed', $this->queueFailureLogContext($event));
         });
+    }
+
+    /**
+     * Keep queue failure logs operationally useful without dumping raw payloads.
+     *
+     * @return array<string, mixed>
+     */
+    private function queueFailureLogContext(JobFailed $event): array
+    {
+        $payload = $event->job?->payload();
+
+        return [
+            'connection' => $event->connectionName,
+            'queue' => $event->job?->getQueue(),
+            'job' => $event->job?->resolveName(),
+            'job_uuid' => is_array($payload) ? ($payload['uuid'] ?? null) : null,
+            'job_display_name' => is_array($payload) ? ($payload['displayName'] ?? null) : null,
+            'job_max_tries' => is_array($payload) ? ($payload['maxTries'] ?? null) : null,
+            'job_payload_keys' => is_array($payload) ? array_keys($payload) : [],
+            'job_data_keys' => is_array($payload['data'] ?? null) ? array_keys($payload['data']) : [],
+            'exception' => $event->exception->getMessage(),
+        ];
     }
 
     private function configureTrustedProxies(): void

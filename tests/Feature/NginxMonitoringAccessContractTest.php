@@ -67,4 +67,13 @@ class NginxMonitoringAccessContractTest extends TestCase
         $this->assertStringNotContainsString('install, monitoring, and privileged routes', $page);
         $this->assertStringNotContainsString('policy', $page);
     }
+
+    public function test_livewire_versioned_assets_bypass_the_generic_static_asset_404_rule(): void
+    {
+        $nginx = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($nginx);
+        $this->assertStringContainsString('location ^~ /livewire {', $nginx);
+        $this->assertStringContainsString('try_files $uri $uri/ /index.php?$query_string;', $nginx);
+    }
 }

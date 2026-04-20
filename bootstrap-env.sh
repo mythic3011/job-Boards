@@ -9,6 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=ops/lib/common.sh
 source "${SCRIPT_DIR}/ops/lib/common.sh"
+BOOTSTRAP_COMPOSE_FILE="${BOOTSTRAP_COMPOSE_FILE:-${SCRIPT_DIR}/compose.yaml}"
 
 # ─── Mode validation ──────────────────────────────────────────────────────────
 MODE="${1:-dev}"
@@ -19,6 +20,7 @@ MODE="${1:-dev}"
     echo "  test       — sync .env.testing with .env credentials"
     exit 1
 }
+ISSUES=0
 
 # ─── Env helpers (safe for all special chars) ─────────────────────────────────
 # get_env: always returns empty string on missing key (never exits under set -e)
@@ -135,12 +137,6 @@ is_local_only_aws_var() {
 is_weak() {
     local val="$1" var="$2"
 
-    # Never check derived or identifier vars here
-    is_derived_var "$var"    && return 1
-    is_identifier_var "$var" && return 1
-
-    [[ -z "$val" ]] && return 0
-
     # Booleans handled by is_misconfigured
     [[ "$var" =~ ^(APP_DEBUG|SESSION_ENCRYPT|SESSION_SECURE_COOKIE|AWS_USE_PATH_STYLE_ENDPOINT)$ ]] && return 1
 
@@ -149,6 +145,12 @@ is_weak() {
         [[ -n "$val" ]] && return 0
         return 1
     fi
+
+    # Never check derived or identifier vars here
+    is_derived_var "$var"    && return 1
+    is_identifier_var "$var" && return 1
+
+    [[ -z "$val" ]] && return 0
 
     if is_secret_var "$var"; then
         local placeholders=(secret password null changeme example default test
@@ -469,29 +471,155 @@ fi
 echo ""
 echo "── Port conflict check ──"
 
+bootstrap_port_service_name() {
+    case "${1:-}" in
+        APP_PORT|APP_SSL_PORT)
+            printf '%s\n' "nginx"
+            ;;
+        VITE_PORT)
+            printf '%s\n' "laravel.test"
+            ;;
+        FORWARD_DB_PORT)
+            printf '%s\n' "postgres"
+            ;;
+        FORWARD_REDIS_PORT)
+            printf '%s\n' "redis"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+bootstrap_port_owned_by_current_stack() {
+    local key="$1"
+    local port="$2"
+    local service=""
+
+    service="$(bootstrap_port_service_name "${key}")" || return 1
+    bt_compose_service_publishes_host_port "${BOOTSTRAP_COMPOSE_FILE}" "${service}" "${port}"
+}
+
+bootstrap_port_conflict_resolution_mode() {
+    local choice="${BT_AUTO_ASSIGN_PORTS:-}"
+
+    if [[ "${choice}" =~ ^([Tt][Rr][Uu][Ee]|1|[Yy]([Ee][Ss])?)$ ]]; then
+        printf '%s\n' "auto"
+        return 0
+    fi
+
+    if [[ "${choice}" =~ ^([Ff][Aa][Ll][Ss][Ee]|0|[Nn]([Oo])?)$ ]]; then
+        printf '%s\n' "abort"
+        return 0
+    fi
+
+    if [[ ! -t 0 ]]; then
+        echo "  ✘ Port conflicts detected in non-interactive mode — set BT_AUTO_ASSIGN_PORTS=true or fix .env manually." >&2
+        return 1
+    fi
+
+    printf '%s\n' "prompt"
+}
+
+bootstrap_prompt_port_conflict_resolution() {
+    local var="$1"
+    local current="$2"
+    shift 2
+    local reserved_ports=("$@")
+    local choice=""
+    local candidate=""
+
+    while true; do
+        printf '%s\n' "  ! ${var}=${current} conflicts with another listener." >&2
+        read -r -p "    Choose [i]nput a port, [a]uto-assign a free port, or [q]uit: " choice
+
+        case "${choice,,}" in
+            ""|a|auto)
+                if ! bt_find_free_port candidate "${reserved_ports[@]}"; then
+                    echo "  ✘ ${var}: no free port found in 3001-9001" >&2
+                    return 1
+                fi
+
+                printf '%s\n' "${candidate}"
+                return 0
+                ;;
+            i|input|m|manual)
+                read -r -p "    Enter a free port for ${var}: " candidate
+                if [[ ! "${candidate}" =~ ^[0-9]+$ ]] || (( candidate < 1 || candidate > 65535 )); then
+                    echo "  ✘ ${var}: '${candidate}' is not a valid port" >&2
+                    continue
+                fi
+
+                if bt_port_is_reserved "${candidate}" "${reserved_ports[@]}"; then
+                    echo "  ✘ ${var}: ${candidate} is already reserved by another configured service" >&2
+                    continue
+                fi
+
+                if bt_port_in_use "${candidate}"; then
+                    echo "  ✘ ${var}: ${candidate} is already in use" >&2
+                    continue
+                fi
+
+                printf '%s\n' "${candidate}"
+                return 0
+                ;;
+            q|quit|abort|n|no)
+                echo "  ✘ ${var}: aborted by user" >&2
+                return 1
+                ;;
+            *)
+                echo "  ✘ Invalid choice. Enter i, a, or q." >&2
+                ;;
+        esac
+    done
+}
+
 _check_port_var() {
     local var="$1" default="$2"
     shift 2
 
-    local current new_port reason=""
+    local current new_port reason="" resolution_mode=""
     local -a reserved_ports=( "$@" )
     current=$(get_env "$var")
     current="${current:-$default}"
 
     if bt_port_is_reserved "$current" "${reserved_ports[@]}"; then
         reason="conflicted with another defined port"
+    elif bootstrap_port_owned_by_current_stack "$var" "$current"; then
+        reason=""
     elif bt_port_in_use "$current"; then
         reason="was in use"
     fi
 
     if [[ -n "${reason}" ]]; then
-        if bt_find_free_port new_port "${reserved_ports[@]}"; then
-            set_env "$var" "$new_port"
-            echo "  ✔ ${var}: ${current} → ${new_port} (${reason}, reassigned)"
-        else
-            echo "  ✘ ${var}: port ${current} ${reason} — no free port found in 3001-9001"
+        resolution_mode="$(bootstrap_port_conflict_resolution_mode)" || {
             ISSUES=$((ISSUES + 1))
-        fi
+            return 0
+        }
+
+        case "${resolution_mode}" in
+            auto)
+                if ! bt_find_free_port new_port "${reserved_ports[@]}"; then
+                    echo "  ✘ ${var}: port ${current} ${reason} — no free port found in 3001-9001"
+                    ISSUES=$((ISSUES + 1))
+                    return 0
+                fi
+                ;;
+            abort)
+                echo "  ✘ ${var}: port ${current} ${reason} — resolve it manually or set BT_AUTO_ASSIGN_PORTS=true"
+                ISSUES=$((ISSUES + 1))
+                return 0
+                ;;
+            prompt)
+                new_port="$(bootstrap_prompt_port_conflict_resolution "${var}" "${current}" "${reserved_ports[@]}")" || {
+                    ISSUES=$((ISSUES + 1))
+                    return 0
+                }
+                ;;
+        esac
+
+        set_env "$var" "$new_port"
+        echo "  ✔ ${var}: ${current} → ${new_port} (${reason}, reassigned)"
     else
         [[ -z "$(get_env "$var")" ]] && set_env "$var" "$current"
         echo "  ✔ ${var}=${current}"
@@ -527,7 +655,6 @@ port_conflict_check
 # ── 6. Final audit ─────────────────────────────────────────────────────────────
 echo ""
 echo "── Final audit ──"
-ISSUES=0
 
 audit_secret() {
     local var="$1"
@@ -594,14 +721,19 @@ audit_secret_file() {
     fi
 }
 
-while IFS= read -r line; do
-    [[ "$line" =~ ^#.*$|^$ ]] && continue
-    [[ "$line" =~ ^([A-Z_][A-Z0-9_]*)= ]] || continue
-    var="${BASH_REMATCH[1]}"
-    val=$(get_env "$var")
+audit_inactive_local_stack_secret() {
+    local var="$1"
+    echo "  - ${var} — not audited (local stack feature inactive)"
+}
+
+audit_env_var() {
+    local var="$1"
+    local val="${2:-}"
 
     if [[ "$var" == "GRAFANA_ADMIN_SECRET_FILE" ]]; then
         audit_secret_file "$var"
+    elif is_local_only_aws_var "$var"; then
+        audit_inactive_local_stack_secret "$var"
     elif is_derived_var "$var"; then
         audit_bcrypt "$var"
     elif is_identifier_var "$var"; then
@@ -613,6 +745,14 @@ while IFS= read -r line; do
     elif is_misconfigured "$val" "$var"; then
         audit_secret "$var"
     fi
+}
+
+while IFS= read -r line; do
+    [[ "$line" =~ ^#.*$|^$ ]] && continue
+    [[ "$line" =~ ^([A-Z_][A-Z0-9_]*)= ]] || continue
+    var="${BASH_REMATCH[1]}"
+    val=$(get_env "$var")
+    audit_env_var "$var" "$val"
 done < .env.example
 
 if [[ "$MODE" == "production" ]]; then

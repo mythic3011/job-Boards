@@ -7,8 +7,8 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\TwoFactorService;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -21,8 +21,7 @@ class PasswordResetController extends Controller
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly TwoFactorService $twoFactorService
-    ) {
-    }
+    ) {}
 
     /**
      * Send a password reset link with 2FA verification.
@@ -70,14 +69,14 @@ class PasswordResetController extends Controller
         $user = User::where('email', $request->email)->first();
 
         // Skip 2FA check if this reset was admin-initiated
-        $adminInitiated = $user && Cache::pull('admin_reset:' . $request->token);
+        $adminInitiated = $user && Cache::pull('admin_reset:'.$request->token);
 
-        if (!$adminInitiated && $user && $this->twoFactorService->isEnabled($user)) {
+        if (! $adminInitiated && $user && $this->twoFactorService->isEnabled($user)) {
             $request->validate([
                 'two_factor_code' => ['required', 'string', 'size:6'],
             ]);
 
-            if (!$this->twoFactorService->verifyCode($user, $request->two_factor_code)) {
+            if (! $this->twoFactorService->verifyCode($user, $request->two_factor_code)) {
                 return back()->withErrors([
                     'two_factor_code' => 'The provided two-factor authentication code is invalid.',
                 ]);
@@ -87,10 +86,12 @@ class PasswordResetController extends Controller
         // Reset password
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
-            function (User $user, string $password) use ($request) {
+            function (User $user, string $password) use ($request, $adminInitiated) {
                 $user->forceFill([
                     'password' => Hash::make($password),
                 ])->save();
+
+                $twoFactorVerified = $user->two_factor_confirmed_at !== null;
 
                 // Log password reset completion
                 $this->auditLogger->logBusinessEvent(
@@ -99,14 +100,15 @@ class PasswordResetController extends Controller
                     targetType: 'user',
                     targetIdcode: $user->idcode,
                     meta: [
-                        'email' => $user->email,
-                        'two_factor_verified' => $user->two_factor_confirmed_at !== null,
+                        'admin_initiated' => $adminInitiated,
+                        'two_factor_verified' => $twoFactorVerified,
                     ]
                 );
 
                 Log::info('Password reset completed', [
                     'user_id' => $user->id,
-                    'email' => $user->email,
+                    'admin_initiated' => $adminInitiated,
+                    'two_factor_verified' => $twoFactorVerified,
                     'ip' => $request->ip(),
                 ]);
             }

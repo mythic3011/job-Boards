@@ -4,10 +4,10 @@ namespace App\Services;
 
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthenticationService
@@ -15,8 +15,7 @@ class AuthenticationService
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly AdminNavigationService $adminNavigation,
-    ) {
-    }
+    ) {}
 
     /**
      * Authenticate user with enhanced security features.
@@ -32,7 +31,7 @@ class AuthenticationService
         }
 
         // Verify credentials
-        if (!$user || !Hash::check($password, $user->password)) {
+        if (! $user || ! Hash::check($password, $user->password)) {
             $this->handleFailedAuthentication($user, $request, $username);
             throw ValidationException::withMessages([
                 'login_id' => ['These credentials do not match our records.'],
@@ -41,7 +40,7 @@ class AuthenticationService
 
         // Successful authentication
         $this->handleSuccessfulAuthentication($user, $request);
-        
+
         return $user;
     }
 
@@ -74,8 +73,8 @@ class AuthenticationService
         // Log successful login
         Log::info('User authenticated successfully', [
             'user_id' => $user->id,
-            'username' => $user->login_id,
-            'email' => $user->email,
+            'user_type' => $user->user_type,
+            'registration_state' => $user->registration_state,
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
@@ -124,7 +123,9 @@ class AuthenticationService
         );
 
         Log::warning('Authentication failed', [
-            'username' => $auditUsername,
+            'user_id' => $user?->id,
+            'target_type' => $targetType,
+            'target_idcode' => $targetIdcode,
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'reason' => $user ? 'invalid_password' : 'user_not_found',
@@ -152,10 +153,11 @@ class AuthenticationService
         );
 
         Log::warning('Login attempt on locked account', [
-            'username' => $username,
             'user_id' => $user->id,
+            'target_idcode' => $user->idcode,
             'ip' => $request->ip(),
             'locked_until' => $user->locked_until,
+            'reason' => 'account_locked',
         ]);
     }
 
@@ -204,7 +206,7 @@ class AuthenticationService
 
         Log::warning('Account locked due to failed attempts', [
             'user_id' => $user->id,
-            'username' => $user->login_id,
+            'target_idcode' => $user->idcode,
             'attempts' => $attempts,
             'locked_until' => $lockedUntil,
             'ip' => $request->ip(),
@@ -217,11 +219,11 @@ class AuthenticationService
     private function setProgressiveWarning(int $attempts, int $maxAttempts): void
     {
         $remaining = $maxAttempts - $attempts;
-        
+
         $message = $remaining === 1
             ? 'Incorrect credentials. This is your last attempt before temporary lockout.'
             : sprintf('Incorrect credentials. You have %d attempts remaining before temporary lockout.', $remaining);
-        
+
         session()->flash('warning', $message);
     }
 
@@ -233,18 +235,18 @@ class AuthenticationService
         $lockedUntil = $user->locked_until;
         $minutesRemaining = max(1, $lockedUntil->diffInMinutes(now()));
         $unlockTime = $lockedUntil->format('g:i A');
-        
+
         $message = sprintf(
             'Your account has been temporarily locked due to multiple failed login attempts. Please try again in %d %s (at %s).',
             $minutesRemaining,
             $minutesRemaining === 1 ? 'minute' : 'minutes',
             $unlockTime
         );
-        
+
         // Store lockout info for display
         session()->flash('lockout_until', $lockedUntil->toDateTimeString());
         session()->flash('lockout_minutes', $minutesRemaining);
-        
+
         throw ValidationException::withMessages([
             'login_id' => [$message],
         ]);
@@ -263,7 +265,7 @@ class AuthenticationService
      */
     private function getFailedAttemptsKey(User $user, Request $request): string
     {
-        return 'login_attempts:' . $user->login_id . ':' . $request->ip();
+        return 'login_attempts:'.$user->login_id.':'.$request->ip();
     }
 
     private function trimAuditUsername(string $username): string
@@ -281,7 +283,7 @@ class AuthenticationService
             return 'login_unknown';
         }
 
-        return 'login_' . hash('sha256', $normalized);
+        return 'login_'.hash('sha256', $normalized);
     }
 
     /**
@@ -304,6 +306,18 @@ class AuthenticationService
      */
     public function getPostLoginRedirect(User $user): string
     {
+        if ($user->isRegistrationPending()) {
+            if (session()->has('url.intended')) {
+                $intended = session()->pull('url.intended');
+
+                if (is_string($intended) && $intended !== '' && $intended !== route('profile.two-factor')) {
+                    session()->put('registration.pending_intended', $intended);
+                }
+            }
+
+            return route('profile.two-factor');
+        }
+
         // Check for intended URL first
         if (session()->has('url.intended')) {
             return session()->pull('url.intended');

@@ -1,6 +1,12 @@
 <div class="max-w-5xl mx-auto space-y-6">
+    @php($registrationPending = $user?->isRegistrationPending() ?? false)
+
     <nav class="theme-text-muted mb-4 flex items-center gap-2 text-sm">
-        <a href="{{ route('profile.show') }}" class="theme-link transition-colors">Profile</a>
+        @if($registrationPending)
+            <span class="theme-text-muted">Account Activation</span>
+        @else
+            <a href="{{ route('profile.show') }}" class="theme-link transition-colors">Profile</a>
+        @endif
         <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
         </svg>
@@ -8,13 +14,16 @@
     </nav>
 
     <div>
-        <h1 class="theme-text-strong text-2xl font-bold">Security Settings</h1>
-        <p class="theme-text-muted mt-1">Manage your account security and two-factor authentication</p>
+        <h1 class="theme-text-strong text-2xl font-bold">{{ $registrationPending ? 'Finish Account Activation' : 'Security Settings' }}</h1>
+        <p class="theme-text-muted mt-1">
+            {{ $registrationPending ? 'Complete two-factor setup to finish activating your account.' : 'Manage your account security and two-factor authentication' }}
+        </p>
     </div>
 
     @include('profile.partials.workspace-nav', [
         'active' => 'two-factor',
         'twoFactorEnabled' => $is2FAEnabled,
+        'registrationPending' => $registrationPending,
     ])
 
     <!-- Flash Messages -->
@@ -246,33 +255,50 @@
             <x-ui.card>
                 <h2 class="theme-text-strong text-lg font-semibold">Quick Actions</h2>
                 <div class="mt-4 space-y-3">
-                    <a href="{{ route('profile.show') }}" class="theme-panel-subtle flex items-start justify-between rounded-xl border px-4 py-3 text-sm transition-colors hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)]">
-                        <div>
-                            <p class="theme-text-strong font-medium">Profile Overview</p>
-                            <p class="theme-text-muted mt-1 text-xs">Review account details and shortcuts.</p>
+                    @if($registrationPending)
+                        <div class="theme-panel-subtle rounded-xl border px-4 py-3 text-sm">
+                            <p class="theme-text-strong font-medium">Finish activation here</p>
+                            <p class="theme-text-muted mt-1 text-xs">Your account stays limited until this two-factor verification is completed.</p>
                         </div>
-                        <span class="theme-link">Open</span>
-                    </a>
-                    <a href="{{ route('profile.edit') }}" class="theme-panel-subtle flex items-start justify-between rounded-xl border px-4 py-3 text-sm transition-colors hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)]">
-                        <div>
-                            <p class="theme-text-strong font-medium">Edit Profile</p>
-                            <p class="theme-text-muted mt-1 text-xs">Update your photo, display name, and email address.</p>
-                        </div>
-                        <span class="theme-link">Open</span>
-                    </a>
-                    @if($is2FAEnabled)
-                        <a href="{{ route('profile.password') }}" class="theme-panel-subtle flex items-start justify-between rounded-xl border px-4 py-3 text-sm transition-colors hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)]">
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="theme-panel-subtle flex w-full items-start justify-between rounded-xl border px-4 py-3 text-left text-sm transition-colors hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)]">
+                                <span>
+                                    <span class="theme-text-strong block font-medium">Sign Out</span>
+                                    <span class="theme-text-muted mt-1 block text-xs">Leave this session and come back when you are ready to finish setup.</span>
+                                </span>
+                                <span class="theme-link">Open</span>
+                            </button>
+                        </form>
+                    @else
+                        <a href="{{ route('profile.show') }}" class="theme-panel-subtle flex items-start justify-between rounded-xl border px-4 py-3 text-sm transition-colors hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)]">
                             <div>
-                                <p class="theme-text-strong font-medium">Change Password</p>
-                                <p class="theme-text-muted mt-1 text-xs">Continue to the 2FA-protected password flow.</p>
+                                <p class="theme-text-strong font-medium">Profile Overview</p>
+                                <p class="theme-text-muted mt-1 text-xs">Review account details and shortcuts.</p>
                             </div>
                             <span class="theme-link">Open</span>
                         </a>
-                    @else
-                        <div class="theme-alert-warning rounded-xl border px-4 py-3 text-sm">
-                            <p class="font-medium">Change Password is unavailable</p>
-                            <p class="mt-1 text-xs">Enable and confirm 2FA first, then the password route becomes available.</p>
-                        </div>
+                        <a href="{{ route('profile.edit') }}" class="theme-panel-subtle flex items-start justify-between rounded-xl border px-4 py-3 text-sm transition-colors hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)]">
+                            <div>
+                                <p class="theme-text-strong font-medium">Edit Profile</p>
+                                <p class="theme-text-muted mt-1 text-xs">Update your photo, display name, and email address.</p>
+                            </div>
+                            <span class="theme-link">Open</span>
+                        </a>
+                        @if($is2FAEnabled)
+                            <a href="{{ route('profile.password') }}" class="theme-panel-subtle flex items-start justify-between rounded-xl border px-4 py-3 text-sm transition-colors hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)]">
+                                <div>
+                                    <p class="theme-text-strong font-medium">Change Password</p>
+                                    <p class="theme-text-muted mt-1 text-xs">Continue to the 2FA-protected password flow.</p>
+                                </div>
+                                <span class="theme-link">Open</span>
+                            </a>
+                        @else
+                            <div class="theme-alert-warning rounded-xl border px-4 py-3 text-sm">
+                                <p class="font-medium">Change Password is unavailable</p>
+                                <p class="mt-1 text-xs">Enable and confirm 2FA first, then the password route becomes available.</p>
+                            </div>
+                        @endif
                     @endif
                 </div>
             </x-ui.card>

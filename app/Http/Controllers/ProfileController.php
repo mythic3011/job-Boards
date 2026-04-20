@@ -4,18 +4,17 @@ namespace App\Http\Controllers;
 
 use App\Services\ProfileService;
 use App\Services\TwoFactorService;
-use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\View\View;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
     public function __construct(
         private readonly ProfileService $profileService,
         private readonly TwoFactorService $twoFactorService
-    ) {
-    }
+    ) {}
 
     /**
      * Show the user profile page.
@@ -58,10 +57,7 @@ class ProfileController extends Controller
             // Log the incoming data for debugging
             \Log::info('Profile update attempt', [
                 'user_id' => $user->id,
-                'data_keys' => array_keys($payload),
-                'nickname' => $payload['nickname'],
-                'email' => $payload['email'],
-                'has_profile_image' => array_key_exists('profile_image', $payload),
+                'submitted_fields' => array_keys($payload),
             ]);
 
             $this->profileService->updateProfile($user, $payload, $request);
@@ -74,7 +70,7 @@ class ProfileController extends Controller
                 'user_id' => Auth::id(),
                 'errors' => $e->errors(),
             ]);
-            
+
             // NOT: keep profile img if fail
             return back()
                 ->withErrors($e->errors())
@@ -82,8 +78,8 @@ class ProfileController extends Controller
         } catch (\Exception $e) {
             \Log::error('Profile update failed', [
                 'user_id' => Auth::id(),
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'error_class' => $e::class,
+                'submitted_fields' => array_keys($payload),
             ]);
 
             return back()
@@ -131,7 +127,8 @@ class ProfileController extends Controller
         } catch (\Exception $e) {
             \Log::error('Password update failed', [
                 'user_id' => Auth::id(),
-                'error' => $e->getMessage(),
+                'error_class' => $e::class,
+                'submitted_fields' => array_keys($payload),
             ]);
 
             return back()
@@ -153,7 +150,7 @@ class ProfileController extends Controller
         } catch (\Exception $e) {
             \Log::error('Profile image deletion failed', [
                 'user_id' => Auth::id(),
-                'error' => $e->getMessage(),
+                'error_class' => $e::class,
             ]);
 
             return back()->withErrors(['error' => 'Failed to delete profile image.']);

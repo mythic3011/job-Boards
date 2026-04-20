@@ -45,6 +45,20 @@ class AdminRouteSecurityTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_pending_non_admin_requests_are_hidden(): void
+    {
+        $user = User::factory()->individual()->create([
+            'registration_state' => 'pending_2fa',
+            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
+            'two_factor_recovery_codes' => encrypt(json_encode(['CODE-ONE'])),
+        ]);
+
+        $this->withBrowser()
+            ->actingAs($user)
+            ->get(route('admin.audit-logs.index'))
+            ->assertNotFound();
+    }
+
     public function test_admin_without_confirmed_two_factor_is_redirected_to_setup(): void
     {
         $admin = User::factory()->create([

@@ -100,7 +100,7 @@ return [
     |
     */
 
-    'middleware' => ['web', 'anti-bot.login'],
+    'middleware' => ['web', 'anti-bot.login', 'registration.active'],
 
     /*
     |--------------------------------------------------------------------------

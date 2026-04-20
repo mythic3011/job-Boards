@@ -13,8 +13,12 @@ class NginxErrorPageContractTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString('error_page 403 /403.html;', $contents);
         $this->assertStringContainsString('location = /403.html {', $contents);
-        $this->assertStringContainsString('error_page 429 /429.html;', $contents);
-        $this->assertStringContainsString('error_page 500 502 503 504 520 521 522 523 524 /50x.html;', $contents);
+        $this->assertStringContainsString('error_page 429 /_error/429;', $contents);
+        $this->assertStringContainsString('location = /_error/429 {', $contents);
+        $this->assertStringContainsString('location = /429.html {', $contents);
+        $this->assertStringContainsString('error_page 500 502 503 504 520 521 522 523 524 /_error/50x;', $contents);
+        $this->assertStringContainsString('location = /_error/50x {', $contents);
+        $this->assertStringContainsString('location = /50x.html {', $contents);
         $this->assertStringContainsString('location = /_error/styles.css {', $contents);
         $this->assertStringContainsString('alias /usr/share/nginx/html/styles.css;', $contents);
     }

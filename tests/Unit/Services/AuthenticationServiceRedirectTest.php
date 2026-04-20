@@ -52,14 +52,38 @@ class AuthenticationServiceRedirectTest extends TestCase
         $this->assertSame(route('home'), $redirect);
     }
 
+    public function test_pending_registration_user_redirects_to_two_factor_setup(): void
+    {
+        $user = User::factory()->individual()->create();
+        $user->forceFill(['registration_state' => 'pending_2fa'])->save();
+
+        $redirect = app(AuthenticationService::class)->getPostLoginRedirect($user->fresh());
+
+        $this->assertSame(route('profile.two-factor'), $redirect);
+    }
+
+    public function test_pending_registration_user_moves_intended_destination_into_pending_session_slot(): void
+    {
+        $user = User::factory()->individual()->create();
+        $user->forceFill(['registration_state' => 'pending_2fa'])->save();
+
+        session(['url.intended' => route('jobs.index')]);
+
+        $redirect = app(AuthenticationService::class)->getPostLoginRedirect($user->fresh());
+
+        $this->assertSame(route('profile.two-factor'), $redirect);
+        $this->assertSame(route('jobs.index'), session('registration.pending_intended'));
+        $this->assertFalse(session()->has('url.intended'));
+    }
+
     private function createAdminUser(): User
     {
         $user = User::create([
             'id' => (string) \Illuminate\Support\Str::uuid(),
-            'idcode' => 'user_' . \Illuminate\Support\Str::uuid(),
+            'idcode' => 'user_'.\Illuminate\Support\Str::uuid(),
             'nickname' => 'Admin User',
-            'login_id' => 'admin_' . \Illuminate\Support\Str::random(8),
-            'email' => \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(8)) . '@example.test',
+            'login_id' => 'admin_'.\Illuminate\Support\Str::random(8),
+            'email' => \Illuminate\Support\Str::lower(\Illuminate\Support\Str::random(8)).'@example.test',
             'password' => Hash::make('StrongPass123!'),
             'user_type' => 'company',
         ]);
