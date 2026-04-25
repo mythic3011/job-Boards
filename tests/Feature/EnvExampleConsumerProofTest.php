@@ -8,7 +8,20 @@ use Tests\TestCase;
 
 final class EnvExampleConsumerProofTest extends TestCase
 {
-    private const PROOF_SUBSET_EXPECTATIONS = [
+    private const NORMAL_TEMPLATE_EXPECTATIONS = [
+        'APP_DOMAIN' => [
+            'templateAction' => 'keep-normal',
+            'ownership' => 'operator',
+            'lifecycle' => 'defaulted',
+        ],
+        'ADMIN_EMAIL' => [
+            'templateAction' => 'keep-normal',
+            'ownership' => 'operator',
+            'lifecycle' => 'defaulted',
+        ],
+    ];
+
+    private const ADVANCED_SUBSET_EXPECTATIONS = [
         'APP_KEY' => [
             'templateAction' => 'advanced-doc',
             'ownership' => 'bootstrap',
@@ -366,23 +379,24 @@ final class EnvExampleConsumerProofTest extends TestCase
         $this->repoRoot = dirname(__DIR__, 2);
     }
 
-    public function test_current_env_example_proof_subset_has_approved_map_records_and_expected_actions(): void
+    public function test_normal_env_example_contains_only_minimal_operator_contract_keys(): void
     {
         $envExampleKeys = $this->loadEnvExampleKeys();
         $mapping = $this->loadMapping();
-        $proofSubset = array_unique(array_merge(array_keys(self::consumerProofCases()), array_keys(self::PROOF_SUBSET_EXPECTATIONS)));
+        $this->assertSame(
+            array_keys(self::NORMAL_TEMPLATE_EXPECTATIONS),
+            $envExampleKeys,
+            'Expected .env.example to expose only the minimal normal operator contract keys.'
+        );
 
-        foreach ($proofSubset as $entryName) {
-            $this->assertContains($entryName, $envExampleKeys, sprintf('Expected "%s" to remain present in .env.example for the PR2 proof subset.', $entryName));
+        foreach (self::NORMAL_TEMPLATE_EXPECTATIONS as $entryName => $expectation) {
             $this->assertArrayHasKey($entryName, $mapping, sprintf('Expected "%s" to have a proof record in app-env-map.json.', $entryName));
             $this->assertSame($entryName, $mapping[$entryName]['name'] ?? null, sprintf('Expected "%s" mapping name to match its key.', $entryName));
             $this->assertIsString($mapping[$entryName]['consumerProof'] ?? null, sprintf('Expected "%s" to define consumerProof.', $entryName));
             $this->assertNotSame('', trim((string) ($mapping[$entryName]['consumerProof'] ?? '')), sprintf('Expected "%s" to define non-empty consumerProof.', $entryName));
             $this->assertIsString($mapping[$entryName]['ownerProof'] ?? null, sprintf('Expected "%s" to define ownerProof.', $entryName));
             $this->assertNotSame('', trim((string) ($mapping[$entryName]['ownerProof'] ?? '')), sprintf('Expected "%s" to define non-empty ownerProof.', $entryName));
-        }
 
-        foreach (self::PROOF_SUBSET_EXPECTATIONS as $entryName => $expectation) {
             foreach ($expectation as $field => $expectedValue) {
                 $this->assertSame(
                     $expectedValue,
@@ -404,6 +418,17 @@ final class EnvExampleConsumerProofTest extends TestCase
                 && ($mapping[$entryName]['templateAction'] ?? null) === 'keep-normal',
                 sprintf('Expected "%s" to stop appearing as operator-owned keep-normal in the proof subset.', $entryName),
             );
+        }
+
+        foreach (self::ADVANCED_SUBSET_EXPECTATIONS as $entryName => $expectation) {
+            $this->assertArrayHasKey($entryName, $mapping, sprintf('Expected "%s" to remain mapped.', $entryName));
+            foreach ($expectation as $field => $expectedValue) {
+                $this->assertSame(
+                    $expectedValue,
+                    $mapping[$entryName][$field] ?? null,
+                    sprintf('Expected "%s" to declare %s=%s in app-env-map.json.', $entryName, $field, $expectedValue),
+                );
+            }
         }
     }
 

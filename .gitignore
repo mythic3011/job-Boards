@@ -3,6 +3,7 @@
 .env
 .env.*
 !.env.example
+!.env.advanced.example
 .phpactor.json
 .phpunit.result.cache
 /.fleet

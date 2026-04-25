@@ -35,7 +35,7 @@ class BootstrapEnvShellContractsTest extends TestCase
     public function test_bootstrap_env_audits_the_canonical_audit_auth_service_secret_contract_via_generic_secret_classification(): void
     {
         $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
-        $example = file_get_contents($this->repoRoot.'/.env.example');
+        $example = file_get_contents($this->repoRoot.'/.env.advanced.example');
 
         $this->assertIsString($contents);
         $this->assertIsString($example);
@@ -46,7 +46,7 @@ class BootstrapEnvShellContractsTest extends TestCase
     public function test_bootstrap_env_keeps_monitoring_password_as_the_only_primary_plaintext_operator_input(): void
     {
         $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
-        $example = file_get_contents($this->repoRoot.'/.env.example');
+        $example = file_get_contents($this->repoRoot.'/.env.advanced.example');
 
         $this->assertIsString($contents);
         $this->assertIsString($example);
@@ -63,6 +63,20 @@ class BootstrapEnvShellContractsTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString('bt_config_resolve_key GRAFANA_ADMIN_SECRET_FILE', $contents);
         $this->assertStringNotContainsString(ObsConfigContract::derivedPath(ObsConfigContract::DEFAULT_STATE_DIR, 'GRAFANA_ADMIN_SECRET_FILE'), $contents);
+    }
+
+    public function test_bootstrap_env_persists_detected_or_default_shared_app_plane_network_into_env(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
+        $example = file_get_contents($this->repoRoot.'/.env.advanced.example');
+
+        $this->assertIsString($contents);
+        $this->assertIsString($example);
+        $this->assertStringContainsString('sync_app_plane_network_contract()', $contents);
+        $this->assertStringContainsString('bt_preload_compose_app_plane_network', $contents);
+        $this->assertStringContainsString('bt_default_app_plane_network_name', $contents);
+        $this->assertStringContainsString('set_env "BT_APP_PLANE_NETWORK_NAME"', $contents);
+        $this->assertStringContainsString('Leave blank to let bootstrap-env.sh persist the detected or default shared app-plane network name.', $example);
     }
 
     public function test_shell_port_reassignment_uses_named_allocator_calls_instead_of_command_substitution(): void
@@ -244,14 +258,17 @@ if [[ "${1:-}" == "compose" && "${2:-}" == "-f" && "${4:-}" == "ps" && "${5:-}" 
   exit 0
 fi
 if [[ "${1:-}" == "inspect" && "${2:-}" == "-f" && "${4:-}" == "nginx-container" ]]; then
-  echo "running"
-  exit 0
+  if [[ "${3:-}" == "{{.State.Status}}" ]]; then
+    echo "running"
+    exit 0
+  fi
+  if [[ "${3:-}" == "{{json .HostConfig.PortBindings}}" ]]; then
+    echo '{"80/tcp":[{"HostIp":"0.0.0.0","HostPort":"80"}],"443/tcp":[{"HostIp":"0.0.0.0","HostPort":"443"}]}'
+    exit 0
+  fi
+  exit 1
 fi
 if [[ "${1:-}" == "port" && "${2:-}" == "nginx-container" ]]; then
-  cat <<'EOF'
-80/tcp -> 0.0.0.0:80
-443/tcp -> 0.0.0.0:443
-EOF
   exit 0
 fi
 exit 0
@@ -286,6 +303,151 @@ BASH);
         $this->assertStringContainsString('✔ APP_SSL_PORT=443', $output);
         $this->assertStringNotContainsString('APP_PORT: 80 →', $output);
         $this->assertStringNotContainsString('APP_SSL_PORT: 443 →', $output);
+    }
+
+    public function test_bootstrap_env_keeps_host_bound_ports_already_owned_by_the_running_stack(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->bootstrapEnvFixture($tempRoot);
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_PORT=127.0.0.1:18080
+APP_SSL_PORT=127.0.0.1:18443
+VITE_PORT=5173
+FORWARD_DB_PORT=5432
+FORWARD_REDIS_PORT=6379
+MONITORING_ADMIN_USERNAME=admin
+MONITORING_PASSWORD=already-set-monitoring-password
+ENV);
+
+        $this->writeExecutable($fakeBin.'/docker', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "compose" && "${2:-}" == "-f" && "${4:-}" == "ps" && "${5:-}" == "-q" ]]; then
+  if [[ "${6:-}" == "nginx" ]]; then
+    echo "nginx-container"
+  fi
+  exit 0
+fi
+if [[ "${1:-}" == "inspect" && "${2:-}" == "-f" && "${4:-}" == "nginx-container" ]]; then
+  if [[ "${3:-}" == "{{.State.Status}}" ]]; then
+    echo "running"
+    exit 0
+  fi
+  if [[ "${3:-}" == "{{json .HostConfig.PortBindings}}" ]]; then
+    echo '{"80/tcp":[{"HostIp":"127.0.0.1","HostPort":"18080"}],"443/tcp":[{"HostIp":"127.0.0.1","HostPort":"18443"}]}'
+    exit 0
+  fi
+  exit 1
+fi
+if [[ "${1:-}" == "port" && "${2:-}" == "nginx-container" ]]; then
+  exit 0
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/ss', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+LISTEN 0 128 127.0.0.1:18080 0.0.0.0:*
+LISTEN 0 128 127.0.0.1:18443 0.0.0.0:*
+EOF
+BASH);
+        $this->writeExecutable($fakeBin.'/lsof', "#!/usr/bin/env bash\nset -euo pipefail\nexit 1\n");
+        $this->writeExecutable($fakeBin.'/netstat', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->mustRun();
+
+        $output = $process->getOutput().$process->getErrorOutput();
+        $envContents = file_get_contents($tempRoot.'/.env');
+
+        $this->assertIsString($envContents);
+        $this->assertMatchesRegularExpression('/^APP_PORT=127\.0\.0\.1:18080$/m', $envContents);
+        $this->assertMatchesRegularExpression('/^APP_SSL_PORT=127\.0\.0\.1:18443$/m', $envContents);
+        $this->assertStringContainsString('✔ APP_PORT=127.0.0.1:18080', $output);
+        $this->assertStringContainsString('✔ APP_SSL_PORT=127.0.0.1:18443', $output);
+        $this->assertStringNotContainsString('APP_PORT: 127.0.0.1:18080 →', $output);
+        $this->assertStringNotContainsString('APP_SSL_PORT: 127.0.0.1:18443 →', $output);
+    }
+
+    public function test_bootstrap_env_keeps_host_bound_ports_when_current_stack_nginx_is_restarting(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->bootstrapEnvFixture($tempRoot);
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_PORT=127.0.0.1:18080
+APP_SSL_PORT=127.0.0.1:18443
+VITE_PORT=5173
+FORWARD_DB_PORT=5432
+FORWARD_REDIS_PORT=6379
+MONITORING_ADMIN_USERNAME=admin
+MONITORING_PASSWORD=already-set-monitoring-password
+ENV);
+
+        $this->writeExecutable($fakeBin.'/docker', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "compose" && "${2:-}" == "-f" && "${4:-}" == "ps" && "${5:-}" == "-q" ]]; then
+  if [[ "${6:-}" == "nginx" ]]; then
+    echo "nginx-container"
+  fi
+  exit 0
+fi
+if [[ "${1:-}" == "inspect" && "${2:-}" == "-f" && "${4:-}" == "nginx-container" ]]; then
+  if [[ "${3:-}" == "{{.State.Status}}" ]]; then
+    echo "restarting"
+    exit 0
+  fi
+  if [[ "${3:-}" == "{{json .HostConfig.PortBindings}}" ]]; then
+    echo '{"80/tcp":[{"HostIp":"127.0.0.1","HostPort":"18080"}],"443/tcp":[{"HostIp":"127.0.0.1","HostPort":"18443"}]}'
+    exit 0
+  fi
+  exit 1
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/ss', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+LISTEN 0 128 127.0.0.1:18080 0.0.0.0:*
+LISTEN 0 128 127.0.0.1:18443 0.0.0.0:*
+EOF
+BASH);
+        $this->writeExecutable($fakeBin.'/lsof', "#!/usr/bin/env bash\nset -euo pipefail\nexit 1\n");
+        $this->writeExecutable($fakeBin.'/netstat', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'dev'],
+            $tempRoot,
+            ['PATH' => $fakeBin.':'.getenv('PATH')],
+            null,
+            20,
+        );
+        $process->mustRun();
+
+        $output = $process->getOutput().$process->getErrorOutput();
+        $envContents = file_get_contents($tempRoot.'/.env');
+
+        $this->assertIsString($envContents);
+        $this->assertMatchesRegularExpression('/^APP_PORT=127\.0\.0\.1:18080$/m', $envContents);
+        $this->assertMatchesRegularExpression('/^APP_SSL_PORT=127\.0\.0\.1:18443$/m', $envContents);
+        $this->assertStringContainsString('✔ APP_PORT=127.0.0.1:18080', $output);
+        $this->assertStringContainsString('✔ APP_SSL_PORT=127.0.0.1:18443', $output);
+        $this->assertStringNotContainsString('APP_PORT: 127.0.0.1:18080 →', $output);
+        $this->assertStringNotContainsString('APP_SSL_PORT: 127.0.0.1:18443 →', $output);
     }
 
     public function test_bootstrap_env_fails_closed_for_true_port_conflicts_in_non_interactive_mode(): void

@@ -25,6 +25,19 @@
       "consumerProof": "Canonical public host identity that later derives APP_URL, certificate defaults, and server names for the application path.",
       "ownerProof": "The operator owns the public host identity for the supported deployment contract."
     },
+    "ADMIN_EMAIL": {
+      "name": "ADMIN_EMAIL",
+      "semanticRole": "install-admin-contact-email",
+      "canonicalName": "ADMIN_EMAIL",
+      "classification": "canonical",
+      "ownership": "operator",
+      "lifecycle": "defaulted",
+      "templateAction": "keep-normal",
+      "valueDerivation": "identity",
+      "conflictPolicy": "canonical-source-of-truth",
+      "consumerProof": "Install and bootstrap flows consume ADMIN_EMAIL as the operator-provided admin contact/seed input.",
+      "ownerProof": "The operator owns ADMIN_EMAIL in the normal lab/demo template."
+    },
     "APP_NAME": {
       "name": "APP_NAME",
       "semanticRole": "laravel-application-name",
