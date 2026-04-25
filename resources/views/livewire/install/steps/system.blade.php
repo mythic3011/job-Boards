@@ -49,12 +49,12 @@
                 @php
                     $loaded = $checksLoaded;
                     $passed = $loaded && (($systemChecks[$key] ?? false) === true);
-                    $statusClasses = ! $loaded
-                        ? 'bg-slate-100 text-slate-700'
-                        : ($passed ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
                     $statusLabel = ! $loaded
                         ? 'Pending'
                         : ($passed ? 'Passed' : 'Action required');
+                    $statusTone = ! $loaded
+                        ? 'pending'
+                        : ($passed ? 'passed' : 'failed');
                 @endphp
 
                 <div class="theme-panel flex items-center justify-between gap-3 rounded-xl border px-3 py-3">
@@ -62,14 +62,14 @@
                         <p class="theme-text-strong text-sm font-medium">{{ $label }}</p>
                         <p class="theme-text-muted text-xs mt-0.5">{{ ucfirst($key) }} must be available during installation.</p>
                     </div>
-                    <span class="inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-semibold {{ $statusClasses }}">
+                    <span class="theme-install-status-pill inline-flex shrink-0 items-center" data-status="{{ $statusTone }}">
                         {{ $statusLabel }}
                     </span>
                 </div>
             @endforeach
 
             @unless($this->systemRequirementsPassing)
-                <p class="text-xs font-medium text-amber-700">
+                <p class="theme-install-warning-text text-xs font-medium">
                     Fix any failed requirement and run the checks again before continuing.
                 </p>
             @endunless
@@ -89,7 +89,7 @@
                 placeholder="My Job Board"
             >
             <p class="theme-text-muted text-xs mt-1">Shown in headers and emails.</p>
-            @error('app_name') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+            @error('app_name') <p class="theme-install-error-text text-xs mt-1">{{ $message }}</p> @enderror
         </div>
 
         <div>
@@ -104,7 +104,7 @@
                 placeholder="https://jobs.example.com"
             >
             <p class="theme-text-muted text-xs mt-1">Your site's base URL.</p>
-            @error('app_url') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+            @error('app_url') <p class="theme-install-error-text text-xs mt-1">{{ $message }}</p> @enderror
         </div>
 
         <div>
@@ -126,7 +126,7 @@
                 <option value="America/Los_Angeles">Los Angeles (PST)</option>
             </select>
             <p class="theme-text-muted text-xs mt-1">All timestamps will use this timezone.</p>
-            @error('timezone') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+            @error('timezone') <p class="theme-install-error-text text-xs mt-1">{{ $message }}</p> @enderror
         </div>
 
         <div class="flex gap-3 pt-2">

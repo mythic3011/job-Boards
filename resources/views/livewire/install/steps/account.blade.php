@@ -9,7 +9,7 @@
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <label for="username" class="theme-text-strong block text-sm font-medium mb-1.5">
-                    Username <span class="text-red-500">*</span>
+                    Username <span class="theme-install-required-marker">*</span>
                 </label>
                 <input
                     type="text"
@@ -20,12 +20,12 @@
                     autocomplete="username"
                 >
                 <p class="theme-text-muted text-xs mt-1">Letters, numbers, underscores (3+ chars)</p>
-                @error('username') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                @error('username') <p class="theme-install-error-text text-xs mt-1">{{ $message }}</p> @enderror
             </div>
 
             <div>
                 <label for="name" class="theme-text-strong block text-sm font-medium mb-1.5">
-                    Full Name <span class="text-red-500">*</span>
+                    Full Name <span class="theme-install-required-marker">*</span>
                 </label>
                 <input
                     type="text"
@@ -35,13 +35,13 @@
                     placeholder="John Doe"
                     autocomplete="name"
                 >
-                @error('name') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                @error('name') <p class="theme-install-error-text text-xs mt-1">{{ $message }}</p> @enderror
             </div>
         </div>
 
         <div>
             <label for="email" class="theme-text-strong block text-sm font-medium mb-1.5">
-                Email Address <span class="text-red-500">*</span>
+                Email Address <span class="theme-install-required-marker">*</span>
             </label>
             <input
                 type="email"
@@ -51,13 +51,13 @@
                 placeholder="admin@example.com"
                 autocomplete="email"
             >
-            @error('email') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+            @error('email') <p class="theme-install-error-text text-xs mt-1">{{ $message }}</p> @enderror
         </div>
 
         <div class="grid grid-cols-2 gap-4">
             <div>
                 <label for="password" class="theme-text-strong block text-sm font-medium mb-1.5">
-                    Password <span class="text-red-500">*</span>
+                    Password <span class="theme-install-required-marker">*</span>
                 </label>
                 <input
                     type="password"
@@ -68,12 +68,12 @@
                     autocomplete="new-password"
                 >
                 <p class="theme-text-muted text-xs mt-1">Min 12 chars, mixed case + numbers</p>
-                @error('password') <p class="text-xs text-red-500 mt-1">{{ $message }}</p> @enderror
+                @error('password') <p class="theme-install-error-text text-xs mt-1">{{ $message }}</p> @enderror
             </div>
 
             <div>
                 <label for="password_confirmation" class="theme-text-strong block text-sm font-medium mb-1.5">
-                    Confirm Password <span class="text-red-500">*</span>
+                    Confirm Password <span class="theme-install-required-marker">*</span>
                 </label>
                 <input
                     type="password"

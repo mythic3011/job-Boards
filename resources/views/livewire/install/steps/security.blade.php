@@ -36,9 +36,10 @@
                             data-copy-button
                             data-copy-text="{{ $twoFactorSecret }}"
                             data-copy-feedback-ms="2000"
-                            class="theme-button theme-button-outline shrink-0 px-3 py-2 text-xs font-medium rounded-xl min-w-[56px] text-center">
+                            class="theme-button theme-button-outline shrink-0 px-3 py-2 text-xs font-medium rounded-xl min-w-[72px] text-center"
+                            aria-live="polite">
                             <span data-copy-default>Copy</span>
-                            <span data-copy-success class="hidden text-green-600">Copied!</span>
+                            <span data-copy-success class="theme-copy-button-feedback hidden">Copied!</span>
                         </button>
                     </div>
                 </div>
@@ -46,14 +47,14 @@
         </div>
 
         {{-- Step B: Verify code --}}
-        <div class="{{ $testSuccess ? 'border-green-300 bg-green-50/60' : 'theme-panel-subtle' }} border rounded-2xl overflow-hidden transition-colors">
-            <div class="{{ $testSuccess ? 'border-green-200' : '' }} px-4 py-3 border-b" style="{{ $testSuccess ? '' : 'border-color: var(--app-panel-border);' }}">
+        <div class="{{ $testSuccess ? 'theme-install-success-surface' : 'theme-panel-subtle' }} border rounded-2xl overflow-hidden transition-colors">
+            <div class="{{ $testSuccess ? 'theme-install-success-surface' : '' }} px-4 py-3 border-b" style="{{ $testSuccess ? '' : 'border-color: var(--app-panel-border);' }}">
                 <p class="theme-text-strong text-sm font-semibold">2. Verify it works</p>
                 <p class="theme-text-muted text-xs mt-0.5">Enter the 6-digit code from your app to confirm setup.</p>
             </div>
             <div class="p-4">
                 @if($testSuccess)
-                    <div class="flex items-center gap-2 text-green-700">
+                    <div class="theme-signal-success flex items-center gap-2">
                         <svg class="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd"/>
                         </svg>
@@ -84,7 +85,7 @@
                             </span>
                         </button>
                         @if($testResult && !$testSuccess)
-                            <p class="text-sm text-red-500">{{ $testResult }}</p>
+                            <p class="theme-install-error-text text-sm">{{ $testResult }}</p>
                         @endif
                     </div>
                 @endif

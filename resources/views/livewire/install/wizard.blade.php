@@ -16,10 +16,10 @@
             @foreach([1 => 'Account', 2 => 'System', 3 => 'Security', 4 => 'Review'] as $step => $label)
                 <div class="flex items-center" wire:key="step-indicator-{{ $step }}">
                     <div class="flex flex-col items-center">
-                        <div class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold transition-all
-                            {{ $currentStep > $step ? 'bg-green-500 text-white' : '' }}
-                            {{ $currentStep === $step ? 'bg-indigo-600 text-white ring-4 ring-indigo-100' : '' }}
-                            {{ $currentStep < $step ? 'theme-panel theme-text-muted border-2' : '' }}">
+                        <div
+                            class="theme-install-step-indicator w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold"
+                            data-state="{{ $currentStep > $step ? 'completed' : ($currentStep === $step ? 'active' : 'upcoming') }}"
+                        >
                             @if($currentStep > $step)
                                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
@@ -28,16 +28,18 @@
                                 {{ $step }}
                             @endif
                         </div>
-                        <span class="text-xs mt-1.5 font-medium
-                            {{ $currentStep === $step ? 'text-indigo-600' : '' }}
-                            {{ $currentStep > $step ? 'text-green-600' : '' }}
-                            {{ $currentStep < $step ? 'theme-text-muted' : '' }}">
+                        <span
+                            class="theme-install-step-label text-xs mt-1.5 font-medium"
+                            data-state="{{ $currentStep > $step ? 'completed' : ($currentStep === $step ? 'active' : 'upcoming') }}"
+                        >
                             {{ $label }}
                         </span>
                     </div>
                     @if($step < 4)
-                        <div class="w-12 h-px mx-1 mb-5
-                            {{ $currentStep > $step ? 'bg-green-400' : 'bg-gray-200' }}">
+                        <div
+                            class="theme-install-step-connector w-12 h-px mx-1 mb-5"
+                            data-completed="{{ $currentStep > $step ? 'true' : 'false' }}"
+                        >
                         </div>
                     @endif
                 </div>

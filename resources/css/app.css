@@ -307,6 +307,94 @@ html[data-theme-mode="dark"][data-theme-accent="forest"] {
     box-shadow: var(--app-panel-shadow);
 }
 
+.theme-install-required-marker {
+    color: var(--app-danger-fg);
+}
+
+.theme-install-error-text {
+    color: var(--app-danger-fg);
+}
+
+.theme-install-warning-text {
+    color: var(--app-warning-fg);
+}
+
+.theme-install-step-indicator {
+    border: 2px solid var(--app-panel-border);
+    background: var(--app-panel-bg);
+    color: var(--app-text-muted);
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        color 160ms ease,
+        box-shadow 160ms ease;
+}
+
+.theme-install-step-indicator[data-state="active"] {
+    background: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-accent-contrast);
+    box-shadow: 0 0 0 4px var(--app-focus-ring);
+}
+
+.theme-install-step-indicator[data-state="completed"] {
+    background: var(--app-success-bg);
+    border-color: var(--app-success-border);
+    color: var(--app-success-fg);
+}
+
+.theme-install-step-label {
+    color: var(--app-text-muted);
+}
+
+.theme-install-step-label[data-state="active"] {
+    color: var(--app-link-accent);
+}
+
+.theme-install-step-label[data-state="completed"] {
+    color: var(--app-success-fg);
+}
+
+.theme-install-step-connector {
+    background: var(--app-panel-border);
+}
+
+.theme-install-step-connector[data-completed="true"] {
+    background: var(--app-success-border);
+}
+
+.theme-install-status-pill {
+    border-radius: 9999px;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1rem;
+}
+
+.theme-install-status-pill[data-status="pending"] {
+    background: var(--app-panel-subtle-bg);
+    color: var(--app-text-muted);
+}
+
+.theme-install-status-pill[data-status="passed"] {
+    background: var(--app-success-bg);
+    color: var(--app-success-fg);
+}
+
+.theme-install-status-pill[data-status="failed"] {
+    background: var(--app-danger-bg);
+    color: var(--app-danger-fg);
+}
+
+.theme-install-success-surface {
+    background: var(--app-success-bg);
+    border-color: var(--app-success-border);
+}
+
+.theme-copy-button-feedback {
+    color: var(--app-success-fg);
+}
+
 .theme-error-code {
     color: var(--app-accent);
 }
