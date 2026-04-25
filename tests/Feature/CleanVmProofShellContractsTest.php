@@ -309,8 +309,6 @@ class CleanVmProofShellContractsTest extends TestCase
         $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/11-uname.txt');
         $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/12-docker-version.txt');
         $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/13-docker-compose-version.txt');
-        $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/14-compose-app-ps.txt');
-        $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/15-compose-obs-ps.txt');
         $this->assertFileExists($outputDir.'/slice-d-tofu/guest-output/16-systemctl-docker.txt');
         $this->assertStringContainsString('BatchMode=yes', $sshOutput);
         $this->assertStringContainsString('StrictHostKeyChecking=accept-new', $sshOutput);
@@ -791,8 +789,7 @@ class CleanVmProofShellContractsTest extends TestCase
         mkdir($tempRoot.'/ops/smoke', 0777, true);
         mkdir($tempRoot.'/ops/lib', 0777, true);
         file_put_contents($tempRoot.'/tracked.txt', "baseline\n");
-        file_put_contents($tempRoot.'/compose.app.yml', "services: {}\n");
-        file_put_contents($tempRoot.'/compose.obs.yml', "services: {}\n");
+        file_put_contents($tempRoot.'/compose.yaml', "services: {}\n");
 
         $setupScript = <<<'BASH'
 #!/usr/bin/env bash
