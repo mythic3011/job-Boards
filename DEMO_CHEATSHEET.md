@@ -5,18 +5,29 @@
 ## Boot
 ```bash
 unzip jobs-borads-demo.zip && cd jobs-borads
-./install.sh demo dev        # capture the two "Demo ... password:" lines
+./setup.sh
+# or direct local flow:
+docker compose up -d --build
 ```
 
-## URLs (all `https://<web-vm-ip>`)
+## URLs
+Default packaged bundle: `https://<web-vm-ip>`
+
+If setup had to reassign host ports, check `.env`:
+```bash
+grep -E '^(APP_PORT|APP_SSL_PORT)=' .env
+```
+
+Paths:
 `/` · `/login` · `/admin` · `/monitoring/login` · `/monitoring/grafana` · `/install` (local only)
 
-## Creds — look up in `.env` on VM
-`grep -E '^(MONITORING_|GRAFANA_|PROMETHEUS_|DB_|REDIS_)' .env`
+## Creds
+Infrastructure secrets stay in `.env`:
+`grep -E '^(MONITORING_|DB_|REDIS_)' .env`
 - Primary monitoring login: `MONITORING_ADMIN_USERNAME` + `MONITORING_PASSWORD`
-- `GRAFANA_PASSWORD` and `PROMETHEUS_PASSWORD` are optional per-service overrides
-- Demo users: `brightpath_hr` / `alex_morgan` (passwords printed by seeder)
-- Admin: set via `./install.sh setupAdmin dev`
+- `GRAFANA_PASSWORD` and `PROMETHEUS_PASSWORD` are legacy compatibility aliases, not the normal operator contract
+- Demo installer outputs are saved under `.blue-team-vm/runtime/install-artifacts/`
+- Admin + demo-user bootstrap details come from the latest `headless-install-*.json`
 
 ## Attack → Response
 | Attack | Covered by | Panic button |
@@ -32,9 +43,9 @@ Kill-switch (ask teacher to stop) = -10% marks. Use only if timing out.
 
 ## Live tails
 ```bash
-docker logs -f nginx-bt 2>&1 | grep -E "429|403|blocked"
+docker logs -f jobs-boards-nginx 2>&1 | grep -E "429|403|blocked"
 docker exec jobs-boards-laravel.test tail -f storage/logs/laravel.log
-docker exec crowdsec cscli decisions list
+docker exec jobs-boards-crowdsec cscli decisions list
 ```
 
 ## Security Demo (untimed)
@@ -44,7 +55,9 @@ docker exec crowdsec cscli decisions list
 - **Hardening (mod_evasive equivalent):** nginx `limit_req_zone` + `limit_conn_zone` + tight timeouts + CrowdSec Lua bouncer.
 
 ## Pre-flight
-- [ ] `.env` has non-blank `MONITORING_ADMIN_USERNAME`, `MONITORING_PASSWORD`, `DB_PASSWORD`, `SESSION_SECRET`
+- [ ] `.env` has non-blank `MONITORING_ADMIN_USERNAME`, `MONITORING_PASSWORD`
+- [ ] `.blue-team-vm/runtime/obs.generated.env` exists (compose init/bootstrap artifact)
+- [ ] `.env` has `BT_APP_PLANE_NETWORK_NAME=jobs-borads_app-plane` unless you intentionally overrode it (advanced/split-plane debug)
 - [ ] Admin 2FA enrolled
 - [ ] Seeder ran (demo users exist)
 - [ ] 2 terminals: nginx log + laravel log
