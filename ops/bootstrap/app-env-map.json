@@ -1,0 +1,104 @@
+{
+  "version": "1.0.0",
+  "mappings": {
+    "APP_DOMAIN": {
+      "name": "APP_DOMAIN",
+      "semanticRole": "public-app-host-identity",
+      "canonicalName": "APP_DOMAIN",
+      "classification": "canonical",
+      "ownership": "operator",
+      "lifecycle": "defaulted",
+      "templateAction": "keep-normal",
+      "consumerProof": "Canonical public host identity that later derives APP_URL, certificate defaults, and server names for the application path.",
+      "ownerProof": "The operator owns the public host identity for the supported deployment contract."
+    },
+    "APP_URL": {
+      "name": "APP_URL",
+      "semanticRole": "public-app-url",
+      "canonicalName": "APP_DOMAIN",
+      "classification": "compatibility-alias",
+      "ownership": "bootstrap",
+      "lifecycle": "derived",
+      "templateAction": "compatibility-only",
+      "consumerProof": "Laravel still consumes APP_URL, but the cleanup contract derives it from APP_DOMAIN instead of treating it as a separate operator input.",
+      "ownerProof": "The operator does not own a second public URL input in the normal path once APP_DOMAIN is canonical."
+    },
+    "SSL_CERT_DOMAIN": {
+      "name": "SSL_CERT_DOMAIN",
+      "semanticRole": "tls-certificate-common-name",
+      "canonicalName": "APP_DOMAIN",
+      "classification": "compatibility-alias",
+      "ownership": "bootstrap",
+      "lifecycle": "derived",
+      "templateAction": "compatibility-only",
+      "consumerProof": "TLS certificate CN defaults are documented as a derivation from APP_DOMAIN rather than a separate semantic role.",
+      "ownerProof": "The operator owns the public host identity, while bootstrap owns the derived certificate-domain projection."
+    },
+    "STATE_DIR": {
+      "name": "STATE_DIR",
+      "semanticRole": "state-root",
+      "canonicalName": "STATE_DIR",
+      "classification": "canonical",
+      "ownership": "bootstrap",
+      "lifecycle": "defaulted",
+      "templateAction": "advanced-doc",
+      "consumerProof": "The cleanup contract treats STATE_DIR as the canonical state root for generated runtime, backup, and rendered-path derivations.",
+      "ownerProof": "STATE_DIR defaults to the repository state root and is only an advanced override, so bootstrap owns the normal value."
+    },
+    "BT_STATE_DIR": {
+      "name": "BT_STATE_DIR",
+      "semanticRole": "state-root",
+      "canonicalName": "STATE_DIR",
+      "classification": "compatibility-alias",
+      "ownership": "bootstrap",
+      "lifecycle": "derived",
+      "templateAction": "compatibility-only",
+      "consumerProof": "Existing bootstrap, compose, and test flows still consume BT_STATE_DIR while the canonical contract moves to STATE_DIR.",
+      "ownerProof": "BT_STATE_DIR persists only as a compatibility projection of the canonical state root."
+    },
+    "BT_RUNTIME_DIR": {
+      "name": "BT_RUNTIME_DIR",
+      "semanticRole": "runtime-directory",
+      "canonicalName": "BT_RUNTIME_DIR",
+      "classification": "generated-internal",
+      "ownership": "bootstrap",
+      "lifecycle": "derived",
+      "templateAction": "remove-normal",
+      "consumerProof": "Bootstrap and shell consumers rely on BT_RUNTIME_DIR as the derived runtime directory under the state root.",
+      "ownerProof": "Operators do not supply runtime-directory paths in the normal flow; bootstrap derives them from STATE_DIR."
+    },
+    "GRAFANA_ADMIN_SECRET_FILE": {
+      "name": "GRAFANA_ADMIN_SECRET_FILE",
+      "semanticRole": "monitoring-secret-file-path",
+      "canonicalName": "GRAFANA_ADMIN_SECRET_FILE",
+      "classification": "generated-internal",
+      "ownership": "bootstrap",
+      "lifecycle": "derived",
+      "templateAction": "remove-normal",
+      "consumerProof": "Observability bootstrap and compose consumers treat this as a generated Grafana admin secret path under the state root.",
+      "ownerProof": "The file path is internal runtime materialization, not an operator-owned secret input."
+    },
+    "GRAFANA_DATASOURCES_FILE": {
+      "name": "GRAFANA_DATASOURCES_FILE",
+      "semanticRole": "monitoring-rendered-config-path",
+      "canonicalName": "GRAFANA_DATASOURCES_FILE",
+      "classification": "generated-internal",
+      "ownership": "bootstrap",
+      "lifecycle": "derived",
+      "templateAction": "remove-normal",
+      "consumerProof": "Observability compose and bootstrap flows consume this rendered Grafana datasource config path as generated runtime state.",
+      "ownerProof": "Rendered monitoring config paths are derived from STATE_DIR rather than supplied by the operator."
+    },
+    "PROMETHEUS_WEB_CONFIG_FILE": {
+      "name": "PROMETHEUS_WEB_CONFIG_FILE",
+      "semanticRole": "monitoring-rendered-config-path",
+      "canonicalName": "PROMETHEUS_WEB_CONFIG_FILE",
+      "classification": "generated-internal",
+      "ownership": "bootstrap",
+      "lifecycle": "derived",
+      "templateAction": "remove-normal",
+      "consumerProof": "Observability compose and bootstrap flows consume this rendered Prometheus web config path as generated runtime state.",
+      "ownerProof": "Rendered monitoring config paths are derived under STATE_DIR and are not normal operator-facing inputs."
+    }
+  }
+}

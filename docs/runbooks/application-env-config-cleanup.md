@@ -537,6 +537,7 @@ runtime bridge is wired.
 It should:
 
 - define the canonical app env mapping table
+- treat `ops/bootstrap/app-env-map.json` as the data-only contract source for that mapping table
 - classify legacy names as canonical, compatibility alias,
   generated/internal, advanced-only, or removable
 - add compatibility mapping validation
