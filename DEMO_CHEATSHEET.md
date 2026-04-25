@@ -35,7 +35,7 @@ Infrastructure secrets stay in `.env`:
 | `hping3` SYN flood | pfSense state limits | pfSense → Firewall → WAN floating rule: `max-src-conn 50 max-src-conn-rate 20/5` |
 | `SlowHTTPTest` | nginx `client_*_timeout 5s`, `reset_timedout_connection`, `limit_conn 10` | `docker compose restart nginx` |
 | `THC-SSL-DOS` | `ssl_session_tickets off`, `keepalive_timeout 15` | `sudo iptables -A INPUT -s <kali-ip> -j DROP` |
-| `sqlmap` / SQLi | Eloquent params + `BlockBadUserAgent` (blocks sqlmap UA) | show 403 in nginx log |
+| `sqlmap` / SQLi | Eloquent params + Nginx/CrowdSec behavioral detection | show alerts / deny evidence in security logs |
 | XSS | CSP nonce + Blade escape | show browser console block |
 | XSRF | `VerifyCsrfToken` | show 419 response |
 

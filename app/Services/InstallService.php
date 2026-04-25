@@ -65,11 +65,6 @@ class InstallService
             $issues[] = 'HTTPS required for installation';
         }
 
-        // Check for suspicious user agent
-        if (app(\App\Http\Middleware\HandleSuspiciousUserAgent::class)->isSuspicious($request)) {
-            $issues[] = 'Suspicious request detected';
-        }
-
         // Check rate limiting
         $key = 'install_attempts_'.$request->ip();
         $attempts = Cache::get($key, 0);

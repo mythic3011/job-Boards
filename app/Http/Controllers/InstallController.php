@@ -151,8 +151,6 @@ class InstallController extends Controller
 
         $this->verifyInstallOtp($request);
 
-        $this->checkSuspiciousActivity($request);
-
         if (! $isLivewireRequest) {
             $isActiveSession = $this->isInstallSessionValid($request);
             if ($isActiveSession) {
@@ -244,22 +242,6 @@ class InstallController extends Controller
             throw ValidationException::withMessages([
                 'timestamp' => 'Request expired',
             ]);
-        }
-    }
-
-    /**
-     * Check for suspicious user agent patterns.
-     */
-    private function checkSuspiciousActivity(Request $request): void
-    {
-        if (app(\App\Http\Middleware\HandleSuspiciousUserAgent::class)->isSuspicious($request)) {
-            Log::warning('Suspicious install attempt blocked', [
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'session' => $request->session()->getId(),
-            ]);
-
-            abort(403, 'Access denied');
         }
     }
 

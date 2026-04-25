@@ -17,7 +17,6 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Request as SymfonyRequest;
 
 class AppServiceProvider extends ServiceProvider
@@ -68,20 +67,6 @@ class AppServiceProvider extends ServiceProvider
             $probe = (string) $request->query('probe', 'unknown');
 
             return Limit::perMinute(12)->by($request->ip().'|'.$probe);
-        });
-
-        // Stricter rate limiting for suspicious user agents
-        RateLimiter::for('suspicious-ua', function (Request $request) {
-            $path = Str::lower(ltrim($request->path(), '/'));
-            $isHighRisk = Str::is(['admin', 'admin/*', 'install', 'install/*', 'login'], $path);
-
-            if ($isHighRisk) {
-                // High-risk paths: 5 requests per 10 minutes
-                return Limit::perMinutes(10, 5)->by($request->ip());
-            }
-
-            // Normal paths: 20 requests per 5 minutes
-            return Limit::perMinutes(5, 20)->by($request->ip());
         });
 
         Event::listen(JobFailed::class, function (JobFailed $event) {

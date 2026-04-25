@@ -29,7 +29,7 @@ Internet ──► pfSense (L3/L4 rate limit, NAT)
          │ • /install + /monitoring gated to 192.168.0.0/16
          ▼
         PHP-FPM (Laravel)
-         │ • BlockBadUserAgent, HoneypotProtection, AntiBot middleware
+         │ • HoneypotProtection + risk-based AntiBot middleware
          │ • Fortify (rate-limited login, 2FA, password policy)
          │ • RequireAdminTwoFactor, HideAdminRoutes
          │ • Eloquent ORM (parameterized queries)
@@ -48,7 +48,7 @@ Defense-in-depth: each attack must beat **at least two** independent layers to s
 | SYN flood (hping3) | pfSense WAN state limits; nginx `limit_conn per_ip_conn 10` |
 | Slowloris / SlowHTTPTest | `client_header_timeout 5`, `client_body_timeout 5`, `reset_timedout_connection on` (docker/nginx/nginx.conf:311-317) |
 | THC-SSL-DOS | `ssl_session_tickets off`, `keepalive_timeout 15`, `limit_conn 10` |
-| SQLi | Eloquent parameterization; `BlockBadUserAgent` blocks `sqlmap` UA (app/Http/Middleware/BlockBadUserAgent.php) |
+| SQLi | Eloquent parameterization + validation rules + CrowdSec/AppSec signatures |
 | Stored XSS | Blade auto-escape; nonce-based `Content-Security-Policy` (app/Http/Middleware/SecurityHeaders.php) |
 | CSRF | `VerifyCsrfToken` on every state-changing route |
 | Credential stuffing | Fortify rate-limit 5/min per `login_id+IP` (FortifyServiceProvider); `AccountLockout` after 5 failures × 30 min |
@@ -57,7 +57,7 @@ Defense-in-depth: each attack must beat **at least two** independent layers to s
 | Install-wizard abuse post-setup | `EnsureSetupCompleted` + nginx `allow 192.168.0.0/16; deny all;` on `/install` |
 | IDOR on application/job | Policy-gated `$this->authorize(...)` in controllers; public identifiers use `idcode` (UUID), not sequential PKs |
 | CV file poisoning | `ValidCvFile` rule: MIME sniff, size cap, SHA-256 on write; stored under `storage/app/private/` |
-| Bot probes | `BlockBadUserAgent` (192 UA patterns), `HoneypotProtection` hidden field + min-interaction-time |
+| Bot probes | Nginx/CrowdSec rate+pattern detection, `HoneypotProtection`, anti-bot fingerprint telemetry |
 
 ## 4. Design Trade-offs (Alternatives Considered)
 
@@ -114,9 +114,9 @@ Defense-in-depth: each attack must beat **at least two** independent layers to s
 
 | Chose | Rejected | Why |
 |-------|----------|-----|
-| **UA blacklist (`BlockBadUserAgent`) + honeypot + anti-bot timing middleware** | CAPTCHA on every form | CAPTCHA friction → abandonment; reCAPTCHA sends user data to Google (privacy concern). Our stack is server-side only. |
+| **Risk-based anti-bot signals (rate, pattern, honeypot, telemetry)** | CAPTCHA on every form | CAPTCHA friction → abandonment; reCAPTCHA sends user data to Google (privacy concern). Our stack is server-side only. |
 
-**Cost**: False positives on legitimate scripted clients (e.g., `curl` healthchecks). Documented workaround: healthchecks hit `laravel.test:80` bypassing nginx.
+**Cost**: Requires tuning thresholds and scenario rules across Nginx/CrowdSec/Laravel to avoid false positives while maintaining detection quality.
 
 ### 4.8 Monitoring plane auth
 

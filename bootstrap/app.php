@@ -19,9 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(append: [
             \App\Http\Middleware\SecurityHeaders::class,
-            \App\Http\Middleware\BlockBadUserAgent::class,
             \App\Http\Middleware\HoneypotProtection::class, // honeypot on login/register/forgot-password
-            \App\Http\Middleware\HandleSuspiciousUserAgent::class,
             \App\Http\Middleware\AuditSuspiciousAccess::class,
             \App\Http\Middleware\CheckMaintenanceMode::class,
             \App\Http\Middleware\LogHttpResponse::class,
