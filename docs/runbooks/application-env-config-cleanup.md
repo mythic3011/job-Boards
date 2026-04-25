@@ -580,6 +580,24 @@ It should not:
 - remove current env consumers
 - rotate or regenerate existing secrets
 
+## PR2 Handoff Status
+
+PR2 semantic cleanup now has these implemented foundations:
+
+- canonical app env mapping data source at `ops/bootstrap/app-env-map.json`
+- compatibility validation via `ops/bootstrap/validate-app-env-map.py`
+- consumer/owner proof tests for approved `.env.example` subset
+- canonical `STATE_DIR` derivation compatibility in `ops/config/config-contract.yml`
+  with `BT_STATE_DIR` alias continuity for existing consumers
+- explicit secret semantic role metadata for generated/injected secret policy
+
+PR2 intentionally does not change runtime orchestration:
+
+- no runtime bridge wiring in `install.sh` execution paths
+- no Compose startup/gating redesign
+- no `.env.example` shrink in this pass
+- no secret rotation behavior change
+
 ## Blocking Clarifications Before Code PR
 
 Resolve these before any behavior-changing PR:

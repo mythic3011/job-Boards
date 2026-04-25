@@ -122,7 +122,7 @@ final class StateDirDerivationContractTest extends TestCase
     }
 
     /**
-     * @param array<string, string> $environment
+     * @param array<string, string|false> $environment
      * @return array<string, string>
      */
     private function resolve(array $environment): array
@@ -137,11 +137,20 @@ final class StateDirDerivationContractTest extends TestCase
     }
 
     /**
-     * @param array<string, string> $environment
+     * @param array<string, string|false> $environment
      */
     private function runResolver(array $environment): Process
     {
-        $process = new Process(['python3', $this->resolverPath, 'json'], $this->repoRoot, $environment, null, 20);
+        $baseEnvironment = [
+            'ROOT_DIR' => false,
+            'STATE_DIR' => false,
+            'BT_STATE_DIR' => false,
+            'PROMETHEUS_WEB_CONFIG_FILE' => false,
+            'GRAFANA_DATASOURCES_FILE' => false,
+            'GRAFANA_ADMIN_SECRET_FILE' => false,
+        ];
+        $processEnvironment = array_merge($baseEnvironment, $environment);
+        $process = new Process(['python3', $this->resolverPath, 'json'], $this->repoRoot, $processEnvironment, null, 20);
         $process->run();
 
         return $process;
