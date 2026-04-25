@@ -1,10 +1,12 @@
 # Jobs Boards
 
-Laravel job board application with a split blue-team deployment contract:
+Laravel job board application.
 
-- `compose.app.yml` is the app-plane runtime truth.
-- `compose.obs.yml` is the obs-plane runtime truth.
-- `compose.yaml` is local/dev convenience only. It is not evidence that the blue-team VM runtime contract changed.
+Local default flow:
+
+- run `docker compose up -d --build` from repo root
+- `compose.yaml` runs `obs-bootstrap-init` and prepares required obs runtime artifacts before starting auth-service/Prometheus/Grafana
+- `compose.app.yml` and `compose.obs.yml` remain advanced/debug split-plane surfaces
 
 ## Remote Deployment Targets
 
@@ -133,14 +135,13 @@ Host TLS/firewall mode details live in [docs/runbooks/host-tls-modes.md](docs/ru
 
 ## Local Bring-Up
 
-For local testing, prepare the obs runtime artifacts first. The local install flow writes them under `.blue-team-vm/`.
+For local testing, use:
 
 ```bash
-./install.sh full dev
+docker compose up -d --build
 ```
 
-`install.sh full dev` remains the local convenience bring-up path. It now prepares obs runtime artifacts through the shared `ops/bootstrap/bootstrap-obs.sh` chain, but blue-team runtime contract evidence still comes from the split-plane compose files and verifiers below.
-The installer starts the local convenience stack with `docker compose -f compose.yaml ...` and intentionally avoids `down --remove-orphans`, so it does not tear down a split-plane stack that is already running in the same workspace.
+`install.sh full dev` remains available as a wrapper path, but the normal local operator flow is direct `docker compose up`.
 
 The local convenience bootstrap now treats these five values as the host-bound port contract:
 

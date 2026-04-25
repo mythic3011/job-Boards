@@ -991,6 +991,16 @@ print_summary() {
     local mode="$1"
     local compose_file
     compose_file="$(compose_file_display)"
+    local ps_cmd
+    local logs_cmd
+
+    if [[ "${INSTALL_COMPOSE_FILE}" == "${ROOT_DIR}/compose.yaml" ]]; then
+        ps_cmd="docker compose ps"
+        logs_cmd="docker compose logs"
+    else
+        ps_cmd="docker compose -f ${compose_file} ps"
+        logs_cmd="docker compose -f ${compose_file} logs"
+    fi
 
     echo ""
     echo "======================================="
@@ -1000,8 +1010,8 @@ print_summary() {
     echo "  Monitoring: $(app_url)/monitoring/grafana/"
     echo "  Receipt:    ${INSTALL_BT_STATE_DIR}/runtime/install.receipt.json"
     echo ""
-    echo "  docker compose -f ${compose_file} ps   — check service health"
-    echo "  docker compose -f ${compose_file} logs — view logs"
+    echo "  ${ps_cmd}   — check service health"
+    echo "  ${logs_cmd} — view logs"
     echo ""
 }
 
