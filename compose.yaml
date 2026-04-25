@@ -5,7 +5,7 @@ services:
             context: .
             dockerfile: docker/Dockerfile.sail
             args:
-                WWWGROUP: ${WWWGROUP}
+                WWWGROUP: ${WWWGROUP:-1000}
                 INSTALL_PLAYWRIGHT: "false"
                 INSTALL_BUN: "false"
         working_dir: /var/www/html
@@ -13,6 +13,7 @@ services:
             - /bin/bash
             - -lc
             - |
+                ./bootstrap-env.sh prepare "${BOOTSTRAP_MODE:-lab}"
                 /usr/local/bin/prepare-laravel-runtime /var/www/html
                 if [ ! -f /var/www/html/vendor/autoload.php ]; then
                   composer install --no-interaction --prefer-dist
@@ -25,6 +26,8 @@ services:
             - ".:/var/www/html"
         networks:
             - sail
+        environment:
+            BOOTSTRAP_MODE: ${BOOTSTRAP_MODE:-lab}
         restart: "no"
 
     obs-bootstrap-init:
@@ -38,10 +41,16 @@ services:
                 apk add --no-cache bash openssl apache2-utils >/dev/null
                 export BT_COMPOSE_OBS_FILE=/workspace/compose.yaml
                 export BT_ROOT_ENV_FILE=/workspace/.env
+                export DB_DATABASE="${DB_DATABASE:-jobs_boards}"
+                export DB_USERNAME="${DB_USERNAME:-jobs_user}"
+                export DB_PASSWORD="${DB_PASSWORD:-jobs_local_password}"
                 /workspace/ops/bootstrap/bootstrap-obs.sh prepare
         volumes:
             - .:/workspace
         network_mode: none
+        depends_on:
+            app-bootstrap-init:
+                condition: service_completed_successfully
         restart: "no"
 
     nginx:
@@ -107,9 +116,9 @@ services:
             - -ec
             - |
                 GENERATED_ENV_FILE="/var/lib/blue-team-vm/runtime/obs.generated.env"
-                if [ -r "${GENERATED_ENV_FILE}" ]; then
+                if [ -r "$${GENERATED_ENV_FILE}" ]; then
                   set -a
-                  . "${GENERATED_ENV_FILE}"
+                  . "$${GENERATED_ENV_FILE}"
                   set +a
                 fi
                 exec node index.js
@@ -280,7 +289,8 @@ services:
         depends_on:
             obs-bootstrap-init:
                 condition: service_completed_successfully
-            - prometheus
+            prometheus:
+                condition: service_started
         restart: unless-stopped
         healthcheck:
             test:
@@ -299,7 +309,7 @@ services:
             context: .
             dockerfile: docker/Dockerfile.sail
             args:
-                WWWGROUP: ${WWWGROUP}
+                WWWGROUP: ${WWWGROUP:-1000}
                 INSTALL_PLAYWRIGHT: "false"
                 INSTALL_BUN: "false"
         image: sail-8.5/app
@@ -308,12 +318,15 @@ services:
         ports:
             - "127.0.0.1:${VITE_PORT:-5173}:${VITE_PORT:-5173}"
         environment:
-            WWWUSER: ${WWWUSER}
+            WWWUSER: ${WWWUSER:-1000}
             LARAVEL_SAIL:
             XDEBUG_MODE: ${SAIL_XDEBUG_MODE:-off}
             XDEBUG_CONFIG: ${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}
             IGNITION_LOCAL_SITES_PATH: ${PWD}
             DB_HOST: postgres
+            DB_DATABASE: ${DB_DATABASE:-jobs_boards}
+            DB_USERNAME: ${DB_USERNAME:-jobs_user}
+            DB_PASSWORD: ${DB_PASSWORD:-jobs_local_password}
             DB_SSLMODE: ${DB_SSLMODE:-prefer}
             REDIS_HOST: redis
             CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID: ${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
@@ -339,7 +352,7 @@ services:
             context: .
             dockerfile: docker/Dockerfile.sail
             args:
-                WWWGROUP: ${WWWGROUP}
+                WWWGROUP: ${WWWGROUP:-1000}
                 INSTALL_PLAYWRIGHT: "false"
                 INSTALL_BUN: "false"
         image: sail-8.5/app
@@ -350,9 +363,12 @@ services:
                 "/usr/local/bin/prepare-laravel-runtime /var/www/html && exec php artisan queue:work --sleep=1 --tries=3 --backoff=10 --timeout=300",
             ]
         environment:
-            WWWUSER: ${WWWUSER}
+            WWWUSER: ${WWWUSER:-1000}
             LARAVEL_SAIL:
             DB_HOST: postgres
+            DB_DATABASE: ${DB_DATABASE:-jobs_boards}
+            DB_USERNAME: ${DB_USERNAME:-jobs_user}
+            DB_PASSWORD: ${DB_PASSWORD:-jobs_local_password}
             DB_SSLMODE: ${DB_SSLMODE:-prefer}
             REDIS_HOST: redis
         volumes:
@@ -384,9 +400,9 @@ services:
         ports:
             - "127.0.0.1:${FORWARD_DB_PORT:-5432}:5432"
         environment:
-            POSTGRES_DB: ${DB_DATABASE}
-            POSTGRES_USER: ${DB_USERNAME}
-            POSTGRES_PASSWORD: ${DB_PASSWORD}
+            POSTGRES_DB: ${DB_DATABASE:-jobs_boards}
+            POSTGRES_USER: ${DB_USERNAME:-jobs_user}
+            POSTGRES_PASSWORD: ${DB_PASSWORD:-jobs_local_password}
         volumes:
             - sail-postgres:/var/lib/postgresql/data
         networks:
@@ -395,7 +411,7 @@ services:
             test:
                 [
                     "CMD-SHELL",
-                    "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE} -h localhost || exit 1",
+                    "pg_isready -U ${DB_USERNAME:-jobs_user} -d ${DB_DATABASE:-jobs_boards} -h localhost || exit 1",
                 ]
             interval: 5s
             timeout: 5s
