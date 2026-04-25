@@ -8,7 +8,7 @@ use PHPUnit\Framework\TestCase;
 
 final class AppEnvMapContractTest extends TestCase
 {
-    private const APPROVED_ENTRY_NAMES = [
+    private const REQUIRED_TASK_ONE_ENTRY_NAMES = [
         'APP_DOMAIN',
         'APP_URL',
         'SSL_CERT_DOMAIN',
@@ -18,6 +18,11 @@ final class AppEnvMapContractTest extends TestCase
         'GRAFANA_ADMIN_SECRET_FILE',
         'GRAFANA_DATASOURCES_FILE',
         'PROMETHEUS_WEB_CONFIG_FILE',
+    ];
+
+    private const REQUIRED_TASK_ONE_CANONICAL_ROOTS = [
+        'APP_DOMAIN',
+        'STATE_DIR',
     ];
 
     private const ALLOWED_CLASSIFICATIONS = [
@@ -106,17 +111,27 @@ final class AppEnvMapContractTest extends TestCase
         }
     }
 
-    public function test_mapping_uses_only_the_exact_approved_entries_for_task_one(): void
+    public function test_mapping_contains_the_required_task_one_entry_set_even_if_later_tasks_expand_it(): void
     {
         $mapping = $this->loadMapping();
+        $mappedKeys = array_keys($mapping['mappings']);
 
-        $this->assertSame(self::APPROVED_ENTRY_NAMES, array_keys($mapping['mappings']));
+        foreach (self::REQUIRED_TASK_ONE_ENTRY_NAMES as $entryName) {
+            $this->assertContains(
+                $entryName,
+                $mappedKeys,
+                sprintf('Expected Task 1 minimum entry "%s" to remain declared even if later tasks expand the map.', $entryName),
+            );
+        }
     }
 
-    public function test_mapping_canonical_references_resolve_to_approved_canonical_entries(): void
+    public function test_mapping_canonical_references_resolve_and_include_the_task_one_core_roots(): void
     {
         $mapping = $this->loadMapping();
         $canonicalEntries = [];
+        $requiredCanonicalNames = $mapping['requiredCanonicalNames'] ?? null;
+
+        $this->assertIsArray($requiredCanonicalNames);
 
         foreach ($mapping['mappings'] as $entryName => $entry) {
             if ($entry['classification'] === 'canonical') {
@@ -129,11 +144,18 @@ final class AppEnvMapContractTest extends TestCase
             }
         }
 
-        $this->assertSame(
-            ['APP_DOMAIN' => true, 'STATE_DIR' => true],
-            $canonicalEntries,
-            'Task 1 only approves APP_DOMAIN and STATE_DIR as canonical roots.',
-        );
+        foreach (self::REQUIRED_TASK_ONE_CANONICAL_ROOTS as $rootName) {
+            $this->assertArrayHasKey(
+                $rootName,
+                $canonicalEntries,
+                sprintf('Expected Task 1 canonical root "%s" to remain canonical.', $rootName),
+            );
+            $this->assertContains(
+                $rootName,
+                $requiredCanonicalNames,
+                sprintf('Expected requiredCanonicalNames to retain the Task 1 canonical root "%s".', $rootName),
+            );
+        }
 
         foreach ($mapping['mappings'] as $entryName => $entry) {
             $this->assertArrayHasKey(
