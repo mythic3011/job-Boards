@@ -246,15 +246,25 @@ bt_find_free_port() {
 
 bt_port_in_use() {
     local port="$1"
+    local has_local_probe=0
+
     if command -v ss >/dev/null 2>&1; then
+        has_local_probe=1
         ss -tlnH 2>/dev/null | awk '{print $4}' | grep -qE "(^|[:.])${port}$" && return 0
     fi
     if command -v lsof >/dev/null 2>&1; then
+        has_local_probe=1
         lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1 && return 0
     fi
     if command -v netstat >/dev/null 2>&1; then
+        has_local_probe=1
         netstat -an 2>/dev/null | awk '/LISTEN/ {print $4}' | grep -qE "(^|[:.])${port}$" && return 0
     fi
+
+    if [[ "${has_local_probe}" == "1" ]]; then
+        return 1
+    fi
+
     (echo >/dev/tcp/localhost/"${port}") >/dev/null 2>&1 && return 0
     return 1
 }
@@ -552,17 +562,22 @@ bt_preload_compose_app_plane_network() {
 bt_preload_compose_env() {
     local compose_file="${1:-}"
     local root_env_file="${BT_ROOT_DIR}/.env"
+    local compat_shell_env_file="${BT_COMPAT_SHELL_ENV_FILE:-${BT_RUNTIME_DIR}/compat.shell.env}"
     local obs_generated_env_file="${BT_OBS_GENERATED_ENV_FILE:-${BT_RUNTIME_DIR}/obs.generated.env}"
     local preserved_env_keys
 
-    preserved_env_keys="$(env | cut -d= -f1)"
-
-    if [[ -r "${root_env_file}" ]]; then
-        bt_export_env_file_if_unset "${root_env_file}"
-    fi
+    preserved_env_keys="$(bt_runtime_bridge_preserved_keys_snapshot)"
 
     if [[ -r "${obs_generated_env_file}" ]]; then
         bt_export_env_file_unless_preserved "${obs_generated_env_file}" "${preserved_env_keys}"
+    fi
+
+    if [[ -r "${root_env_file}" ]]; then
+        bt_export_env_file_unless_preserved "${root_env_file}" "${preserved_env_keys}"
+    fi
+
+    if [[ -r "${compat_shell_env_file}" ]]; then
+        bt_export_shell_assignment_file_unless_preserved "${compat_shell_env_file}" "${preserved_env_keys}"
     fi
 
     bt_preload_compose_app_plane_network "${compose_file}" "${preserved_env_keys}"
@@ -665,25 +680,42 @@ bt_compose_service_publishes_host_port() {
     local service="$2"
     local expected_port="$3"
     local container_id=""
-    local bindings=""
-    local binding=""
-    local host_port=""
+    local state=""
+    local bindings_json=""
 
     container_id="$(bt_compose_service_container_id "${compose_file}" "${service}" 2>/dev/null || true)"
     [[ -n "${container_id}" ]] || return 1
-    bt_compose_service_running "${compose_file}" "${service}" || return 1
 
-    bindings="$(docker port "${container_id}" 2>/dev/null || true)"
-    [[ -n "${bindings}" ]] || return 1
+    state="$(docker inspect -f '{{.State.Status}}' "${container_id}" 2>/dev/null || true)"
+    case "${state}" in
+        running|restarting|paused|created)
+            ;;
+        *)
+            return 1
+            ;;
+    esac
 
-    while IFS= read -r binding; do
-        [[ "${binding}" == *"-> "* ]] || continue
-        host_port="${binding#*-> }"
-        host_port="${host_port##*:}"
-        [[ "${host_port}" == "${expected_port}" ]] && return 0
-    done <<< "${bindings}"
+    bindings_json="$(docker inspect -f '{{json .HostConfig.PortBindings}}' "${container_id}" 2>/dev/null || true)"
+    [[ -n "${bindings_json}" && "${bindings_json}" != "null" ]] || return 1
 
-    return 1
+    python3 - "${expected_port}" "${bindings_json}" <<'PY'
+import json
+import sys
+
+expected_port = sys.argv[1]
+bindings = json.loads(sys.argv[2])
+
+for entries in bindings.values():
+    if not entries:
+        continue
+    for entry in entries:
+        if entry and entry.get("HostPort") == expected_port:
+            raise SystemExit(0)
+
+raise SystemExit(1)
+PY
+
+    return $?
 }
 
 bt_compose_service_healthy() {
@@ -904,11 +936,97 @@ bt_export_env_file_if_unset() {
     done < "${env_file}"
 }
 
+bt_export_shell_assignment_file_unless_preserved() {
+    local env_file="$1"
+    local preserved_env_keys="$2"
+    local parsed_file=""
+    local key=""
+    local value=""
+
+    [[ -r "${env_file}" ]] || return 0
+
+    parsed_file="$(mktemp)"
+    python3 - "${env_file}" > "${parsed_file}" <<'PY'
+import pathlib
+import re
+import shlex
+import sys
+
+path = pathlib.Path(sys.argv[1])
+key_pattern = re.compile(r"^[A-Z_][A-Z0-9_]*$")
+
+for raw_line in path.read_text(encoding="utf-8").splitlines():
+    line = raw_line.strip()
+    if not line or line.startswith("#"):
+        continue
+    try:
+        lexer = shlex.shlex(line, posix=True)
+        lexer.whitespace_split = True
+        lexer.commenters = ""
+        parts = list(lexer)
+    except ValueError as exc:
+        raise SystemExit(f"Invalid shell assignment in {path}: {raw_line} ({exc})")
+
+    if parts and parts[0] == "export":
+        parts = parts[1:]
+
+    if len(parts) > 1 and parts[1].startswith("#"):
+        parts = parts[:1]
+
+    if len(parts) != 1 or "=" not in parts[0]:
+        raise SystemExit(f"Invalid shell assignment in {path}: {raw_line}")
+
+    key, value = parts[0].split("=", 1)
+    if not key_pattern.match(key):
+        raise SystemExit(f"Invalid key in {path}: {key}")
+
+    sys.stdout.write(key)
+    sys.stdout.write("\0")
+    sys.stdout.write(value)
+    sys.stdout.write("\0")
+PY
+
+    while IFS= read -r -d '' key && IFS= read -r -d '' value; do
+        if bt_env_snapshot_has_key "${preserved_env_keys}" "${key}"; then
+            continue
+        fi
+
+        export "${key}=${value}"
+    done < "${parsed_file}"
+
+    rm -f "${parsed_file}"
+}
+
 bt_env_snapshot_has_key() {
     local snapshot="$1"
     local key="$2"
 
     grep -Fqx -- "${key}" <<< "${snapshot}"
+}
+
+bt_runtime_bridge_preserved_keys_snapshot() {
+    local defaults=("BT_APP_PLANE_NETWORK_NAME" "BT_HONEYPOT_SOURCE")
+    local extra_raw="${BT_RUNTIME_BRIDGE_PRESERVE_KEYS:-}"
+    local key=""
+    local snapshot=""
+
+    for key in "${defaults[@]}"; do
+        if [[ -n "${!key+x}" ]]; then
+            snapshot+="${key}"$'\n'
+        fi
+    done
+
+    if [[ -n "${extra_raw}" ]]; then
+        extra_raw="${extra_raw//,/ }"
+        for key in ${extra_raw}; do
+            [[ "${key}" =~ ^[A-Z_][A-Z0-9_]*$ ]] || continue
+            if [[ -n "${!key+x}" ]]; then
+                snapshot+="${key}"$'\n'
+            fi
+        done
+    fi
+
+    printf '%s' "${snapshot}"
 }
 
 bt_export_env_file_unless_preserved() {
