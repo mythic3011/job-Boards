@@ -23,39 +23,39 @@ final class EnvExampleConsumerProofTest extends TestCase
 
     private const ADVANCED_SUBSET_EXPECTATIONS = [
         'APP_KEY' => [
-            'templateAction' => 'advanced-doc',
+            'templateAction' => 'remove-normal',
             'ownership' => 'bootstrap',
             'lifecycle' => 'generated',
         ],
         'DB_PASSWORD' => [
-            'templateAction' => 'advanced-doc',
+            'templateAction' => 'remove-normal',
             'ownership' => 'bootstrap',
             'lifecycle' => 'generated',
         ],
         'REDIS_PASSWORD' => [
-            'templateAction' => 'advanced-doc',
+            'templateAction' => 'remove-normal',
             'ownership' => 'profile',
             'lifecycle' => 'injected',
         ],
         'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => [
-            'templateAction' => 'advanced-doc',
+            'templateAction' => 'remove-normal',
             'ownership' => 'bootstrap',
             'lifecycle' => 'generated',
         ],
         'AWS_ACCESS_KEY_ID' => [
-            'templateAction' => 'advanced-doc',
+            'templateAction' => 'remove-normal',
         ],
         'AWS_SECRET_ACCESS_KEY' => [
-            'templateAction' => 'advanced-doc',
+            'templateAction' => 'remove-normal',
         ],
         'AWS_DEFAULT_REGION' => [
-            'templateAction' => 'advanced-doc',
+            'templateAction' => 'remove-normal',
         ],
         'AWS_BUCKET' => [
-            'templateAction' => 'advanced-doc',
+            'templateAction' => 'remove-normal',
         ],
         'AWS_USE_PATH_STYLE_ENDPOINT' => [
-            'templateAction' => 'advanced-doc',
+            'templateAction' => 'remove-normal',
         ],
         'BROADCAST_CONNECTION' => [
             'templateAction' => 'remove-normal',

@@ -171,10 +171,7 @@ These are the primary operator-facing monitoring inputs:
 - `MONITORING_ADMIN_USERNAME`
 - `MONITORING_PASSWORD`
 
-Advanced plaintext overrides exist only when Grafana or Prometheus must intentionally diverge:
-
-- `GRAFANA_PASSWORD`
-- `PROMETHEUS_PASSWORD`
+`GRAFANA_PASSWORD` and `PROMETHEUS_PASSWORD` are legacy compatibility aliases and should not be treated as normal operator inputs.
 
 Derived runtime outputs such as `GRAFANA_ADMIN_SECRET_FILE` and `PROMETHEUS_PASSWORD_HASH` are not the primary operator contract.
 

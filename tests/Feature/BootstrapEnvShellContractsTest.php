@@ -40,7 +40,7 @@ class BootstrapEnvShellContractsTest extends TestCase
         $this->assertIsString($contents);
         $this->assertIsString($example);
         $this->assertStringContainsString('SECRET|KEY|TOKEN|PASSWORD', $contents);
-        $this->assertStringContainsString('CANONICAL_AUDIT_AUTH_SERVICE_SECRET=', $example);
+        $this->assertStringNotContainsString('CANONICAL_AUDIT_AUTH_SERVICE_SECRET=', $example);
     }
 
     public function test_bootstrap_env_keeps_monitoring_password_as_the_only_primary_plaintext_operator_input(): void
@@ -52,8 +52,9 @@ class BootstrapEnvShellContractsTest extends TestCase
         $this->assertIsString($example);
         $this->assertStringNotContainsString('for var in MONITORING_PASSWORD GRAFANA_PASSWORD PROMETHEUS_PASSWORD; do', $contents);
         $this->assertStringNotContainsString('docker/nginx/htpasswd/monitoring.htpasswd', $contents);
-        $this->assertStringContainsString('# advanced override: plaintext source for Grafana admin bootstrap; defaults to MONITORING_PASSWORD when unset', $example);
-        $this->assertStringContainsString('# advanced override: plaintext source for Prometheus basic auth bootstrap; defaults to MONITORING_PASSWORD when unset', $example);
+        $this->assertStringContainsString('MONITORING_PASSWORD=', $example);
+        $this->assertStringNotContainsString('GRAFANA_PASSWORD=', $example);
+        $this->assertStringNotContainsString('PROMETHEUS_PASSWORD=', $example);
     }
 
     public function test_bootstrap_env_uses_shared_config_authority_for_grafana_secret_path_derivation(): void
