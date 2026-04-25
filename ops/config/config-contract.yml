@@ -1,11 +1,12 @@
 {
   "version": 1,
   "defaults": {
-    "BT_STATE_DIR": ".blue-team-vm"
+    "STATE_DIR": ".blue-team-vm"
   },
   "derived": {
-    "PROMETHEUS_WEB_CONFIG_FILE": "${BT_STATE_DIR}/rendered/prometheus.web-config.yml",
-    "GRAFANA_DATASOURCES_FILE": "${BT_STATE_DIR}/rendered/grafana.datasources.yml",
-    "GRAFANA_ADMIN_SECRET_FILE": "${BT_STATE_DIR}/runtime/grafana-admin-secret"
+    "BT_STATE_DIR": "${STATE_DIR}",
+    "PROMETHEUS_WEB_CONFIG_FILE": "${STATE_DIR}/rendered/prometheus.web-config.yml",
+    "GRAFANA_DATASOURCES_FILE": "${STATE_DIR}/rendered/grafana.datasources.yml",
+    "GRAFANA_ADMIN_SECRET_FILE": "${STATE_DIR}/runtime/grafana-admin-secret"
   }
 }

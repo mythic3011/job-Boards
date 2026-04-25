@@ -84,18 +84,60 @@ def should_preserve_env(key: str) -> bool:
     return key in os.environ and os.environ[key] != ""
 
 
+def root_dir_for_state_resolution() -> Path:
+    if should_preserve_env("ROOT_DIR"):
+        return Path(os.environ["ROOT_DIR"]).expanduser()
+
+    return REPO_ROOT
+
+
+def normalize_state_dir(value: str) -> str:
+    state_path = Path(value).expanduser()
+    if state_path.is_absolute():
+        return str(state_path)
+
+    return str(root_dir_for_state_resolution() / state_path)
+
+
+def collect_explicit_values(keys: list[str]) -> dict[str, str]:
+    explicit: dict[str, str] = {}
+
+    for key in keys:
+        if should_preserve_env(key):
+            explicit[key] = os.environ[key]
+
+    state_dir = explicit.get("STATE_DIR", "")
+    bt_state_dir = explicit.get("BT_STATE_DIR", "")
+
+    if state_dir and bt_state_dir and normalize_state_dir(state_dir) != normalize_state_dir(bt_state_dir):
+        raise ConfigContractError(
+            "STATE_DIR and BT_STATE_DIR are both set but resolve to different paths; provide one canonical state root."
+        )
+
+    if not state_dir and bt_state_dir:
+        state_dir = bt_state_dir
+
+    if state_dir:
+        normalized = normalize_state_dir(state_dir)
+        explicit["STATE_DIR"] = normalized
+        explicit["BT_STATE_DIR"] = normalized
+
+    return explicit
+
+
 def resolve_value(
     key: str,
     defaults: dict[str, str],
     derived: dict[str, str],
+    explicit: dict[str, str],
     resolved: dict[str, str],
     visiting: set[str],
 ) -> str:
     if key in resolved:
         return resolved[key]
 
-    if should_preserve_env(key):
-        resolved[key] = os.environ[key]
+    if key in explicit:
+        resolved[key] = explicit[key]
         return resolved[key]
 
     if key in visiting:
@@ -113,7 +155,7 @@ def resolve_value(
 
     def replace(match: re.Match[str]) -> str:
         dependency = match.group(1)
-        return resolve_value(dependency, defaults, derived, resolved, visiting)
+        return resolve_value(dependency, defaults, derived, explicit, resolved, visiting)
 
     value = PLACEHOLDER_PATTERN.sub(replace, template)
     if PLACEHOLDER_PATTERN.search(value):
@@ -126,10 +168,11 @@ def resolve_value(
 
 def resolve_all() -> tuple[list[str], dict[str, str]]:
     keys, defaults, derived = load_contract()
+    explicit = collect_explicit_values(keys)
     resolved: dict[str, str] = {}
 
     for key in keys:
-        resolve_value(key, defaults, derived, resolved, set())
+        resolve_value(key, defaults, derived, explicit, resolved, set())
 
     return keys, resolved
 
