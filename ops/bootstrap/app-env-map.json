@@ -1,5 +1,9 @@
 {
   "version": "1.0.0",
+  "requiredCanonicalNames": [
+    "APP_DOMAIN",
+    "STATE_DIR"
+  ],
   "mappings": {
     "APP_DOMAIN": {
       "name": "APP_DOMAIN",
@@ -9,6 +13,8 @@
       "ownership": "operator",
       "lifecycle": "defaulted",
       "templateAction": "keep-normal",
+      "valueDerivation": "identity",
+      "conflictPolicy": "canonical-source-of-truth",
       "consumerProof": "Canonical public host identity that later derives APP_URL, certificate defaults, and server names for the application path.",
       "ownerProof": "The operator owns the public host identity for the supported deployment contract."
     },
@@ -20,6 +26,8 @@
       "ownership": "bootstrap",
       "lifecycle": "derived",
       "templateAction": "compatibility-only",
+      "valueDerivation": "https-url",
+      "conflictPolicy": "must-match-derived-canonical",
       "consumerProof": "Laravel still consumes APP_URL, but the cleanup contract derives it from APP_DOMAIN instead of treating it as a separate operator input.",
       "ownerProof": "The operator does not own a second public URL input in the normal path once APP_DOMAIN is canonical."
     },
@@ -31,6 +39,8 @@
       "ownership": "bootstrap",
       "lifecycle": "derived",
       "templateAction": "compatibility-only",
+      "valueDerivation": "identity",
+      "conflictPolicy": "must-match-derived-canonical",
       "consumerProof": "TLS certificate CN defaults are documented as a derivation from APP_DOMAIN rather than a separate semantic role.",
       "ownerProof": "The operator owns the public host identity, while bootstrap owns the derived certificate-domain projection."
     },
@@ -42,6 +52,8 @@
       "ownership": "bootstrap",
       "lifecycle": "defaulted",
       "templateAction": "advanced-doc",
+      "valueDerivation": "identity",
+      "conflictPolicy": "canonical-source-of-truth",
       "consumerProof": "The cleanup contract treats STATE_DIR as the canonical state root for generated runtime, backup, and rendered-path derivations.",
       "ownerProof": "STATE_DIR defaults to the repository state root and is only an advanced override, so bootstrap owns the normal value."
     },
@@ -53,6 +65,8 @@
       "ownership": "bootstrap",
       "lifecycle": "derived",
       "templateAction": "compatibility-only",
+      "valueDerivation": "identity",
+      "conflictPolicy": "must-match-derived-canonical",
       "consumerProof": "Existing bootstrap, compose, and test flows still consume BT_STATE_DIR while the canonical contract moves to STATE_DIR.",
       "ownerProof": "BT_STATE_DIR persists only as a compatibility projection of the canonical state root."
     },
@@ -64,6 +78,8 @@
       "ownership": "bootstrap",
       "lifecycle": "derived",
       "templateAction": "remove-normal",
+      "valueDerivation": "path-join:runtime",
+      "conflictPolicy": "must-match-derived-canonical",
       "consumerProof": "Bootstrap and shell consumers rely on BT_RUNTIME_DIR as the derived runtime directory under the state root.",
       "ownerProof": "Operators do not supply runtime-directory paths in the normal flow; bootstrap derives them from STATE_DIR."
     },
@@ -75,6 +91,8 @@
       "ownership": "bootstrap",
       "lifecycle": "derived",
       "templateAction": "remove-normal",
+      "valueDerivation": "path-join:runtime/grafana-admin-secret",
+      "conflictPolicy": "must-match-derived-canonical",
       "consumerProof": "Observability bootstrap and compose consumers treat this as a generated Grafana admin secret path under the state root.",
       "ownerProof": "The file path is internal runtime materialization, not an operator-owned secret input."
     },
@@ -86,6 +104,8 @@
       "ownership": "bootstrap",
       "lifecycle": "derived",
       "templateAction": "remove-normal",
+      "valueDerivation": "path-join:rendered/grafana.datasources.yml",
+      "conflictPolicy": "must-match-derived-canonical",
       "consumerProof": "Observability compose and bootstrap flows consume this rendered Grafana datasource config path as generated runtime state.",
       "ownerProof": "Rendered monitoring config paths are derived from STATE_DIR rather than supplied by the operator."
     },
@@ -97,6 +117,8 @@
       "ownership": "bootstrap",
       "lifecycle": "derived",
       "templateAction": "remove-normal",
+      "valueDerivation": "path-join:rendered/prometheus.web-config.yml",
+      "conflictPolicy": "must-match-derived-canonical",
       "consumerProof": "Observability compose and bootstrap flows consume this rendered Prometheus web config path as generated runtime state.",
       "ownerProof": "Rendered monitoring config paths are derived under STATE_DIR and are not normal operator-facing inputs."
     }
