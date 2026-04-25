@@ -443,6 +443,14 @@ html[data-theme-mode="dark"][data-theme-accent="forest"] {
     opacity: 1;
 }
 
+.theme-overlay-backdrop {
+    background: color-mix(in srgb, var(--app-page-bg) 42%, #000);
+}
+
+.theme-overlay-backdrop-strong {
+    background: color-mix(in srgb, var(--app-page-bg) 54%, #000);
+}
+
 .theme-error-code {
     color: var(--app-accent);
 }

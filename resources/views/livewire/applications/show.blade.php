@@ -81,7 +81,7 @@ new class extends Component
                 @if($application->status->value === 'pending')
                     <button type="button"
                         x-on:click="showApprove = true"
-                        class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-green-700 cursor-pointer">
+                        class="theme-button theme-button-primary inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold cursor-pointer">
                         <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                         </svg>
@@ -89,7 +89,7 @@ new class extends Component
                     </button>
                     <button type="button"
                         x-on:click="showReject = true"
-                        class="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-red-700 cursor-pointer">
+                        class="theme-button theme-button-danger inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold cursor-pointer">
                         <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                         </svg>
@@ -118,7 +118,7 @@ new class extends Component
             x-transition:leave="transition ease-in duration-150"
             x-transition:leave-start="opacity-100"
             x-transition:leave-end="opacity-0"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm"
+            class="theme-overlay-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
             x-on:keydown.escape.window="showApprove = false"
         >
             <div
@@ -133,7 +133,7 @@ new class extends Component
             >
                 <div class="flex items-start gap-4 px-6 pt-6 pb-4">
                     <div class="theme-alert-success shrink-0 rounded-full border p-3">
-                        <svg class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="theme-signal-success h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m4.5 12.75 6 6 9-13.5" />
                         </svg>
                     </div>
@@ -181,7 +181,7 @@ new class extends Component
             x-transition:leave="transition ease-in duration-150"
             x-transition:leave-start="opacity-100"
             x-transition:leave-end="opacity-0"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm"
+            class="theme-overlay-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
             x-on:keydown.escape.window="showReject = false"
         >
             <div
@@ -196,7 +196,7 @@ new class extends Component
             >
                 <div class="flex items-start gap-4 px-6 pt-6 pb-4">
                     <div class="theme-alert-error shrink-0 rounded-full border p-3">
-                        <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg class="theme-signal-danger h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18 18 6M6 6l12 12" />
                         </svg>
                     </div>
@@ -256,9 +256,9 @@ new class extends Component
                     default    => 'theme-alert-warning border',
                 };
                 $dotClass = match($statusValue) {
-                    'approved' => 'bg-green-500',
-                    'rejected' => 'bg-red-500',
-                    default    => 'bg-yellow-500',
+                    'approved' => 'theme-dot-success',
+                    'rejected' => 'theme-dot-danger',
+                    default    => 'theme-dot-warning',
                 };
             @endphp
             <div class="theme-text-muted flex flex-wrap items-center gap-3 text-sm">

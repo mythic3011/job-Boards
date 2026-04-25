@@ -75,9 +75,9 @@ new class extends Component
                     default    => 'theme-alert-warning border',
                 };
                 $dotClass = match($statusValue) {
-                    'approved' => 'bg-green-500',
-                    'rejected' => 'bg-red-500',
-                    default    => 'bg-yellow-500',
+                    'approved' => 'theme-dot-success',
+                    'rejected' => 'theme-dot-danger',
+                    default    => 'theme-dot-warning',
                 };
             @endphp
             <div class="theme-text-muted flex flex-wrap items-center gap-3 text-sm">

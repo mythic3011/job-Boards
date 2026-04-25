@@ -194,14 +194,14 @@ new class extends Component
                     default    => 'Pending review',
                 };
                 $statusClasses = match($statusValue) {
-                    'approved' => 'bg-green-50 text-green-700 border-green-200',
-                    'rejected' => 'bg-red-50 text-red-700 border-red-200',
-                    default    => 'bg-yellow-50 text-yellow-700 border-yellow-200',
+                    'approved' => 'theme-alert-success border',
+                    'rejected' => 'theme-alert-error border',
+                    default    => 'theme-alert-warning border',
                 };
                 $dotClasses = match($statusValue) {
-                    'approved' => 'bg-green-500',
-                    'rejected' => 'bg-red-500',
-                    default    => 'bg-yellow-500',
+                    'approved' => 'theme-dot-success',
+                    'rejected' => 'theme-dot-danger',
+                    default    => 'theme-dot-warning',
                 };
             @endphp
 
@@ -280,7 +280,7 @@ new class extends Component
                                 </a>
                                 @if($application->cv_original_name)
                                     <a href="{{ route('applications.download-cv', $application->idcode) }}"
-                                       class="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-all duration-150 hover:border-indigo-300 hover:bg-indigo-100 cursor-pointer">
+                                       class="theme-button theme-button-secondary inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer">
                                         Download CV
                                     </a>
                                 @endif

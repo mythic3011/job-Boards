@@ -547,7 +547,7 @@ new class extends Component
     </x-ui.card>
 
     @if ($showConfirmModal)
-        <div class="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/60 backdrop-blur-sm sm:items-center sm:p-4">
+        <div class="theme-overlay-backdrop-strong fixed inset-0 z-50 flex items-end justify-center backdrop-blur-sm sm:items-center sm:p-4">
             <button
                 type="button"
                 class="absolute inset-0 cursor-default"
