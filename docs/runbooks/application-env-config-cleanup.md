@@ -545,6 +545,28 @@ It should:
 - keep Compose/runtime behavior unchanged
 - avoid `.env.example` shrink until compatibility mapping exists
 
+For PR2 Task 3, the approved proof subset is intentionally narrower than the
+full `.env.example` inventory. The proof test covers current `.env.example`
+entries that Laravel consumes directly through these config files:
+
+- `config/app.php`
+- `config/logging.php`
+- `config/http_logging.php`
+- `config/database.php`
+- `config/session.php`
+- `config/filesystems.php`
+- `config/cache.php`
+- `config/queue.php`
+- `config/mail.php`
+- `config/canonical_audit_ingestion.php`
+
+It also covers the current placeholder/removal candidates called out by the
+inventory: `BROADCAST_CONNECTION`, `VITE_APP_NAME`, and `MEMCACHED_HOST`.
+Within that proof subset, advanced integration keys such as `AWS_*` must be
+marked advanced-only and the removable placeholders above must be marked
+removable in `ops/bootstrap/app-env-map.json`. PR2 still does not shrink or
+delete `.env.example` entries.
+
 It should not:
 
 - route `./install.sh lab|demo|production` into runtime apply
