@@ -22,13 +22,13 @@
 
     <div class="mt-1 flex items-center gap-4">
         <label for="{{ $name }}" class="cursor-pointer shrink-0">
-            <div class="flex items-center justify-center px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-400 hover:bg-indigo-50 transition-colors">
+            <div class="theme-panel-subtle flex items-center justify-center rounded-lg border-2 border-dashed px-4 py-3 transition-colors hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-accent-soft-bg)]">
                 <div class="text-center">
-                    <x-heroicon-o-photo class="mx-auto h-8 w-8 text-gray-400" />
-                    <span class="mt-2 block text-sm font-medium text-gray-700">
+                    <x-heroicon-o-photo class="theme-text-muted mx-auto h-8 w-8" />
+                    <span class="theme-text-strong mt-2 block text-sm font-medium">
                         Choose image
                     </span>
-                    <span class="mt-1 block text-xs text-gray-500">
+                    <span class="theme-text-muted mt-1 block text-xs">
                         Max size: {{ $maxSize }}
                     </span>
                 </div>
@@ -51,11 +51,11 @@
                         <img 
                             :src="$wire.{{ str_replace(['wire:model=', '"', "'"], '', $attributes->get('wire:model')) }}?.temporaryUrl()" 
                             alt="Preview" 
-                            class="h-20 w-20 rounded-lg object-cover border border-gray-300"
+                            class="h-20 w-20 rounded-lg border border-[var(--app-panel-border)] object-cover"
                         >
                     </template>
                 </div>
-                <div wire:loading wire:target="{{ $attributes->get('wire:model') }}" class="text-sm text-gray-500">
+                <div wire:loading wire:target="{{ $attributes->get('wire:model') }}" class="theme-text-muted text-sm">
                     <div class="flex items-center gap-2">
                         <x-heroicon-o-arrow-path class="h-4 w-4 animate-spin" />
                         <span>Uploading...</span>

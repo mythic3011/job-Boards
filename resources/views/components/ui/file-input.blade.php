@@ -34,7 +34,7 @@
 
     <div class="flex flex-col items-center space-y-4">
         <div class="relative group">
-            <div class="relative w-32 h-32 rounded-full overflow-hidden border-4 {{ $hasError ? 'border-red-300' : 'border-[var(--app-panel-border)]' }} bg-gradient-to-br from-indigo-100 to-sky-100 shadow-lg"
+            <div class="relative w-32 h-32 rounded-full overflow-hidden border-4 {{ $hasError ? 'border-[var(--app-danger-border)]' : 'border-[var(--app-panel-border)]' }} bg-gradient-to-br from-indigo-100 to-sky-100 shadow-lg"
                  id="{{ $inputId }}-container">
                 <div class="relative w-full h-full" id="{{ $inputId }}-current-avatar">
                     @if($hasCurrentImage)
@@ -67,14 +67,16 @@
                 
                 <!-- Error Indicator -->
                 @if($hasError)
-                    <div class="absolute -top-2 -right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center border-2 border-white shadow-lg">
+                    <div class="absolute -top-2 -right-2 w-8 h-8 rounded-full flex items-center justify-center border-2 border-white shadow-lg"
+                         style="background: var(--app-danger-fg);">
                         <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
                         </svg>
                     </div>
                 @endif
                 
-                <div class="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full items-center justify-center border-2 border-white shadow-lg hidden" 
+                <div class="absolute -top-2 -right-2 w-8 h-8 rounded-full items-center justify-center border-2 border-white shadow-lg hidden"
+                     style="background: var(--app-success-fg);"
                      id="{{ $inputId }}-success-indicator">
                     <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
@@ -126,7 +128,7 @@
             <button type="button"
                     data-avatar-action="remove"
                     data-avatar-target="{{ $inputId }}"
-                    class="text-sm text-red-600 hover:text-red-800 font-medium transition-colors">
+                    class="theme-signal-danger text-sm font-medium transition-opacity hover:opacity-80">
                 Remove Photo
             </button>
         @endif
@@ -134,7 +136,7 @@
 
     @error($name)
         <div class="text-center">
-            <p class="text-sm text-red-600 flex items-center justify-center gap-2">
+            <p class="theme-error-text flex items-center justify-center gap-2 text-sm">
                 <svg class="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
                 </svg>

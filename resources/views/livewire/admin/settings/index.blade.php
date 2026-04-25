@@ -380,7 +380,7 @@ new class extends Component
                         class="theme-input w-full rounded-lg border px-3 py-2.5 text-sm shadow-sm placeholder:text-[var(--app-text-muted)] focus:border-[var(--app-accent-soft-border)] focus:ring-2 focus:ring-[var(--app-focus-ring)] focus:outline-hidden transition"
                         placeholder="Jobs Board"
                     >
-                    @error('app_name') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
+                    @error('app_name') <p class="theme-error-text text-xs">{{ $message }}</p> @enderror
                 </div>
 
                 <div class="space-y-1.5">
@@ -393,7 +393,7 @@ new class extends Component
                         placeholder="https://jobs.example.com"
                     >
                     <p class="theme-text-muted text-xs">Optional during install, but editable here for canonical links and operational fixes.</p>
-                    @error('app_url') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
+                    @error('app_url') <p class="theme-error-text text-xs">{{ $message }}</p> @enderror
                 </div>
 
                 <div class="space-y-1.5">
@@ -407,7 +407,7 @@ new class extends Component
                         spellcheck="false"
                     >
                     <p class="theme-text-muted text-xs">Use a valid IANA timezone, for example <code>Asia/Hong_Kong</code> or <code>UTC</code>.</p>
-                    @error('timezone') <p class="text-xs text-red-500">{{ $message }}</p> @enderror
+                    @error('timezone') <p class="theme-error-text text-xs">{{ $message }}</p> @enderror
                 </div>
             </div>
 

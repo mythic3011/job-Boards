@@ -166,7 +166,7 @@
                                         pattern="[0-9]{6}"
                                         placeholder="000000"
                                         autocomplete="one-time-code"
-                                        class="theme-input block w-full rounded-lg border-0 px-3 py-1.5 shadow-sm ring-1 ring-inset {{ $codeIsValid ? 'ring-green-500 focus:ring-green-600' : ($errors->has('verificationCode') ? 'ring-red-300 focus:ring-red-500' : 'ring-[var(--app-input-border)] focus:ring-[var(--app-accent)]') }} placeholder:text-[var(--app-text-muted)] focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6"
+                                        class="theme-input block w-full rounded-lg border-0 px-3 py-1.5 shadow-sm ring-1 ring-inset {{ $codeIsValid ? 'ring-[var(--app-success-border)] focus:ring-[var(--app-success-fg)]' : ($errors->has('verificationCode') ? 'ring-[var(--app-danger-border)] focus:ring-[var(--app-danger-fg)]' : 'ring-[var(--app-input-border)] focus:ring-[var(--app-accent)]') }} placeholder:text-[var(--app-text-muted)] focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6"
                                     >
                                     @if($errors->has('verificationCode'))
                                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
@@ -183,7 +183,7 @@
                                     @endif
                                 </div>
                                 @if($errors->has('verificationCode'))
-                                    <p class="mt-1 text-sm text-red-600">{{ $errors->first('verificationCode') }}</p>
+                                    <p class="theme-error-text mt-1 text-sm">{{ $errors->first('verificationCode') }}</p>
                                 @else
                                     <p class="theme-text-muted mt-1 text-sm">Enter the 6-digit code. It will verify automatically.</p>
                                 @endif

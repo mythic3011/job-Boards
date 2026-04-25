@@ -28,7 +28,7 @@
                             class="theme-input block w-full rounded-xl border px-3 py-2.5 text-sm transition-shadow {{ $errors->has('email') ? 'theme-input-error' : '' }}"
                         >
                         @error('email')
-                            <p class="mt-1.5 text-sm text-red-500">{{ $message }}</p>
+                            <p class="theme-error-text mt-1.5 text-sm">{{ $message }}</p>
                         @enderror
                     </div>
 
@@ -49,7 +49,7 @@
                             >
                             <p class="theme-text-muted mt-1 text-xs">Enter the six-digit code from your authenticator app.</p>
                             @error('code')
-                                <p class="mt-1.5 text-sm text-red-500">{{ $message }}</p>
+                                <p class="theme-error-text mt-1.5 text-sm">{{ $message }}</p>
                             @enderror
                         </div>
 
@@ -66,7 +66,7 @@
                             >
                             <p class="theme-text-muted mt-1 text-xs">Use one of your saved recovery codes if the authenticator app is unavailable.</p>
                             @error('recovery_code')
-                                <p class="mt-1.5 text-sm text-red-500">{{ $message }}</p>
+                                <p class="theme-error-text mt-1.5 text-sm">{{ $message }}</p>
                             @enderror
                         </div>
 

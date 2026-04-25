@@ -20,12 +20,14 @@ $(() => {
     // UX: clear server-side validation styling as user edits (login/register/auth forms)
     $(document).on(
         "input change",
-        "input.border-red-300, textarea.border-red-300, select.border-red-300",
+        "input.theme-input-error, textarea.theme-input-error, select.theme-input-error",
         function () {
             const $field = $(this);
-            $field.removeClass("border-red-300");
+            $field.removeClass("theme-input-error");
             const $wrapper = $field.closest("div");
-            const $error = $wrapper.nextAll("p.text-red-600").first();
+            const $error = $wrapper
+                .nextAll("p.theme-error-text, p.theme-install-error-text")
+                .first();
             if ($error.length) {
                 $error.fadeOut(150);
             }

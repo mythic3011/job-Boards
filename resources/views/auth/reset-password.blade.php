@@ -29,7 +29,7 @@
                         class="theme-input block w-full rounded-xl border px-3 py-2.5 text-sm transition-shadow {{ $errors->has('email') ? 'theme-input-error' : '' }}"
                     >
                     @error('email')
-                        <p class="mt-1.5 text-sm text-red-500">{{ $message }}</p>
+                        <p class="theme-error-text mt-1.5 text-sm">{{ $message }}</p>
                     @enderror
                 </div>
 
@@ -44,7 +44,7 @@
                         class="theme-input block w-full rounded-xl border px-3 py-2.5 text-sm transition-shadow {{ $errors->has('password') ? 'theme-input-error' : '' }}"
                     >
                     @error('password')
-                        <p class="mt-1.5 text-sm text-red-500">{{ $message }}</p>
+                        <p class="theme-error-text mt-1.5 text-sm">{{ $message }}</p>
                     @enderror
                 </div>
 
@@ -77,7 +77,7 @@
                         >
                         <p class="theme-text-muted mt-1 text-xs">Required if your account has two-factor authentication enabled.</p>
                         @error('two_factor_code')
-                            <p class="mt-1.5 text-sm text-red-500">{{ $message }}</p>
+                            <p class="theme-error-text mt-1.5 text-sm">{{ $message }}</p>
                         @enderror
                     </div>
                 @endunless

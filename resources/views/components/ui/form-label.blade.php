@@ -10,6 +10,6 @@
 >
     {{ $slot }}
     @if($required)
-        <span class="text-red-500" aria-label="required">*</span>
+        <span class="theme-required-marker" aria-label="required">*</span>
     @endif
 </label>

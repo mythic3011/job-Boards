@@ -25,10 +25,10 @@ class Toast {
 
     show(message, type = "info", duration = 5000) {
         const types = {
-            success: { bg: "bg-green-500", icon: "✓" },
-            error: { bg: "bg-red-500", icon: "✗" },
-            warning: { bg: "bg-yellow-500", icon: "⚠" },
-            info: { bg: "bg-blue-500", icon: "ℹ" },
+            success: { tone: "success", icon: "✓" },
+            error: { tone: "error", icon: "✗" },
+            warning: { tone: "warning", icon: "⚠" },
+            info: { tone: "info", icon: "ℹ" },
         };
 
         const config = types[type] || types.info;
@@ -40,12 +40,13 @@ class Toast {
 
         const toast = $("<div>")
             .attr("id", toastId)
+            .attr("data-tone", config.tone)
             .addClass(
-                `${config.bg} text-white px-6 py-4 rounded-lg shadow-lg flex items-center gap-3 min-w-[300px] max-w-[500px] transform transition-all duration-300 opacity-0 translate-x-full`,
+                "theme-toast px-6 py-4 rounded-lg flex items-center gap-3 min-w-[300px] max-w-[500px] transform transition-all duration-300 opacity-0 translate-x-full",
             ).html(`
                 <span class="text-xl font-bold">${config.icon}</span>
                 <span class="flex-1 text-sm font-medium">${message}</span>
-                <button type="button" class="text-white hover:text-gray-200 font-bold text-lg leading-none" data-toast-close="${toastId}">&times;</button>
+                <button type="button" class="theme-toast-close font-bold text-lg leading-none" data-toast-close="${toastId}">&times;</button>
             `);
 
         this.container.append(toast);

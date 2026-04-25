@@ -62,7 +62,7 @@ new class extends Component
 <div>
     <form wire:submit="register" class="space-y-6">
         <div>
-            <label for="login_id" class="block text-sm font-medium text-gray-700">
+            <label for="login_id" class="theme-text-strong block text-sm font-medium">
                 Username
             </label>
             <div class="mt-1">
@@ -73,17 +73,17 @@ new class extends Component
                     wire:model="login_id"
                     autocomplete="username"
                     required
-                    class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('login_id') border-red-300 @enderror"
+                    class="theme-input block w-full rounded-lg border px-3 py-2.5 text-sm transition-shadow @error('login_id') theme-input-error @enderror"
                     placeholder="Choose a unique username"
                 >
             </div>
             @error('login_id')
-                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                <p class="theme-error-text mt-2 text-sm">{{ $message }}</p>
             @enderror
         </div>
 
         <div>
-            <label for="nickname" class="block text-sm font-medium text-gray-700">
+            <label for="nickname" class="theme-text-strong block text-sm font-medium">
                 Display Name
             </label>
             <div class="mt-1">
@@ -94,17 +94,17 @@ new class extends Component
                     wire:model="nickname"
                     autocomplete="name"
                     required
-                    class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('nickname') border-red-300 @enderror"
+                    class="theme-input block w-full rounded-lg border px-3 py-2.5 text-sm transition-shadow @error('nickname') theme-input-error @enderror"
                     placeholder="Your display name"
                 >
             </div>
             @error('nickname')
-                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                <p class="theme-error-text mt-2 text-sm">{{ $message }}</p>
             @enderror
         </div>
 
         <div>
-            <label for="email" class="block text-sm font-medium text-gray-700">
+            <label for="email" class="theme-text-strong block text-sm font-medium">
                 Email address
             </label>
             <div class="mt-1">
@@ -115,17 +115,17 @@ new class extends Component
                     wire:model="email"
                     autocomplete="email"
                     required
-                    class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('email') border-red-300 @enderror"
+                    class="theme-input block w-full rounded-lg border px-3 py-2.5 text-sm transition-shadow @error('email') theme-input-error @enderror"
                     placeholder="you@example.com"
                 >
             </div>
             @error('email')
-                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                <p class="theme-error-text mt-2 text-sm">{{ $message }}</p>
             @enderror
         </div>
 
         <div>
-            <label for="user_type" class="block text-sm font-medium text-gray-700">
+            <label for="user_type" class="theme-text-strong block text-sm font-medium">
                 Account Type
             </label>
             <select
@@ -133,21 +133,21 @@ new class extends Component
                 name="user_type"
                 wire:model="user_type"
                 required
-                class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('user_type') border-red-300 @enderror"
+                class="theme-input block w-full rounded-lg border px-3 py-2.5 text-sm transition-shadow @error('user_type') theme-input-error @enderror"
             >
                 <option value="individual">Individual (Job Seeker)</option>
                 <option value="company">Company (Employer)</option>
             </select>
-            <p class="mt-1 text-xs text-gray-500">
+            <p class="theme-text-muted mt-1 text-xs">
                 Choose Individual if you're looking for jobs, or Company if you're hiring.
             </p>
             @error('user_type')
-                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                <p class="theme-error-text mt-2 text-sm">{{ $message }}</p>
             @enderror
         </div>
 
         <div>
-            <label for="password" class="block text-sm font-medium text-gray-700">
+            <label for="password" class="theme-text-strong block text-sm font-medium">
                 Password
             </label>
             <div class="mt-1">
@@ -158,19 +158,19 @@ new class extends Component
                     wire:model="password"
                     autocomplete="new-password"
                     required
-                    class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('password') border-red-300 @enderror"
+                    class="theme-input block w-full rounded-lg border px-3 py-2.5 text-sm transition-shadow @error('password') theme-input-error @enderror"
                 >
             </div>
-            <p class="mt-1 text-xs text-gray-500">
+            <p class="theme-text-muted mt-1 text-xs">
                 Must be at least 12 characters with mixed case, letters, numbers, and symbols.
             </p>
             @error('password')
-                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                <p class="theme-error-text mt-2 text-sm">{{ $message }}</p>
             @enderror
         </div>
 
         <div>
-            <label for="password_confirmation" class="block text-sm font-medium text-gray-700">
+            <label for="password_confirmation" class="theme-text-strong block text-sm font-medium">
                 Confirm Password
             </label>
             <div class="mt-1">
@@ -181,11 +181,11 @@ new class extends Component
                     wire:model="password_confirmation"
                     autocomplete="new-password"
                     required
-                    class="block w-full px-3 py-2.5 border rounded-lg shadow-sm text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-100 focus:border-indigo-500 transition-all @error('password_confirmation') border-red-300 @enderror"
+                    class="theme-input block w-full rounded-lg border px-3 py-2.5 text-sm transition-shadow @error('password_confirmation') theme-input-error @enderror"
                 >
             </div>
             @error('password_confirmation')
-                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                <p class="theme-error-text mt-2 text-sm">{{ $message }}</p>
             @enderror
         </div>
 
@@ -204,7 +204,7 @@ new class extends Component
         <div>
             <button
                 type="submit"
-                class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors cursor-pointer"
+                class="theme-button theme-button-primary flex w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold"
             >
                 Create account
             </button>
