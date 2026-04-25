@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Process\InputStream;
 use Symfony\Component\Process\Process;
 
-final class InstallPr2aShellContractsTest extends TestCase
+final class InstallPr3RuntimeShellContractsTest extends TestCase
 {
     private string $repoRoot;
 
@@ -19,11 +18,13 @@ final class InstallPr2aShellContractsTest extends TestCase
         $this->repoRoot = dirname(__DIR__, 2);
     }
 
-    public function test_new_lab_command_runs_runtime_bridge_apply(): void
+    public function test_lab_mode_runs_prepare_then_split_runtime_apply(): void
     {
         $tempRoot = $this->installFixture();
         $scriptPath = $tempRoot.'/install.sh';
         $bootstrapLog = $tempRoot.'/bootstrap.log';
+        $appLog = $tempRoot.'/bootstrap-app.log';
+        $obsLog = $tempRoot.'/bootstrap-obs.log';
 
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', <<<BASH
 #!/usr/bin/env bash
@@ -32,44 +33,47 @@ printf '%s\n' "\$*" >> "{$bootstrapLog}"
 exit 0
 BASH);
 
-        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-app.sh', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
-        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-app.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'action=%s\n' "\${1:-}" >> "{$appLog}"
+printf 'compose_app=%s\n' "\${BT_COMPOSE_APP_FILE:-}" >> "{$appLog}"
+exit 0
+BASH);
+
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'action=%s\n' "\${1:-}" >> "{$obsLog}"
+printf 'compose_obs=%s\n' "\${BT_COMPOSE_OBS_FILE:-}" >> "{$obsLog}"
+exit 0
+BASH);
 
         $process = new Process([$scriptPath, 'lab'], $tempRoot, null, null, 20);
         $process->run();
 
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
         $bootstrapOutput = (string) file_get_contents($bootstrapLog);
+        $appOutput = (string) file_get_contents($appLog);
+        $obsOutput = (string) file_get_contents($obsLog);
 
         $this->assertSame(0, $process->getExitCode(), $combinedOutput);
         $this->assertStringContainsString('prepare lab', $bootstrapOutput);
+        $this->assertStringContainsString('action=apply', $appOutput);
+        $this->assertStringContainsString('compose_app='.$tempRoot.'/compose.app.yml', $appOutput);
+        $this->assertStringContainsString('action=apply', $obsOutput);
+        $this->assertStringContainsString('compose_obs='.$tempRoot.'/compose.obs.yml', $obsOutput);
+        $this->assertStringNotContainsString('PR2B/PR3', $combinedOutput);
         $this->assertStringContainsString('PR3 runtime bridge apply completed for mode: lab', $combinedOutput);
     }
 
-    public function test_no_arg_non_tty_fails_fast_with_usage_guidance(): void
-    {
-        $tempRoot = $this->installFixture();
-        $scriptPath = $tempRoot.'/install.sh';
-
-        $input = new InputStream();
-        $input->close();
-
-        $process = new Process([$scriptPath], $tempRoot, null, $input, 5);
-        $process->run();
-
-        $combinedOutput = $process->getOutput().$process->getErrorOutput();
-
-        $this->assertNotSame(0, $process->getExitCode(), $combinedOutput);
-        $this->assertStringContainsString('./install.sh lab', $combinedOutput);
-        $this->assertStringContainsString('non-interactive', strtolower($combinedOutput));
-    }
-
-    public function test_reset_demo_is_no_longer_intercepted_by_prepare_only_path(): void
+    public function test_production_mode_runs_bridge_apply_without_prepare_only_stop_message(): void
     {
         $tempRoot = $this->installFixture();
         $scriptPath = $tempRoot.'/install.sh';
         $bootstrapLog = $tempRoot.'/bootstrap.log';
-        $dockerLog = $tempRoot.'/docker.log';
+        $appLog = $tempRoot.'/bootstrap-app.log';
+        $obsLog = $tempRoot.'/bootstrap-obs.log';
 
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', <<<BASH
 #!/usr/bin/env bash
@@ -78,44 +82,38 @@ printf '%s\n' "\$*" >> "{$bootstrapLog}"
 exit 0
 BASH);
 
-        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-nginx-ssl.sh', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
-        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
-        $this->writeExecutable($tempRoot.'/fake-bin/docker', <<<BASH
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-app.sh', <<<BASH
 #!/usr/bin/env bash
 set -euo pipefail
-printf '%s\n' "\$*" >> "{$dockerLog}"
+printf '%s\n' "\$*" >> "{$appLog}"
 exit 0
 BASH);
 
-        $process = new Process(
-            [$scriptPath, 'reset-demo'],
-            $tempRoot,
-            [
-                'PATH' => $tempRoot.'/fake-bin:'.getenv('PATH'),
-                'INSTALL_ASSUME_YES' => 'true',
-                'INSTALL_ADMIN_EMAIL' => 'admin@example.com',
-                'INSTALL_ADMIN_NICKNAME' => 'Admin',
-                'INSTALL_ADMIN_PASSWORD' => 'very-strong-pass-123',
-            ],
-            null,
-            25,
-        );
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$obsLog}"
+exit 0
+BASH);
+
+        $process = new Process([$scriptPath, 'production'], $tempRoot, null, null, 20);
         $process->run();
 
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
         $bootstrapOutput = (string) file_get_contents($bootstrapLog);
-        $dockerOutput = (string) file_get_contents($dockerLog);
 
         $this->assertSame(0, $process->getExitCode(), $combinedOutput);
-        $this->assertStringNotContainsString('prepare reset-demo', $bootstrapOutput);
-        $this->assertStringContainsString('php artisan migrate:fresh --force', $dockerOutput);
+        $this->assertStringContainsString('prepare production', $bootstrapOutput);
+        $this->assertStringContainsString('apply', (string) file_get_contents($appLog));
+        $this->assertStringContainsString('apply', (string) file_get_contents($obsLog));
+        $this->assertStringNotContainsString('prepare-only', strtolower($combinedOutput));
+        $this->assertStringContainsString('PR3 runtime bridge apply completed for mode: production', $combinedOutput);
     }
 
-    public function test_unknown_legacy_combination_fails_with_guidance(): void
+    public function test_demo_production_legacy_combination_is_blocked_with_guidance(): void
     {
         $tempRoot = $this->installFixture();
         $scriptPath = $tempRoot.'/install.sh';
-
         $process = new Process([$scriptPath, 'demo', 'production'], $tempRoot, null, null, 20);
         $process->run();
 
@@ -128,9 +126,22 @@ BASH);
         );
     }
 
+    public function test_lab_with_extra_argument_fails_with_generic_guidance(): void
+    {
+        $tempRoot = $this->installFixture();
+        $scriptPath = $tempRoot.'/install.sh';
+        $process = new Process([$scriptPath, 'lab', 'production'], $tempRoot, null, null, 20);
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+
+        $this->assertNotSame(0, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString("Unsupported extra argument for mode 'lab': production", $combinedOutput);
+    }
+
     private function installFixture(): string
     {
-        $tempRoot = sys_get_temp_dir().'/jobs-boards-install-pr2a-'.bin2hex(random_bytes(6));
+        $tempRoot = sys_get_temp_dir().'/jobs-boards-install-pr3-'.bin2hex(random_bytes(6));
         mkdir($tempRoot, 0777, true);
 
         copy($this->repoRoot.'/install.sh', $tempRoot.'/install.sh');
@@ -153,10 +164,6 @@ BASH);
 
         file_put_contents($tempRoot.'/.env', "APP_NAME=Jobs Boards\n");
         file_put_contents($tempRoot.'/.env.example', "APP_NAME=Jobs Boards\n");
-        file_put_contents($tempRoot.'/compose.yaml', "services:\n  laravel.test: {}\n");
-        file_put_contents($tempRoot.'/compose.app.yml', "services:\n  laravel.test: {}\n");
-        file_put_contents($tempRoot.'/compose.obs.yml', "services:\n  grafana: {}\n");
-        mkdir($tempRoot.'/fake-bin', 0777, true);
 
         return $tempRoot;
     }

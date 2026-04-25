@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use PHPUnit\Framework\TestCase;
-use Symfony\Component\Process\InputStream;
 use Symfony\Component\Process\Process;
 
-final class InstallPr2aShellContractsTest extends TestCase
+final class InstallDemoModeContractTest extends TestCase
 {
     private string $repoRoot;
 
@@ -19,11 +18,14 @@ final class InstallPr2aShellContractsTest extends TestCase
         $this->repoRoot = dirname(__DIR__, 2);
     }
 
-    public function test_new_lab_command_runs_runtime_bridge_apply(): void
+    public function test_demo_mode_is_non_destructive_and_uses_runtime_bridge_apply(): void
     {
         $tempRoot = $this->installFixture();
         $scriptPath = $tempRoot.'/install.sh';
         $bootstrapLog = $tempRoot.'/bootstrap.log';
+        $appLog = $tempRoot.'/bootstrap-app.log';
+        $obsLog = $tempRoot.'/bootstrap-obs.log';
+        $dockerLog = $tempRoot.'/docker.log';
 
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', <<<BASH
 #!/usr/bin/env bash
@@ -32,39 +34,50 @@ printf '%s\n' "\$*" >> "{$bootstrapLog}"
 exit 0
 BASH);
 
-        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-app.sh', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
-        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-app.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$appLog}"
+exit 0
+BASH);
 
-        $process = new Process([$scriptPath, 'lab'], $tempRoot, null, null, 20);
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$obsLog}"
+exit 0
+BASH);
+
+        $this->writeExecutable($tempRoot.'/fake-bin/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+exit 0
+BASH);
+
+        $process = new Process(
+            [$scriptPath, 'demo'],
+            $tempRoot,
+            ['PATH' => $tempRoot.'/fake-bin:'.getenv('PATH')],
+            null,
+            20,
+        );
         $process->run();
 
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
-        $bootstrapOutput = (string) file_get_contents($bootstrapLog);
+        $dockerOutput = is_file($dockerLog) ? (string) file_get_contents($dockerLog) : '';
 
         $this->assertSame(0, $process->getExitCode(), $combinedOutput);
-        $this->assertStringContainsString('prepare lab', $bootstrapOutput);
-        $this->assertStringContainsString('PR3 runtime bridge apply completed for mode: lab', $combinedOutput);
+        $this->assertStringContainsString('prepare demo', (string) file_get_contents($bootstrapLog));
+        $this->assertStringContainsString('apply', (string) file_get_contents($appLog));
+        $this->assertStringContainsString('apply', (string) file_get_contents($obsLog));
+        $this->assertSame('', $dockerOutput);
+        $this->assertDoesNotMatchRegularExpression('/migrate:fresh|db:wipe|schema:drop/i', $dockerOutput);
+        $this->assertStringNotContainsString('reset-demo wipes the local database', $combinedOutput);
+        $this->assertStringContainsString('PR3 runtime bridge apply completed for mode: demo', $combinedOutput);
     }
 
-    public function test_no_arg_non_tty_fails_fast_with_usage_guidance(): void
-    {
-        $tempRoot = $this->installFixture();
-        $scriptPath = $tempRoot.'/install.sh';
-
-        $input = new InputStream();
-        $input->close();
-
-        $process = new Process([$scriptPath], $tempRoot, null, $input, 5);
-        $process->run();
-
-        $combinedOutput = $process->getOutput().$process->getErrorOutput();
-
-        $this->assertNotSame(0, $process->getExitCode(), $combinedOutput);
-        $this->assertStringContainsString('./install.sh lab', $combinedOutput);
-        $this->assertStringContainsString('non-interactive', strtolower($combinedOutput));
-    }
-
-    public function test_reset_demo_is_no_longer_intercepted_by_prepare_only_path(): void
+    public function test_reset_demo_is_the_explicit_destructive_path(): void
     {
         $tempRoot = $this->installFixture();
         $scriptPath = $tempRoot.'/install.sh';
@@ -80,6 +93,7 @@ BASH);
 
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-nginx-ssl.sh', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
         $this->writeExecutable($tempRoot.'/fake-bin/docker', <<<BASH
 #!/usr/bin/env bash
 set -euo pipefail
@@ -107,30 +121,15 @@ BASH);
         $dockerOutput = (string) file_get_contents($dockerLog);
 
         $this->assertSame(0, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('dev', $bootstrapOutput);
         $this->assertStringNotContainsString('prepare reset-demo', $bootstrapOutput);
         $this->assertStringContainsString('php artisan migrate:fresh --force', $dockerOutput);
-    }
-
-    public function test_unknown_legacy_combination_fails_with_guidance(): void
-    {
-        $tempRoot = $this->installFixture();
-        $scriptPath = $tempRoot.'/install.sh';
-
-        $process = new Process([$scriptPath, 'demo', 'production'], $tempRoot, null, null, 20);
-        $process->run();
-
-        $combinedOutput = $process->getOutput().$process->getErrorOutput();
-
-        $this->assertNotSame(0, $process->getExitCode(), $combinedOutput);
-        $this->assertStringContainsString(
-            'Migration required: legacy destructive demo semantics are blocked.',
-            $combinedOutput
-        );
+        $this->assertStringContainsString('php artisan install:headless', $dockerOutput);
     }
 
     private function installFixture(): string
     {
-        $tempRoot = sys_get_temp_dir().'/jobs-boards-install-pr2a-'.bin2hex(random_bytes(6));
+        $tempRoot = sys_get_temp_dir().'/jobs-boards-install-demo-'.bin2hex(random_bytes(6));
         mkdir($tempRoot, 0777, true);
 
         copy($this->repoRoot.'/install.sh', $tempRoot.'/install.sh');
@@ -151,12 +150,12 @@ BASH);
             chmod($tempRoot.'/ops/bin/resolve-config-contract', 0755);
         }
 
+        mkdir($tempRoot.'/fake-bin', 0777, true);
         file_put_contents($tempRoot.'/.env', "APP_NAME=Jobs Boards\n");
         file_put_contents($tempRoot.'/.env.example', "APP_NAME=Jobs Boards\n");
         file_put_contents($tempRoot.'/compose.yaml', "services:\n  laravel.test: {}\n");
         file_put_contents($tempRoot.'/compose.app.yml', "services:\n  laravel.test: {}\n");
         file_put_contents($tempRoot.'/compose.obs.yml', "services:\n  grafana: {}\n");
-        mkdir($tempRoot.'/fake-bin', 0777, true);
 
         return $tempRoot;
     }

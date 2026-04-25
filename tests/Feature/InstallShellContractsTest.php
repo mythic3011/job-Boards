@@ -25,10 +25,17 @@ class InstallShellContractsTest extends TestCase
         $netstatLog = $tempRoot.'/netstat.log';
         $fakeBin = $tempRoot.'/fake-bin';
 
-        mkdir($fakeBin, 0777, true);
-        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+        if (! is_dir($fakeBin)) {
+            mkdir($fakeBin, 0777, true);
+        }
 
-        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_PORT=8080
+APP_SSL_PORT=8443
+VITE_PORT=18173
+FORWARD_DB_PORT=15432
+FORWARD_REDIS_PORT=16379
+ENV);
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', ObsTestFixtures::bootstrapObsGeneratedEnvScript($tempRoot.'/.blue-team-vm'));
 
@@ -88,18 +95,32 @@ BASH);
         $dockerLog = $tempRoot.'/docker.log';
         $fakeBin = $tempRoot.'/fake-bin';
 
-        mkdir($fakeBin, 0777, true);
-        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+        if (! is_dir($fakeBin)) {
+            mkdir($fakeBin, 0777, true);
+        }
 
-        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_PORT=8080
+APP_SSL_PORT=8443
+VITE_PORT=18173
+FORWARD_DB_PORT=15432
+FORWARD_REDIS_PORT=16379
+ENV);
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', ObsTestFixtures::bootstrapObsGeneratedEnvScript($tempRoot.'/.blue-team-vm'));
 
         $scriptContents = file_get_contents($scriptPath);
         $this->assertIsString($scriptContents);
+        $patchedScript = (string) preg_replace(
+            '/wait_for "Container starting" 30 docker exec "\\$\\{?CONTAINER\\}?" true/',
+            'wait_for "Container starting" 1 docker exec "$CONTAINER" true',
+            $scriptContents,
+            1,
+        );
+        $this->assertNotSame($scriptContents, $patchedScript, 'Failed to patch wait_for timeout in install fixture.');
         file_put_contents(
             $scriptPath,
-            str_replace('wait_for "Container starting" 30 docker exec "$CONTAINER" true', 'wait_for "Container starting" 1 docker exec "$CONTAINER" true', $scriptContents),
+            $patchedScript,
         );
         chmod($scriptPath, 0755);
 
@@ -189,10 +210,17 @@ BASH);
         $dockerEnvLog = $tempRoot.'/docker-env.log';
         $fakeBin = $tempRoot.'/fake-bin';
 
-        mkdir($fakeBin, 0777, true);
-        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+        if (! is_dir($fakeBin)) {
+            mkdir($fakeBin, 0777, true);
+        }
 
-        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_PORT=8080
+APP_SSL_PORT=8443
+VITE_PORT=18173
+FORWARD_DB_PORT=15432
+FORWARD_REDIS_PORT=16379
+ENV);
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
         $generatedEnv = ObsConfigContract::generatedEnvContents($tempRoot.'/.blue-team-vm');
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
@@ -249,7 +277,7 @@ BASH);
         $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret", $dockerEnvOutput);
     }
 
-    public function test_install_full_prefers_generated_obs_runtime_values_over_repo_env_defaults_during_compose_calls(): void
+    public function test_install_full_keeps_repo_prometheus_override_but_preserves_generated_grafana_secret_path(): void
     {
         $tempRoot = $this->makeTempDir();
         $scriptPath = $this->installScriptFixture($tempRoot);
@@ -257,11 +285,16 @@ BASH);
         $fakeBin = $tempRoot.'/fake-bin';
 
         mkdir($fakeBin, 0777, true);
-        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+        if (! is_dir($tempRoot.'/ops/bootstrap')) {
+            mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+        }
 
         file_put_contents($tempRoot.'/.env', <<<ENV
 APP_PORT=8080
 APP_SSL_PORT=8443
+VITE_PORT=18173
+FORWARD_DB_PORT=15432
+FORWARD_REDIS_PORT=16379
 PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/repo-env/prometheus.web-config.yml
 GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/repo-env/grafana-admin-secret
 ENV);
@@ -300,9 +333,9 @@ BASH);
         $dockerEnvOutput = (string) @file_get_contents($dockerEnvLog);
 
         $this->assertSame(7, $process->getExitCode());
-        $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml", $dockerEnvOutput);
+        $this->assertStringContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/repo-env/prometheus.web-config.yml", $dockerEnvOutput);
         $this->assertStringContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret", $dockerEnvOutput);
-        $this->assertStringNotContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/repo-env/prometheus.web-config.yml", $dockerEnvOutput);
+        $this->assertStringNotContainsString("PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml", $dockerEnvOutput);
         $this->assertStringNotContainsString("GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/repo-env/grafana-admin-secret", $dockerEnvOutput);
     }
 
@@ -317,7 +350,13 @@ BASH);
         mkdir($tempRoot.'/ops/bootstrap', 0777, true);
         mkdir($tempRoot.'/docker/nginx/includes', 0777, true);
 
-        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_PORT=8080
+APP_SSL_PORT=8443
+VITE_PORT=18173
+FORWARD_DB_PORT=15432
+FORWARD_REDIS_PORT=16379
+ENV);
         file_put_contents($tempRoot.'/docker/nginx/includes/blue-team-honeypot.conf', "location = /.env { return 403; }\n");
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
@@ -377,7 +416,13 @@ BASH);
         mkdir($fakeBin, 0777, true);
         mkdir($tempRoot.'/ops/bootstrap', 0777, true);
 
-        file_put_contents($tempRoot.'/.env', "APP_PORT=8080\nAPP_SSL_PORT=8443\n");
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_PORT=8080
+APP_SSL_PORT=8443
+VITE_PORT=18173
+FORWARD_DB_PORT=15432
+FORWARD_REDIS_PORT=16379
+ENV);
         $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
         $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
 #!/usr/bin/env bash
@@ -613,14 +658,17 @@ if [[ "${1:-}" == "compose" && "${2:-}" == "-f" && "${4:-}" == "ps" && "${5:-}" 
   exit 0
 fi
 if [[ "${1:-}" == "inspect" && "${2:-}" == "-f" && "${4:-}" == "nginx-container" ]]; then
-  echo "running"
-  exit 0
+  if [[ "${3:-}" == "{{.State.Status}}" ]]; then
+    echo "running"
+    exit 0
+  fi
+  if [[ "${3:-}" == "{{json .HostConfig.PortBindings}}" ]]; then
+    echo '{"80/tcp":[{"HostIp":"0.0.0.0","HostPort":"80"}],"443/tcp":[{"HostIp":"0.0.0.0","HostPort":"443"}]}'
+    exit 0
+  fi
+  exit 1
 fi
 if [[ "${1:-}" == "port" && "${2:-}" == "nginx-container" ]]; then
-  cat <<'EOF'
-80/tcp -> 0.0.0.0:80
-443/tcp -> 0.0.0.0:443
-EOF
   exit 0
 fi
 if [[ "${1:-}" == "exec" ]]; then
@@ -662,6 +710,99 @@ BASH);
         $this->assertStringNotContainsString('Port conflict detected:', $combinedOutput);
         $this->assertStringNotContainsString('APP_PORT: 80 ->', $combinedOutput);
         $this->assertStringNotContainsString('APP_SSL_PORT: 443 ->', $combinedOutput);
+    }
+
+    public function test_install_bootstrap_keeps_ports_when_current_stack_nginx_is_restarting(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/bootstrap', 0777, true);
+
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_PORT=127.0.0.1:18080
+APP_SSL_PORT=127.0.0.1:18443
+VITE_PORT=5173
+FORWARD_DB_PORT=5432
+FORWARD_REDIS_PORT=6379
+ENV);
+
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p "\${BT_RUNTIME_DIR}" "\${BT_STATE_DIR}/rendered"
+cat > "\${BT_RUNTIME_DIR}/obs.generated.env" <<'EOF'
+PROMETHEUS_WEB_CONFIG_FILE={$tempRoot}/.blue-team-vm/rendered/prometheus.web-config.yml
+GRAFANA_ADMIN_SECRET_FILE={$tempRoot}/.blue-team-vm/runtime/grafana-admin-secret
+EOF
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/docker', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "compose" && "${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "${1:-}" == "compose" && "${2:-}" == "-f" && "${4:-}" == "ps" && "${5:-}" == "-q" ]]; then
+  if [[ "${6:-}" == "nginx" ]]; then
+    echo "nginx-container"
+  fi
+  exit 0
+fi
+if [[ "${1:-}" == "inspect" && "${2:-}" == "-f" && "${4:-}" == "nginx-container" ]]; then
+  if [[ "${3:-}" == "{{.State.Status}}" ]]; then
+    echo "restarting"
+    exit 0
+  fi
+  if [[ "${3:-}" == "{{json .HostConfig.PortBindings}}" ]]; then
+    echo '{"80/tcp":[{"HostIp":"127.0.0.1","HostPort":"18080"}],"443/tcp":[{"HostIp":"127.0.0.1","HostPort":"18443"}]}'
+    exit 0
+  fi
+  exit 1
+fi
+if [[ "${1:-}" == "exec" ]]; then
+  exit 1
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+        $this->writeExecutable($fakeBin.'/ss', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+LISTEN 0 128 127.0.0.1:18080 0.0.0.0:*
+LISTEN 0 128 127.0.0.1:18443 0.0.0.0:*
+EOF
+BASH);
+        $this->writeExecutable($fakeBin.'/lsof', "#!/usr/bin/env bash\nset -euo pipefail\nexit 1\n");
+        $this->writeExecutable($fakeBin.'/netstat', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'bootstrap', 'dev'],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_AUTO_ASSIGN_PORTS' => 'true',
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $envContents = file_get_contents($tempRoot.'/.env');
+
+        $this->assertSame(0, $process->getExitCode(), $combinedOutput);
+        $this->assertIsString($envContents);
+        $this->assertMatchesRegularExpression('/^APP_PORT=127\.0\.0\.1:18080$/m', $envContents);
+        $this->assertMatchesRegularExpression('/^APP_SSL_PORT=127\.0\.0\.1:18443$/m', $envContents);
+        $this->assertStringNotContainsString('Port conflict detected:', $combinedOutput);
+        $this->assertStringNotContainsString('APP_PORT: 127.0.0.1:18080 ->', $combinedOutput);
+        $this->assertStringNotContainsString('APP_SSL_PORT: 127.0.0.1:18443 ->', $combinedOutput);
     }
 
     public function test_install_full_fails_loudly_without_attempting_composer_install_when_vendor_is_missing_and_package_network_is_unreachable(): void
@@ -958,6 +1099,79 @@ BASH);
         $this->assertSame('', $bootstrapEnvOutput, $combinedOutput);
         $this->assertSame('', $bootstrapObsOutput, $combinedOutput);
         $this->assertStringNotContainsString('exec jobs-boards-laravel.test true', $dockerOutput);
+    }
+
+    public function test_install_reset_demo_prefers_env_app_url_for_headless_install(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installScriptFixture($tempRoot);
+        $dockerLog = $tempRoot.'/docker.log';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        if (! is_dir($fakeBin)) {
+            mkdir($fakeBin, 0777, true);
+        }
+
+        file_put_contents($tempRoot.'/.env', <<<ENV
+APP_URL=https://192.168.153.100
+APP_PORT=80
+APP_SSL_PORT=443
+ENV);
+        $this->writeExecutable($tempRoot.'/bootstrap-env.sh', "#!/usr/bin/env bash\nexit 0\n");
+        $this->writeExecutable($tempRoot.'/ops/bootstrap/bootstrap-obs.sh', ObsTestFixtures::bootstrapObsGeneratedEnvScript($tempRoot.'/.blue-team-vm'));
+
+        $this->writeExecutable($fakeBin.'/docker', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$dockerLog}"
+if [[ "\${1:-}" == "compose" && "\${2:-}" == "version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${2:-}" == "jobs-boards-laravel.test" && "\${3:-}" == "true" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "test" && "\${4:-}" == "-f" && "\${5:-}" == "/var/www/html/vendor/autoload.php" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "--version" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "down" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "migrate:fresh" && "\${6:-}" == "--force" ]]; then
+  exit 0
+fi
+if [[ "\${1:-}" == "exec" && "\${3:-}" == "php" && "\${4:-}" == "artisan" && "\${5:-}" == "install:headless" ]]; then
+  exit 17
+fi
+if [[ "\${1:-}" == "exec" && "\${4:-}" == "php" && "\${5:-}" == "artisan" && "\${6:-}" == "install:headless" ]]; then
+  exit 17
+fi
+exit 0
+BASH);
+        $this->writeExecutable($fakeBin.'/jq', "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
+
+        $process = new Process(
+            [$scriptPath, 'reset-demo', 'production'],
+            $tempRoot,
+            [
+                'INSTALL_ASSUME_YES' => 'true',
+                'INSTALL_ADMIN_EMAIL' => 'admin@lab.local',
+                'INSTALL_ADMIN_PASSWORD' => 'ChangeMe123!ChangeMe123!',
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+        $dockerOutput = (string) @file_get_contents($dockerLog);
+
+        $this->assertSame(17, $process->getExitCode(), $combinedOutput);
+        $this->assertStringContainsString('--app-url=https://192.168.153.100', $dockerOutput);
+        $this->assertStringNotContainsString('--app-url=https://localhost', $dockerOutput);
     }
 
     public function test_install_full_uses_non_destructive_migrate_and_npm_ci_without_container_restart(): void
@@ -1429,10 +1643,12 @@ BASH);
         $this->assertStringContainsString('CROWDSEC_REQUIRED_APPSEC_COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"', $contents);
         $this->assertStringContainsString('COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"', $contents);
         $this->assertStringContainsString('APPSEC_CONFIGS: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"', $contents);
+        $this->assertStringContainsString('ENROLL_KEY: "${CROWDSEC_ENROLL_KEY:-}"', $contents);
+        $this->assertStringContainsString('DISABLE_ONLINE_API: "${CROWDSEC_DISABLE_ONLINE_API:-true}"', $contents);
         $this->assertStringContainsString('cscli appsec-configs list -c /etc/crowdsec/config.yaml', $contents);
-        $this->assertStringContainsString('grep -Fq \"${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}\"', $contents);
+        $this->assertStringContainsString('grep -Fq "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"', $contents);
         $this->assertStringContainsString("cscli appsec-rules list -c /etc/crowdsec/config.yaml", $contents);
-        $this->assertStringContainsString("grep -Fq 'crowdsecurity/vpatch-'", $contents);
+        $this->assertStringContainsString("grep -Fq ''crowdsecurity/vpatch-''", $contents);
         $this->assertStringContainsString('wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1', $contents);
         $this->assertStringNotContainsString('cscli version || exit 1', $contents);
     }
@@ -1460,10 +1676,12 @@ BASH);
     {
         $scriptPath = $tempRoot.'/install.sh';
         $commonLibPath = $tempRoot.'/ops/lib/common.sh';
+        $nginxSslBootstrapPath = $tempRoot.'/ops/bootstrap/bootstrap-nginx-ssl.sh';
 
         mkdir(dirname($commonLibPath), 0777, true);
         copy($this->repoRoot.'/install.sh', $scriptPath);
         ObsTestFixtures::installCommonLibFixture($this->repoRoot, $tempRoot);
+        $this->writeExecutable($nginxSslBootstrapPath, "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n");
         chmod($scriptPath, 0755);
         chmod($commonLibPath, 0755);
 

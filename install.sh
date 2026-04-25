@@ -3,10 +3,10 @@ set -euo pipefail
 
 # Usage:
 #   ./install.sh [bootstrap|up|deploy|reset|reset-demo|seed-admin|mark-installed|test-prepare|verify] [dev|production]
+#   ./install.sh ssl-switch <self-signed|cloudflare-origin|letsencrypt> [dev|production]
 #
 # Backward-compatible aliases:
 #   full       -> deploy
-#   demo       -> reset-demo
 #   quick      -> reset
 #   setupAdmin -> seed-admin
 #   skip       -> mark-installed
@@ -25,6 +25,7 @@ INSTALL_ASSUME_YES="${INSTALL_ASSUME_YES:-}"
 INSTALL_SAVE_CREDS="${INSTALL_SAVE_CREDS:-false}"
 INSTALL_OUTPUT_DIR="${INSTALL_OUTPUT_DIR:-${INSTALL_BT_STATE_DIR}/runtime/install-artifacts}"
 CONTAINER="jobs-boards-laravel.test"
+NGINX_CONTAINER="jobs-boards-nginx"
 
 # shellcheck source=ops/lib/common.sh
 source "${ROOT_DIR}/ops/lib/common.sh"
@@ -113,9 +114,9 @@ Usage:
   ./install.sh [bootstrap|up|deploy|reset|reset-demo|seed-admin|mark-installed|test-prepare|verify] [dev|production]
   ./install.sh ssl-switch <self-signed|cloudflare-origin|letsencrypt> [dev|production]
 
-PR2A:
-  lab/demo/production run bootstrap prepare/validate only, then stop with guidance.
-  reset-demo is validate-only-stop in PR2A.
+PR3:
+  lab/demo/production run bootstrap prepare/validate and runtime bridge apply.
+  reset-demo remains an explicit separate command.
   No-arg interactive mode requires a TTY.
 
   bootstrap      Prepare .env defaults, obs runtime artifacts, and local port checks
@@ -124,13 +125,13 @@ PR2A:
   reset          Destructive local reset (migrate:fresh + roles only)
   reset-demo     Destructive local reset followed by headless demo install
   seed-admin     Create a post-install admin account without printing secrets
+  ssl-switch     Hot-switch nginx SSL mode and gracefully reload nginx
   mark-installed Mark setup complete only
   test-prepare   Sync .env.testing and create the testing database
   verify         Verify the combined local stack health
 
 Aliases:
   full -> deploy
-  demo -> reset-demo
   quick -> reset
   setupAdmin -> seed-admin
   skip -> mark-installed
@@ -167,6 +168,29 @@ run_pr2a_prepare_only() {
     fi
 }
 
+run_pr3_runtime_bridge_apply() {
+    local mode="$1"
+
+    validate_install_contract
+    ./bootstrap-env.sh prepare "${mode}"
+
+    BT_STATE_DIR="${INSTALL_BT_STATE_DIR}" \
+    BT_RUNTIME_DIR="${INSTALL_BT_STATE_DIR}/runtime" \
+    BT_ROOT_ENV_FILE="${ROOT_DIR}/.env" \
+    BT_COMPOSE_APP_FILE="${ROOT_DIR}/compose.app.yml" \
+    BT_COMPOSE_OBS_FILE="${ROOT_DIR}/compose.obs.yml" \
+    "${ROOT_DIR}/ops/bootstrap/bootstrap-app.sh" apply
+
+    BT_STATE_DIR="${INSTALL_BT_STATE_DIR}" \
+    BT_RUNTIME_DIR="${INSTALL_BT_STATE_DIR}/runtime" \
+    BT_ROOT_ENV_FILE="${ROOT_DIR}/.env" \
+    BT_COMPOSE_APP_FILE="${ROOT_DIR}/compose.app.yml" \
+    BT_COMPOSE_OBS_FILE="${ROOT_DIR}/compose.obs.yml" \
+    "${ROOT_DIR}/ops/bootstrap/bootstrap-obs.sh" apply
+
+    printf '%s\n' "PR3 runtime bridge apply completed for mode: ${mode}"
+}
+
 handle_pr2a_invocation() {
     local mode="$1"
     local extra_arg="${2:-}"
@@ -181,6 +205,24 @@ handle_pr2a_invocation() {
     exit 0
 }
 
+handle_pr3_runtime_invocation() {
+    local mode="$1"
+    local extra_arg="${2:-}"
+
+    if [[ -n "${extra_arg}" ]]; then
+        if [[ "${mode}" == "demo" && "${extra_arg}" == "production" ]]; then
+            err "$(contract_json_get 'migrationMessageKeys.legacy_demo_production_blocked')"
+        else
+            err "Unsupported extra argument for mode '${mode}': ${extra_arg}"
+        fi
+        usage
+        exit 1
+    fi
+
+    run_pr3_runtime_bridge_apply "${mode}"
+    exit 0
+}
+
 if [[ -z "${RAW_MODE}" ]]; then
     if [[ ! -t 0 ]]; then
         err "$(contract_json_get 'migrationMessageKeys.nonInteractiveNoArg')"
@@ -188,15 +230,11 @@ if [[ -z "${RAW_MODE}" ]]; then
         exit 1
     fi
 
-    handle_pr2a_invocation "$(prompt_pr2a_mode)"
+    handle_pr3_runtime_invocation "$(prompt_pr2a_mode)"
 fi
 
 if [[ "${RAW_MODE}" == "lab" || "${RAW_MODE}" == "demo" || "${RAW_MODE}" == "production" ]]; then
-    handle_pr2a_invocation "${RAW_MODE}" "${RAW_ARG_2:-}"
-fi
-
-if [[ "${RAW_MODE}" == "reset-demo" && -z "${RAW_ARG_2:-}" ]]; then
-    handle_pr2a_invocation "reset-demo"
+    handle_pr3_runtime_invocation "${RAW_MODE}" "${RAW_ARG_2:-}"
 fi
 
 if [[ "${RAW_MODE}" == "ssl-switch" ]]; then
@@ -208,14 +246,11 @@ fi
 
 canonical_mode() {
     case "${1:-}" in
-        bootstrap|up|deploy|reset|reset-demo|seed-admin|mark-installed|test-prepare|verify)
+        bootstrap|up|deploy|reset|reset-demo|seed-admin|ssl-switch|mark-installed|test-prepare|verify)
             printf '%s\n' "$1"
             ;;
         full)
             printf '%s\n' "deploy"
-            ;;
-        demo)
-            printf '%s\n' "reset-demo"
             ;;
         quick)
             printf '%s\n' "reset"
@@ -283,6 +318,10 @@ compose_file_display() {
 
 app() {
     docker exec "${CONTAINER}" "$@"
+}
+
+nginx_app() {
+    docker exec "${NGINX_CONTAINER}" "$@"
 }
 
 compose_local() {
@@ -423,6 +462,26 @@ app_url() {
 
 app_up_url() {
     printf '%s/up\n' "$(app_url)"
+}
+
+headless_install_app_url() {
+    local explicit="${INSTALL_APP_URL:-}"
+    local configured=""
+
+    if [[ -n "${explicit}" ]]; then
+        printf '%s\n' "${explicit}"
+        return 0
+    fi
+
+    configured="$(install_env_value APP_URL '')"
+    configured="$(normalize_env_value "${configured}")"
+
+    if [[ -n "${configured}" ]]; then
+        printf '%s\n' "${configured}"
+        return 0
+    fi
+
+    app_url
 }
 
 container_is_running() {
@@ -785,9 +844,68 @@ prepare_obs_runtime() {
     bt_export_env_file "${generated_env}"
 }
 
+persist_ssl_env_overrides() {
+    local env_file="${ROOT_DIR}/.env"
+    local key
+
+    for key in \
+        SSL_MODE \
+        SSL_CERT_DOMAIN \
+        SSL_CERT_ALT_NAMES \
+        SSL_SELF_SIGNED_ALT_NAMES \
+        SSL_CLOUDFLARE_ORIGIN_CERT_FILE \
+        SSL_CLOUDFLARE_ORIGIN_KEY_FILE \
+        SSL_CLOUDFLARE_ORIGIN_CERT \
+        SSL_CLOUDFLARE_ORIGIN_KEY \
+        SSL_ACME_CLIENT \
+        SSL_ACME_EMAIL \
+        SSL_ACME_CA \
+        SSL_ACME_FORCE_RENEW \
+        SSL_LETSENCRYPT_CHALLENGE \
+        SSL_CERTBOT_CREDENTIALS_FILE \
+        CF_Token \
+        CF_Zone_ID
+    do
+        if [[ -n "${!key+x}" ]]; then
+            bt_upsert_env_file_value "${env_file}" "${key}" "${!key}"
+        fi
+    done
+}
+
+prepare_nginx_ssl_runtime() {
+    persist_ssl_env_overrides
+
+    local state_dir="${INSTALL_BT_STATE_DIR}"
+    local runtime_dir="${state_dir}/runtime"
+    local target_mode="${SSL_MODE:-$(install_env_value SSL_MODE self-signed)}"
+
+    BT_STATE_DIR="${state_dir}" \
+    BT_RUNTIME_DIR="${runtime_dir}" \
+    BT_ROOT_ENV_FILE="${ROOT_DIR}/.env" \
+    BT_COMPOSE_APP_FILE="${INSTALL_COMPOSE_FILE}" \
+    BT_NGINX_CONTAINER="${NGINX_CONTAINER}" \
+    SSL_MODE="${target_mode}" \
+    "${ROOT_DIR}/ops/bootstrap/bootstrap-nginx-ssl.sh" prepare
+}
+
 prepare_runtime_inputs() {
     ./bootstrap-env.sh "${ENV_MODE}"
+    prepare_nginx_ssl_runtime
     prepare_obs_runtime
+}
+
+ssl_switch_target_mode() {
+    local target="${INSTALL_SSL_SWITCH_TARGET:-}"
+
+    case "${target}" in
+        self-signed|cloudflare-origin|letsencrypt)
+            printf '%s\n' "${target}"
+            ;;
+        *)
+            err "ssl-switch requires one of: self-signed, cloudflare-origin, letsencrypt"
+            return 1
+            ;;
+    esac
 }
 
 start_containers() {
@@ -1003,7 +1121,7 @@ run_headless_install() {
     local timezone
 
     app_name="${INSTALL_APP_NAME:-$(install_env_value APP_NAME 'Jobs Boards')}"
-    local_app_url="${INSTALL_APP_URL:-$(app_url)}"
+    local_app_url="$(headless_install_app_url)"
     timezone="${INSTALL_TIMEZONE:-Asia/Hong_Kong}"
 
     if should_save_credentials; then
@@ -1123,6 +1241,33 @@ verify_combined_stack() {
     return "${status}"
 }
 
+ssl_switch_action() {
+    local target_mode=""
+
+    target_mode="$(ssl_switch_target_mode)" || return 1
+    export SSL_MODE="${target_mode}"
+
+    BT_STATE_DIR="${INSTALL_BT_STATE_DIR}" \
+    BT_RUNTIME_DIR="${INSTALL_BT_STATE_DIR}/runtime" \
+    BT_ROOT_ENV_FILE="${ROOT_DIR}/.env" \
+    BT_COMPOSE_APP_FILE="${INSTALL_COMPOSE_FILE}" \
+    BT_NGINX_CONTAINER="${NGINX_CONTAINER}" \
+    SSL_MODE="${target_mode}" \
+    "${ROOT_DIR}/ops/bootstrap/bootstrap-nginx-ssl.sh" switch
+
+    if bt_compose_service_running "${INSTALL_COMPOSE_FILE}" nginx; then
+        if ! curl -kfsS --max-time 10 "$(app_up_url)" >/dev/null; then
+            err "HTTPS health probe failed after ssl-switch at $(app_up_url)"
+            return 1
+        fi
+    fi
+
+    persist_ssl_env_overrides
+
+    write_receipt "ssl-switch" "true" "false" "false" "false" "false"
+    print_summary "${SETUP_MODE}"
+}
+
 deploy_action() {
     prepare_runtime_inputs
     start_containers
@@ -1203,6 +1348,10 @@ case "${CANONICAL_MODE}" in
     seed-admin)
         seed_admin
         print_summary "${SETUP_MODE}"
+        ;;
+
+    ssl-switch)
+        ssl_switch_action
         ;;
 
     mark-installed)
