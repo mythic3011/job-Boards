@@ -1556,10 +1556,10 @@ BASH);
         $contents = file_get_contents($this->repoRoot.'/compose.yaml');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('${MONITORING_ADMIN_USERNAME:?Set MONITORING_ADMIN_USERNAME before docker compose up}', $contents);
-        $this->assertStringContainsString('${MONITORING_PASSWORD_HASH:?Set MONITORING_PASSWORD_HASH before docker compose up}', $contents);
-        $this->assertStringContainsString('${SESSION_SECRET:?Set SESSION_SECRET before docker compose up}', $contents);
-        $this->assertStringContainsString('${PROMETHEUS_PASSWORD_HASH:?Set PROMETHEUS_PASSWORD_HASH before docker compose up}', $contents);
+        $this->assertStringContainsString("    obs-bootstrap-init:\n", $contents);
+        $this->assertStringContainsString('/workspace/ops/bootstrap/bootstrap-obs.sh prepare', $contents);
+        $this->assertStringContainsString('obs-bootstrap-init:', $contents);
+        $this->assertStringContainsString('condition: service_completed_successfully', $contents);
         $this->assertStringContainsString(ObsConfigContract::fallbackExpression('PROMETHEUS_WEB_CONFIG_FILE'), $contents);
         $this->assertStringContainsString(ObsConfigContract::fallbackExpression('GRAFANA_DATASOURCES_FILE'), $contents);
         $this->assertStringContainsString(ObsConfigContract::fallbackExpression('GRAFANA_ADMIN_SECRET_FILE'), $contents);

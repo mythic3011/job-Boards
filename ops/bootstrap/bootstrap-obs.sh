@@ -557,6 +557,7 @@ obs_materialize_secret_file() {
 
     if [[ -z "${source_key}" || -z "${source_value}" ]]; then
         [[ -r "${desired_path}" ]] || return 1
+        obs_normalize_secret_file_permissions "${desired_path}"
         if [[ "${current_path}" != "${desired_path}" ]]; then
             obs_set_generated_value "${target_key}" "${desired_path}"
         fi
@@ -564,6 +565,7 @@ obs_materialize_secret_file() {
     fi
 
     if [[ -r "${desired_path}" ]] && [[ "$(cat "${desired_path}")" == "${source_value}" ]]; then
+        obs_normalize_secret_file_permissions "${desired_path}"
         if [[ "${current_path}" != "${desired_path}" ]]; then
             obs_set_generated_value "${target_key}" "${desired_path}"
         fi
@@ -571,9 +573,7 @@ obs_materialize_secret_file() {
     fi
 
     bt_write_file "${desired_path}" "${source_value}"
-    if [[ "${BT_DRY_RUN}" != "1" ]]; then
-        chmod 0600 "${desired_path}"
-    fi
+    obs_normalize_secret_file_permissions "${desired_path}"
 
     obs_set_generated_value "${target_key}" "${desired_path}"
     obs_emit_generated_audit "${target_key}" "${source_key}" "materialized_secret_file" "true" "false"
@@ -581,6 +581,17 @@ obs_materialize_secret_file() {
     bt_emit_check "obs.bootstrap.${check_suffix}.generated" "obs" "${BT_STATUS_PASS}" "${target_key} was materialized from ${source_key}." "Review generated env provenance if operator-managed rotation is required."
     obs_statuses+=("${BT_STATUS_PASS}")
     return 0
+}
+
+obs_normalize_secret_file_permissions() {
+    local desired_path="$1"
+
+    if [[ "${BT_DRY_RUN}" == "1" ]]; then
+        return 0
+    fi
+
+    chown 472:0 "${desired_path}" 2>/dev/null || true
+    chmod 0640 "${desired_path}"
 }
 
 obs_persist_runtime_input() {
@@ -649,6 +660,55 @@ obs_autofix_session_secret() {
     obs_statuses+=("${BT_STATUS_PASS}")
 }
 
+obs_autofix_primary_secret() {
+    local target_key="$1"
+    local current explicit generated check_suffix
+
+    current="$(obs_generated_env_value "${target_key}" || true)"
+    explicit="$(bt_env_value "${target_key}" || true)"
+    if [[ -n "${explicit}" ]]; then
+        if [[ "${current}" != "${explicit}" ]]; then
+            obs_set_generated_value "${target_key}" "${explicit}"
+            obs_emit_generated_audit "${target_key}" "${target_key}" "persisted_runtime_input" "true" "false"
+        fi
+        return 0
+    fi
+
+    if [[ -n "${current}" ]]; then
+        return 0
+    fi
+
+    generated="$(bt_generate_secret)"
+    obs_set_generated_value "${target_key}" "${generated}"
+    obs_emit_generated_audit "${target_key}" "random" "generated_secret" "false" "false"
+    check_suffix="$(obs_check_id_suffix "${target_key}")"
+    bt_emit_check "obs.bootstrap.${check_suffix}.generated" "obs" "${BT_STATUS_PASS}" "${target_key} was auto-generated for obs runtime." "Persist or rotate the generated secret according to operator policy."
+    obs_statuses+=("${BT_STATUS_PASS}")
+}
+
+obs_autofix_monitoring_username() {
+    local current explicit
+
+    current="$(obs_generated_env_value "MONITORING_ADMIN_USERNAME" || true)"
+    explicit="$(bt_env_value "MONITORING_ADMIN_USERNAME" || true)"
+    if [[ -n "${explicit}" ]]; then
+        if [[ "${current}" != "${explicit}" ]]; then
+            obs_set_generated_value "MONITORING_ADMIN_USERNAME" "${explicit}"
+            obs_emit_generated_audit "MONITORING_ADMIN_USERNAME" "MONITORING_ADMIN_USERNAME" "persisted_runtime_input" "true" "false"
+        fi
+        return 0
+    fi
+
+    if [[ -n "${current}" ]]; then
+        return 0
+    fi
+
+    obs_set_generated_value "MONITORING_ADMIN_USERNAME" "admin"
+    obs_emit_generated_audit "MONITORING_ADMIN_USERNAME" "profile-default" "default_value" "true" "false"
+    bt_emit_check "obs.bootstrap.monitoring_admin_username.defaulted" "obs" "${BT_STATUS_PASS}" "MONITORING_ADMIN_USERNAME defaulted to admin for obs runtime." "Set MONITORING_ADMIN_USERNAME explicitly when a different username is required."
+    obs_statuses+=("${BT_STATUS_PASS}")
+}
+
 obs_autofix_password_hash() {
     local target_key="$1"
     shift
@@ -713,10 +773,11 @@ ensure_obs_runtime_secrets() {
     obs_prepare_runtime_artifacts
 
     local failed=0
-    obs_persist_runtime_input "MONITORING_ADMIN_USERNAME" "MONITORING_ADMIN_USERNAME" || failed=1
+    obs_autofix_monitoring_username || failed=1
+    obs_autofix_primary_secret "MONITORING_PASSWORD" || failed=1
     obs_persist_runtime_input "DB_DATABASE" "DB_DATABASE" || failed=1
     obs_persist_runtime_input "DB_USERNAME" "DB_USERNAME" || failed=1
-    obs_persist_runtime_input "CANONICAL_AUDIT_AUTH_SERVICE_SECRET" "CANONICAL_AUDIT_AUTH_SERVICE_SECRET" || failed=1
+    obs_autofix_primary_secret "CANONICAL_AUDIT_AUTH_SERVICE_SECRET" || failed=1
     obs_persist_runtime_input "GRAFANA_POSTGRES_SECRET" "GRAFANA_POSTGRES_SECRET" "DB_PASSWORD" || failed=1
     obs_autofix_session_secret || failed=1
     obs_autofix_password_hash "MONITORING_PASSWORD_HASH" "MONITORING_PASSWORD" || failed=1

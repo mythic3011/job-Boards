@@ -204,6 +204,48 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
     }
 
+    public function test_obs_prepare_normalizes_grafana_secret_permissions_even_when_existing_contents_already_match(): void
+    {
+        $tempDir = $this->makeTempDir();
+        $dockerLog = $tempDir.'/docker.log';
+        $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
+        $scriptPath = ObsTestFixtures::installBootstrapObsFixture($this->repoRoot, $tempDir);
+        $grafanaPasswordFile = $tempDir.'/state/runtime/grafana-admin-secret';
+
+        file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
+        mkdir(dirname($grafanaPasswordFile), 0777, true);
+        file_put_contents($grafanaPasswordFile, $this->fixturePlainCredential('grafana'));
+        chmod($grafanaPasswordFile, 0600);
+
+        $process = new Process(
+            [$scriptPath, 'prepare'],
+            $tempDir,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'BT_COMPOSE_OBS_FILE' => $tempDir.'/compose.obs.yml',
+                'BT_STATE_DIR' => $tempDir.'/state',
+                'BT_RUNTIME_DIR' => $tempDir.'/state/runtime',
+                'BT_OBS_GENERATED_ENV_FILE' => $tempDir.'/state/runtime/obs.generated.env',
+                'BT_OBS_GENERATED_AUDIT_FILE' => $tempDir.'/state/runtime/obs.generated-secrets.jsonl',
+                'BT_OBS_RENDERED_DIR' => $tempDir.'/state/rendered',
+                'MONITORING_ADMIN_USERNAME' => 'admin',
+                'DB_DATABASE' => 'jobs_boards',
+                'DB_USERNAME' => 'jobs_boards',
+                'DB_PASSWORD' => 'postgres-secret',
+                'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => str_repeat('c', 64),
+                'MONITORING_PASSWORD' => $this->fixturePlainCredential('monitoring'),
+                'GRAFANA_PASSWORD' => $this->fixturePlainCredential('grafana'),
+                'PROMETHEUS_PASSWORD' => $this->fixturePlainCredential('prometheus'),
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $this->assertSame(0640, fileperms($grafanaPasswordFile) & 0777);
+    }
+
     public function test_obs_prepare_refreshes_persisted_runtime_inputs_when_operator_env_changes(): void
     {
         $tempDir = $this->makeTempDir();
@@ -401,6 +443,9 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('user: "0:0"', $contents);
         $this->assertStringContainsString('mkdir -p /var/log/auth-service && chown -R 100:101 /var/log/auth-service', $contents);
         $this->assertStringContainsString("      auth-service-logs-init:\n        condition: service_completed_successfully", $contents);
+        $this->assertStringContainsString("      obs-bootstrap-init:\n        condition: service_completed_successfully", $contents);
+        $this->assertStringContainsString('GENERATED_ENV_FILE="/var/lib/blue-team-vm/runtime/obs.generated.env"', $contents);
+        $this->assertStringContainsString('exec node index.js', $contents);
     }
 
     public function test_app_compose_uses_an_explicit_front_proxy_allowlist_for_https_aware_urls(): void
@@ -456,12 +501,14 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('./docker/crowdsec/appsec-configs/appsec-default.yaml:/etc/crowdsec/appsec-configs/appsec-default.yaml:ro', $contents);
         $this->assertStringContainsString('COLLECTIONS: "${CROWDSEC_REQUIRED_APPSEC_COLLECTIONS:-crowdsecurity/appsec-virtual-patching}"', $contents);
         $this->assertStringContainsString('APPSEC_CONFIGS: "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"', $contents);
+        $this->assertStringContainsString('ENROLL_KEY: "${CROWDSEC_ENROLL_KEY:-}"', $contents);
+        $this->assertStringContainsString('DISABLE_ONLINE_API: "${CROWDSEC_DISABLE_ONLINE_API:-true}"', $contents);
         $this->assertStringContainsString('cscli appsec-configs list -c /etc/crowdsec/config.yaml', $contents);
         $this->assertStringContainsString('grep -Fq "${CROWDSEC_REQUIRED_APPSEC_CONFIG:-crowdsecurity/appsec-default}"', $contents);
         $this->assertStringContainsString("cscli appsec-rules list -c /etc/crowdsec/config.yaml", $contents);
         $this->assertStringContainsString("grep -Fq ''crowdsecurity/vpatch-''", $contents);
         $this->assertStringContainsString('name: crowdsecurity/appsec-default', $appsecConfig);
-        $this->assertStringContainsString('crowdsecurity/appsec-generic-test', $appsecConfig);
+        $this->assertStringNotContainsString('crowdsecurity/appsec-generic-test', $appsecConfig);
         $this->assertStringNotContainsString('crowdsecurity/experimental-*', $appsecConfig);
         $this->assertStringNotContainsString('crowdsecurity/generic-*', $appsecConfig);
     }
@@ -1096,7 +1143,7 @@ if [[ "\${1:-}" == "compose" && "\${4:-}" == "restart" && "\${5:-}" == "laravel.
   printf 'BT_APP_PLANE_NETWORK_NAME=%s\n' "\${BT_APP_PLANE_NETWORK_NAME:-}" >> "{$dockerEnvLog}"
   exit 0
 fi
-if [[ "\${1:-}" == "compose" && "\${4:-}" == "restart" && "\${5:-}" == "nginx" ]]; then
+if [[ "\${1:-}" == "compose" && "\${4:-}" == "up" && "\${5:-}" == "-d" && "\${6:-}" == "--no-deps" && "\${7:-}" == "--force-recreate" && "\${8:-}" == "nginx" ]]; then
   printf 'BT_APP_PLANE_NETWORK_NAME=%s\n' "\${BT_APP_PLANE_NETWORK_NAME:-}" >> "{$dockerEnvLog}"
   exit 0
 fi
@@ -1118,17 +1165,17 @@ BASH);
 
         $this->assertSame(0, $process->getExitCode());
         $this->assertStringContainsString('network create --driver bridge --subnet 172.29.0.0/24 jobs-borads_app-plane', $dockerCommands);
-        $this->assertStringContainsString('compose -f '.$tempDir.'/compose.app.yml up -d', $dockerCommands);
+        $this->assertStringContainsString('compose -f '.$tempDir.'/compose.app.yml up -d --build', $dockerCommands);
         $this->assertStringContainsString('compose -f '.$tempDir.'/compose.app.yml restart laravel.test', $dockerCommands);
-        $this->assertStringContainsString('compose -f '.$tempDir.'/compose.app.yml restart nginx', $dockerCommands);
-        $upOffset = strpos($dockerCommands, 'compose -f '.$tempDir.'/compose.app.yml up -d');
+        $this->assertStringContainsString('compose -f '.$tempDir.'/compose.app.yml up -d --no-deps --force-recreate nginx', $dockerCommands);
+        $upOffset = strpos($dockerCommands, 'compose -f '.$tempDir.'/compose.app.yml up -d --build');
         $laravelRestartOffset = strpos($dockerCommands, 'compose -f '.$tempDir.'/compose.app.yml restart laravel.test');
-        $restartOffset = strpos($dockerCommands, 'compose -f '.$tempDir.'/compose.app.yml restart nginx');
+        $restartOffset = strpos($dockerCommands, 'compose -f '.$tempDir.'/compose.app.yml up -d --no-deps --force-recreate nginx');
         $this->assertNotFalse($upOffset);
         $this->assertNotFalse($laravelRestartOffset);
         $this->assertNotFalse($restartOffset);
         $this->assertLessThan($laravelRestartOffset, $upOffset, 'laravel runtime refresh must happen after compose up so the built-in server is healthy before verification.');
-        $this->assertLessThan($restartOffset, $laravelRestartOffset, 'nginx restart must happen after laravel restart so upstream DNS is refreshed after app recovery.');
+        $this->assertLessThan($restartOffset, $laravelRestartOffset, 'nginx must be recreated after laravel restart so stale bind mounts are replaced after app recovery.');
         $this->assertStringContainsString('BT_APP_PLANE_NETWORK_NAME=jobs-borads_app-plane', $dockerEnvOutput);
     }
 
@@ -1566,6 +1613,20 @@ BASH);
         $this->assertStringContainsString('while (( SECONDS < deadline )); do', $contents);
         $this->assertStringContainsString('sleep 1', $contents);
         $this->assertStringNotContainsString('curl -fsS --resolve "${server_name}:${port}:${origin_host}" -o /dev/null -w \'%{http_code}\'', $contents);
+    }
+
+    public function test_app_bootstrap_materializes_nginx_ssl_runtime_before_compose_apply(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/bootstrap/bootstrap-app.sh');
+
+        $this->assertIsString($contents);
+
+        $sslPreparePos = strpos($contents, '"${SCRIPT_DIR}/bootstrap-nginx-ssl.sh" prepare');
+        $composeApplyPos = strpos($contents, '"${SCRIPT_DIR}/../app/05-compose-up.sh"');
+
+        $this->assertNotFalse($sslPreparePos, 'bootstrap-app.sh should prepare nginx SSL runtime before compose apply.');
+        $this->assertNotFalse($composeApplyPos, 'bootstrap-app.sh should still delegate app compose apply to 05-compose-up.sh.');
+        $this->assertLessThan($composeApplyPos, $sslPreparePos, 'bootstrap-app.sh should materialize nginx SSL runtime before starting the app-plane stack.');
     }
 
     public function test_https_nginx_server_keeps_a_dedicated_up_probe_location_instead_of_only_the_generic_route_handler(): void
