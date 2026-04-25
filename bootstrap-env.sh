@@ -141,7 +141,7 @@ if not state_dir.is_absolute():
 state_dir = state_dir.resolve()
 
 runtime_dir = state_dir / "runtime"
-rendered_dir = runtime_dir / "rendered"
+rendered_dir = state_dir / "rendered"
 persisted_state_path = runtime_dir / contract["outputFilenames"]["persistedState"]
 compat_shell_env_path = runtime_dir / contract["outputFilenames"]["compatShellEnv"]
 
@@ -164,9 +164,26 @@ def resolve_generated_secret(key: str, generator) -> str:
     return generator()
 
 
+def env_path_value(path: Path) -> str:
+    try:
+        return path.resolve().relative_to(root).as_posix()
+    except ValueError:
+        return str(path)
+
+
 app_domain_default = mode_defaults.get("APP_DOMAIN", "")
 app_domain = resolve_value("APP_DOMAIN", default=app_domain_default, protected=True)
 admin_email = resolve_value("ADMIN_EMAIL", default="", protected=False)
+app_env = mode_defaults.get("APP_ENV", "production")
+
+if mode == "production":
+    install_guard_enabled = resolve_value("INSTALL_GUARD_ENABLED", default="true", protected=False)
+    install_allowed_ips = resolve_value("INSTALL_ALLOWED_IPS", default="", protected=False)
+    install_token = resolve_value("INSTALL_TOKEN", default="", protected=False)
+else:
+    install_guard_enabled = "false"
+    install_allowed_ips = ""
+    install_token = ""
 
 app_key = resolve_generated_secret("APP_KEY", random_app_key)
 app_previous_keys = resolve_value("APP_PREVIOUS_KEYS", default="", protected=True)
@@ -189,18 +206,22 @@ atomic_write(persisted_state_path, json.dumps({
 compat_values = {
     "APP_DOMAIN": app_domain,
     "APP_URL": f"https://{app_domain}" if app_domain else "",
+    "APP_ENV": app_env,
     "ADMIN_EMAIL": admin_email,
-    "STATE_DIR": str(state_dir),
-    "BT_STATE_DIR": str(state_dir),
-    "BT_RUNTIME_DIR": str(runtime_dir),
+    "STATE_DIR": env_path_value(state_dir),
+    "BT_STATE_DIR": env_path_value(state_dir),
+    "BT_RUNTIME_DIR": env_path_value(runtime_dir),
+    "INSTALL_GUARD_ENABLED": install_guard_enabled,
+    "INSTALL_ALLOWED_IPS": install_allowed_ips,
+    "INSTALL_TOKEN": install_token,
     "APP_KEY": app_key,
     "APP_PREVIOUS_KEYS": app_previous_keys,
     "DB_PASSWORD": db_password,
     "MONITORING_PASSWORD": monitoring_password,
     "SESSION_SECRET": session_secret,
-    "PROMETHEUS_WEB_CONFIG_FILE": str(prometheus_web_config_file),
-    "GRAFANA_DATASOURCES_FILE": str(grafana_datasources_file),
-    "GRAFANA_ADMIN_SECRET_FILE": str(grafana_secret_file),
+    "PROMETHEUS_WEB_CONFIG_FILE": env_path_value(prometheus_web_config_file),
+    "GRAFANA_DATASOURCES_FILE": env_path_value(grafana_datasources_file),
+    "GRAFANA_ADMIN_SECRET_FILE": env_path_value(grafana_secret_file),
 }
 
 rendered_lines = []

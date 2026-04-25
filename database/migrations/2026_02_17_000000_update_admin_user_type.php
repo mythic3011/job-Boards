@@ -12,6 +12,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('roles') || ! Schema::hasTable('model_has_roles')) {
+            return;
+        }
+
         // Find admin role ID
         $adminRole = DB::table('roles')->where('name', 'admin')->first();
 
@@ -34,6 +38,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('roles') || ! Schema::hasTable('model_has_roles')) {
+            return;
+        }
+
         // Revert user_type to 'company' for admins? 
         // Or leave it. Since we don't know who was company before, maybe best to leave it or update back to company if specifically needed.
         // But for this fix, we assume admins should be 'company' type if rolled back.

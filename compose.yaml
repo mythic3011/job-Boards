@@ -219,7 +219,7 @@ services:
         container_name: jobs-boards-nginx-exporter
         image: nginx/nginx-prometheus-exporter:latest
         command:
-            - "--nginx.scrape-uri=http://nginx:9113/metrics"
+            - "--nginx.scrape-uri=http://nginx/nginx_status"
         networks:
             - sail
         depends_on:

@@ -15,6 +15,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('roles') || ! Schema::hasTable('model_has_roles')) {
+            return;
+        }
+
         // Find admin role
         $adminRole = DB::table('roles')->where('name', 'admin')->first();
 
@@ -54,6 +58,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasTable('roles') || ! Schema::hasTable('model_has_roles')) {
+            return;
+        }
+
         $adminRole = DB::table('roles')->where('name', 'admin')->first();
 
         if (!$adminRole) {

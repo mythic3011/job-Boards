@@ -97,12 +97,12 @@ verify_obs_required_env() {
                 fi
                 ;;
             GRAFANA_ADMIN_SECRET_FILE|PROMETHEUS_WEB_CONFIG_FILE)
-                if [[ ! -r "${value}" ]]; then
+                if [[ ! -r "$(obs_resolve_runtime_path "${value}")" ]]; then
                     missing+=("${var_name}")
                 fi
                 ;;
             GRAFANA_DATASOURCES_FILE)
-                if [[ ! -r "${value}" ]]; then
+                if [[ ! -r "$(obs_resolve_runtime_path "${value}")" ]]; then
                     missing+=("${var_name}")
                 fi
                 ;;
@@ -122,6 +122,15 @@ verify_obs_required_env() {
     return 0
 }
 
+obs_resolve_runtime_path() {
+    local raw="$1"
+    if [[ "${raw}" = /* ]]; then
+        printf '%s\n' "${raw}"
+    else
+        printf '%s\n' "${REPO_ROOT}/${raw}"
+    fi
+}
+
 obs_prepare_runtime_artifacts() {
     bt_mkdir "${BT_RUNTIME_DIR}"
     bt_mkdir "${OBS_RENDERED_DIR}"
@@ -132,6 +141,8 @@ obs_prepare_runtime_artifacts() {
     touch "${OBS_GENERATED_ENV_FILE}" "${OBS_GENERATED_AUDIT_FILE}"
     chmod 0600 "${OBS_GENERATED_ENV_FILE}" "${OBS_GENERATED_AUDIT_FILE}"
     chmod 0755 "${OBS_RENDERED_DIR}"
+    obs_prune_generated_env_legacy_keys
+    obs_normalize_existing_generated_path_keys
 }
 
 obs_render_prometheus_web_config() {
@@ -513,8 +524,87 @@ PY
 obs_set_generated_value() {
     local key="$1"
     local value="$2"
+    value="$(obs_normalize_generated_env_value "${key}" "${value}")"
     bt_upsert_env_file_value "${OBS_GENERATED_ENV_FILE}" "${key}" "${value}"
     export "${key}=${value}"
+}
+
+obs_prune_generated_env_legacy_keys() {
+    python3 - "${OBS_GENERATED_ENV_FILE}" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+if not path.exists():
+    raise SystemExit(0)
+
+legacy = {"GRAFANA_PASSWORD_FILE"}
+out: list[str] = []
+for raw in path.read_text(encoding="utf-8").splitlines():
+    line = raw.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        out.append(raw)
+        continue
+    key = line.split("=", 1)[0].strip()
+    if key in legacy:
+        continue
+    out.append(raw)
+
+path.write_text("\n".join(out) + ("\n" if out else ""), encoding="utf-8")
+PY
+}
+
+obs_normalize_existing_generated_path_keys() {
+    local key value normalized
+    local keys=(
+        "GRAFANA_PASSWORD_FILE"
+        "PROMETHEUS_WEB_CONFIG_FILE"
+        "GRAFANA_ADMIN_SECRET_FILE"
+        "GRAFANA_DATASOURCES_FILE"
+    )
+
+    for key in "${keys[@]}"; do
+        value="$(obs_generated_env_value "${key}" || true)"
+        [[ -n "${value}" ]] || continue
+        normalized="$(obs_normalize_generated_env_value "${key}" "${value}")"
+        [[ "${normalized}" == "${value}" ]] && continue
+        bt_upsert_env_file_value "${OBS_GENERATED_ENV_FILE}" "${key}" "${normalized}"
+    done
+}
+
+obs_normalize_generated_env_value() {
+    local key="$1"
+    local value="$2"
+
+    case "${key}" in
+        GRAFANA_PASSWORD_FILE|PROMETHEUS_WEB_CONFIG_FILE|GRAFANA_ADMIN_SECRET_FILE|GRAFANA_DATASOURCES_FILE)
+            python3 - "${REPO_ROOT}" "${value}" <<'PY'
+from pathlib import Path
+import sys
+
+repo_root = Path(sys.argv[1]).resolve()
+raw = sys.argv[2]
+path = Path(raw)
+
+if not path.is_absolute():
+    print(raw)
+    raise SystemExit(0)
+
+try:
+    print(path.resolve().relative_to(repo_root).as_posix())
+except ValueError:
+    marker = "/.blue-team-vm/"
+    normalized = str(path).replace("\\", "/")
+    if marker in normalized:
+        print(".blue-team-vm/" + normalized.split(marker, 1)[1])
+    else:
+        print(raw)
+PY
+            return 0
+            ;;
+    esac
+
+    printf '%s\n' "${value}"
 }
 
 obs_effective_env_value() {
@@ -538,6 +628,7 @@ obs_materialize_secret_file() {
     if [[ -z "${desired_path}" ]]; then
         desired_path="${current_path:-${default_path}}"
     fi
+    desired_path="$(obs_resolve_runtime_path "${desired_path}")"
 
     source_value=""
     for candidate_key in "$@"; do

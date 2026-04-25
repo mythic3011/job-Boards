@@ -28,6 +28,10 @@ fi
 mkdir -p /var/log/laravel
 ln -sf /var/www/html/storage/logs/laravel.log /var/log/laravel/laravel.log 2>/dev/null || true
 
+# Ensure Laravel re-reads runtime env from compat.shell.env on each container start.
+# Without this, stale cached config can keep APP_ENV/install guard in production mode.
+$PHP_BIN /var/www/html/artisan config:clear >/dev/null 2>&1 || true
+
 $PHP_BIN /var/www/html/artisan migrate --force 2>&1 || true
 
 exec /usr/bin/supervisord -n -c /etc/supervisor/conf.d/supervisord.conf

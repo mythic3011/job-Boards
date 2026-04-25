@@ -11,12 +11,8 @@ class RequestId
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $rid = (string) Str::uuid();
+        $rid = (string) ($request->headers->get('X-Request-ID') ?: Str::uuid());
         $request->attributes->set('request_id', $rid);
-
-        $response = $next($request);
-        $response->headers->set('X-Request-Id', $rid);
-
-        return $response;
+        return $next($request);
     }
 }
