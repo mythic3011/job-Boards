@@ -61,14 +61,13 @@ BASH);
         $this->assertFileDoesNotExist($workDir.'/stale.txt');
         $this->assertFileDoesNotExist($outputDir.'/stale.txt');
         $this->assertFileExists($workDir.'/repo/setup-blue-team-vm.sh');
-        $this->assertSame("installer\nsetup:host\nsetup:app\nsetup:obs\nsmoke\nsetup:verify\n", $sequence);
+        $this->assertSame("installer\nsetup:host\nsmoke\nsetup:verify\n", $sequence);
         $this->assertSame('guest_fragment', $fragment['record_type'] ?? null);
         $this->assertSame('PASS', $fragment['proof_status'] ?? null);
         $this->assertSame([
             'guest-install-deps',
             'setup-blue-team-vm.sh host',
-            'setup-blue-team-vm.sh app',
-            'setup-blue-team-vm.sh obs',
+            'docker compose -f compose.yaml up -d --build',
             'ops/smoke/run-all.sh',
             'setup-blue-team-vm.sh verify',
         ], $fragment['steps'] ?? null);
@@ -76,16 +75,14 @@ BASH);
         $this->assertStringContainsString('true', $sudoOutput);
         $this->assertStringContainsString('docker info', $sudoOutput);
         $this->assertStringContainsString('setup-blue-team-vm.sh host', $sudoOutput);
-        $this->assertStringContainsString('setup-blue-team-vm.sh app', $sudoOutput);
-        $this->assertStringContainsString('setup-blue-team-vm.sh obs', $sudoOutput);
         $this->assertStringContainsString('setup-blue-team-vm.sh verify', $sudoOutput);
+        $this->assertStringNotContainsString('setup-blue-team-vm.sh app', $sudoOutput);
+        $this->assertStringNotContainsString('setup-blue-team-vm.sh obs', $sudoOutput);
         $this->assertStringNotContainsString('ops/smoke/run-all.sh', $sudoOutput);
         $this->assertFileExists($outputDir.'/10-os-release.txt');
         $this->assertFileExists($outputDir.'/11-uname.txt');
         $this->assertFileExists($outputDir.'/12-docker-version.txt');
         $this->assertFileExists($outputDir.'/13-docker-compose-version.txt');
-        $this->assertFileExists($outputDir.'/14-compose-app-ps.txt');
-        $this->assertFileExists($outputDir.'/15-compose-obs-ps.txt');
         $this->assertFileExists($outputDir.'/16-systemctl-docker.txt');
     }
 
@@ -285,11 +282,9 @@ BASH);
         $expectedRepoDir = (string) realpath($workDir.'/repo');
 
         $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
-        $this->assertSame("installer\nsetup:host\nsetup:app\nsetup:obs\nsmoke\nsetup:verify\n", $sequence);
+        $this->assertSame("installer\nsetup:host\nsmoke\nsetup:verify\n", $sequence);
         $this->assertSame($expectedRepoDir, $smokeContext['pwd'] ?? null);
         $this->assertSame((string) realpath($expectedRepoDir.'/setup-blue-team-vm.sh'), realpath((string) ($smokeContext['runner'] ?? '')));
-        $this->assertSame((string) realpath($expectedRepoDir.'/compose.app.yml'), realpath((string) ($smokeContext['app_compose_file'] ?? '')));
-        $this->assertSame((string) realpath($expectedRepoDir.'/compose.obs.yml'), realpath((string) ($smokeContext['obs_compose_file'] ?? '')));
         $this->assertSame('sg', $smokeContext['docker_context'] ?? null);
     }
 
@@ -316,8 +311,7 @@ BASH);
         $repoDir = $sandbox.'/repo-src';
         mkdir($repoDir.'/ops/smoke', 0777, true);
         mkdir($repoDir.'/ops/lib', 0777, true);
-        file_put_contents($repoDir.'/compose.app.yml', "services: {}\n");
-        file_put_contents($repoDir.'/compose.obs.yml', "services: {}\n");
+        file_put_contents($repoDir.'/compose.yaml', "services: {}\n");
         $this->writeExecutable($repoDir.'/ops/lib/common.sh', <<<'BASH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -351,8 +345,7 @@ BASH);
         $repoDir = $sandbox.'/repo-src-smoke-contract';
         mkdir($repoDir.'/ops/smoke', 0777, true);
         mkdir($repoDir.'/ops/lib', 0777, true);
-        file_put_contents($repoDir.'/compose.app.yml', "services: {}\n");
-        file_put_contents($repoDir.'/compose.obs.yml', "services: {}\n");
+        file_put_contents($repoDir.'/compose.yaml', "services: {}\n");
         $this->writeExecutable($repoDir.'/ops/lib/common.sh', <<<'BASH'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -373,8 +366,6 @@ BASH);
 set -euo pipefail
 [[ "$(pwd)" == "${BT_EXPECTED_REPO_DIR}" ]] || exit 71
 [[ "${RUNNER:-}" == "${BT_EXPECTED_REPO_DIR}/setup-blue-team-vm.sh" ]] || exit 72
-[[ "${APP_COMPOSE_FILE:-}" == "${BT_EXPECTED_REPO_DIR}/compose.app.yml" ]] || exit 73
-[[ "${OBS_COMPOSE_FILE:-}" == "${BT_EXPECTED_REPO_DIR}/compose.obs.yml" ]] || exit 74
 docker info >/dev/null
 python3 - <<'PY'
 import json

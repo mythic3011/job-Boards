@@ -160,6 +160,17 @@ capture_privileged_compose_ps() {
     capture_privileged_repo_command "${file_name}" "${command_string}"
 }
 
+run_combined_compose_bootstrap() {
+    local log_path="${BT_PROOF_LOG_ROOT}/30-compose-up.log"
+    local command_string
+
+    command_string="cd $(q "${BT_PROOF_REPO_DIR}") && "
+    command_string+="docker compose -f compose.yaml up -d --build"
+
+    run_privileged bash -c "${command_string}" >"${log_path}" 2>&1
+    COMPLETED_STEPS+=("docker compose -f compose.yaml up -d --build")
+}
+
 write_fragment() {
     local step_lines
     step_lines="$(printf '%s\n' "${COMPLETED_STEPS[@]}")"
@@ -284,8 +295,7 @@ collect_system_evidence() {
     capture_output "11-uname.txt" uname -a
     capture_privileged_output "12-docker-version.txt" docker version
     capture_privileged_output "13-docker-compose-version.txt" docker compose version
-    capture_privileged_compose_ps "14-compose-app-ps.txt" "${BT_PROOF_REPO_DIR}/compose.app.yml"
-    capture_privileged_compose_ps "15-compose-obs-ps.txt" "${BT_PROOF_REPO_DIR}/compose.obs.yml"
+    capture_privileged_compose_ps "14-compose-ps.txt" "${BT_PROOF_REPO_DIR}/compose.yaml"
     capture_privileged_output "16-systemctl-docker.txt" systemctl status docker --no-pager
 }
 
@@ -336,8 +346,7 @@ main() {
     require_docker_daemon_access
 
     run_step_privileged "setup-blue-team-vm.sh host" "20-bootstrap-host.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" host
-    run_step_privileged "setup-blue-team-vm.sh app" "30-bootstrap-app.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" app
-    run_step_privileged "setup-blue-team-vm.sh obs" "40-bootstrap-obs.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" obs
+    run_combined_compose_bootstrap
     run_smoke_step
     run_step_privileged "setup-blue-team-vm.sh verify" "60-verify.log" "${BT_PROOF_REPO_DIR}/setup-blue-team-vm.sh" verify
 
