@@ -37,7 +37,6 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.2fa' => \App\Http\Middleware\RequireAdminTwoFactor::class,
             '2fa.enabled' => \App\Http\Middleware\RequireTwoFactorEnabled::class,
             'registration.active' => \App\Http\Middleware\RequireCompletedRegistration::class,
-            'maintenance.check' => \App\Http\Middleware\CheckMaintenanceMode::class,
             'anti-bot.install' => \App\Http\Middleware\AntiBot\InstallAntiBot::class,
             'anti-bot.login' => \App\Http\Middleware\AntiBot\LoginAntiBot::class,
             'anti-bot.admin' => \App\Http\Middleware\AntiBot\AdminAntiBot::class,

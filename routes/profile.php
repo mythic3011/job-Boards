@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['auth', 'maintenance.check'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     // Two-Factor Authentication settings
     Route::get('/profile/two-factor', \App\Livewire\Profile\TwoFactor::class)->name('profile.two-factor');
 

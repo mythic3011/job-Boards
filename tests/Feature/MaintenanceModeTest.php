@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Http\Middleware\CheckMaintenanceMode;
 use App\Models\User;
 use App\Models\Setting;
 use Illuminate\Support\Facades\DB;
@@ -29,11 +30,11 @@ class MaintenanceModeTest extends TestCase
         $this->createAuditLogsTable();
         $this->createPermissionTables();
 
-        Route::middleware('maintenance.check')
+        Route::middleware(CheckMaintenanceMode::class)
             ->get('/_test/maintenance/public', fn () => response('public-ok'))
             ->name('test.maintenance.public');
 
-        Route::middleware(['auth', 'maintenance.check'])
+        Route::middleware(['auth', CheckMaintenanceMode::class])
             ->get('/_test/maintenance/protected', fn () => response('protected-ok'))
             ->name('test.maintenance.protected');
     }
@@ -148,10 +149,22 @@ class MaintenanceModeTest extends TestCase
             'updated_at' => now(),
         ]);
 
+        $permissionId = DB::table('permissions')->insertGetId([
+            'name' => 'maintenance.bypass',
+            'guard_name' => 'web',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         DB::table('model_has_roles')->insert([
             'role_id' => $roleId,
             'model_type' => User::class,
             'model_id' => $user->getKey(),
+        ]);
+
+        DB::table('role_has_permissions')->insert([
+            'role_id' => $roleId,
+            'permission_id' => $permissionId,
         ]);
 
         app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();

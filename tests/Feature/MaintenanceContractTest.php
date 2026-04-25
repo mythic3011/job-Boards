@@ -164,13 +164,15 @@ class MaintenanceContractTest extends TestCase
         $this->assertAuthenticatedAs($admin);
     }
 
-    public function test_legacy_admin_login_is_allowed_during_maintenance_without_admin_role(): void
+    public function test_user_with_maintenance_bypass_permission_can_login_during_maintenance_without_admin_role(): void
     {
         $admin = $this->createUser([
             'user_type' => 'admin',
             'login_id' => 'legacyadmin1',
             'email' => 'legacy-admin@example.com',
         ]);
+        $this->createPermission('maintenance.bypass');
+        $this->assignDirectPermission($admin, 'maintenance.bypass');
         $this->createPermission('admin.system.view');
         $this->assignDirectPermission($admin, 'admin.system.view');
 
@@ -237,7 +239,7 @@ class MaintenanceContractTest extends TestCase
         $this->assertAuthenticatedAs($admin);
     }
 
-    public function test_legacy_admin_two_factor_challenge_is_allowed_during_maintenance_without_admin_role(): void
+    public function test_user_with_maintenance_bypass_permission_can_access_two_factor_challenge_during_maintenance_without_admin_role(): void
     {
         $secret = 'JBSWY3DPEHPK3PXP';
         $admin = $this->createUser([
@@ -247,6 +249,8 @@ class MaintenanceContractTest extends TestCase
             'two_factor_secret' => encrypt($secret),
             'two_factor_confirmed_at' => now(),
         ]);
+        $this->createPermission('maintenance.bypass');
+        $this->assignDirectPermission($admin, 'maintenance.bypass');
         $this->createPermission('admin.system.view');
         $this->assignDirectPermission($admin, 'admin.system.view');
 
@@ -308,7 +312,14 @@ class MaintenanceContractTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $permissionId = DB::table('permissions')->insertGetId([
+        $maintenanceBypassPermissionId = DB::table('permissions')->insertGetId([
+            'name' => 'maintenance.bypass',
+            'guard_name' => 'web',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $adminViewPermissionId = DB::table('permissions')->insertGetId([
             'name' => 'admin.system.view',
             'guard_name' => 'web',
             'created_at' => now(),
@@ -323,7 +334,12 @@ class MaintenanceContractTest extends TestCase
 
         DB::table('role_has_permissions')->insert([
             'role_id' => $roleId,
-            'permission_id' => $permissionId,
+            'permission_id' => $maintenanceBypassPermissionId,
+        ]);
+
+        DB::table('role_has_permissions')->insert([
+            'role_id' => $roleId,
+            'permission_id' => $adminViewPermissionId,
         ]);
 
         app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
