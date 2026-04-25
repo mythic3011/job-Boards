@@ -30,14 +30,15 @@ class EnvExampleContractTest extends TestCase
         $this->assertStringNotContainsString('AWS_USE_PATH_STYLE_ENDPOINT=', $contents);
     }
 
-    public function test_normal_env_example_keeps_single_monitoring_plaintext_source(): void
+    public function test_normal_env_example_remains_minimal_and_excludes_monitoring_plaintext_inputs(): void
     {
         $contents = file_get_contents($this->repoRoot.'/.env.example');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('MONITORING_PASSWORD=', $contents);
+        $this->assertStringContainsString('APP_DOMAIN=', $contents);
+        $this->assertStringContainsString('ADMIN_EMAIL=', $contents);
+        $this->assertStringNotContainsString('MONITORING_PASSWORD=', $contents);
         $this->assertStringNotContainsString("\nGRAFANA_PASSWORD=", $contents);
         $this->assertStringNotContainsString("\nPROMETHEUS_PASSWORD=", $contents);
     }
 }
-
