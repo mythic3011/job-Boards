@@ -58,9 +58,10 @@ runtime, Compose, TLS, secret-generation, or demo/reset behavior.
 PR layering:
 
 - PR1: inventory, semantic role grouping, consumer/owner proof rule, and risks.
-- PR2: bootstrap contract, CLI redesign, and target normal operator template.
-- PR3 or a later behavior-changing PR: compatibility bridge, generated runtime
-  env/files, service gating, and template shrink.
+- PR2: application env semantic cleanup, canonical mapping, and compatibility
+  contract.
+- PR3: bootstrap/CLI/runtime bridge only after the application config model is
+  stable.
 
 Source of truth for the staged cleanup:
 
@@ -354,8 +355,9 @@ done < .env.example
 
 This scan is an inventory aid, not final proof. Each removal must also check
 dynamic shell expansion, indirect variable expansion, rendered templates,
-Laravel config cache behavior, entrypoint scripts, and deployment
-documentation.
+Laravel config files, cached-config behavior, entrypoint scripts, and
+deployment documentation. Laravel consumer proof must inspect config files and
+cached-config behavior, not only raw `env()` or `.env` grep results.
 
 Initial findings:
 
@@ -527,21 +529,27 @@ become a general `.env` editor and must not ask for `STATE_DIR` unless an
 advanced mode exists, generated paths, internal ports, template paths, Docker
 network names, generated secret file paths, service URLs, or service wiring.
 
-## Next PR Boundary
+## Next Behavior-Changing PR Boundary
 
-Keep the next implementation PR small:
+The next PR after PR1 should clean the application-facing env model before any
+runtime bridge is wired.
 
-- add/keep this canonical env inventory document as PR1 output
-- update the ticket/design note with the semantic role table
-- introduce the CLI contract in design documentation only, or in install help
-  text only if the legacy parser is preserved or explicit migration guidance is
-  implemented
-- optionally add non-invasive tests that document future accepted commands:
-  `./install.sh lab`, `./install.sh demo`, `./install.sh production`, and
-  `./install.sh`
+It should:
 
-Do not delete old env variables until compatibility mapping exists. Do not
-rewrite Compose/templates yet.
+- define the canonical app env mapping table
+- classify legacy names as canonical, compatibility alias,
+  generated/internal, advanced-only, or removable
+- add compatibility mapping validation
+- add consumer/owner proof tests
+- keep Compose/runtime behavior unchanged
+- avoid `.env.example` shrink until compatibility mapping exists
+
+It should not:
+
+- route `./install.sh lab|demo|production` into runtime apply
+- change Compose startup behavior
+- remove current env consumers
+- rotate or regenerate existing secrets
 
 ## Blocking Clarifications Before Code PR
 
