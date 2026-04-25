@@ -77,7 +77,7 @@ class BootstrapEnvShellContractsTest extends TestCase
         $this->assertStringContainsString('bt_preload_compose_app_plane_network', $contents);
         $this->assertStringContainsString('bt_default_app_plane_network_name', $contents);
         $this->assertStringContainsString('set_env "BT_APP_PLANE_NETWORK_NAME"', $contents);
-        $this->assertStringContainsString('Leave blank to let bootstrap-env.sh persist the detected or default shared app-plane network name.', $example);
+        $this->assertStringNotContainsString('BT_APP_PLANE_NETWORK_NAME=', $example);
     }
 
     public function test_shell_port_reassignment_uses_named_allocator_calls_instead_of_command_substitution(): void
