@@ -15,6 +15,7 @@ class InfiniteScrollPaginationUiContractTest extends TestCase
         $this->assertStringContainsString('data-pagination-progress-bar', $contents);
         $this->assertStringContainsString('aria-live="polite"', $contents);
         $this->assertStringContainsString('data-pagination-remaining', $contents);
+        $this->assertStringContainsString('data-infinite-pagination', $contents);
         $this->assertStringContainsString('theme-table-divider', $contents);
         $this->assertStringContainsString('theme-text-muted', $contents);
         $this->assertStringContainsString('theme-text-strong', $contents);
@@ -22,6 +23,7 @@ class InfiniteScrollPaginationUiContractTest extends TestCase
         $this->assertStringContainsString('theme-button-primary', $contents);
         $this->assertStringContainsString('theme-panel-subtle', $contents);
         $this->assertStringContainsString('theme-pill', $contents);
+        $this->assertStringNotContainsString('x-init="window.initInfinitePagination?.($el)"', $contents);
         $this->assertStringNotContainsString('border-gray-100', $contents);
         $this->assertStringNotContainsString('bg-white', $contents);
     }

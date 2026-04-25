@@ -20,8 +20,6 @@
 
 <div
     wire:key="infinite-scroll-{{ $keyName }}-{{ $loadedCount }}-{{ $totalCount }}-{{ $hasMorePages ? 'more' : 'end' }}"
-    x-data
-    x-init="window.initInfinitePagination?.($el)"
     data-infinite-pagination
     data-has-more="{{ $hasMorePages ? 'true' : 'false' }}"
     class="theme-table-divider border-t px-6 py-5"

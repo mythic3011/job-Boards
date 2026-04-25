@@ -591,7 +591,7 @@ new class extends Component
 
     <!-- Reset Password URL Modal -->
     <div
-        x-data="{ show: @entangle('resetUrl'), copied: false }"
+        x-data="{ show: @entangle('resetUrl') }"
         x-show="show"
         x-cloak
         style="display: none;"
@@ -640,11 +640,13 @@ new class extends Component
                     >
                     <button
                         type="button"
-                        @click="navigator.clipboard.writeText('{{ $resetUrl }}'); copied = true; setTimeout(() => copied = false, 2000)"
+                        data-copy-button
+                        data-copy-text="{{ $resetUrl }}"
+                        data-copy-feedback-ms="2000"
                         class="theme-input shrink-0 min-w-[64px] rounded-lg border px-3 py-2 text-center text-xs font-medium transition-colors hover:bg-[var(--app-panel-subtle-bg)]"
                     >
-                        <span x-show="!copied">Copy</span>
-                        <span x-show="copied" class="theme-text-strong">Copied!</span>
+                        <span data-copy-default>Copy</span>
+                        <span data-copy-success class="theme-text-strong hidden">Copied!</span>
                     </button>
                 </div>
 

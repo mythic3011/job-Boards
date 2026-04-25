@@ -1,0 +1,2 @@
+ssl_certificate __SSL_CERT_PATH__;
+ssl_certificate_key __SSL_KEY_PATH__;

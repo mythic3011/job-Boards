@@ -239,7 +239,7 @@ class Wizard extends Component
             ]);
 
             session()->flash('success', 'Installation completed successfully!');
-            $this->redirect('/login', navigate: true);
+            $this->redirect('/login');
 
         } catch (ValidationException $e) {
             $this->processing = false;
@@ -308,6 +308,11 @@ class Wizard extends Component
     public function getFormattedSecretProperty(): string
     {
         return chunk_split($this->twoFactorSecret, 4, ' ');
+    }
+
+    public function getRecoveryCodesDownloadHrefProperty(): string
+    {
+        return 'data:text/plain;charset=utf-8;base64,'.base64_encode($this->downloadRecoveryCodes());
     }
 
     protected function ensureSystemChecksPass(): void

@@ -23,8 +23,12 @@ class UiAlertContractTest extends TestCase
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('data-alert-surface', $contents);
+        $this->assertStringContainsString('data-auto-dismiss-ms="{{ $autoDismissMs }}"', $contents);
+        $this->assertStringContainsString('data-alert-dismiss', $contents);
         $this->assertStringContainsString('rounded-2xl', $contents);
         $this->assertStringContainsString('theme-alert', $contents);
-        $this->assertStringContainsString('setTimeout(() => { show = false }, {{ $autoDismissMs }})', $contents);
+        $this->assertStringContainsString('transition-opacity duration-300', $contents);
+        $this->assertStringNotContainsString('setTimeout(() => { show = false }, {{ $autoDismissMs }})', $contents);
+        $this->assertStringNotContainsString('x-init=', $contents);
     }
 }

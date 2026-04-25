@@ -53,10 +53,18 @@ new class extends Component
         $this->resetPage();
     }
 
+    public function clearFilters(): void
+    {
+        $this->search = '';
+        $this->statusFilter = '';
+        $this->resetPage();
+    }
+
     public function with(ApplicationQueryService $applicationQueryService): array
     {
         $user = Auth::user();
         $isCompany = $user->isCompany();
+        $like = $this->likeOperator();
 
         // Build query directly for filtering/search/pagination
         if ($isCompany) {
@@ -76,10 +84,10 @@ new class extends Component
 
         if ($this->search) {
             $search = $this->search;
-            $query->where(function ($q) use ($search, $isCompany) {
-                $q->whereHas('jobPosting', fn($j) => $j->where('title', 'ilike', '%' . $search . '%'));
+            $query->where(function ($q) use ($search, $isCompany, $like) {
+                $q->whereHas('jobPosting', fn($j) => $j->where('title', $like, '%' . $search . '%'));
                 if ($isCompany) {
-                    $q->orWhereHas('applicantUser', fn($u) => $u->where('nickname', 'ilike', '%' . $search . '%'));
+                    $q->orWhereHas('applicantUser', fn($u) => $u->where('nickname', $like, '%' . $search . '%'));
                 }
             });
         }
@@ -97,6 +105,11 @@ new class extends Component
             'applications' => $query->paginate(10),
             'isCompany'    => $isCompany,
         ];
+    }
+
+    protected function likeOperator(): string
+    {
+        return \DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
     }
 }; ?>
 
@@ -283,7 +296,7 @@ new class extends Component
             >
                 @if($search || $statusFilter)
                     <x-slot:action>
-                        <x-ui.button wire:click="$set('search', ''); $set('statusFilter', '')" variant="outline">
+                        <x-ui.button wire:click="clearFilters" variant="outline">
                             Clear filters
                         </x-ui.button>
                     </x-slot:action>

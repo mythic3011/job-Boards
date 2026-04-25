@@ -16,6 +16,18 @@ load_app_runtime_env() {
     bt_export_env_file_if_unset "${ROOT_ENV_FILE}"
 }
 
+prepare_nginx_ssl_runtime() {
+    local target_mode="${SSL_MODE:-self-signed}"
+
+    BT_STATE_DIR="${BT_STATE_DIR}" \
+    BT_RUNTIME_DIR="${BT_RUNTIME_DIR}" \
+    BT_ROOT_ENV_FILE="${ROOT_ENV_FILE}" \
+    BT_COMPOSE_APP_FILE="${BT_COMPOSE_APP_FILE}" \
+    BT_NGINX_CONTAINER="${BT_NGINX_CONTAINER:-jobs-boards-nginx}" \
+    SSL_MODE="${target_mode}" \
+    "${SCRIPT_DIR}/bootstrap-nginx-ssl.sh" prepare
+}
+
 app_frontdoor_binding() {
     printf '%s\n' "${APP_SSL_PORT:-443}"
 }
@@ -234,6 +246,7 @@ apply_action() {
 
     load_app_runtime_env
     require_baseline_marker
+    prepare_nginx_ssl_runtime
 
     run_app_check "app.frontdoor.host_port_conflicts" "${BT_STATUS_PASS}" "App front-door ports 80/443 are available for the app plane." "Stop or disable conflicting host listeners on 80/443 before starting app-plane nginx." verify_frontdoor_ports_available_for_app || {
         emit_app_summary "App bootstrap halted before compose apply."

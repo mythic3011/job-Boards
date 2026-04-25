@@ -213,8 +213,22 @@ new class extends Component
                 </div>
 
                 <div class="flex gap-4">
-                    <x-ui.button type="submit" variant="primary" size="lg">
-                        Submit Application
+                    <x-ui.button
+                        type="submit"
+                        variant="primary"
+                        size="lg"
+                        wire:loading.attr="disabled"
+                        wire:loading.class="opacity-60 cursor-not-allowed"
+                        wire:target="submit"
+                    >
+                        <span wire:loading.remove wire:target="submit">Submit Application</span>
+                        <span wire:loading wire:target="submit" class="inline-flex items-center gap-2">
+                            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                            </svg>
+                            Submitting...
+                        </span>
                     </x-ui.button>
                     <x-ui.button href="{{ route('jobs.show', $jobIdcode) }}" variant="outline" size="lg">
                         Cancel

@@ -20,4 +20,17 @@ class CrowdSecImageVersionContractTest extends TestCase
             $this->assertStringNotContainsString('image: crowdsecurity/crowdsec:latest', $contents);
         }
     }
+
+    public function test_compose_files_map_enrollment_input_and_disable_online_api_by_default(): void
+    {
+        $repoRoot = dirname(__DIR__, 2);
+
+        foreach (['compose.yaml', 'compose.app.yml'] as $composeFile) {
+            $contents = file_get_contents($repoRoot.'/'.$composeFile);
+
+            $this->assertIsString($contents);
+            $this->assertStringContainsString('ENROLL_KEY: "${CROWDSEC_ENROLL_KEY:-}"', $contents);
+            $this->assertStringContainsString('DISABLE_ONLINE_API: "${CROWDSEC_DISABLE_ONLINE_API:-true}"', $contents);
+        }
+    }
 }

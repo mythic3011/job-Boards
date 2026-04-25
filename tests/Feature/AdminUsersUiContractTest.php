@@ -29,4 +29,15 @@ class AdminUsersUiContractTest extends TestCase
         $this->assertStringNotContainsString('border-white/10', $contents);
         $this->assertStringNotContainsString('text-indigo-200/80', $contents);
     }
+
+    public function test_admin_users_reset_link_modal_uses_data_driven_copy_feedback(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/users/index.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('data-copy-button', $contents);
+        $this->assertStringContainsString('data-copy-text="{{ $resetUrl }}"', $contents);
+        $this->assertStringNotContainsString('navigator.clipboard.writeText', $contents);
+        $this->assertStringNotContainsString('setTimeout(() => copied = false, 2000)', $contents);
+    }
 }

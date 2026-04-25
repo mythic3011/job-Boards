@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${ROOT_DIR}"
 
-LAB_HOSTNAME="${LAB_HOSTNAME:-jobboard.lab}"
+LAB_HOSTNAME="${LAB_HOSTNAME:-}"
+LAB_PUBLIC_HOST="${LAB_PUBLIC_HOST:-}"
 LAB_IP="${LAB_IP:-}"
 LAB_EXTRA_HOSTS="${LAB_EXTRA_HOSTS:-}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@lab.local}"
@@ -35,6 +36,56 @@ detect_primary_ip() {
     printf '%s\n' "${detected}"
 }
 
+detect_all_ipv4_hosts() {
+    local detected=""
+
+    if command -v ip >/dev/null 2>&1; then
+        ip -o -4 addr show scope global 2>/dev/null \
+            | awk '{print $4}' \
+            | cut -d/ -f1 \
+            | awk 'NF {print}'
+        return 0
+    fi
+
+    if command -v hostname >/dev/null 2>&1; then
+        detected="$(hostname -I 2>/dev/null || true)"
+        if [[ -n "${detected}" ]]; then
+            tr ' ' '\n' <<< "${detected}" | awk 'NF {print}'
+        fi
+    fi
+}
+
+is_ip_literal() {
+    local candidate="${1:-}"
+    [[ "${candidate}" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ || "${candidate}" == *:* ]]
+}
+
+resolve_lab_hostname() {
+    if [[ -n "${LAB_HOSTNAME}" ]]; then
+        printf '%s\n' "${LAB_HOSTNAME}"
+        return 0
+    fi
+
+    if [[ -n "${LAB_PUBLIC_HOST}" ]]; then
+        printf '%s\n' "${LAB_PUBLIC_HOST}"
+        return 0
+    fi
+
+    if [[ -n "${LAB_IP}" ]]; then
+        printf '%s\n' "${LAB_IP}"
+        return 0
+    fi
+
+    local detected=""
+    detected="$(detect_primary_ip)"
+    if [[ -n "${detected}" ]]; then
+        printf '%s\n' "${detected}"
+        return 0
+    fi
+
+    printf '%s\n' "192.168.153.100"
+}
+
 append_unique_csv_item() {
     local -n items_ref="$1"
     local candidate="${2:-}"
@@ -55,11 +106,13 @@ append_unique_csv_item() {
 build_ssl_alt_names() {
     local -a items=()
     local detected_ip=""
+    local interface_ip=""
     local host_name=""
     local host_fqdn=""
     local extra=""
 
     append_unique_csv_item items "${LAB_HOSTNAME}"
+    append_unique_csv_item items "${LAB_PUBLIC_HOST}"
 
     if [[ -n "${LAB_IP}" ]]; then
         append_unique_csv_item items "${LAB_IP}"
@@ -67,6 +120,10 @@ build_ssl_alt_names() {
         detected_ip="$(detect_primary_ip)"
         append_unique_csv_item items "${detected_ip}"
     fi
+
+    while IFS= read -r interface_ip; do
+        append_unique_csv_item items "${interface_ip}"
+    done < <(detect_all_ipv4_hosts)
 
     append_unique_csv_item items "localhost"
     append_unique_csv_item items "127.0.0.1"
@@ -95,7 +152,31 @@ build_ssl_alt_names() {
     printf '%s\n' "${joined}"
 }
 
+build_certificate_alt_names() {
+    local -a items=()
+    local candidate=""
+    local joined=""
+
+    IFS=',' read -r -a items <<< "${1:-}"
+    for candidate in "${items[@]}"; do
+        candidate="$(printf '%s' "${candidate}" | xargs 2>/dev/null || printf '%s' "${candidate}")"
+        [[ -n "${candidate}" ]] || continue
+        if is_ip_literal "${candidate}"; then
+            continue
+        fi
+
+        if [[ -n "${joined}" ]]; then
+            joined+=","
+        fi
+        joined+="${candidate}"
+    done
+
+    printf '%s\n' "${joined}"
+}
+
+LAB_HOSTNAME="$(resolve_lab_hostname)"
 SSL_ALT_NAMES="$(build_ssl_alt_names)"
+CERT_ALT_NAMES="$(build_certificate_alt_names "${SSL_ALT_NAMES}")"
 CANONICAL_APP_URL="https://${LAB_HOSTNAME}"
 
 bt_upsert_env_file_value .env APP_NAME '"Jobs Boards"'
@@ -104,12 +185,13 @@ bt_upsert_env_file_value .env APP_DEBUG "false"
 bt_upsert_env_file_value .env APP_URL "${CANONICAL_APP_URL}"
 bt_upsert_env_file_value .env ASSET_URL "/"
 
-bt_upsert_env_file_value .env APP_PORT "80"
-bt_upsert_env_file_value .env APP_SSL_PORT "443"
+bt_upsert_env_file_value .env APP_PORT "127.0.0.1:18080"
+bt_upsert_env_file_value .env APP_SSL_PORT "127.0.0.1:18443"
 
 bt_upsert_env_file_value .env SSL_MODE "self-signed"
 bt_upsert_env_file_value .env SSL_CERT_DOMAIN "${LAB_HOSTNAME}"
-bt_upsert_env_file_value .env SSL_CERT_ALT_NAMES "${SSL_ALT_NAMES}"
+bt_upsert_env_file_value .env SSL_CERT_ALT_NAMES "${CERT_ALT_NAMES}"
+bt_upsert_env_file_value .env SSL_SELF_SIGNED_ALT_NAMES "${SSL_ALT_NAMES}"
 
 bt_upsert_env_file_value .env TRUSTED_PROXIES "REMOTE_ADDR"
 bt_upsert_env_file_value .env TRUSTED_PROXY_HEADERS "x_forwarded"
@@ -130,8 +212,12 @@ bt_upsert_env_file_value .env BT_APP_PLANE_NETWORK_NAME "jobs-borads_app-plane"
 
 echo "Prepared .env for lab host:"
 echo "  APP_URL=${CANONICAL_APP_URL}"
+echo "  APP_PORT=127.0.0.1:18080"
+echo "  APP_SSL_PORT=127.0.0.1:18443"
 echo "  SSL_CERT_DOMAIN=${LAB_HOSTNAME}"
-echo "  SSL_CERT_ALT_NAMES=${SSL_ALT_NAMES}"
+echo "  SSL_CERT_ALT_NAMES=${CERT_ALT_NAMES}"
+echo "  SSL_SELF_SIGNED_ALT_NAMES=${SSL_ALT_NAMES}"
+echo "  Note: docker nginx now listens on loopback high ports for host-level reverse proxying."
 echo ""
 
 INSTALL_ASSUME_YES="${INSTALL_ASSUME_YES}" \

@@ -26,13 +26,10 @@
 @endphp
 
 <div
-    x-data="{ show: true }"
-    x-show="show"
-    x-transition:leave.opacity.duration.300ms
     @if($shouldAutoDismiss)
-        x-init="setTimeout(() => { show = false }, {{ $autoDismissMs }})"
+        data-auto-dismiss-ms="{{ $autoDismissMs }}"
     @endif
-    {{ $attributes->merge(['class' => $classes]) }}
+    {{ $attributes->merge(['class' => $classes.' transition-opacity duration-300']) }}
     data-alert-surface
     role="alert"
     aria-live="{{ $ariaLive }}"
@@ -51,7 +48,7 @@
             <button
                 type="button"
                 class="shrink-0 rounded-full p-1 text-current opacity-50 transition-opacity hover:opacity-80 cursor-pointer"
-                @click="show = false"
+                data-alert-dismiss
                 aria-label="Dismiss alert"
             >
                 <span class="sr-only">Dismiss</span>

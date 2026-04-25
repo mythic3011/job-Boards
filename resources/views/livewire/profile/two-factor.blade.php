@@ -88,10 +88,22 @@
                                                 <code class="theme-panel inline-flex rounded border px-3 py-2 text-xs font-mono theme-text-strong">{{ $code }}</code>
                                             @endforeach
                                         </div>
-                                        <button wire:click="regenerateRecoveryCodes" 
-                                                wire:confirm="This will invalidate your current recovery codes. Continue?"
-                                                class="text-sm font-medium underline">
-                                            Generate New Codes
+                                        <button
+                                            wire:click="regenerateRecoveryCodes"
+                                            wire:confirm="This will invalidate your current recovery codes. Continue?"
+                                            wire:loading.attr="disabled"
+                                            wire:loading.class="opacity-60 cursor-not-allowed"
+                                            wire:target="regenerateRecoveryCodes"
+                                            class="inline-flex items-center gap-2 text-sm font-medium underline transition-opacity disabled:cursor-not-allowed"
+                                        >
+                                            <span wire:loading.remove wire:target="regenerateRecoveryCodes">Generate New Codes</span>
+                                            <span wire:loading wire:target="regenerateRecoveryCodes" class="inline-flex items-center gap-2">
+                                                <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                                                </svg>
+                                                Generating...
+                                            </span>
                                         </button>
                                     </div>
                                 </div>
@@ -102,9 +114,19 @@
                             <x-ui.button 
                                 wire:click="disable2FA" 
                                 wire:confirm="Are you sure? This will make your account less secure."
+                                wire:loading.attr="disabled"
+                                wire:loading.class="opacity-60 cursor-not-allowed"
+                                wire:target="disable2FA"
                                 variant="danger"
                                 size="sm">
-                                Disable 2FA
+                                <span wire:loading.remove wire:target="disable2FA">Disable 2FA</span>
+                                <span wire:loading wire:target="disable2FA" class="inline-flex items-center gap-2">
+                                    <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                                    </svg>
+                                    Disabling...
+                                </span>
                             </x-ui.button>
                         </div>
                     </div>
@@ -172,8 +194,20 @@
                         </div>
 
                         <div class="flex justify-center gap-3">
-                            <x-ui.button wire:click="cancel2FA" variant="outline">
-                                Cancel
+                            <x-ui.button
+                                wire:click="cancel2FA"
+                                wire:loading.attr="disabled"
+                                wire:loading.class="opacity-60 cursor-not-allowed"
+                                wire:target="cancel2FA"
+                                variant="outline">
+                                <span wire:loading.remove wire:target="cancel2FA">Cancel</span>
+                                <span wire:loading wire:target="cancel2FA" class="inline-flex items-center gap-2">
+                                    <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                                    </svg>
+                                    Cancelling...
+                                </span>
                             </x-ui.button>
                         </div>
                     </div>
@@ -189,8 +223,20 @@
                         <p class="theme-text-muted mx-auto mb-6 max-w-md">
                             Two-factor authentication adds an extra layer of security by requiring a code from your phone in addition to your password.
                         </p>
-                        <x-ui.button wire:click="enable2FA" variant="primary">
-                            Set Up Two-Factor Authentication
+                        <x-ui.button
+                            wire:click="enable2FA"
+                            wire:loading.attr="disabled"
+                            wire:loading.class="opacity-60 cursor-not-allowed"
+                            wire:target="enable2FA"
+                            variant="primary">
+                            <span wire:loading.remove wire:target="enable2FA">Set Up Two-Factor Authentication</span>
+                            <span wire:loading wire:target="enable2FA" class="inline-flex items-center gap-2">
+                                <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                                </svg>
+                                Setting up...
+                            </span>
                         </x-ui.button>
                     </div>
                 @endif

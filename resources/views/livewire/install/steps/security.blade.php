@@ -1,27 +1,5 @@
 {{-- Step 3: Two-Factor Authentication --}}
-<div class="space-y-6"
-    x-data="{
-        copying: false,
-        showCodes: false,
-        downloadCodes() {
-            const content = @js($this->downloadRecoveryCodes());
-            const blob = new Blob([content], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'recovery_codes.txt';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        },
-        async copySecret() {
-            await navigator.clipboard.writeText('{{ $twoFactorSecret }}');
-            this.copying = true;
-            setTimeout(() => this.copying = false, 2000);
-        }
-    }"
->
+<div class="space-y-6" x-data="{ showCodes: false }">
     <div>
         <h2 class="theme-text-strong text-2xl font-bold">Secure Your Account</h2>
         <p class="theme-text-muted text-sm mt-1">Two-factor authentication is required for admin accounts.</p>
@@ -53,10 +31,14 @@
                     <p class="theme-text-muted text-xs font-medium mb-2">Or enter this key manually:</p>
                     <div class="flex items-center gap-2">
                         <code class="theme-panel-subtle theme-text-strong flex-1 text-sm font-mono border rounded-xl px-3 py-2 break-all">{{ $this->formattedSecret }}</code>
-                        <button type="button" @click="copySecret"
+                        <button
+                            type="button"
+                            data-copy-button
+                            data-copy-text="{{ $twoFactorSecret }}"
+                            data-copy-feedback-ms="2000"
                             class="theme-button theme-button-outline shrink-0 px-3 py-2 text-xs font-medium rounded-xl min-w-[56px] text-center">
-                            <span x-show="!copying">Copy</span>
-                            <span x-show="copying" class="text-green-600">Copied!</span>
+                            <span data-copy-default>Copy</span>
+                            <span data-copy-success class="hidden text-green-600">Copied!</span>
                         </button>
                     </div>
                 </div>
@@ -88,8 +70,18 @@
                             class="theme-input w-32 px-3 py-2 text-center text-lg font-mono border rounded-xl"
                         >
                         <button type="button" wire:click="testOTP"
-                            class="theme-button theme-button-primary rounded-xl px-4 py-2 text-sm font-medium">
-                            Verify
+                            wire:loading.attr="disabled"
+                            wire:loading.class="opacity-60 cursor-not-allowed"
+                            wire:target="testOTP"
+                            class="theme-button theme-button-primary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-opacity disabled:cursor-not-allowed">
+                            <span wire:loading.remove wire:target="testOTP">Verify</span>
+                            <span wire:loading wire:target="testOTP" class="inline-flex items-center gap-2">
+                                <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                                </svg>
+                                Verifying...
+                            </span>
                         </button>
                         @if($testResult && !$testSuccess)
                             <p class="text-sm text-red-500">{{ $testResult }}</p>
@@ -119,10 +111,14 @@
                             <code class="theme-panel text-xs font-mono border px-2 py-1.5 rounded-xl">{{ $code }}</code>
                         @endforeach
                     </div>
-                    <button type="button" @click="downloadCodes"
-                        class="text-xs font-medium underline" style="color: var(--app-warning-fg);">
+                    <a
+                        href="{{ $this->recoveryCodesDownloadHref }}"
+                        download="recovery_codes.txt"
+                        class="text-xs font-medium underline"
+                        style="color: var(--app-warning-fg);"
+                    >
                         Download as text file
-                    </button>
+                    </a>
                 @endif
             </div>
         </div>
@@ -138,11 +134,19 @@
             type="button"
             wire:click="nextStep"
             wire:loading.attr="disabled"
+            wire:loading.class="opacity-60 cursor-not-allowed"
             wire:target="nextStep"
             @disabled(! $testSuccess)
-            class="theme-button flex-1 rounded-xl px-6 py-3 font-medium {{ $testSuccess ? 'theme-button-primary' : 'theme-button-outline theme-text-muted cursor-not-allowed opacity-70' }}"
+            class="theme-button inline-flex flex-1 items-center justify-center gap-2 rounded-xl px-6 py-3 font-medium transition-opacity disabled:cursor-not-allowed {{ $testSuccess ? 'theme-button-primary' : 'theme-button-outline theme-text-muted cursor-not-allowed opacity-70' }}"
         >
-            Continue →
+            <span wire:loading.remove wire:target="nextStep">Continue →</span>
+            <span wire:loading wire:target="nextStep" class="inline-flex items-center gap-2">
+                <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                </svg>
+                Continuing...
+            </span>
         </button>
     </div>
 </div>

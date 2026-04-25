@@ -5,6 +5,7 @@ import "./components/dropdown";
 import "./components/back-to-top";
 import "./components/theme";
 import "./components/infinite-pagination";
+import "./components/ui-feedback";
 import "./register";
 import "./avatar";
 import "./profile";

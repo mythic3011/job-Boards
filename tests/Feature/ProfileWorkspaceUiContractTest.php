@@ -117,6 +117,20 @@ class ProfileWorkspaceUiContractTest extends TestCase
         $this->assertStringNotContainsString('text-yellow-700', $contents);
     }
 
+    public function test_two_factor_page_actions_expose_visible_loading_feedback(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/profile/two-factor.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('wire:target="enable2FA"', $contents);
+        $this->assertStringContainsString('Setting up...', $contents);
+        $this->assertStringContainsString('wire:target="disable2FA"', $contents);
+        $this->assertStringContainsString('Disabling...', $contents);
+        $this->assertStringContainsString('wire:target="regenerateRecoveryCodes"', $contents);
+        $this->assertStringContainsString('Generating...', $contents);
+        $this->assertStringContainsString('animate-spin', $contents);
+    }
+
     public function test_workspace_navigation_partial_uses_theme_aware_tabs_instead_of_light_only_shell(): void
     {
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/profile/partials/workspace-nav.blade.php');

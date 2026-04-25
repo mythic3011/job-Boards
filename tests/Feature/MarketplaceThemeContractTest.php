@@ -59,4 +59,15 @@ class MarketplaceThemeContractTest extends TestCase
         $this->assertStringNotContainsString('text-gray-900', $contents);
         $this->assertStringNotContainsString('ring-gray-300', $contents);
     }
+
+    public function test_job_create_submit_button_exposes_visible_loading_feedback(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/jobs/create.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('wire:loading.attr="disabled"', $contents);
+        $this->assertStringContainsString('wire:target="create"', $contents);
+        $this->assertStringContainsString('Publishing...', $contents);
+        $this->assertStringContainsString('animate-spin', $contents);
+    }
 }

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\JobPosting;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -17,10 +18,12 @@ new class extends Component
     public string $search = '';
     public string $sort = 'latest';
     public bool $showSuggestions = false;
+    public int $highlightedSuggestion = -1;
 
     public function updatedSearch(): void
     {
         $this->resetPage();
+        $this->highlightedSuggestion = -1;
         $this->showSuggestions = strlen($this->search) >= 2;
     }
 
@@ -33,6 +36,7 @@ new class extends Component
     {
         $this->search = $title;
         $this->showSuggestions = false;
+        $this->highlightedSuggestion = -1;
         $this->resetPage();
     }
 
@@ -40,7 +44,58 @@ new class extends Component
     {
         $this->search = '';
         $this->showSuggestions = false;
+        $this->highlightedSuggestion = -1;
         $this->resetPage();
+    }
+
+    public function showSuggestionsIfEligible(): void
+    {
+        $this->showSuggestions = strlen($this->search) >= 2;
+    }
+
+    public function hideSuggestions(): void
+    {
+        $this->showSuggestions = false;
+        $this->highlightedSuggestion = -1;
+    }
+
+    public function moveSuggestionDown(): void
+    {
+        $count = $this->getSuggestionsProperty()->count();
+
+        if ($count === 0) {
+            $this->highlightedSuggestion = -1;
+
+            return;
+        }
+
+        $this->highlightedSuggestion = ($this->highlightedSuggestion + 1) % $count;
+    }
+
+    public function moveSuggestionUp(): void
+    {
+        $count = $this->getSuggestionsProperty()->count();
+
+        if ($count === 0) {
+            $this->highlightedSuggestion = -1;
+
+            return;
+        }
+
+        $this->highlightedSuggestion = ($this->highlightedSuggestion - 1 + $count) % $count;
+    }
+
+    public function selectHighlightedSuggestion(): void
+    {
+        $suggestion = $this->getSuggestionsProperty()
+            ->values()
+            ->get($this->highlightedSuggestion);
+
+        if (! $suggestion) {
+            return;
+        }
+
+        $this->selectSuggestion($suggestion->title);
     }
 
     public function getSuggestionsProperty(): \Illuminate\Database\Eloquent\Collection
@@ -49,8 +104,10 @@ new class extends Component
             return collect();
         }
 
+        $like = $this->likeOperator();
+
         return JobPosting::with('companyUser')
-            ->where('title', 'ilike', '%' . $this->search . '%')
+            ->where('title', $like, '%' . $this->search . '%')
             ->latest()
             ->limit(6)
             ->get(['id', 'idcode', 'title', 'salary_from', 'salary_to', 'company_user_id', 'created_at']);
@@ -68,11 +125,12 @@ new class extends Component
     {
         $cutoff = now()->subHours(48);
         $query = JobPosting::with('companyUser');
+        $like = $this->likeOperator();
 
         if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('title', 'ilike', '%' . $this->search . '%')
-                  ->orWhere('requirement', 'ilike', '%' . $this->search . '%');
+            $query->where(function ($q) use ($like) {
+                $q->where('title', $like, '%' . $this->search . '%')
+                  ->orWhere('requirement', $like, '%' . $this->search . '%');
             });
         }
 
@@ -86,6 +144,11 @@ new class extends Component
             'jobs'   => $query->paginate(10),
             'cutoff' => $cutoff,
         ];
+    }
+
+    protected function likeOperator(): string
+    {
+        return DB::connection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
     }
 }; ?>
 
@@ -105,22 +168,13 @@ new class extends Component
     </div>
 
     {{-- Search + sort bar --}}
-    <div class="flex gap-3 mb-6" x-data="{
-        acIndex: -1,
-        acCount() { return document.querySelectorAll('[data-ac-item]').length },
-        moveDown() { const count = this.acCount(); if (count) this.acIndex = (this.acIndex + 1) % count },
-        moveUp() { const count = this.acCount(); if (count) this.acIndex = (this.acIndex - 1 + count) % count },
-        selectCurrent() { if (this.acIndex >= 0 && this.$refs['ac_' + this.acIndex]) this.$refs['ac_' + this.acIndex].click() },
-        reset() { this.acIndex = -1 }
-    }"
-        @keydown.arrow-down.prevent="moveDown()"
-        @keydown.arrow-up.prevent="moveUp()"
-        @keydown.enter.prevent="selectCurrent()"
-    >
-        <div class="relative flex-1">
+    <div class="flex gap-3 mb-6">
+        <div class="relative flex-1" x-data="{}" x-on:click.outside="$wire.hideSuggestions()">
             <div
                 class="theme-input-shell flex items-center gap-3 rounded-lg border px-4 py-2.5 transition-all duration-150"
-                :class="$wire.showSuggestions ? 'rounded-b-none border-[color:var(--app-accent-soft-border)]' : ''"
+                @class([
+                    'rounded-b-none border-[color:var(--app-accent-soft-border)]' => $showSuggestions,
+                ])
             >
                 <svg class="theme-text-muted h-[18px] w-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
@@ -132,13 +186,15 @@ new class extends Component
                     placeholder="Search by title, skills, or requirements…"
                     class="theme-input flex-1 min-w-0 border-0 bg-transparent px-0 py-0 text-sm shadow-none outline-none"
                     autocomplete="off"
-                    @focus="$wire.set('showSuggestions', $wire.search.length >= 2)"
-                    @blur="setTimeout(() => { $wire.set('showSuggestions', false); reset() }, 160)"
-                    @keydown.escape="$wire.clearSearch(); reset()"
+                    wire:focus="showSuggestionsIfEligible"
+                    wire:keydown.arrow-down.prevent="moveSuggestionDown"
+                    wire:keydown.arrow-up.prevent="moveSuggestionUp"
+                    wire:keydown.enter.prevent="selectHighlightedSuggestion"
+                    wire:keydown.escape="hideSuggestions"
                 />
 
                 @if($search)
-                    <button wire:click="clearSearch" @click="reset()" class="theme-text-muted shrink-0 rounded-full p-0.5 transition-colors hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)]" aria-label="Clear search">
+                    <button wire:click="clearSearch" class="theme-text-muted shrink-0 rounded-full p-0.5 transition-colors hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)]" aria-label="Clear search">
                         <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                         </svg>
@@ -151,12 +207,13 @@ new class extends Component
                 <div class="theme-dropdown-panel absolute left-0 right-0 top-full z-50 overflow-hidden rounded-b-lg border border-t-0 shadow-lg" style="border-top-color: transparent;" wire:key="suggestions-dropdown">
                     @foreach($this->suggestions as $i => $suggestion)
                         <button
-                            x-ref="ac_{{ $i }}"
                             data-ac-item
                             wire:click="selectSuggestion('{{ addslashes($suggestion->title) }}')"
-                            @click="reset()"
                             class="theme-table-divider flex w-full items-center gap-3 border-b px-4 py-2.5 text-left transition-colors focus:outline-none last:border-0"
-                            :class="acIndex === {{ $i }} ? 'bg-[var(--app-panel-subtle-bg)]' : 'hover:bg-[var(--app-panel-subtle-bg)]'"
+                            @class([
+                                'bg-[var(--app-panel-subtle-bg)]' => $highlightedSuggestion === $i,
+                                'hover:bg-[var(--app-panel-subtle-bg)]' => $highlightedSuggestion !== $i,
+                            ])
                         >
                             <div class="theme-icon-tile-accent flex h-8 w-8 shrink-0 items-center justify-center rounded font-bold uppercase" style="font-size:11px">
                                 {{ Str::substr($suggestion->companyUser?->nickname ?? '?', 0, 2) }}

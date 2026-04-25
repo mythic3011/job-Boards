@@ -299,7 +299,8 @@ new class extends Component
                                             </a>
                                             <button
                                                 type="button"
-                                                @click="pendingDeleteId = '{{ $job->id }}'; showDeleteModal = true"
+                                                data-job-id="{{ $job->id }}"
+                                                @click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"
                                                 class="theme-alert-error inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors hover:brightness-95 cursor-pointer"
                                             >
                                                 Delete

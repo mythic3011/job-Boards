@@ -51,6 +51,139 @@ resolve_target_domain() {
     return 1
 }
 
+target_is_ip_literal() {
+    local candidate="${1:-}"
+    [[ "${candidate}" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ || "${candidate}" == *:* ]]
+}
+
+target_append_unique_csv_item() {
+    local -n items_ref="$1"
+    local candidate="${2:-}"
+    local existing=""
+
+    candidate="$(printf '%s' "${candidate}" | xargs 2>/dev/null || printf '%s' "${candidate}")"
+    [[ -n "${candidate}" ]] || return 0
+
+    for existing in "${items_ref[@]}"; do
+        if [[ "${existing}" == "${candidate}" ]]; then
+            return 0
+        fi
+    done
+
+    items_ref+=("${candidate}")
+}
+
+target_append_unique_domain_csv_item() {
+    local -n items_ref="$1"
+    local candidate="${2:-}"
+    local existing=""
+
+    candidate="$(printf '%s' "${candidate}" | xargs 2>/dev/null || printf '%s' "${candidate}")"
+    [[ -n "${candidate}" ]] || return 0
+    target_is_ip_literal "${candidate}" && return 0
+
+    for existing in "${items_ref[@]}"; do
+        if [[ "${existing}" == "${candidate}" ]]; then
+            return 0
+        fi
+    done
+
+    items_ref+=("${candidate}")
+}
+
+target_join_csv_items() {
+    local -a items=("$@")
+    local joined=""
+    local item=""
+
+    for item in "${items[@]}"; do
+        [[ -n "${item}" ]] || continue
+        if [[ -n "${joined}" ]]; then
+            joined+=","
+        fi
+        joined+="${item}"
+    done
+
+    printf '%s\n' "${joined}"
+}
+
+target_join_space_items() {
+    local -a items=("$@")
+    local joined=""
+    local item=""
+
+    for item in "${items[@]}"; do
+        [[ -n "${item}" ]] || continue
+        if [[ -n "${joined}" ]]; then
+            joined+=" "
+        fi
+        joined+="${item}"
+    done
+
+    printf '%s\n' "${joined}"
+}
+
+build_lab_deploy_server_names() {
+    local -a items=()
+    local lan_host=""
+    local extra=""
+    local candidate=""
+
+    target_append_unique_csv_item items "${DEPLOY_DOMAIN:-}"
+    target_append_unique_csv_item items "${LAB_DEPLOY_PUBLIC_HOST:-}"
+    target_append_unique_csv_item items "${DEPLOY_HOST:-}"
+
+    lan_host="${LAB_LAN_ADDRESS%%/*}"
+    target_append_unique_csv_item items "${lan_host}"
+
+    IFS=',' read -r -a extra <<< "${LAB_DEPLOY_EXTRA_HOSTS:-}"
+    for candidate in "${extra[@]:-}"; do
+        target_append_unique_csv_item items "${candidate}"
+    done
+
+    target_join_space_items "${items[@]}"
+}
+
+build_lab_deploy_self_signed_alt_names() {
+    local -a items=()
+    local lan_host=""
+    local extra=""
+    local candidate=""
+
+    target_append_unique_csv_item items "${DEPLOY_DOMAIN:-}"
+    target_append_unique_csv_item items "${LAB_DEPLOY_PUBLIC_HOST:-}"
+    target_append_unique_csv_item items "${DEPLOY_HOST:-}"
+
+    lan_host="${LAB_LAN_ADDRESS%%/*}"
+    target_append_unique_csv_item items "${lan_host}"
+    target_append_unique_csv_item items "localhost"
+    target_append_unique_csv_item items "127.0.0.1"
+
+    IFS=',' read -r -a extra <<< "${LAB_DEPLOY_EXTRA_HOSTS:-}"
+    for candidate in "${extra[@]:-}"; do
+        target_append_unique_csv_item items "${candidate}"
+    done
+
+    target_join_csv_items "${items[@]}"
+}
+
+build_lab_deploy_cert_alt_names() {
+    local -a items=()
+    local extra=""
+    local candidate=""
+
+    target_append_unique_domain_csv_item items "${DEPLOY_DOMAIN:-}"
+    target_append_unique_domain_csv_item items "${LAB_DEPLOY_PUBLIC_HOST:-}"
+    target_append_unique_domain_csv_item items "${DEPLOY_HOST:-}"
+
+    IFS=',' read -r -a extra <<< "${LAB_DEPLOY_EXTRA_HOSTS:-}"
+    for candidate in "${extra[@]:-}"; do
+        target_append_unique_domain_csv_item items "${candidate}"
+    done
+
+    target_join_csv_items "${items[@]}"
+}
+
 deploy_expand_path_template() {
     local template="$1"
     local domain="$2"
@@ -121,6 +254,7 @@ build_reverse_proxy_target() {
     DEPLOY_NGINX_CERT_DIR="${TARGET_NGINX_CERT_DIR:-/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}}"
 
     DEPLOY_NGINX_PROXY_PASS="${TARGET_NGINX_PROXY_PASS:-https://127.0.0.1:${DEPLOY_APP_SSL_PORT##*:}/}"
+    DEPLOY_SERVER_NAMES="${TARGET_SERVER_NAMES:-${DEPLOY_DOMAIN}}"
     DEPLOY_DB_DATABASE="${TARGET_DB_DATABASE:-jobs_boards}"
     DEPLOY_DB_USERNAME="${TARGET_DB_USERNAME:-jobs_boards}"
     DEPLOY_MONITORING_ADMIN_USERNAME="${TARGET_MONITORING_ADMIN_USERNAME:-admin}"

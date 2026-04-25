@@ -21,4 +21,14 @@ class AdminJobsUiContractTest extends TestCase
         $this->assertStringNotContainsString('bg-white', $contents);
         $this->assertStringNotContainsString('hover:theme-text-strong', $contents);
     }
+
+    public function test_admin_jobs_delete_trigger_avoids_multi_statement_alpine_handlers(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/jobs/index.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('data-job-id="{{ $job->id }}"', $contents);
+        $this->assertStringContainsString('@click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"', $contents);
+        $this->assertStringNotContainsString("@click=\"pendingDeleteId = '{{ \$job->id }}'; showDeleteModal = true\"", $contents);
+    }
 }

@@ -123,6 +123,27 @@ class InstallWizardTest extends TestCase
             ->assertSet('testResult', 'Valid code! 2FA is working correctly.');
     }
 
+    public function test_install_wizard_exposes_recovery_code_download_href_as_a_data_url(): void
+    {
+        $component = Livewire::test(Wizard::class)
+            ->set('app_name', 'Jobs Board')
+            ->set('email', 'admin@gmail.com')
+            ->set('recoveryCodes', ['RCODE-1', 'RCODE-2']);
+
+        $downloadHref = $component->get('recoveryCodesDownloadHref');
+
+        $this->assertStringStartsWith('data:text/plain;charset=utf-8;base64,', $downloadHref);
+
+        $encodedPayload = substr($downloadHref, strlen('data:text/plain;charset=utf-8;base64,'));
+        $decodedPayload = base64_decode($encodedPayload, true);
+
+        $this->assertIsString($decodedPayload);
+        $this->assertStringContainsString('Jobs Board - Recovery Codes', $decodedPayload);
+        $this->assertStringContainsString('Generated for: admin@gmail.com', $decodedPayload);
+        $this->assertStringContainsString('1. RCODE-1', $decodedPayload);
+        $this->assertStringContainsString('2. RCODE-2', $decodedPayload);
+    }
+
     public function test_install_wizard_stays_on_system_step_when_two_factor_generation_fails(): void
     {
         $installService = Mockery::mock(InstallService::class);

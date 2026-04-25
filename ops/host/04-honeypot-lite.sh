@@ -36,7 +36,7 @@ verify_integration() {
 
     [[ -f "${resolved_honeypot_source}" ]] || bt_die "Honeypot source artifact is missing: ${resolved_honeypot_source}"
     command -v docker >/dev/null 2>&1 || bt_die "docker is required for verify-integration."
-    docker compose -f "${BT_COMPOSE_APP_FILE}" exec -T nginx nginx -t >/dev/null
+    docker compose -f "${BT_COMPOSE_APP_FILE}" exec -T nginx /usr/local/openresty/bin/openresty -t -c /etc/nginx/nginx.conf >/dev/null
     docker compose -f "${BT_COMPOSE_APP_FILE}" exec -T nginx sh -c "[ -f '${BT_HONEYPOT_RUNTIME}' ] && grep -F 'location = /.env' '${BT_HONEYPOT_RUNTIME}' >/dev/null"
     local binding host port
     binding="${APP_SSL_PORT:-443}"

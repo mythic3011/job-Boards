@@ -47,6 +47,47 @@ class InstallUiContractTest extends TestCase
         $this->assertStringContainsString('wire:click="nextStep"', $contents);
         $this->assertStringNotContainsString('@click="tryNextStep"', $contents);
         $this->assertStringNotContainsString('Use the manual entry key below', $contents);
+        $this->assertStringContainsString('x-data="{ showCodes: false }"', $contents);
+        $this->assertStringContainsString('$this->recoveryCodesDownloadHref', $contents);
+        $this->assertStringNotContainsString('downloadCodes()', $contents);
+        $this->assertStringNotContainsString('async copySecret()', $contents);
+        $this->assertStringContainsString('data-copy-button', $contents);
+        $this->assertStringContainsString('data-copy-text="{{ $twoFactorSecret }}"', $contents);
+        $this->assertStringNotContainsString('navigator.clipboard.writeText($event.currentTarget.dataset.secret)', $contents);
+    }
+
+    public function test_install_step_actions_expose_visible_loading_feedback(): void
+    {
+        $account = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/install/steps/account.blade.php');
+        $system = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/install/steps/system.blade.php');
+        $security = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/install/steps/security.blade.php');
+        $review = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/install/steps/review.blade.php');
+
+        $this->assertIsString($account);
+        $this->assertIsString($system);
+        $this->assertIsString($security);
+        $this->assertIsString($review);
+
+        $this->assertStringContainsString('wire:loading.attr="disabled"', $account);
+        $this->assertStringContainsString('wire:target="nextStep"', $account);
+        $this->assertStringContainsString('Continuing...', $account);
+        $this->assertStringContainsString('animate-spin', $account);
+
+        $this->assertStringContainsString('wire:target="refreshSystemChecks"', $system);
+        $this->assertStringContainsString('Checking...', $system);
+        $this->assertStringContainsString('wire:target="nextStep"', $system);
+        $this->assertStringContainsString('Continuing...', $system);
+        $this->assertStringContainsString('animate-spin', $system);
+
+        $this->assertStringContainsString('wire:target="testOTP"', $security);
+        $this->assertStringContainsString('Verifying...', $security);
+        $this->assertStringContainsString('wire:target="nextStep"', $security);
+        $this->assertStringContainsString('Continuing...', $security);
+        $this->assertStringContainsString('animate-spin', $security);
+
+        $this->assertStringContainsString('wire:target="complete"', $review);
+        $this->assertStringContainsString('Installing...', $review);
+        $this->assertStringContainsString('animate-spin', $review);
     }
 
     public function test_main_javascript_bundle_does_not_include_legacy_install_wizard(): void
@@ -58,5 +99,14 @@ class InstallUiContractTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringNotContainsString('import "./install";', $contents);
         $this->assertFileDoesNotExist($legacyInstallPath);
+    }
+
+    public function test_install_wizard_completion_does_not_depend_on_livewire_navigate_plugin(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/app/Livewire/Install/Wizard.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString("\$this->redirect('/login');", $contents);
+        $this->assertStringNotContainsString("navigate: true", $contents);
     }
 }

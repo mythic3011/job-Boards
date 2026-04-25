@@ -34,6 +34,16 @@ class VpsDeployShellContractsTest extends TestCase
         $this->assertStringContainsString('Missing TLS private key file', $contents);
     }
 
+    public function test_vps_deploy_disables_macos_archive_sidecars_and_prunes_metadata_files_from_remote_release(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/vps-deploy.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('export COPYFILE_DISABLE=1', $contents);
+        $this->assertStringContainsString('export COPY_EXTENDED_ATTRIBUTES_DISABLE=1', $contents);
+        $this->assertStringContainsString("find \"\${remote_release}\" \\( -name '._*' -o -name '.DS_Store' \\) -type f -delete", $contents);
+    }
+
     public function test_vps_deploy_target_is_repeatable_loopback_high_port_contract_for_jb_domain(): void
     {
         $contents = file_get_contents($this->repoRoot.'/ops/deploy/targets/jb.mythic3011.com.sh');
@@ -142,13 +152,42 @@ BASH;
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('LAB_DEPLOY_HOST', $contents);
+        $this->assertStringContainsString('LAB_DEPLOY_PUBLIC_HOST', $contents);
+        $this->assertStringContainsString('DEPLOY_DOMAIN="${LAB_DEPLOY_DOMAIN:-${LAB_DEPLOY_PUBLIC_HOST:-${LAB_DEPLOY_HOST}}}"', $contents);
+        $this->assertStringContainsString('DEPLOY_APP_URL="${LAB_DEPLOY_APP_URL:-https://${DEPLOY_DOMAIN}}"', $contents);
+        $this->assertStringContainsString('DEPLOY_ASSET_URL="${LAB_DEPLOY_ASSET_URL:-}"', $contents);
+        $this->assertStringContainsString('DEPLOY_SSH_USER="${LAB_DEPLOY_SSH_USER:-user}"', $contents);
+        $this->assertStringContainsString('DEPLOY_REMOTE_ROOT="${LAB_DEPLOY_REMOTE_ROOT:-/opt/jobs-borads-demo}"', $contents);
+        $this->assertStringContainsString('DEPLOY_COMPOSE_PROJECT_NAME="${LAB_DEPLOY_COMPOSE_PROJECT_NAME:-jobs-borads-demo}"', $contents);
+        $this->assertStringContainsString('DEPLOY_BT_STATE_DIR="${LAB_DEPLOY_BT_STATE_DIR:-/opt/jobs-borads-demo/state}"', $contents);
+        $this->assertStringContainsString('DEPLOY_REMOTE_SUDO="${LAB_DEPLOY_REMOTE_SUDO:-true}"', $contents);
+        $this->assertStringContainsString('DEPLOY_FORCE_HOST_DNS_FALLBACK="${LAB_DEPLOY_FORCE_HOST_DNS_FALLBACK:-true}"', $contents);
+        $this->assertStringContainsString('DEPLOY_HOST_DNS_PRIMARY="${LAB_DEPLOY_HOST_DNS_PRIMARY:-1.1.1.1}"', $contents);
+        $this->assertStringContainsString('DEPLOY_HOST_DNS_SECONDARY="${LAB_DEPLOY_HOST_DNS_SECONDARY:-8.8.8.8}"', $contents);
         $this->assertStringContainsString('LAB_WAN_MODE="${LAB_WAN_MODE:-dhcp}"', $contents);
         $this->assertStringContainsString('LAB_WAN_IFACE="${LAB_WAN_IFACE:-eth0}"', $contents);
         $this->assertStringContainsString('LAB_LAN_IFACE="${LAB_LAN_IFACE:-eth1}"', $contents);
+        $this->assertStringContainsString('LAB_LAN_ADDRESS="${LAB_LAN_ADDRESS:-192.168.153.100/24}"', $contents);
         $this->assertStringContainsString('LAB_NETPLAN_APPLY="${LAB_NETPLAN_APPLY:-false}"', $contents);
         $this->assertStringContainsString('DEPLOY_INSTALL_HOST_NGINX="false"', $contents);
-        $this->assertStringContainsString('DEPLOY_APP_PORT="${LAB_DEPLOY_APP_PORT:-80}"', $contents);
-        $this->assertStringContainsString('DEPLOY_APP_SSL_PORT="${LAB_DEPLOY_APP_SSL_PORT:-443}"', $contents);
+        $this->assertStringContainsString('DEPLOY_APP_PORT="${LAB_DEPLOY_APP_PORT:-127.0.0.1:18080}"', $contents);
+        $this->assertStringContainsString('DEPLOY_APP_SSL_PORT="${LAB_DEPLOY_APP_SSL_PORT:-127.0.0.1:18443}"', $contents);
+    }
+
+    public function test_lab_demo_wrapper_delegates_to_vps_deploy_with_lab_demo_defaults(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/lab-demo.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('LAB_DEPLOY_PUBLIC_HOST', $contents);
+        $this->assertStringContainsString('LAB_DEPLOY_DOMAIN="${LAB_DEPLOY_DOMAIN:-${LAB_DEPLOY_PUBLIC_HOST:-${LAB_DEPLOY_HOST}}}"', $contents);
+        $this->assertStringContainsString('LAB_DEPLOY_APP_URL="${LAB_DEPLOY_APP_URL:-https://${LAB_DEPLOY_DOMAIN}}"', $contents);
+        $this->assertStringContainsString('LAB_DEPLOY_ASSET_URL="${LAB_DEPLOY_ASSET_URL:-}"', $contents);
+        $this->assertStringContainsString('LAB_DEPLOY_SSH_USER="${LAB_DEPLOY_SSH_USER:-user}"', $contents);
+        $this->assertStringContainsString('LAB_DEPLOY_REMOTE_ROOT="${LAB_DEPLOY_REMOTE_ROOT:-/opt/jobs-borads-demo}"', $contents);
+        $this->assertStringContainsString('LAB_DEPLOY_COMPOSE_PROJECT_NAME="${LAB_DEPLOY_COMPOSE_PROJECT_NAME:-jobs-borads-demo}"', $contents);
+        $this->assertStringContainsString('LAB_LAN_ADDRESS="${LAB_LAN_ADDRESS:-192.168.153.100/24}"', $contents);
+        $this->assertStringContainsString('exec "${ROOT_DIR}/ops/deploy/vps-deploy.sh" lab-env "${DEPLOY_REF}"', $contents);
     }
 
     public function test_vps_deploy_supports_lab_wan_dhcp_or_static_plus_optional_lan_subnet_rendering(): void
@@ -161,6 +200,11 @@ BASH;
         $this->assertStringContainsString('LAB_LAN_IFACE', $contents);
         $this->assertStringContainsString('LAB_LAN_ADDRESS', $contents);
         $this->assertStringContainsString('netplan generate', $contents);
+        $this->assertStringContainsString('apply_forced_host_dns_fallback()', $contents);
+        $this->assertStringContainsString('systemctl restart systemd-resolved', $contents);
+        $this->assertStringContainsString('resolvectl flush-caches || true', $contents);
+        $this->assertStringContainsString('for host in registry-1.docker.io api.crowdsec.net; do', $contents);
+        $this->assertStringContainsString('getent ahostsv4 "${host}"', $contents);
         $this->assertStringContainsString('if [[ "${LAB_NETPLAN_APPLY:-false}" == "true" ]]', $contents);
     }
 
@@ -176,6 +220,27 @@ BASH;
         $this->assertStringContainsString('DEPLOY_MONITORING_ALLOWED_CIDRS', $contents);
         $this->assertStringContainsString('"MONITORING_ACCESS_MODE": os.environ["DEPLOY_MONITORING_ACCESS_MODE"]', $contents);
         $this->assertStringContainsString('"MONITORING_ALLOWED_CIDRS": os.environ["DEPLOY_MONITORING_ALLOWED_CIDRS"]', $contents);
+        $this->assertStringContainsString('DEPLOY_SSL_CERT_DOMAIN', $contents);
+        $this->assertStringContainsString('DEPLOY_SSL_SELF_SIGNED_ALT_NAMES', $contents);
+        $this->assertStringContainsString('"SSL_CERT_DOMAIN": os.environ["DEPLOY_SSL_CERT_DOMAIN"]', $contents);
+        $this->assertStringContainsString('"SSL_SELF_SIGNED_ALT_NAMES": os.environ["DEPLOY_SSL_SELF_SIGNED_ALT_NAMES"]', $contents);
+    }
+
+    public function test_vps_deploy_uses_nounset_safe_indirect_expansion_when_serializing_remote_env_contract(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/vps-deploy.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('remote_shell_command()', $contents);
+        $this->assertStringContainsString('sudo -S -p', $contents);
+        $this->assertStringContainsString('if is_true "${DEPLOY_REMOTE_SUDO:-false}"; then', $contents);
+        $this->assertStringContainsString('if [[ -n "${DEPLOY_REMOTE_SUDO_PASSWORD:-}" ]]; then', $contents);
+        $this->assertStringContainsString('if [[ -n "${DEPLOY_SSH_PASSWORD:-}" ]]; then', $contents);
+        $this->assertStringContainsString('SSH_CMD=(sshpass -p "${DEPLOY_SSH_PASSWORD}" ssh)', $contents);
+        $this->assertStringContainsString('SCP_CMD=(sshpass -p "${DEPLOY_SSH_PASSWORD}" scp)', $contents);
+        $this->assertStringContainsString('remote_run "test -f', $contents);
+        $this->assertStringContainsString('write_env_line "${REMOTE_ENV}" "${env_key}" "${!env_key:-}"', $contents);
+        $this->assertStringNotContainsString('write_env_line "${REMOTE_ENV}" "${env_key}" "${!env_key}"', $contents);
     }
 
     public function test_vps_deploy_describe_prints_operator_profile_summary_without_remote_access(): void
@@ -261,7 +326,7 @@ BASH);
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "\$*" >> "{$sshLog}"
-if printf '%s\n' "\$*" | grep -q "test -f '/opt/jobs-boards-jb/shared/.env'"; then
+if printf '%s\n' "\$*" | grep -Fq "test\\ -f\\ \\'/opt/jobs-boards-jb/shared/.env\\'"; then
   exit 1
 fi
 exit 0
@@ -281,7 +346,7 @@ BASH);
 
         $this->assertSame(0, $first->getExitCode(), $first->getOutput().$first->getErrorOutput());
         $this->assertStringContainsString('archive --format=tar.gz', (string) file_get_contents($gitLog));
-        $this->assertStringContainsString("DEPLOY_BOOTSTRAP_MODE='production'", (string) file_get_contents($sshLog));
+        $this->assertStringContainsString("DEPLOY_BOOTSTRAP_MODE=production\n", (string) file_get_contents($capturedEnv));
         $this->assertStringContainsString("DEPLOY_MONITORING_ACCESS_MODE=auth-only\n", (string) file_get_contents($capturedEnv));
         $this->assertStringContainsString("DEPLOY_MONITORING_ALLOWED_CIDRS=127.0.0.1/32\\,192.168.0.0/16\n", (string) file_get_contents($capturedEnv));
 
@@ -306,7 +371,7 @@ BASH);
         $second->run();
 
         $this->assertSame(0, $second->getExitCode(), $second->getOutput().$second->getErrorOutput());
-        $this->assertStringContainsString("DEPLOY_BOOTSTRAP_MODE='dev'", (string) file_get_contents($sshLog));
+        $this->assertStringContainsString("DEPLOY_BOOTSTRAP_MODE=dev\n", (string) file_get_contents($capturedEnv));
     }
 
     public function test_vps_deploy_quotes_remote_env_values_for_shell_sensitive_install_inputs(): void
@@ -382,6 +447,207 @@ BASH);
 
         $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
         $this->assertStringContainsString("JB_INSTALL_ADMIN_PASSWORD=V%U7\\&HX7A#N@eFvH\n", (string) file_get_contents($capturedEnv));
+    }
+
+    public function test_vps_deploy_reuses_existing_remote_ports_for_repeat_runs(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->deployScriptFixture($tempRoot);
+        $capturedEnv = $tempRoot.'/captured.remote.env';
+        $capturedSite = $tempRoot.'/captured.site.conf';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/deploy/targets', 0777, true);
+        mkdir($tempRoot.'/ops/deploy/templates', 0777, true);
+
+        copy($this->repoRoot.'/ops/deploy/targets/jb.mythic3011.com.sh', $tempRoot.'/ops/deploy/targets/jb.mythic3011.com.sh');
+        copy($this->repoRoot.'/ops/deploy/targets/_builder.sh', $tempRoot.'/ops/deploy/targets/_builder.sh');
+        copy($this->repoRoot.'/ops/deploy/templates/nginx-site.conf.tpl', $tempRoot.'/ops/deploy/templates/nginx-site.conf.tpl');
+
+        $this->writeExecutable($fakeBin.'/git', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "status" ]]; then
+  exit 0
+fi
+if [[ "${1:-}" == "rev-parse" ]]; then
+  echo "0123456789abcdef0123456789abcdef01234567"
+  exit 0
+fi
+if [[ "${1:-}" == "archive" ]]; then
+  output=""
+  for arg in "$@"; do
+    case "${arg}" in
+      --output=*) output="${arg#--output=}" ;;
+    esac
+  done
+  printf 'archive' > "${output}"
+  exit 0
+fi
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/scp', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+for arg in "\$@"; do
+  case "\$(basename "\${arg}")" in
+    deploy.remote.env)
+      cp "\${arg}" "{$capturedEnv}"
+      ;;
+    jb.mythic3011.com.conf)
+      cp "\${arg}" "{$capturedSite}"
+      ;;
+  esac
+done
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/ssh', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+joined="$*"
+if printf '%s\n' "$joined" | grep -q "test -f '/opt/jobs-boards-jb/shared/.env'"; then
+  exit 0
+fi
+if printf '%s\n' "$joined" | grep -q "APP_PORT"; then
+  printf '127.0.0.1:28080\n'
+  exit 0
+fi
+if printf '%s\n' "$joined" | grep -q "APP_SSL_PORT"; then
+  printf '127.0.0.1:28443\n'
+  exit 0
+fi
+exit 0
+BASH);
+
+        $process = new Process(
+            [$scriptPath, 'jb.mythic3011.com'],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'TARGET_HOST' => '203.0.113.10',
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+
+        $capturedEnvContents = (string) file_get_contents($capturedEnv);
+        $capturedSiteContents = (string) file_get_contents($capturedSite);
+
+        $this->assertStringContainsString("DEPLOY_APP_PORT=127.0.0.1:28080\n", $capturedEnvContents);
+        $this->assertStringContainsString("DEPLOY_APP_SSL_PORT=127.0.0.1:28443\n", $capturedEnvContents);
+        $this->assertStringContainsString('proxy_pass https://127.0.0.1:28443/;', $capturedSiteContents);
+    }
+
+    public function test_vps_deploy_can_package_current_worktree_snapshot_when_opted_in_for_dirty_repo(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->deployScriptFixture($tempRoot);
+        $gitLog = $tempRoot.'/git.log';
+        $tarLog = $tempRoot.'/tar.log';
+        $capturedArchive = $tempRoot.'/captured.release.tar.gz';
+        $fakeBin = $tempRoot.'/fake-bin';
+
+        mkdir($fakeBin, 0777, true);
+        mkdir($tempRoot.'/ops/deploy/targets', 0777, true);
+        mkdir($tempRoot.'/ops/deploy/templates', 0777, true);
+
+        copy($this->repoRoot.'/ops/deploy/targets/jb.mythic3011.com.sh', $tempRoot.'/ops/deploy/targets/jb.mythic3011.com.sh');
+        copy($this->repoRoot.'/ops/deploy/targets/_builder.sh', $tempRoot.'/ops/deploy/targets/_builder.sh');
+        copy($this->repoRoot.'/ops/deploy/templates/nginx-site.conf.tpl', $tempRoot.'/ops/deploy/templates/nginx-site.conf.tpl');
+        file_put_contents($tempRoot.'/README.md', "snapshot\n");
+
+        $this->writeExecutable($fakeBin.'/git', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$gitLog}"
+if [[ "\${1:-}" == "status" ]]; then
+  printf ' M README.md\n'
+  exit 0
+fi
+if [[ "\${1:-}" == "rev-parse" ]]; then
+  echo "0123456789abcdef0123456789abcdef01234567"
+  exit 0
+fi
+if [[ "\${1:-}" == "ls-files" ]]; then
+  printf 'README.md\0ops/deploy/targets/jb.mythic3011.com.sh\0ops/deploy/targets/_builder.sh\0ops/deploy/templates/nginx-site.conf.tpl\0'
+  exit 0
+fi
+if [[ "\${1:-}" == "archive" ]]; then
+  echo "git archive should not run in worktree snapshot mode" >&2
+  exit 99
+fi
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/tar', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "\$*" >> "{$tarLog}"
+archive=""
+while [[ \$# -gt 0 ]]; do
+  case "\${1}" in
+    --file=*)
+      archive="\${1#--file=}"
+      shift
+      ;;
+    --file|-f)
+      shift
+      archive="\${1:-}"
+      shift
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+printf 'snapshot-archive' > "\${archive}"
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/scp', <<<BASH
+#!/usr/bin/env bash
+set -euo pipefail
+for arg in "\$@"; do
+  case "\$(basename "\${arg}")" in
+    release.tar.gz)
+      cp "\${arg}" "{$capturedArchive}"
+      ;;
+  esac
+done
+exit 0
+BASH);
+
+        $this->writeExecutable($fakeBin.'/ssh', <<<'BASH'
+#!/usr/bin/env bash
+set -euo pipefail
+exit 0
+BASH);
+
+        $process = new Process(
+            [$scriptPath, 'jb.mythic3011.com'],
+            $tempRoot,
+            [
+                'PATH' => $fakeBin.':'.getenv('PATH'),
+                'TARGET_HOST' => '203.0.113.10',
+                'DEPLOY_WORKTREE_SNAPSHOT' => 'true',
+            ],
+            null,
+            20,
+        );
+        $process->run();
+
+        $this->assertSame(0, $process->getExitCode(), $process->getOutput().$process->getErrorOutput());
+        $this->assertSame('snapshot-archive', (string) file_get_contents($capturedArchive));
+        $this->assertStringContainsString('ls-files -z --cached --others --exclude-standard', (string) file_get_contents($gitLog));
+        $this->assertStringNotContainsString('archive --format=tar.gz', (string) file_get_contents($gitLog));
+        $this->assertStringContainsString('--null', (string) file_get_contents($tarLog));
+        $this->assertStringContainsString('--files-from -', (string) file_get_contents($tarLog));
     }
 
     public function test_vps_deploy_hydrates_release_dependencies_before_app_bootstrap(): void
@@ -512,6 +778,25 @@ fi
 prepare_release_runtime_permissions
 sync_release_env_to_shared
 BASH, $contents);
+    }
+
+    public function test_vps_deploy_exports_compose_project_and_runtime_state_before_bootstrap_env_for_repeatable_stack_ownership(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/deploy/vps-deploy.sh');
+
+        $this->assertIsString($contents);
+        $this->assertMatchesRegularExpression(
+            '/cd "\$\{remote_current\}"\n'
+            .'export BT_STATE_DIR="\$\{DEPLOY_BT_STATE_DIR\}"\n'
+            .'export BT_RUNTIME_DIR="\$\{runtime_dir\}"\n'
+            .'export COMPOSE_PROJECT_NAME="\$\{DEPLOY_COMPOSE_PROJECT_NAME\}"\n'
+            .'if \[\[ "\$\{DEPLOY_BOOTSTRAP_MODE\}" == "production" \]\]; then\n'
+            .'    \.\/bootstrap-env\.sh production\n'
+            .'else\n'
+            .'    \.\/bootstrap-env\.sh dev\n'
+            .'fi/s',
+            $contents,
+        );
     }
 
     private function makeTempDir(): string

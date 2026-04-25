@@ -40,6 +40,11 @@ class ApplicationWorkflowUiContractTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringNotContainsString('application_new_message_', $contents);
         $this->assertStringNotContainsString('New message', $contents);
+        $this->assertStringContainsString('wire:click="clearFilters"', $contents);
+        $this->assertStringNotContainsString('wire:click="$set(\'search\', \'\'); $set(\'statusFilter\', \'\')"', $contents);
+        $this->assertStringContainsString('likeOperator()', $contents);
+        $this->assertStringNotContainsString("where('title', 'ilike'", $contents);
+        $this->assertStringNotContainsString("where('nickname', 'ilike'", $contents);
     }
 
     public function test_file_upload_component_uses_theme_aware_dropzone_tokens(): void
@@ -52,5 +57,16 @@ class ApplicationWorkflowUiContractTest extends TestCase
         $this->assertStringContainsString('theme-text-muted', $contents);
         $this->assertStringNotContainsString('border-gray-300', $contents);
         $this->assertStringNotContainsString('text-gray-700', $contents);
+    }
+
+    public function test_application_create_submit_button_exposes_visible_loading_feedback(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/applications/create.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('wire:loading.attr="disabled"', $contents);
+        $this->assertStringContainsString('wire:target="submit"', $contents);
+        $this->assertStringContainsString('Submitting...', $contents);
+        $this->assertStringContainsString('animate-spin', $contents);
     }
 }
