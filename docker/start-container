@@ -8,6 +8,11 @@ if [ -z "$PHP_BIN" ] || [ ! -x "$PHP_BIN" ]; then
 fi
 export PHP_BIN
 
+# Respect explicit runtime command overrides (for init/bootstrap one-shot services).
+if [ "$#" -gt 0 ]; then
+    exec "$@"
+fi
+
 /usr/local/bin/prepare-laravel-runtime /var/www/html
 
 mkdir -p /var/log/laravel
