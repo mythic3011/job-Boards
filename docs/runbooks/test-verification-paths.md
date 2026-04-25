@@ -34,6 +34,20 @@ Contract:
 
 `composer test:sqlite` passing does not imply `composer test` passing.
 
+### Env Contract Guard (SQLite-safe)
+
+For `.env.example` contract changes, run the explicit guard tests:
+
+```bash
+php vendor/bin/phpunit tests/Feature/EnvExampleContractTest.php tests/Feature/EnvExampleConsumerProofTest.php
+```
+
+Contract:
+
+- every `.env.example` key must have at least one real consumer (compose, bootstrap/init, install scripts, or Laravel config)
+- dead placeholders must not remain in the normal operator template
+- monitoring plaintext source remains canonical as `MONITORING_PASSWORD`
+
 ## Worktree Container Verification
 
 When running the full-default path from a git worktree inside a one-off Docker container, this repository's symlink layout matters:
