@@ -6,7 +6,7 @@
 #   dev        — fill missing/weak secrets only, never overwrite existing strong values
 #   production — force-regenerate ALL secrets regardless of current value
 #   test       — sync .env.testing with .env credentials (DB_PASSWORD, APP_KEY)
-#   prepare    — PR2A prepare/validate bridge that emits shell-consumer outputs only
+#   prepare    — bootstrap prepare/validate bridge that emits shell-consumer outputs
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -208,11 +208,9 @@ for key, value in compat_values.items():
     rendered_lines.append(f"{key}={shell_quote(value)}")
 atomic_write(compat_shell_env_path, "\n".join(rendered_lines) + "\n", 0o600)
 
-print(f"PR2A prepare/validate completed for {mode}.")
+print(f"Bootstrap prepare/validate completed for {mode}.")
 print(f"compat.shell.env: {compat_shell_env_path}")
-print("Runtime wiring lands in PR2B/PR3.")
-if mode == "reset-demo":
-    print("reset-demo behavior: validate-only-stop")
+print("Prepared runtime compatibility outputs.")
 PYEOF
 }
 
@@ -709,6 +707,29 @@ bootstrap_port_service_name() {
     esac
 }
 
+bootstrap_binding_port() {
+    local binding="$1"
+
+    if [[ "${binding}" == *:* ]]; then
+        printf '%s\n' "${binding##*:}"
+        return 0
+    fi
+
+    printf '%s\n' "${binding}"
+}
+
+bootstrap_rewrite_binding_port() {
+    local binding="$1"
+    local port="$2"
+
+    if [[ "${binding}" == *:* ]]; then
+        printf '%s:%s\n' "${binding%:*}" "${port}"
+        return 0
+    fi
+
+    printf '%s\n' "${port}"
+}
+
 bootstrap_port_owned_by_current_stack() {
     local key="$1"
     local port="$2"
@@ -796,16 +817,17 @@ _check_port_var() {
     local var="$1" default="$2"
     shift 2
 
-    local current new_port reason="" resolution_mode=""
+    local current current_port new_port new_binding reason="" resolution_mode=""
     local -a reserved_ports=( "$@" )
     current=$(get_env "$var")
     current="${current:-$default}"
+    current_port="$(bootstrap_binding_port "${current}")"
 
-    if bt_port_is_reserved "$current" "${reserved_ports[@]}"; then
+    if bt_port_is_reserved "$current_port" "${reserved_ports[@]}"; then
         reason="conflicted with another defined port"
-    elif bootstrap_port_owned_by_current_stack "$var" "$current"; then
+    elif bootstrap_port_owned_by_current_stack "$var" "$current_port"; then
         reason=""
-    elif bt_port_in_use "$current"; then
+    elif bt_port_in_use "$current_port"; then
         reason="was in use"
     fi
 
@@ -836,8 +858,9 @@ _check_port_var() {
                 ;;
         esac
 
-        set_env "$var" "$new_port"
-        echo "  ✔ ${var}: ${current} → ${new_port} (${reason}, reassigned)"
+        new_binding="$(bootstrap_rewrite_binding_port "${current}" "${new_port}")"
+        set_env "$var" "$new_binding"
+        echo "  ✔ ${var}: ${current} → ${new_binding} (${reason}, reassigned)"
     else
         [[ -z "$(get_env "$var")" ]] && set_env "$var" "$current"
         echo "  ✔ ${var}=${current}"
@@ -855,7 +878,7 @@ port_conflict_check() {
         default="${entry##*:}"
         current=$(get_env "$var")
         current="${current:-$default}"
-        reserved_ports+=("$current")
+        reserved_ports+=("$(bootstrap_binding_port "${current}")")
     done
 
     for entry in "${port_vars[@]}"; do
@@ -864,13 +887,39 @@ port_conflict_check() {
         _check_port_var "$var" "$default" "${reserved_ports[@]}"
         current=$(get_env "$var")
         current="${current:-$default}"
-        reserved_ports+=("$current")
+        reserved_ports+=("$(bootstrap_binding_port "${current}")")
     done
 }
 
 port_conflict_check
 
-# ── 6. Final audit ─────────────────────────────────────────────────────────────
+# ── 6. Shared app-plane network contract ──────────────────────────────────────
+echo ""
+echo "── Shared app-plane network ──"
+
+sync_app_plane_network_contract() {
+    local compose_file="${SCRIPT_DIR}/compose.obs.yml"
+    local current resolved
+
+    bt_preload_compose_app_plane_network "${compose_file}"
+    resolved="${BT_APP_PLANE_NETWORK_NAME:-}"
+
+    if [[ -z "${resolved}" ]]; then
+        resolved="$(bt_default_app_plane_network_name)"
+        export BT_APP_PLANE_NETWORK_NAME="${resolved}"
+    fi
+
+    current="$(get_env BT_APP_PLANE_NETWORK_NAME)"
+    if [[ "${current}" != "${resolved}" ]]; then
+        set_env "BT_APP_PLANE_NETWORK_NAME" "${resolved}"
+    else
+        echo "  ✔ BT_APP_PLANE_NETWORK_NAME already set (${resolved})"
+    fi
+}
+
+sync_app_plane_network_contract
+
+# ── 7. Final audit ─────────────────────────────────────────────────────────────
 echo ""
 echo "── Final audit ──"
 

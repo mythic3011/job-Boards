@@ -1,6 +1,15 @@
 # Application Environment Configuration Cleanup
 
-Status: inventory/design only. No runtime behavior change in this pass.
+Status (2026-04-25 update):
+
+- `.env.example` now uses a minimal normal operator contract.
+- Advanced/internal overrides moved to `.env.advanced.example`.
+- Canonical env mapping source is `ops/bootstrap/app-env-map.json`.
+- Runtime bridge changes now live in `install.sh` + bootstrap scripts.
+
+Historical note: large parts of this document capture PR1 inventory boundaries.
+Keep those sections as rationale/history; do not treat them as the active
+runtime contract.
 
 ## PR1 Output Boundary
 
