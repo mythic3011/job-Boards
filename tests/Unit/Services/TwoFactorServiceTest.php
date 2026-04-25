@@ -102,9 +102,10 @@ class TwoFactorServiceTest extends TestCase
         $this->user->forceFill([
             'two_factor_secret' => encrypt($secret),
             'two_factor_recovery_codes' => encrypt(json_encode(['code1', 'code2'])),
+            'two_factor_confirmed_at' => now(),
         ])->save();
 
-        $validCode = $google2fa->getCurrentOtp($secret);
+        $validCode = str_pad((string) $google2fa->getCurrentOtp($secret), 6, '0', STR_PAD_LEFT);
 
         // Verify the code is valid
         $this->assertTrue($this->service->verifyCode($this->user, $validCode));
@@ -127,13 +128,14 @@ class TwoFactorServiceTest extends TestCase
         $this->user->forceFill([
             'two_factor_secret' => encrypt($secret),
             'two_factor_recovery_codes' => encrypt(json_encode(['code1', 'code2'])),
+            'two_factor_confirmed_at' => now(),
         ])->save();
 
         // Verify invalid code returns false
         $result = $this->service->verifyCode($this->user, '000000');
 
         $this->assertFalse($result);
-        $this->assertNull($this->user->two_factor_confirmed_at);
+        $this->assertNotNull($this->user->two_factor_confirmed_at);
     }
 
     #[Test]
@@ -145,6 +147,7 @@ class TwoFactorServiceTest extends TestCase
 
         $this->user->forceFill([
             'two_factor_secret' => encrypt($secret),
+            'two_factor_confirmed_at' => now(),
         ])->save();
 
         $validCode = $google2fa->getCurrentOtp($secret);
@@ -161,6 +164,7 @@ class TwoFactorServiceTest extends TestCase
 
         $this->user->forceFill([
             'two_factor_secret' => encrypt($secret),
+            'two_factor_confirmed_at' => now(),
         ])->save();
 
         $this->assertFalse($this->service->verifyCode($this->user, '000000'));
@@ -310,6 +314,7 @@ class TwoFactorServiceTest extends TestCase
 
         $this->user->forceFill([
             'two_factor_secret' => encrypt($secret),
+            'two_factor_confirmed_at' => now(),
         ])->save();
 
         $this->expectException(\Illuminate\Validation\ValidationException::class);
@@ -352,6 +357,24 @@ class TwoFactorServiceTest extends TestCase
     }
 
     #[Test]
+    public function it_verifies_and_consumes_recovery_code_atomically()
+    {
+        $codes = ['abcd-1234', 'efgh-5678'];
+
+        $this->user->forceFill([
+            'two_factor_secret' => encrypt('secret'),
+            'two_factor_confirmed_at' => now(),
+            'two_factor_recovery_codes' => encrypt(json_encode($codes)),
+        ])->save();
+
+        $this->assertTrue($this->service->verifyAndConsumeRecoveryCode($this->user, 'efgh-5678'));
+        $this->assertFalse($this->service->verifyAndConsumeRecoveryCode($this->user, 'efgh-5678'));
+
+        $remaining = $this->service->getRecoveryCodes($this->user);
+        $this->assertSame(['abcd-1234'], $remaining);
+    }
+
+    #[Test]
     public function it_does_not_throw_exception_for_valid_code()
     {
         // Manually set up 2FA state
@@ -360,9 +383,10 @@ class TwoFactorServiceTest extends TestCase
 
         $this->user->forceFill([
             'two_factor_secret' => encrypt($secret),
+            'two_factor_confirmed_at' => now(),
         ])->save();
 
-        $validCode = $google2fa->getCurrentOtp($secret);
+        $validCode = str_pad((string) $google2fa->getCurrentOtp($secret), 6, '0', STR_PAD_LEFT);
 
         $this->service->verifyCodeOrFail($this->user, $validCode);
 

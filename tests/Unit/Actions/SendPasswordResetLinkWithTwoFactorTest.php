@@ -123,6 +123,10 @@ class SendPasswordResetLinkWithTwoFactorTest extends TestCase
             });
 
         $twoFactorService = Mockery::mock(TwoFactorService::class);
+        $twoFactorService->shouldReceive('isEnabled')
+            ->once()
+            ->with(Mockery::on(fn (User $candidate) => $candidate->is($user)))
+            ->andReturn(true);
         $twoFactorService->shouldReceive('verifyCode')
             ->once()
             ->with(Mockery::on(fn (User $candidate) => $candidate->is($user)), '123456')
@@ -133,6 +137,45 @@ class SendPasswordResetLinkWithTwoFactorTest extends TestCase
         $result = $action([
             'email' => $user->email,
             'code' => '123456',
+        ]);
+
+        $this->assertSame(Password::RESET_LINK_SENT, $result['status']);
+        $this->assertFalse($result['local']);
+    }
+
+    public function test_recovery_code_path_delegates_verification_and_consumption_to_owner_service(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'user@example.com',
+            'two_factor_secret' => encrypt('secret'),
+            'two_factor_confirmed_at' => now(),
+        ]);
+
+        RateLimiter::shouldReceive('tooManyAttempts')->once()->andReturn(false);
+        RateLimiter::shouldReceive('clear')->once();
+        Password::shouldReceive('sendResetLink')
+            ->once()
+            ->with(['email' => $user->email])
+            ->andReturn(Password::RESET_LINK_SENT);
+
+        $auditLogger = Mockery::mock(AuditLogger::class);
+        $auditLogger->shouldReceive('logSecurityEvent')->once();
+
+        $twoFactorService = Mockery::mock(TwoFactorService::class);
+        $twoFactorService->shouldReceive('isEnabled')
+            ->once()
+            ->with(Mockery::on(fn (User $candidate) => $candidate->is($user)))
+            ->andReturn(true);
+        $twoFactorService->shouldReceive('verifyAndConsumeRecoveryCode')
+            ->once()
+            ->with(Mockery::on(fn (User $candidate) => $candidate->is($user)), 'ABCD-EFGH-IJKL')
+            ->andReturn(true);
+
+        $action = new SendPasswordResetLinkWithTwoFactor($auditLogger, $twoFactorService);
+
+        $result = $action([
+            'email' => $user->email,
+            'recovery_code' => 'ABCD-EFGH-IJKL',
         ]);
 
         $this->assertSame(Password::RESET_LINK_SENT, $result['status']);

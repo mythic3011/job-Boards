@@ -42,8 +42,8 @@ class SendPasswordResetLinkWithTwoFactor
             ]);
         }
 
-        // Check if user has 2FA enabled
-        if (! $user->two_factor_secret) {
+        // Check if user has confirmed 2FA enabled.
+        if (! $this->twoFactorService->isEnabled($user)) {
             RateLimiter::hit($key, 300);
             throw ValidationException::withMessages([
                 'email' => ['Two-factor authentication is not enabled for this account. Please contact support.'],
@@ -74,19 +74,8 @@ class SendPasswordResetLinkWithTwoFactor
                 ]);
             }
         } elseif (! empty($input['recovery_code'])) {
-            // Verify recovery code via TwoFactorService
-            $inputCode = str_replace('-', '', $input['recovery_code']);
-            $recoveryCodes = $this->twoFactorService->getRecoveryCodes($user);
-            foreach ($recoveryCodes as $recoveryCode) {
-                if (hash_equals(str_replace('-', '', $recoveryCode), $inputCode)) {
-                    $verified = true;
-                    break;
-                }
-            }
-
-            if ($verified) {
-                $this->twoFactorService->consumeRecoveryCode($user, $input['recovery_code']);
-            }
+            // Verify and consume recovery code via owner service.
+            $verified = $this->twoFactorService->verifyAndConsumeRecoveryCode($user, $input['recovery_code']);
 
             if (! $verified) {
                 RateLimiter::hit($key, 60);

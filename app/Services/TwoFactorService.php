@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
 use Laravel\Fortify\Actions\DisableTwoFactorAuthentication;
 use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
@@ -43,7 +44,7 @@ class TwoFactorService
      */
     public function verifyCode(User $user, string $code): bool
     {
-        if (empty($code) || ! $user->two_factor_secret) {
+        if (empty($code) || ! $this->isEnabled($user) || ! $user->two_factor_secret) {
             return false;
         }
 
@@ -332,6 +333,50 @@ class TwoFactorService
         $user->forceFill([
             'two_factor_recovery_codes' => encrypt(json_encode($remaining)),
         ])->save();
+    }
+
+    /**
+     * Verify and consume a recovery code atomically.
+     */
+    public function verifyAndConsumeRecoveryCode(User $user, string $code): bool
+    {
+        $normalized = str_replace('-', '', trim($code));
+
+        if ($normalized === '') {
+            return false;
+        }
+
+        return DB::transaction(function () use ($user, $normalized): bool {
+            $lockedUser = User::query()->whereKey($user->getKey())->lockForUpdate()->first();
+
+            if (! $lockedUser || ! $this->isEnabled($lockedUser) || ! $lockedUser->two_factor_recovery_codes) {
+                return false;
+            }
+
+            $codes = $this->getRecoveryCodes($lockedUser);
+
+            $matchedIndex = null;
+            foreach ($codes as $index => $recoveryCode) {
+                if (hash_equals(str_replace('-', '', $recoveryCode), $normalized)) {
+                    $matchedIndex = $index;
+                    break;
+                }
+            }
+
+            if ($matchedIndex === null) {
+                return false;
+            }
+
+            unset($codes[$matchedIndex]);
+
+            $lockedUser->forceFill([
+                'two_factor_recovery_codes' => encrypt(json_encode(array_values($codes))),
+            ])->save();
+
+            $user->refresh();
+
+            return true;
+        });
     }
 
     /**
