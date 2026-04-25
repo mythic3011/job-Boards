@@ -59,7 +59,7 @@
     "BT_RUNTIME_DIR": {
       "name": "BT_RUNTIME_DIR",
       "semanticRole": "runtime-directory",
-      "canonicalName": "BT_RUNTIME_DIR",
+      "canonicalName": "STATE_DIR",
       "classification": "generated-internal",
       "ownership": "bootstrap",
       "lifecycle": "derived",
@@ -70,7 +70,7 @@
     "GRAFANA_ADMIN_SECRET_FILE": {
       "name": "GRAFANA_ADMIN_SECRET_FILE",
       "semanticRole": "monitoring-secret-file-path",
-      "canonicalName": "GRAFANA_ADMIN_SECRET_FILE",
+      "canonicalName": "STATE_DIR",
       "classification": "generated-internal",
       "ownership": "bootstrap",
       "lifecycle": "derived",
@@ -81,7 +81,7 @@
     "GRAFANA_DATASOURCES_FILE": {
       "name": "GRAFANA_DATASOURCES_FILE",
       "semanticRole": "monitoring-rendered-config-path",
-      "canonicalName": "GRAFANA_DATASOURCES_FILE",
+      "canonicalName": "STATE_DIR",
       "classification": "generated-internal",
       "ownership": "bootstrap",
       "lifecycle": "derived",
@@ -92,7 +92,7 @@
     "PROMETHEUS_WEB_CONFIG_FILE": {
       "name": "PROMETHEUS_WEB_CONFIG_FILE",
       "semanticRole": "monitoring-rendered-config-path",
-      "canonicalName": "PROMETHEUS_WEB_CONFIG_FILE",
+      "canonicalName": "STATE_DIR",
       "classification": "generated-internal",
       "ownership": "bootstrap",
       "lifecycle": "derived",
