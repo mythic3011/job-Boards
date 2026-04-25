@@ -13,9 +13,32 @@ NON_REMOVABLE_TEMPLATE_ACTIONS = {
     "compatibility-only",
 }
 
-DERIVED_CLASSIFICATIONS = {
+ALLOWED_CLASSIFICATIONS = {
+    "canonical",
     "compatibility-alias",
     "generated-internal",
+}
+
+ALLOWED_OWNERSHIP = {
+    "operator",
+    "bootstrap",
+}
+
+ALLOWED_LIFECYCLE = {
+    "defaulted",
+    "derived",
+}
+
+ALLOWED_TEMPLATE_ACTIONS = {
+    "keep-normal",
+    "advanced-doc",
+    "compatibility-only",
+    "remove-normal",
+}
+
+ALLOWED_CONFLICT_POLICIES = {
+    "canonical-source-of-truth",
+    "must-match-derived-canonical",
 }
 
 
@@ -47,6 +70,25 @@ def require_non_empty_string(entry_name: str, field_name: str, value: object) ->
     return value
 
 
+def require_enum_member(entry_name: str, field_name: str, value: str, allowed_values: set[str]) -> str:
+    if value not in allowed_values:
+        raise ValueError(
+            f'{entry_name} has invalid "{field_name}" "{value}"; allowed values: {", ".join(sorted(allowed_values))}'
+        )
+
+    return value
+
+
+def validate_value_derivation(entry_name: str, value: str) -> str:
+    if value in {"identity", "https-url"}:
+        return value
+
+    if value.startswith("path-join:"):
+        return value
+
+    raise ValueError(f'{entry_name} has unsupported "valueDerivation" "{value}"')
+
+
 def derive_value(rule: str, canonical_value: str) -> str:
     if rule == "identity":
         return canonical_value
@@ -71,59 +113,104 @@ def validate_mapping(mapping: dict) -> tuple[dict[str, dict], list[str]]:
         raise ValueError("app-env-map.json must define a non-empty requiredCanonicalNames list")
 
     required_canonical_names = [require_non_empty_string("requiredCanonicalNames", "value", name) for name in required_canonical_names]
+    if len(set(required_canonical_names)) != len(required_canonical_names):
+        raise ValueError("app-env-map.json must not repeat entries in requiredCanonicalNames")
 
     mappings = mapping.get("mappings")
     if not isinstance(mappings, dict) or not mappings:
         raise ValueError("app-env-map.json must define a non-empty mappings object")
 
-    canonical_entries: dict[str, dict] = {}
+    normalized_entries: dict[str, dict] = {}
 
     for entry_name, raw_entry in mappings.items():
         if not isinstance(raw_entry, dict):
             raise ValueError(f"{entry_name} must be a JSON object")
 
-        classification = require_non_empty_string(entry_name, "classification", raw_entry.get("classification"))
+        name = require_non_empty_string(entry_name, "name", raw_entry.get("name"))
+        if name != entry_name:
+            raise ValueError(f'{entry_name} must define "name" matching its mapping key')
+
+        classification = require_enum_member(
+            entry_name,
+            "classification",
+            require_non_empty_string(entry_name, "classification", raw_entry.get("classification")),
+            ALLOWED_CLASSIFICATIONS,
+        )
         canonical_name = require_non_empty_string(entry_name, "canonicalName", raw_entry.get("canonicalName"))
-        template_action = require_non_empty_string(entry_name, "templateAction", raw_entry.get("templateAction"))
-        require_non_empty_string(entry_name, "valueDerivation", raw_entry.get("valueDerivation"))
-        conflict_policy = require_non_empty_string(entry_name, "conflictPolicy", raw_entry.get("conflictPolicy"))
+        require_enum_member(
+            entry_name,
+            "ownership",
+            require_non_empty_string(entry_name, "ownership", raw_entry.get("ownership")),
+            ALLOWED_OWNERSHIP,
+        )
+        require_enum_member(
+            entry_name,
+            "lifecycle",
+            require_non_empty_string(entry_name, "lifecycle", raw_entry.get("lifecycle")),
+            ALLOWED_LIFECYCLE,
+        )
+        template_action = require_enum_member(
+            entry_name,
+            "templateAction",
+            require_non_empty_string(entry_name, "templateAction", raw_entry.get("templateAction")),
+            ALLOWED_TEMPLATE_ACTIONS,
+        )
+        value_derivation = validate_value_derivation(
+            entry_name,
+            require_non_empty_string(entry_name, "valueDerivation", raw_entry.get("valueDerivation")),
+        )
+        conflict_policy = require_enum_member(
+            entry_name,
+            "conflictPolicy",
+            require_non_empty_string(entry_name, "conflictPolicy", raw_entry.get("conflictPolicy")),
+            ALLOWED_CONFLICT_POLICIES,
+        )
 
         if template_action in NON_REMOVABLE_TEMPLATE_ACTIONS:
             require_non_empty_string(entry_name, "consumerProof", raw_entry.get("consumerProof"))
             require_non_empty_string(entry_name, "ownerProof", raw_entry.get("ownerProof"))
 
+        normalized_entries[entry_name] = {
+            **raw_entry,
+            "classification": classification,
+            "canonicalName": canonical_name,
+            "templateAction": template_action,
+            "valueDerivation": value_derivation,
+            "conflictPolicy": conflict_policy,
+        }
+
+    canonical_entries = {
+        entry_name: entry
+        for entry_name, entry in normalized_entries.items()
+        if entry["classification"] == "canonical"
+    }
+
+    for required_canonical_name in required_canonical_names:
+        entry = normalized_entries.get(required_canonical_name)
+        if entry is None or entry["classification"] != "canonical":
+            raise ValueError(f"Missing required canonical roots: {required_canonical_name}")
+
+    for entry_name, entry in normalized_entries.items():
+        classification = entry["classification"]
+        canonical_name = entry["canonicalName"]
+        conflict_policy = entry["conflictPolicy"]
+        value_derivation = entry["valueDerivation"]
+
         if classification == "canonical":
-            if entry_name != canonical_name:
+            if canonical_name != entry_name:
                 raise ValueError(f'Canonical entry "{entry_name}" must point canonicalName to itself')
             if conflict_policy != "canonical-source-of-truth":
                 raise ValueError(f'{entry_name} must declare conflictPolicy "canonical-source-of-truth"')
-
-            canonical_entries[entry_name] = raw_entry
+            if value_derivation != "identity":
+                raise ValueError(f'{entry_name} must use "identity" valueDerivation because it is canonical')
             continue
 
+        if canonical_name not in canonical_entries:
+            raise ValueError(f'{entry_name} references non-canonical "{canonical_name}"')
         if conflict_policy != "must-match-derived-canonical":
             raise ValueError(f'{entry_name} must declare conflictPolicy "must-match-derived-canonical"')
 
-        if canonical_name not in required_canonical_names:
-            raise ValueError(f'{entry_name} references unsupported canonical "{canonical_name}"')
-
-        if classification == "generated-internal" and canonical_name != "STATE_DIR":
-            raise ValueError(f'{entry_name} must derive from STATE_DIR for generated-internal paths')
-
-        if classification in DERIVED_CLASSIFICATIONS and canonical_name == "STATE_DIR":
-            rule = raw_entry["valueDerivation"]
-            if entry_name in {"BT_STATE_DIR"} and rule != "identity":
-                raise ValueError(f'{entry_name} must use identity derivation from STATE_DIR')
-            if entry_name != "BT_STATE_DIR" and not str(rule).startswith("path-join:"):
-                raise ValueError(f'{entry_name} must derive with a path-join rule from STATE_DIR')
-
-    if sorted(canonical_entries) != sorted(required_canonical_names):
-        raise ValueError(
-            "Missing required canonical roots: "
-            + ", ".join(sorted(set(required_canonical_names) - set(canonical_entries)))
-        )
-
-    return mappings, required_canonical_names
+    return normalized_entries, required_canonical_names
 
 
 def validate_explicit_values(mappings: dict[str, dict], required_canonical_names: list[str], values: dict) -> dict[str, str]:
@@ -132,13 +219,21 @@ def validate_explicit_values(mappings: dict[str, dict], required_canonical_names
 
     explicit_values: dict[str, str] = {}
     for key, raw_value in values.items():
+        if key not in mappings:
+            raise ValueError(f'Explicit value "{key}" is not declared in app-env-map.json')
         if not isinstance(raw_value, str):
             raise ValueError(f'Explicit value "{key}" must be a string')
         explicit_values[key] = raw_value
 
+    canonical_entry_names = {
+        entry_name
+        for entry_name, entry in mappings.items()
+        if entry["classification"] == "canonical"
+    }
+
     canonical_values = {
         key: explicit_values[key]
-        for key in required_canonical_names
+        for key in canonical_entry_names
         if key in explicit_values
     }
 
@@ -147,9 +242,6 @@ def validate_explicit_values(mappings: dict[str, dict], required_canonical_names
 
     for key, value in explicit_values.items():
         entry = mappings.get(key)
-        if entry is None:
-            continue
-
         canonical_name = entry["canonicalName"]
         if canonical_name != key and canonical_name not in canonical_values:
             errors.append(
