@@ -53,20 +53,13 @@ class TwoFactor extends Component
 
         $service = app(TwoFactorService::class);
 
-        if (! $service->verifyCode($user, $value)) {
-            $this->addError('verificationCode', 'The verification code is incorrect. Please try again.');
-
-            return;
-        }
-
-        RateLimiter::clear($key);
-
         if (! $service->confirm($user, $value)) {
             $this->addError('verificationCode', 'We could not finalise two-factor setup. Please try again.');
 
             return;
         }
 
+        RateLimiter::clear($key);
         $this->codeIsValid = true;
         session()->flash('success', 'Two-factor authentication is now active! Your account is more secure.');
         $redirectTo = session()->pull('registration.pending_intended', route('profile.show'));

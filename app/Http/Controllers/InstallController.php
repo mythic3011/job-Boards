@@ -4,13 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Services\AuditLogger;
 use App\Services\InstallService;
+use App\Services\TwoFactorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use PragmaRX\Google2FALaravel\Google2FA;
 
 class InstallController extends Controller
 {
@@ -33,6 +33,7 @@ class InstallController extends Controller
     public function __construct(
         private readonly InstallService $installService,
         private readonly AuditLogger $auditLogger,
+        private readonly TwoFactorService $twoFactorService,
     ) {}
 
     /**
@@ -464,7 +465,7 @@ class InstallController extends Controller
             ]);
         }
 
-        $valid = app(Google2FA::class)->verifyKey($secret, $code);
+        $valid = $this->twoFactorService->verifyProvisioningCode((string) $secret, (string) $code);
 
         if (! $valid) {
             throw ValidationException::withMessages([

@@ -14,15 +14,13 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Laravel\Fortify\Events\TwoFactorAuthenticationEnabled;
-use Laravel\Fortify\Fortify;
-use Laravel\Fortify\RecoveryCode;
 use Spatie\Permission\Models\Role;
 
 class InstallService
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
+        private readonly TwoFactorService $twoFactorService,
     ) {}
 
     /**
@@ -275,18 +273,7 @@ class InstallService
             return;
         }
 
-        // Use provided recovery codes or generate new ones
-        if (empty($recoveryCodes)) {
-            $recoveryCodes = collect(range(1, 8))->map(fn () => RecoveryCode::generate())->all();
-        }
-
-        $user->forceFill([
-            'two_factor_secret' => Fortify::currentEncrypter()->encrypt($secret),
-            'two_factor_recovery_codes' => Fortify::currentEncrypter()->encrypt(json_encode($recoveryCodes)),
-            'two_factor_confirmed_at' => now(),
-        ])->save();
-
-        TwoFactorAuthenticationEnabled::dispatch($user);
+        $this->twoFactorService->applyProvisionedSetup($user, $secret, $recoveryCodes);
     }
 
     /**

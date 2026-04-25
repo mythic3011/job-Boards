@@ -46,7 +46,8 @@ class InstallServiceTest extends TestCase
             ->with('db:seed', ['--class' => 'Database\\Seeders\\RolePermissionSeeder', '--force' => true]);
 
         $auditLogger = app(\App\Services\AuditLogger::class);
-        $service = Mockery::mock(InstallService::class, [$auditLogger])
+        $twoFactorService = app(\App\Services\TwoFactorService::class);
+        $service = Mockery::mock(InstallService::class, [$auditLogger, $twoFactorService])
             ->makePartial()
             ->shouldAllowMockingProtectedMethods();
 
@@ -92,7 +93,8 @@ class InstallServiceTest extends TestCase
             ->with('db:seed', ['--class' => 'Database\\Seeders\\DemoDataSeeder', '--force' => true]);
 
         $auditLogger = app(\App\Services\AuditLogger::class);
-        $service = Mockery::mock(InstallService::class, [$auditLogger])
+        $twoFactorService = app(\App\Services\TwoFactorService::class);
+        $service = Mockery::mock(InstallService::class, [$auditLogger, $twoFactorService])
             ->makePartial()
             ->shouldAllowMockingProtectedMethods();
 
@@ -149,7 +151,8 @@ class InstallServiceTest extends TestCase
             ->with('db:seed', ['--class' => 'Database\\Seeders\\RolePermissionSeeder', '--force' => true]);
 
         $auditLogger = app(\App\Services\AuditLogger::class);
-        $service = Mockery::mock(InstallService::class, [$auditLogger])
+        $twoFactorService = app(\App\Services\TwoFactorService::class);
+        $service = Mockery::mock(InstallService::class, [$auditLogger, $twoFactorService])
             ->makePartial()
             ->shouldAllowMockingProtectedMethods();
 

@@ -3,12 +3,11 @@
 namespace App\Livewire\Install;
 
 use App\Services\InstallService;
+use App\Services\TwoFactorService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rules\Password;
-use Laravel\Fortify\RecoveryCode;
 use Livewire\Component;
-use PragmaRX\Google2FALaravel\Google2FA;
 use Throwable;
 
 class Wizard extends Component
@@ -141,13 +140,10 @@ class Wizard extends Component
         $this->resetTwoFactorState();
 
         try {
-            $google2fa = app(Google2FA::class);
-            $this->twoFactorSecret = $google2fa->generateSecretKey();
+            $twoFactorService = app(TwoFactorService::class);
+            $this->twoFactorSecret = $twoFactorService->generateSetupSecret();
             $this->qrCodeDataUrl = $this->generateQRCodeSVG();
-
-            $this->recoveryCodes = collect(range(1, 10))
-                ->map(fn () => RecoveryCode::generate())
-                ->toArray();
+            $this->recoveryCodes = $twoFactorService->generateRecoveryCodes(10);
 
         } catch (Throwable $e) {
             $this->currentStep = 2;
@@ -162,7 +158,7 @@ class Wizard extends Component
 
     protected function generateQRCodeSVG(): string
     {
-        return app(Google2FA::class)->getQRCodeInline(
+        return app(TwoFactorService::class)->generateQrCodeInline(
             $this->app_name,
             $this->email,
             $this->twoFactorSecret
@@ -181,8 +177,7 @@ class Wizard extends Component
         }
 
         try {
-            $google2fa = app(Google2FA::class);
-            $valid = $google2fa->verifyKey($this->twoFactorSecret, $this->testCode);
+            $valid = app(TwoFactorService::class)->verifyProvisioningCode($this->twoFactorSecret, $this->testCode);
 
             if ($valid) {
                 $this->testSuccess = true;

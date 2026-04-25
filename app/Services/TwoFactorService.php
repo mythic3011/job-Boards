@@ -8,11 +8,14 @@ use Laravel\Fortify\Actions\DisableTwoFactorAuthentication;
 use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
 use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
 use Laravel\Fortify\RecoveryCode;
+use Laravel\Fortify\Events\TwoFactorAuthenticationEnabled;
+use PragmaRX\Google2FALaravel\Google2FA;
 
 class TwoFactorService
 {
     public function __construct(
         private readonly TwoFactorAuthenticationProvider $provider,
+        private readonly Google2FA $google2FA,
         private readonly EnableTwoFactorAuthentication $enableAction,
         private readonly ConfirmTwoFactorAuthentication $confirmAction,
         private readonly DisableTwoFactorAuthentication $disableAction,
@@ -45,6 +48,72 @@ class TwoFactorService
         }
 
         return $this->verifyTotp($user, $code);
+    }
+
+    /**
+     * Verify a provisioning/install TOTP code against a raw Base32 secret.
+     */
+    public function verifyProvisioningCode(string $secret, string $code): bool
+    {
+        $normalizedSecret = trim($secret);
+        $normalizedCode = trim($code);
+
+        if ($normalizedSecret === '' || $normalizedCode === '') {
+            return false;
+        }
+
+        try {
+            return $this->provider->verify($normalizedSecret, $normalizedCode);
+        } catch (\Exception $e) {
+            \Log::error('2FA provisioning verification failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
+     * Generate a new provisioning/install secret using Fortify config length.
+     */
+    public function generateSetupSecret(): string
+    {
+        $secretLength = (int) config('fortify-options.two-factor-authentication.secret-length', 16);
+
+        return $this->google2FA->generateSecretKey($secretLength);
+    }
+
+    /**
+     * Generate QR data URL for provisioning/install setup.
+     */
+    public function generateQrCodeInline(string $appName, string $email, string $secret): string
+    {
+        return $this->google2FA->getQRCodeInline($appName, $email, $secret);
+    }
+
+    /**
+     * Apply pre-provisioned 2FA material (install/headless flow), already confirmed.
+     *
+     * @param  array<int, string>  $recoveryCodes
+     */
+    public function applyProvisionedSetup(User $user, string $secret, array $recoveryCodes = []): void
+    {
+        $normalizedSecret = trim($secret);
+        if ($normalizedSecret === '') {
+            return;
+        }
+
+        if ($recoveryCodes === []) {
+            $recoveryCodes = $this->generateRecoveryCodes();
+        }
+
+        $user->forceFill([
+            'two_factor_secret' => encrypt($normalizedSecret),
+            'two_factor_recovery_codes' => encrypt(json_encode($recoveryCodes)),
+            'two_factor_confirmed_at' => now(),
+        ])->save();
+
+        TwoFactorAuthenticationEnabled::dispatch($user);
     }
 
     /**
@@ -240,7 +309,7 @@ class TwoFactorService
     /**
      * Generate new recovery codes using Laravel Fortify's format.
      */
-    private function generateRecoveryCodes(int $count = 8): array
+    public function generateRecoveryCodes(int $count = 8): array
     {
         return collect(range(1, $count))
             ->map(fn () => RecoveryCode::generate())

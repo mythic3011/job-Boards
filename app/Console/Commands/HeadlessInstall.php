@@ -5,12 +5,11 @@ namespace App\Console\Commands;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\InstallService;
+use App\Services\TwoFactorService;
 use Illuminate\Console\Command;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Laravel\Fortify\RecoveryCode;
-use PragmaRX\Google2FALaravel\Google2FA;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 
 class HeadlessInstall extends Command
@@ -32,7 +31,7 @@ class HeadlessInstall extends Command
 
     public function __construct(
         private readonly InstallService $installService,
-        private readonly Google2FA $google2FA,
+        private readonly TwoFactorService $twoFactorService,
     ) {
         parent::__construct();
     }
@@ -96,15 +95,12 @@ class HeadlessInstall extends Command
             return CommandAlias::INVALID;
         }
 
-        $secretLength = (int) config('fortify-options.two-factor-authentication.secret-length', 16);
         $twoFactorSecret = trim((string) ($this->option('two-factor-secret') ?: ''));
         if ($twoFactorSecret === '') {
-            $twoFactorSecret = $this->google2FA->generateSecretKey($secretLength);
+            $twoFactorSecret = $this->twoFactorService->generateSetupSecret();
         }
 
-        $recoveryCodes = collect(range(1, 8))
-            ->map(static fn (): string => RecoveryCode::generate())
-            ->all();
+        $recoveryCodes = $this->twoFactorService->generateRecoveryCodes(8);
 
         $request = Request::create('/cli/install/headless', 'POST', [], [], [], [
             'REMOTE_ADDR' => '127.0.0.1',
