@@ -24,7 +24,7 @@ class HeadlessInstall extends Command
                             {--app-url= : Public application URL}
                             {--timezone= : Application timezone}
                             {--two-factor-secret= : Optional pre-generated Base32 TOTP secret}
-                            {--credential-output=stdout : How to emit bootstrap secrets [stdout|none|json]}
+                            {--credential-output=none : How to emit bootstrap secrets [stdout|none|json]}
                             {--install-demo-data : Seed demo data during install}';
 
     protected $description = 'Complete the first-install flow without the browser installer';
@@ -44,7 +44,7 @@ class HeadlessInstall extends Command
             return CommandAlias::SUCCESS;
         }
 
-        $credentialOutput = (string) ($this->option('credential-output') ?: 'stdout');
+        $credentialOutput = (string) ($this->option('credential-output') ?: 'none');
         if (! in_array($credentialOutput, ['stdout', 'none', 'json'], true)) {
             $this->error('credential-output must be one of: stdout, none, json');
 
@@ -127,8 +127,9 @@ class HeadlessInstall extends Command
         if ($credentialOutput === 'json') {
             $this->line(json_encode([
                 'admin_login_id' => $admin?->login_id,
-                'two_factor_secret' => $twoFactorSecret,
-                'recovery_codes' => $recoveryCodes,
+                'credential_output' => 'redacted',
+                'two_factor_secret' => '[REDACTED]',
+                'recovery_codes_count' => count($recoveryCodes),
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
             return CommandAlias::SUCCESS;
@@ -139,11 +140,8 @@ class HeadlessInstall extends Command
             $this->line('Admin login ID: '.$admin->login_id);
         }
         if ($credentialOutput === 'stdout') {
-            $this->line('Two-factor secret: '.$twoFactorSecret);
-            $this->line('Recovery codes:');
-            foreach ($recoveryCodes as $code) {
-                $this->line(' - '.$code);
-            }
+            $this->line('Two-factor secret: [REDACTED]');
+            $this->line('Recovery codes: [REDACTED]');
         }
 
         return CommandAlias::SUCCESS;

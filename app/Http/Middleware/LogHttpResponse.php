@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\HttpLogRedactionService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
@@ -11,6 +12,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class LogHttpResponse
 {
+    public function __construct(
+        private readonly HttpLogRedactionService $httpLogRedactionService,
+    ) {}
+
     /**
      * Handle an incoming request and log the response.
      */
@@ -63,12 +68,12 @@ class LogHttpResponse
         
         // Add additional context for errors
         if ($statusCode >= 400) {
-            $context['url'] = $request->fullUrl();
+            $context['url'] = $this->httpLogRedactionService->redactUrl($request->fullUrl());
             $context['user_agent'] = $this->sanitizeUserAgent($request->userAgent());
             
             // Add referer for 404s to track broken links
             if ($statusCode === 404 && $request->header('referer')) {
-                $context['referer'] = $request->header('referer');
+                $context['referer'] = $this->httpLogRedactionService->redactUrl($request->header('referer'));
             }
         }
         

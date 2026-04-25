@@ -38,20 +38,21 @@ class HeadlessInstallCommandTest extends TestCase
         $this->app->instance('request', $request);
     }
 
-    public function test_headless_install_completes_setup_once_and_outputs_bootstrap_2fa_material(): void
+    public function test_headless_install_completes_setup_once_without_emitting_raw_bootstrap_2fa_material_by_default(): void
     {
-        $this->artisan('install:headless', [
+        $exitCode = Artisan::call('install:headless', [
             '--admin-email' => 'admin@example.com',
             '--admin-password' => 'StrongPass123!',
             '--admin-name' => 'Root Admin',
             '--app-name' => 'Jobs Boards',
             '--app-url' => 'https://jb.mythic3011.com',
             '--timezone' => 'Asia/Hong_Kong',
-        ])
-            ->expectsOutputToContain('Headless installation completed.')
-            ->expectsOutputToContain('Two-factor secret:')
-            ->expectsOutputToContain('Recovery codes:')
-            ->assertExitCode(CommandAlias::SUCCESS);
+        ]);
+
+        $output = Artisan::output();
+        $this->assertSame(CommandAlias::SUCCESS, $exitCode);
+        $this->assertStringNotContainsString('Two-factor secret:', $output);
+        $this->assertStringNotContainsString('Recovery codes:', $output);
 
         $admin = User::query()->where('email', 'admin@example.com')->first();
 
@@ -64,6 +65,23 @@ class HeadlessInstallCommandTest extends TestCase
         $this->assertSame('https://jb.mythic3011.com', Setting::get('app_url'));
         $this->assertSame('Asia/Hong_Kong', Setting::get('timezone'));
         $this->assertSame(1, AuditLog::query()->where('event_type', 'setup.completed')->count());
+    }
+
+    public function test_headless_install_json_output_redacts_sensitive_bootstrap_values(): void
+    {
+        Setting::setBool('setup_completed', false);
+
+        $exitCode = Artisan::call('install:headless', [
+            '--admin-email' => 'json-admin@example.com',
+            '--admin-password' => 'StrongPass123!',
+            '--admin-name' => 'Json Admin',
+            '--credential-output' => 'json',
+        ]);
+
+        $output = Artisan::output();
+        $this->assertSame(CommandAlias::SUCCESS, $exitCode);
+        $this->assertStringNotContainsString('"recovery_codes":[', $output);
+        $this->assertStringNotContainsString('Two-factor secret:', $output);
     }
 
     public function test_headless_install_skips_when_setup_is_already_completed(): void
