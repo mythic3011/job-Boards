@@ -25,6 +25,13 @@ final class AppEnvMapContractTest extends TestCase
         'STATE_DIR',
     ];
 
+    private const REQUIRED_SECRET_SEMANTIC_ROLES = [
+        'laravel-application-secret',
+        'laravel-database-password',
+        'laravel-redis-password',
+        'canonical-audit-auth-service-secret',
+    ];
+
     private const ALLOWED_CLASSIFICATIONS = [
         'canonical',
         'compatibility-alias',
@@ -33,12 +40,17 @@ final class AppEnvMapContractTest extends TestCase
 
     private const ALLOWED_OWNERSHIP = [
         'operator',
+        'profile',
         'bootstrap',
+        'internal',
     ];
 
     private const ALLOWED_LIFECYCLE = [
+        'required',
         'defaulted',
+        'generated',
         'derived',
+        'injected',
     ];
 
     private const ALLOWED_TEMPLATE_ACTIONS = [
@@ -46,6 +58,29 @@ final class AppEnvMapContractTest extends TestCase
         'advanced-doc',
         'compatibility-only',
         'remove-normal',
+    ];
+
+    private const GENERATED_OR_INJECTED_SECRET_EXPECTATIONS = [
+        'APP_KEY' => [
+            'ownership' => ['bootstrap', 'profile'],
+            'lifecycle' => ['generated', 'injected'],
+            'templateAction' => ['advanced-doc', 'compatibility-only', 'remove-normal'],
+        ],
+        'DB_PASSWORD' => [
+            'ownership' => ['bootstrap', 'profile'],
+            'lifecycle' => ['generated', 'injected'],
+            'templateAction' => ['advanced-doc', 'compatibility-only', 'remove-normal'],
+        ],
+        'REDIS_PASSWORD' => [
+            'ownership' => ['bootstrap', 'profile'],
+            'lifecycle' => ['generated', 'injected', 'derived'],
+            'templateAction' => ['advanced-doc', 'compatibility-only', 'remove-normal'],
+        ],
+        'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => [
+            'ownership' => ['bootstrap', 'profile'],
+            'lifecycle' => ['generated', 'injected'],
+            'templateAction' => ['advanced-doc', 'compatibility-only', 'remove-normal'],
+        ],
     ];
 
     private string $repoRoot;
@@ -65,6 +100,9 @@ final class AppEnvMapContractTest extends TestCase
         $this->assertArrayHasKey('mappings', $mapping);
         $this->assertIsArray($mapping['mappings']);
         $this->assertNotEmpty($mapping['mappings']);
+        $this->assertArrayHasKey('secretSemanticRoles', $mapping);
+        $this->assertIsArray($mapping['secretSemanticRoles']);
+        $this->assertNotEmpty($mapping['secretSemanticRoles']);
 
         $requiredFields = [
             'name',
@@ -177,6 +215,52 @@ final class AppEnvMapContractTest extends TestCase
         $this->assertSame('STATE_DIR', $entries['GRAFANA_ADMIN_SECRET_FILE']['canonicalName'] ?? null);
         $this->assertSame('STATE_DIR', $entries['GRAFANA_DATASOURCES_FILE']['canonicalName'] ?? null);
         $this->assertSame('STATE_DIR', $entries['PROMETHEUS_WEB_CONFIG_FILE']['canonicalName'] ?? null);
+    }
+
+    public function test_mapping_declares_explicit_secret_semantic_roles_for_generated_or_injected_secret_contracts(): void
+    {
+        $mapping = $this->loadMapping();
+        $secretSemanticRoles = $mapping['secretSemanticRoles'] ?? [];
+
+        foreach (self::REQUIRED_SECRET_SEMANTIC_ROLES as $semanticRole) {
+            $this->assertContains(
+                $semanticRole,
+                $secretSemanticRoles,
+                sprintf('Expected app-env-map.json to declare "%s" as an explicit secret semantic role.', $semanticRole),
+            );
+        }
+    }
+
+    public function test_generated_or_injected_secret_entries_do_not_stay_in_operator_keep_normal_shape(): void
+    {
+        $mapping = $this->loadMapping();
+        $entries = $mapping['mappings'];
+
+        foreach (self::GENERATED_OR_INJECTED_SECRET_EXPECTATIONS as $entryName => $expectation) {
+            $this->assertArrayHasKey($entryName, $entries, sprintf('Expected "%s" to remain declared in app-env-map.json.', $entryName));
+
+            $entry = $entries[$entryName];
+
+            $this->assertContains(
+                $entry['ownership'] ?? null,
+                $expectation['ownership'],
+                sprintf('Expected "%s" ownership to align with bootstrap/profile-owned secret semantics.', $entryName),
+            );
+            $this->assertContains(
+                $entry['lifecycle'] ?? null,
+                $expectation['lifecycle'],
+                sprintf('Expected "%s" lifecycle to align with generated/injected secret semantics.', $entryName),
+            );
+            $this->assertContains(
+                $entry['templateAction'] ?? null,
+                $expectation['templateAction'],
+                sprintf('Expected "%s" templateAction to stay out of the normal operator template.', $entryName),
+            );
+            $this->assertFalse(
+                ($entry['ownership'] ?? null) === 'operator' && ($entry['templateAction'] ?? null) === 'keep-normal',
+                sprintf('Expected "%s" to stop using the operator-owned keep-normal shape.', $entryName),
+            );
+        }
     }
 
     /**

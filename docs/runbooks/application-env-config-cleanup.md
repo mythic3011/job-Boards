@@ -123,7 +123,9 @@ Generated secrets such as `APP_KEY`, `DB_PASSWORD`, `MONITORING_PASSWORD`, and
 `CANONICAL_AUDIT_AUTH_SERVICE_SECRET` should not remain in the normal
 operator-facing template just because bootstrap can leave them blank. If
 bootstrap can generate them for lab/demo, it should materialize them into
-derived runtime/secret files or compatibility env for existing consumers.
+derived runtime/secret files or compatibility env for existing consumers. In
+the PR2 semantic contract these entries should classify as bootstrap/profile
+owned generated or injected secrets, not `operator + keep-normal`.
 
 ## Semantic Role Grouping
 
@@ -187,7 +189,7 @@ as both ownership and lifecycle.
 |---|---|---|---|
 | `APP_NAME` | Laravel display/app name | default | Optional override. |
 | `APP_ENV` | Laravel runtime environment | default | Derived from CLI mode. |
-| `APP_KEY` | Laravel encryption key | derive | Generate for lab/demo or first-run only when allowed by the mode contract; validate/inject for production; never rotate implicitly. |
+| `APP_KEY` | Laravel encryption key | generate/inject | Generate for lab/demo or first-run only when allowed by the mode contract; validate/inject for production; never rotate implicitly. |
 | `APP_PREVIOUS_KEYS` | Laravel encryption fallback keys | rotation-only | Managed only by explicit key-rotation flow; never generated during normal bootstrap. |
 | `APP_DEBUG` | Debug mode | default | Derived from CLI mode. |
 | `APP_URL` | Public app URL | merge | Derived from `APP_DOMAIN`. |
@@ -234,7 +236,7 @@ as both ownership and lifecycle.
 | `DB_PORT` | DB service port | derive/default | Internal service wiring. |
 | `DB_DATABASE` | DB name | default | Optional override. |
 | `DB_USERNAME` | DB user | default | Optional override. |
-| `DB_PASSWORD` | DB password | derive/keep secret | Generate or inject. |
+| `DB_PASSWORD` | DB password | generate/inject | Generate for bundled lab/demo or inject from an external DB profile. |
 | `DB_SSLMODE` | Postgres SSL mode | default | Derived from DB topology. |
 | `INSTALL_GUARD_ENABLED` | Install route guard | default | Derived from mode; production safe. |
 | `INSTALL_ALLOWED_IPS` | Install guard allowlist | move to CLI/profile | Only if install route exposed. |
@@ -254,7 +256,7 @@ as both ownership and lifecycle.
 | `MEMCACHED_HOST` | Memcached host | remove | Framework-supported but not a supported bundled deployment service. |
 | `REDIS_CLIENT` | Redis PHP client | default | Not normal config. |
 | `REDIS_HOST` | Redis service hostname | derive/default | Internal service wiring. |
-| `REDIS_PASSWORD` | Redis password | derive/default | Not required for bundled unauthenticated Redis unless changed. |
+| `REDIS_PASSWORD` | Redis password | inject/profile-only | Not required for bundled unauthenticated Redis; only secure Redis profiles should inject it. |
 | `REDIS_PORT` | Redis service port | derive/default | Internal service wiring. |
 | `MAIL_MAILER` | Mail driver | default | Lab/demo log mail; production override later. |
 | `MAIL_FROM_ADDRESS` | Sender address | default/derive | Lab/demo may derive a placeholder sender from `APP_DOMAIN`. Production mail requires an explicit mail profile or documented external provider contract. |
@@ -288,7 +290,7 @@ as both ownership and lifecycle.
 | `PROMETHEUS_PASSWORD` | Prometheus plaintext override | merge | Advanced override; not primary. |
 | `PROMETHEUS_PASSWORD_HASH` | Prometheus bcrypt output | derive | Derived runtime artifact, secret-adjacent, and must not be logged or committed. |
 | `PROMETHEUS_WEB_CONFIG_FILE` | Generated Prometheus config path | derive | From `STATE_DIR`. |
-| `CANONICAL_AUDIT_AUTH_SERVICE_SECRET` | Audit HMAC secret | derive/keep secret | Generate unless externally injected. |
+| `CANONICAL_AUDIT_AUTH_SERVICE_SECRET` | Audit HMAC secret | generate/inject | Generate for bundled lab/demo unless an external auth-service profile injects it. |
 | `PORT` | Auth-service port | remove/default | Internal container port. |
 
 Current live-consumer note:
@@ -564,8 +566,12 @@ It also covers the current placeholder/removal candidates called out by the
 inventory: `BROADCAST_CONNECTION`, `VITE_APP_NAME`, and `MEMCACHED_HOST`.
 Within that proof subset, advanced integration keys such as `AWS_*` must be
 marked advanced-only and the removable placeholders above must be marked
-removable in `ops/bootstrap/app-env-map.json`. PR2 still does not shrink or
-delete `.env.example` entries.
+removable in `ops/bootstrap/app-env-map.json`. The generated or injected secret
+entries `APP_KEY`, `DB_PASSWORD`, `REDIS_PASSWORD`, and
+`CANONICAL_AUDIT_AUTH_SERVICE_SECRET` must also stop using the
+`operator + keep-normal` shape. Their secret-bearing semantic roles should be
+declared explicitly in the app env contract metadata, not inferred from fuzzy
+name matching. PR2 still does not shrink or delete `.env.example` entries.
 
 It should not:
 

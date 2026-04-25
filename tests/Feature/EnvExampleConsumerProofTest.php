@@ -8,18 +8,51 @@ use Tests\TestCase;
 
 final class EnvExampleConsumerProofTest extends TestCase
 {
-    private const REMOVABLE_PLACEHOLDERS = [
-        'BROADCAST_CONNECTION',
-        'VITE_APP_NAME',
-        'MEMCACHED_HOST',
-    ];
-
-    private const ADVANCED_ONLY_ENTRIES = [
-        'AWS_ACCESS_KEY_ID',
-        'AWS_SECRET_ACCESS_KEY',
-        'AWS_DEFAULT_REGION',
-        'AWS_BUCKET',
-        'AWS_USE_PATH_STYLE_ENDPOINT',
+    private const PROOF_SUBSET_EXPECTATIONS = [
+        'APP_KEY' => [
+            'templateAction' => 'advanced-doc',
+            'ownership' => 'bootstrap',
+            'lifecycle' => 'generated',
+        ],
+        'DB_PASSWORD' => [
+            'templateAction' => 'advanced-doc',
+            'ownership' => 'bootstrap',
+            'lifecycle' => 'generated',
+        ],
+        'REDIS_PASSWORD' => [
+            'templateAction' => 'advanced-doc',
+            'ownership' => 'profile',
+            'lifecycle' => 'injected',
+        ],
+        'CANONICAL_AUDIT_AUTH_SERVICE_SECRET' => [
+            'templateAction' => 'advanced-doc',
+            'ownership' => 'bootstrap',
+            'lifecycle' => 'generated',
+        ],
+        'AWS_ACCESS_KEY_ID' => [
+            'templateAction' => 'advanced-doc',
+        ],
+        'AWS_SECRET_ACCESS_KEY' => [
+            'templateAction' => 'advanced-doc',
+        ],
+        'AWS_DEFAULT_REGION' => [
+            'templateAction' => 'advanced-doc',
+        ],
+        'AWS_BUCKET' => [
+            'templateAction' => 'advanced-doc',
+        ],
+        'AWS_USE_PATH_STYLE_ENDPOINT' => [
+            'templateAction' => 'advanced-doc',
+        ],
+        'BROADCAST_CONNECTION' => [
+            'templateAction' => 'remove-normal',
+        ],
+        'VITE_APP_NAME' => [
+            'templateAction' => 'remove-normal',
+        ],
+        'MEMCACHED_HOST' => [
+            'templateAction' => 'remove-normal',
+        ],
     ];
 
     /**
@@ -337,7 +370,7 @@ final class EnvExampleConsumerProofTest extends TestCase
     {
         $envExampleKeys = $this->loadEnvExampleKeys();
         $mapping = $this->loadMapping();
-        $proofSubset = array_merge(array_keys(self::consumerProofCases()), self::REMOVABLE_PLACEHOLDERS);
+        $proofSubset = array_unique(array_merge(array_keys(self::consumerProofCases()), array_keys(self::PROOF_SUBSET_EXPECTATIONS)));
 
         foreach ($proofSubset as $entryName) {
             $this->assertContains($entryName, $envExampleKeys, sprintf('Expected "%s" to remain present in .env.example for the PR2 proof subset.', $entryName));
@@ -349,19 +382,27 @@ final class EnvExampleConsumerProofTest extends TestCase
             $this->assertNotSame('', trim((string) ($mapping[$entryName]['ownerProof'] ?? '')), sprintf('Expected "%s" to define non-empty ownerProof.', $entryName));
         }
 
-        foreach (self::ADVANCED_ONLY_ENTRIES as $entryName) {
-            $this->assertSame(
-                'advanced-doc',
-                $mapping[$entryName]['templateAction'] ?? null,
-                sprintf('Expected "%s" to be marked advanced-only in app-env-map.json.', $entryName),
-            );
+        foreach (self::PROOF_SUBSET_EXPECTATIONS as $entryName => $expectation) {
+            foreach ($expectation as $field => $expectedValue) {
+                $this->assertSame(
+                    $expectedValue,
+                    $mapping[$entryName][$field] ?? null,
+                    sprintf('Expected "%s" to declare %s=%s in app-env-map.json.', $entryName, $field, $expectedValue),
+                );
+            }
         }
+    }
 
-        foreach (self::REMOVABLE_PLACEHOLDERS as $entryName) {
-            $this->assertSame(
-                'remove-normal',
-                $mapping[$entryName]['templateAction'] ?? null,
-                sprintf('Expected "%s" to be marked removable in app-env-map.json.', $entryName),
+    public function test_generated_or_advanced_secret_subset_does_not_retain_operator_keep_normal_shape(): void
+    {
+        $mapping = $this->loadMapping();
+
+        foreach (['APP_KEY', 'DB_PASSWORD', 'REDIS_PASSWORD', 'CANONICAL_AUDIT_AUTH_SERVICE_SECRET'] as $entryName) {
+            $this->assertArrayHasKey($entryName, $mapping, sprintf('Expected "%s" to remain mapped.', $entryName));
+            $this->assertFalse(
+                ($mapping[$entryName]['ownership'] ?? null) === 'operator'
+                && ($mapping[$entryName]['templateAction'] ?? null) === 'keep-normal',
+                sprintf('Expected "%s" to stop appearing as operator-owned keep-normal in the proof subset.', $entryName),
             );
         }
     }

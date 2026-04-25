@@ -173,6 +173,17 @@ final class AppEnvCompatibilityValidationTest extends TestCase
         $this->assertStringContainsString('required canonical', strtolower($process->getErrorOutput()));
     }
 
+    public function test_validator_requires_explicit_secret_semantic_roles_contract_metadata(): void
+    {
+        $mapping = $this->loadMapping();
+        unset($mapping['secretSemanticRoles']);
+
+        $process = $this->runValidator($this->writeJsonFixture('mapping.json', $mapping));
+
+        $this->assertNotSame(0, $process->getExitCode());
+        $this->assertStringContainsString('secretSemanticRoles', $process->getErrorOutput());
+    }
+
     public function test_validator_requires_consumer_and_owner_proof_for_non_removable_entries(): void
     {
         $mapping = $this->loadMapping();
@@ -216,6 +227,81 @@ final class AppEnvCompatibilityValidationTest extends TestCase
             $this->assertStringContainsString('APP_URL', $process->getErrorOutput());
             $this->assertStringContainsString($field, $process->getErrorOutput());
         }
+    }
+
+    public function test_validator_rejects_internal_entries_exposed_in_operator_facing_templates(): void
+    {
+        $mapping = $this->loadMapping();
+        $mapping['mappings']['PROMETHEUS_WEB_CONFIG_FILE']['ownership'] = 'internal';
+        $mapping['mappings']['PROMETHEUS_WEB_CONFIG_FILE']['templateAction'] = 'keep-normal';
+
+        $process = $this->runValidator($this->writeJsonFixture('mapping.json', $mapping));
+
+        $this->assertNotSame(0, $process->getExitCode());
+        $this->assertStringContainsString('PROMETHEUS_WEB_CONFIG_FILE', $process->getErrorOutput());
+        $this->assertStringContainsString('internal', $process->getErrorOutput());
+        $this->assertStringContainsString('keep-normal', $process->getErrorOutput());
+    }
+
+    public function test_validator_rejects_required_entries_marked_remove_normal(): void
+    {
+        $mapping = $this->loadMapping();
+        $mapping['mappings']['APP_DOMAIN']['lifecycle'] = 'required';
+        $mapping['mappings']['APP_DOMAIN']['templateAction'] = 'remove-normal';
+
+        $process = $this->runValidator($this->writeJsonFixture('mapping.json', $mapping));
+
+        $this->assertNotSame(0, $process->getExitCode());
+        $this->assertStringContainsString('APP_DOMAIN', $process->getErrorOutput());
+        $this->assertStringContainsString('required', $process->getErrorOutput());
+        $this->assertStringContainsString('remove-normal', $process->getErrorOutput());
+    }
+
+    public function test_validator_rejects_generated_or_injected_secret_like_entries_kept_in_normal_template(): void
+    {
+        $mapping = $this->loadMapping();
+        $mapping['mappings']['APP_KEY']['ownership'] = 'operator';
+        $mapping['mappings']['APP_KEY']['lifecycle'] = 'generated';
+        $mapping['mappings']['APP_KEY']['templateAction'] = 'keep-normal';
+
+        $process = $this->runValidator($this->writeJsonFixture('mapping.json', $mapping));
+
+        $this->assertNotSame(0, $process->getExitCode());
+        $this->assertStringContainsString('APP_KEY', $process->getErrorOutput());
+        $this->assertStringContainsString('generated', $process->getErrorOutput());
+        $this->assertStringContainsString('keep-normal', $process->getErrorOutput());
+    }
+
+    public function test_validator_allows_generated_non_secret_metadata_with_key_like_name_when_semantic_role_is_not_secret(): void
+    {
+        $mapping = $this->loadMapping();
+        $mapping['mappings']['PUBLIC_KEY_ID'] = [
+            'name' => 'PUBLIC_KEY_ID',
+            'semanticRole' => 'public-key-id-metadata',
+            'canonicalName' => 'PUBLIC_KEY_ID',
+            'classification' => 'canonical',
+            'ownership' => 'bootstrap',
+            'lifecycle' => 'generated',
+            'templateAction' => 'keep-normal',
+            'valueDerivation' => 'identity',
+            'conflictPolicy' => 'canonical-source-of-truth',
+            'consumerProof' => 'A later metadata consumer may read a generated public key id without treating it as a secret.',
+            'ownerProof' => 'Bootstrap can publish non-secret metadata in the normal template when the semantic role is not secret-bearing.',
+        ];
+        $mapping['requiredCanonicalNames'][] = 'PUBLIC_KEY_ID';
+
+        $process = $this->runValidator(
+            $this->writeJsonFixture('mapping.json', $mapping),
+            [
+                'APP_DOMAIN' => 'jobs-board.lab',
+                'STATE_DIR' => $this->makeTempDir().'/state',
+                'PUBLIC_KEY_ID' => 'kid-123',
+            ],
+        );
+
+        $this->assertSame(0, $process->getExitCode(), $process->getErrorOutput());
+        $resolved = json_decode($process->getOutput(), true, 512, JSON_THROW_ON_ERROR);
+        $this->assertSame('kid-123', $resolved['PUBLIC_KEY_ID'] ?? null);
     }
 
     private function runValidator(string $mappingPath, ?array $values = null, array $environment = []): Process

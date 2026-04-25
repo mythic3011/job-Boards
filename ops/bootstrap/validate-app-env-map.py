@@ -21,12 +21,17 @@ ALLOWED_CLASSIFICATIONS = {
 
 ALLOWED_OWNERSHIP = {
     "operator",
+    "profile",
     "bootstrap",
+    "internal",
 }
 
 ALLOWED_LIFECYCLE = {
+    "required",
     "defaulted",
+    "generated",
     "derived",
+    "injected",
 }
 
 ALLOWED_TEMPLATE_ACTIONS = {
@@ -40,7 +45,6 @@ ALLOWED_CONFLICT_POLICIES = {
     "canonical-source-of-truth",
     "must-match-derived-canonical",
 }
-
 
 def load_json(path_text: str) -> dict:
     path = Path(path_text)
@@ -107,7 +111,7 @@ def derive_value(rule: str, canonical_value: str) -> str:
     raise ValueError(f'Unsupported valueDerivation "{rule}"')
 
 
-def validate_mapping(mapping: dict) -> tuple[dict[str, dict], list[str]]:
+def validate_mapping(mapping: dict) -> tuple[dict[str, dict], list[str], set[str]]:
     required_canonical_names = mapping.get("requiredCanonicalNames")
     if not isinstance(required_canonical_names, list) or not required_canonical_names:
         raise ValueError("app-env-map.json must define a non-empty requiredCanonicalNames list")
@@ -115,6 +119,15 @@ def validate_mapping(mapping: dict) -> tuple[dict[str, dict], list[str]]:
     required_canonical_names = [require_non_empty_string("requiredCanonicalNames", "value", name) for name in required_canonical_names]
     if len(set(required_canonical_names)) != len(required_canonical_names):
         raise ValueError("app-env-map.json must not repeat entries in requiredCanonicalNames")
+
+    secret_semantic_roles = mapping.get("secretSemanticRoles")
+    if not isinstance(secret_semantic_roles, list) or not secret_semantic_roles:
+        raise ValueError("app-env-map.json must define a non-empty secretSemanticRoles list")
+
+    secret_semantic_roles = {
+        require_non_empty_string("secretSemanticRoles", "value", role)
+        for role in secret_semantic_roles
+    }
 
     mappings = mapping.get("mappings")
     if not isinstance(mappings, dict) or not mappings:
@@ -130,6 +143,7 @@ def validate_mapping(mapping: dict) -> tuple[dict[str, dict], list[str]]:
         if name != entry_name:
             raise ValueError(f'{entry_name} must define "name" matching its mapping key')
 
+        semantic_role = require_non_empty_string(entry_name, "semanticRole", raw_entry.get("semanticRole"))
         classification = require_enum_member(
             entry_name,
             "classification",
@@ -137,13 +151,13 @@ def validate_mapping(mapping: dict) -> tuple[dict[str, dict], list[str]]:
             ALLOWED_CLASSIFICATIONS,
         )
         canonical_name = require_non_empty_string(entry_name, "canonicalName", raw_entry.get("canonicalName"))
-        require_enum_member(
+        ownership = require_enum_member(
             entry_name,
             "ownership",
             require_non_empty_string(entry_name, "ownership", raw_entry.get("ownership")),
             ALLOWED_OWNERSHIP,
         )
-        require_enum_member(
+        lifecycle = require_enum_member(
             entry_name,
             "lifecycle",
             require_non_empty_string(entry_name, "lifecycle", raw_entry.get("lifecycle")),
@@ -170,10 +184,30 @@ def validate_mapping(mapping: dict) -> tuple[dict[str, dict], list[str]]:
             require_non_empty_string(entry_name, "consumerProof", raw_entry.get("consumerProof"))
             require_non_empty_string(entry_name, "ownerProof", raw_entry.get("ownerProof"))
 
+        if ownership == "internal" and template_action in {"keep-normal", "advanced-doc"}:
+            raise ValueError(
+                f'{entry_name} cannot use ownership "{ownership}" with templateAction "{template_action}"; '
+                "internal values must stay out of operator-facing templates"
+            )
+
+        if lifecycle == "required" and template_action == "remove-normal":
+            raise ValueError(
+                f'{entry_name} cannot use lifecycle "{lifecycle}" with templateAction "{template_action}"'
+            )
+
+        if lifecycle in {"generated", "injected"} and template_action == "keep-normal" and semantic_role in secret_semantic_roles:
+            raise ValueError(
+                f'{entry_name} cannot use lifecycle "{lifecycle}" with templateAction "{template_action}" '
+                "for a generated or injected secret-like value"
+            )
+
         normalized_entries[entry_name] = {
             **raw_entry,
+            "semanticRole": semantic_role,
             "classification": classification,
             "canonicalName": canonical_name,
+            "ownership": ownership,
+            "lifecycle": lifecycle,
             "templateAction": template_action,
             "valueDerivation": value_derivation,
             "conflictPolicy": conflict_policy,
@@ -210,7 +244,7 @@ def validate_mapping(mapping: dict) -> tuple[dict[str, dict], list[str]]:
         if conflict_policy != "must-match-derived-canonical":
             raise ValueError(f'{entry_name} must declare conflictPolicy "must-match-derived-canonical"')
 
-    return normalized_entries, required_canonical_names
+    return normalized_entries, required_canonical_names, secret_semantic_roles
 
 
 def validate_explicit_values(mappings: dict[str, dict], required_canonical_names: list[str], values: dict) -> dict[str, str]:
@@ -276,7 +310,7 @@ def main() -> int:
 
     try:
         mapping = load_json(sys.argv[1])
-        mappings, required_canonical_names = validate_mapping(mapping)
+        mappings, required_canonical_names, _secret_semantic_roles = validate_mapping(mapping)
 
         if len(sys.argv) == 2:
             return 0

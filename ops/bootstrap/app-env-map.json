@@ -4,6 +4,13 @@
     "APP_DOMAIN",
     "STATE_DIR"
   ],
+  "secretSemanticRoles": [
+    "laravel-application-secret",
+    "laravel-database-password",
+    "laravel-redis-password",
+    "aws-secret-access-key",
+    "canonical-audit-auth-service-secret"
+  ],
   "mappings": {
     "APP_DOMAIN": {
       "name": "APP_DOMAIN",
@@ -49,13 +56,13 @@
       "semanticRole": "laravel-application-secret",
       "canonicalName": "APP_KEY",
       "classification": "canonical",
-      "ownership": "operator",
-      "lifecycle": "defaulted",
-      "templateAction": "keep-normal",
+      "ownership": "bootstrap",
+      "lifecycle": "generated",
+      "templateAction": "advanced-doc",
       "valueDerivation": "identity",
       "conflictPolicy": "canonical-source-of-truth",
       "consumerProof": "Laravel config/app.php consumes APP_KEY as the encryption key for the application cipher.",
-      "ownerProof": "Until a later PR moves APP_KEY generation behind bootstrap, the current template still treats it as an explicit application secret record."
+      "ownerProof": "Bootstrap owns first-run APP_KEY generation for bundled lab/demo flows, while production profiles must inject or validate the secret outside the normal template path."
     },
     "APP_DEBUG": {
       "name": "APP_DEBUG",
@@ -335,13 +342,13 @@
       "semanticRole": "laravel-database-password",
       "canonicalName": "DB_PASSWORD",
       "classification": "canonical",
-      "ownership": "operator",
-      "lifecycle": "defaulted",
-      "templateAction": "keep-normal",
+      "ownership": "bootstrap",
+      "lifecycle": "generated",
+      "templateAction": "advanced-doc",
       "valueDerivation": "identity",
       "conflictPolicy": "canonical-source-of-truth",
       "consumerProof": "Laravel config/database.php consumes DB_PASSWORD for the application database password.",
-      "ownerProof": "Until the later bootstrap bridge materializes or injects database secrets, the compatibility template still treats DB_PASSWORD as an explicit env record."
+      "ownerProof": "Bootstrap owns the bundled lab/demo database-secret generation path, while production or external database profiles must inject or validate DB_PASSWORD outside the normal template contract."
     },
     "REDIS_CLIENT": {
       "name": "REDIS_CLIENT",
@@ -374,13 +381,13 @@
       "semanticRole": "laravel-redis-password",
       "canonicalName": "REDIS_PASSWORD",
       "classification": "canonical",
-      "ownership": "operator",
-      "lifecycle": "defaulted",
-      "templateAction": "keep-normal",
+      "ownership": "profile",
+      "lifecycle": "injected",
+      "templateAction": "advanced-doc",
       "valueDerivation": "identity",
       "conflictPolicy": "canonical-source-of-truth",
       "consumerProof": "Laravel config/database.php consumes REDIS_PASSWORD for Redis authentication when a secured Redis deployment is used.",
-      "ownerProof": "The compatibility template still treats REDIS_PASSWORD as the current Redis auth input when operators enable Redis authentication."
+      "ownerProof": "Redis authentication belongs to an advanced secured-Redis profile, so the secret must be injected by that profile instead of staying in the normal bundled template."
     },
     "REDIS_PORT": {
       "name": "REDIS_PORT",
@@ -634,13 +641,13 @@
       "semanticRole": "canonical-audit-auth-service-secret",
       "canonicalName": "CANONICAL_AUDIT_AUTH_SERVICE_SECRET",
       "classification": "canonical",
-      "ownership": "operator",
-      "lifecycle": "defaulted",
-      "templateAction": "keep-normal",
+      "ownership": "bootstrap",
+      "lifecycle": "generated",
+      "templateAction": "advanced-doc",
       "valueDerivation": "identity",
       "conflictPolicy": "canonical-source-of-truth",
       "consumerProof": "Laravel config/canonical_audit_ingestion.php consumes CANONICAL_AUDIT_AUTH_SERVICE_SECRET for auth-service request verification.",
-      "ownerProof": "Until the later bootstrap bridge materializes or injects this shared secret, the current template still records it as an explicit env input."
+      "ownerProof": "Bootstrap owns the bundled shared-secret generation path for lab/demo, while production or external auth-service profiles must inject the secret outside the normal template contract."
     },
     "BROADCAST_CONNECTION": {
       "name": "BROADCAST_CONNECTION",
