@@ -18,7 +18,7 @@ Repo-first remote deployment now lives under `ops/deploy/`:
   - builds a production-style profile from `TARGET_*` environment variables
 - `ops/deploy/vps-deploy.sh lab-env [git-ref]`
   - reusable lab target
-  - direct bind target for isolated lab VMs
+  - keeps the app nginx on loopback high ports so host-level reverse proxying can own `80/443`
   - supports DHCP or static subnet provisioning through env overrides
 
 Example generic reverse-proxy deploy:
@@ -152,21 +152,15 @@ The local convenience bootstrap now treats these five values as the host-bound p
 
 `bootstrap-env.sh` persists missing defaults for that full set and silently reassigns any occupied local port into `3001-9001` before its final audit. `install.sh` checks the same five variables before starting the combined stack and offers to rewrite blocked `.env` entries into the same range. That rewrite is local convenience only. It does not relax the blue-team VM proof requirement that real host `80/443` ownership be cleared before app-plane bootstrap.
 
-If you want to bring the split planes up manually, export the correct env files before each compose command.
-
-App plane:
+For normal local bring-up, use the combined compose surface only:
 
 ```bash
-zsh -lc 'set -a; source .env; set +a; docker compose -f compose.app.yml up -d'
+docker compose up -d --build
 ```
 
-Obs plane:
+`compose.yaml` now includes an `obs-bootstrap-init` one-shot service that prepares obs runtime artifacts before auth-service, Prometheus, and Grafana start.
 
-```bash
-zsh -lc 'set -a; source .env; source .blue-team-vm/runtime/obs.generated.env; set +a; docker compose -f compose.obs.yml up -d'
-```
-
-The obs plane depends on final runtime values such as `GRAFANA_ADMIN_SECRET_FILE` and `PROMETHEUS_WEB_CONFIG_FILE`. `.blue-team-vm/runtime/obs.generated.env` now also carries the compose-side runtime inputs that follow-up `bootstrap-obs.sh verify` needs for interpolation. A bare `docker compose` invocation without that generated env should be treated as missing runtime preparation, not as proof that the deployment contract is broken.
+Split-plane manual commands remain an advanced/debug path only. They are not the normal local operator flow.
 The split-plane shell entrypoints now treat `app-plane` as a shared external network. `./ops/app/05-compose-up.sh` and `./ops/bootstrap/bootstrap-obs.sh apply` will create the default `${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane` when it is absent and only auto-detect an existing `*_app-plane` network when its subnet matches the fixed `172.29.0.0/24` contract used by the compose files. Raw `docker compose -f compose.app.yml ...` and `docker compose -f compose.obs.yml ...` still do not perform that detection or creation for you.
 If your local app plane is owned by another compose project or worktree, export `BT_APP_PLANE_NETWORK_NAME=<existing_app_plane_network>` before manual split-plane compose commands. Non-default app-plane subnets are not supported by the current compose contract because nginx and trusted-proxy bindings are pinned to `172.29.0.x`.
 Auth-service healthchecks in both `compose.yaml` and `compose.obs.yml` probe `http://127.0.0.1:3000/health` as a single fixed container-side authority. Host-shell `PORT` no longer affects the compose startup gate.

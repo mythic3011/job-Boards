@@ -63,8 +63,10 @@ Local repository note:
 - blue-team VM host runs default to `/var/lib/blue-team-vm`
 - local repo workflows may override `BT_STATE_DIR` to `${REPO_ROOT}/.blue-team-vm`
 - the repo-local convenience stack treats `APP_PORT`, `APP_SSL_PORT`, `VITE_PORT`, `FORWARD_DB_PORT`, and `FORWARD_REDIS_PORT` as the host-bound port set that bootstrap/install may populate or rewrite
-- when local developers start `compose.obs.yml` manually, they must export both source-layer `.env` values and `${BT_STATE_DIR}/runtime/obs.generated.env`
-- `obs.generated.env` is expected to carry both rendered file paths and the persisted compose-side runtime inputs needed for follow-up `bootstrap-obs.sh verify` calls
+- normal local operator flow should run `docker compose up` against `compose.yaml` only
+- `compose.yaml` runs `obs-bootstrap-init` first and then starts auth-service/Prometheus/Grafana with generated runtime artifacts
+- when local developers start `compose.obs.yml` manually (advanced/debug only), they must export both source-layer `.env` values and `${BT_STATE_DIR}/runtime/obs.generated.env`
+- `obs.generated.env` carries rendered file paths and persisted compose-side runtime inputs needed for follow-up `bootstrap-obs.sh verify` calls
 - split-plane shell entrypoints treat `app-plane` as a shared external network, not a per-compose-owned network
 - `./ops/app/05-compose-up.sh` and `./ops/bootstrap/bootstrap-obs.sh apply` may create the default `${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane` when it is absent
 - those shell entrypoints may auto-detect a single existing `*_app-plane` network only when its subnet matches the fixed `172.29.0.0/24` compose contract
@@ -72,7 +74,7 @@ Local repository note:
 - non-default app-plane subnets are not supported by the current compose contract because nginx and trusted-proxy addresses are pinned to `172.29.0.x`
 - raw `docker compose -f compose.app.yml ...` and `docker compose -f compose.obs.yml ...` do not perform shared-network detection or creation
 - a missing `PROMETHEUS_WEB_CONFIG_FILE` or `GRAFANA_ADMIN_SECRET_FILE` during local `docker compose` interpolation is a runtime artifact preparation failure, not by itself proof that the obs deployment contract is wrong
-- auth-service healthchecks in `compose.yaml` and `compose.obs.yml` follow `${PORT:-3000}`, so an explicit auth-service `PORT` override remains part of the supported runtime contract instead of requiring a parallel healthcheck edit
+- auth-service healthchecks in `compose.yaml` and `compose.obs.yml` use fixed `127.0.0.1:3000`; host-shell `PORT` is not a supported healthcheck override contract
 
 ## Startup Gating Versus Functional Proof
 
