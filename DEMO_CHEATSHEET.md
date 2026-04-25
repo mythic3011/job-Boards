@@ -57,7 +57,6 @@ docker exec jobs-boards-crowdsec cscli decisions list
 ## Pre-flight
 - [ ] `.env` has non-blank `MONITORING_ADMIN_USERNAME`, `MONITORING_PASSWORD`
 - [ ] `.blue-team-vm/runtime/obs.generated.env` exists (compose init/bootstrap artifact)
-- [ ] `.env` has `BT_APP_PLANE_NETWORK_NAME=jobs-borads_app-plane` unless you intentionally overrode it (advanced/split-plane debug)
 - [ ] Admin 2FA enrolled
 - [ ] Seeder ran (demo users exist)
 - [ ] 2 terminals: nginx log + laravel log

@@ -65,16 +65,10 @@ Local repository note:
 - the repo-local convenience stack treats `APP_PORT`, `APP_SSL_PORT`, `VITE_PORT`, `FORWARD_DB_PORT`, and `FORWARD_REDIS_PORT` as the host-bound port set that bootstrap/install may populate or rewrite
 - normal local operator flow should run `docker compose up` against `compose.yaml` only
 - `compose.yaml` runs `obs-bootstrap-init` first and then starts auth-service/Prometheus/Grafana with generated runtime artifacts
-- when local developers start `compose.obs.yml` manually (advanced/debug only), they must export both source-layer `.env` values and `${BT_STATE_DIR}/runtime/obs.generated.env`
-- `obs.generated.env` carries rendered file paths and persisted compose-side runtime inputs needed for follow-up `bootstrap-obs.sh verify` calls
-- split-plane shell entrypoints treat `app-plane` as a shared external network, not a per-compose-owned network
-- `./ops/app/05-compose-up.sh` and `./ops/bootstrap/bootstrap-obs.sh apply` may create the default `${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane` when it is absent
-- those shell entrypoints may auto-detect a single existing `*_app-plane` network only when its subnet matches the fixed `172.29.0.0/24` compose contract
-- when local developers start `compose.app.yml` or `compose.obs.yml` manually against an app plane owned by another compose project/worktree, they must export `BT_APP_PLANE_NETWORK_NAME` to that existing app-plane network name
-- non-default app-plane subnets are not supported by the current compose contract because nginx and trusted-proxy addresses are pinned to `172.29.0.x`
-- raw `docker compose -f compose.app.yml ...` and `docker compose -f compose.obs.yml ...` do not perform shared-network detection or creation
+- split-plane compose files remain internal/legacy compatibility surfaces; they are not a public operator contract
+- the historical split app-plane subnet contract remains `172.29.0.0/24` for compatibility checks
 - a missing `PROMETHEUS_WEB_CONFIG_FILE` or `GRAFANA_ADMIN_SECRET_FILE` during local `docker compose` interpolation is a runtime artifact preparation failure, not by itself proof that the obs deployment contract is wrong
-- auth-service healthchecks in `compose.yaml` and `compose.obs.yml` use fixed `127.0.0.1:3000`; host-shell `PORT` is not a supported healthcheck override contract
+- auth-service healthchecks use fixed `127.0.0.1:3000`; host-shell `PORT` is not a supported healthcheck override contract
 
 ## Startup Gating Versus Functional Proof
 
@@ -119,23 +113,12 @@ Observable grading contract:
 
 ## Config Contract Rules
 
-- Compose ownership for the blue-team VM flow is fixed:
-  - `compose.app.yml` is the app-plane source of truth.
-  - `compose.obs.yml` is the obs-plane source of truth.
-  - `compose.yaml` is a combined local/dev Compose surface and is not the bootstrap source of truth.
-- The runner and smoke flow use the split files:
-  - `./setup-blue-team-vm.sh app` uses `compose.app.yml`
-  - `./setup-blue-team-vm.sh obs` uses `compose.obs.yml`
-  - `./setup-blue-team-vm.sh verify` evaluates app and obs state through those split files
-- app smokes default to `compose.app.yml`
-- obs isolation smoke defaults to `compose.obs.yml`
-- Manual local compose commands must mirror that split truth:
-  - export `.env` and a repo-local `BT_HONEYPOT_SOURCE` before `docker compose -f compose.app.yml ...`
-  - export `.env` and `${BT_STATE_DIR}/runtime/obs.generated.env` before `docker compose -f compose.obs.yml ...`
-- `install.sh full dev` is a local convenience path only:
-  - it uses `docker compose -f compose.yaml ...` for the combined local stack
-  - it must not be treated as blue-team VM runtime contract evidence
-  - it intentionally avoids `down --remove-orphans` so it does not tear down split-plane services that may already be running in the same workspace
+- Compose operator contract for local/dev is `compose.yaml`.
+- Normal bring-up and re-bootstrap should use:
+  - `docker compose up -d --build`
+  - `docker compose up --build app-bootstrap-init obs-bootstrap-init` (init-only refresh)
+- `install.sh full dev` is legacy wrapper compatibility and must not be treated as separate runtime truth.
+- Split compose files (`compose.app.yml`, `compose.obs.yml`) are internal compatibility/test artifacts and must not be documented as the primary operator path.
 - Non-Linux local runtimes may use the child plane verifiers for app/obs readiness evidence, but host-kernel and host-port proofs remain Linux-VM-only:
   - `./ops/bootstrap/bootstrap-app.sh verify` may emit `app.host.local_ports = SKIPPED`
   - `./setup-blue-team-vm.sh verify` still requires the actual Linux VM runtime and may fail preflight outside it
@@ -143,12 +126,8 @@ Observable grading contract:
   - canonical operator inputs: `MONITORING_ADMIN_USERNAME`, `MONITORING_PASSWORD`
   - legacy compatibility aliases (not normal operator inputs): `GRAFANA_PASSWORD`, `PROMETHEUS_PASSWORD`
   - final runtime values: `MONITORING_PASSWORD_HASH`, `GRAFANA_ADMIN_SECRET_FILE`, `PROMETHEUS_PASSWORD_HASH`, `SESSION_SECRET`
-- `compose.obs.yml` must consume final runtime values only. It must not bypass bootstrap by reading plaintext Grafana or Prometheus credentials directly.
-- Any change that affects live blue-team VM runtime truth must land in `compose.app.yml` or `compose.obs.yml` first.
-- Security-contract fixes for the blue-team VM must be validated against `compose.app.yml` and `compose.obs.yml`; updating `compose.yaml` alone is not runtime contract evidence.
-- Do not treat `compose.yaml` as evidence that the blue-team VM bootstrap contract has been updated.
-- If an operator, smoke, or verify command still references `compose.yaml`, treat that as drift and correct the split-file path instead of extending the combined file.
-- If local combined developer behavior needs to mirror the split-file security contract, open a dedicated `compose.yaml` reconcile slice instead of mixing it into bootstrap work.
+- Combined compose services must consume final runtime values and must not bypass bootstrap by reading plaintext Grafana/Prometheus credentials directly.
+- Any change that affects live local runtime truth must land in `compose.yaml` first.
 
 ## Repo-first remote deploy profiles
 

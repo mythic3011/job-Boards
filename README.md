@@ -8,7 +8,7 @@ Local default flow:
 - `compose.yaml` runs `app-bootstrap-init` to ensure PHP deps (`vendor/`) and frontend build artifacts (`public/build/manifest.json`) exist before app services start
 - `compose.yaml` runs `obs-bootstrap-init` and prepares required obs runtime artifacts before starting auth-service/Prometheus/Grafana
 - core app/DB defaults are now embedded in `compose.yaml`, so local `docker compose up` does not require a pre-filled root `.env` file for first boot
-- `compose.app.yml` and `compose.obs.yml` remain advanced/debug split-plane surfaces
+- `compose.app.yml` and `compose.obs.yml` are legacy/internal split-plane artifacts for compatibility checks, not the normal operator flow
 
 ## Remote Deployment Targets
 
@@ -143,9 +143,9 @@ For local testing, use:
 docker compose up -d --build
 ```
 
-`install.sh full dev` remains available as a wrapper path, but the normal local operator flow is direct `docker compose up`.
+`install.sh full dev` remains available as legacy wrapper compatibility, but the normal local operator flow is direct `docker compose up`.
 
-The local convenience bootstrap now treats these five values as the host-bound port contract:
+The local convenience bootstrap treats these five values as the host-bound port contract:
 
 - `APP_PORT`
 - `APP_SSL_PORT`
@@ -161,17 +161,12 @@ For normal local bring-up, use the combined compose surface only:
 docker compose up -d --build
 ```
 
-`compose.yaml` now includes an `obs-bootstrap-init` one-shot service that prepares obs runtime artifacts before auth-service, Prometheus, and Grafana start.
-
-Split-plane manual commands remain an advanced/debug path only. They are not the normal local operator flow.
-The split-plane shell entrypoints now treat `app-plane` as a shared external network. `./ops/app/05-compose-up.sh` and `./ops/bootstrap/bootstrap-obs.sh apply` will create the default `${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane` when it is absent and only auto-detect an existing `*_app-plane` network when its subnet matches the fixed `172.29.0.0/24` contract used by the compose files. Raw `docker compose -f compose.app.yml ...` and `docker compose -f compose.obs.yml ...` still do not perform that detection or creation for you.
-If your local app plane is owned by another compose project or worktree, export `BT_APP_PLANE_NETWORK_NAME=<existing_app_plane_network>` before manual split-plane compose commands. Non-default app-plane subnets are not supported by the current compose contract because nginx and trusted-proxy bindings are pinned to `172.29.0.x`.
-Auth-service healthchecks in both `compose.yaml` and `compose.obs.yml` probe `http://127.0.0.1:3000/health` as a single fixed container-side authority. Host-shell `PORT` no longer affects the compose startup gate.
-Resolver-consumer precedence applies to shell/bootstrap wrappers only: explicit shell env wins, generated obs runtime env overrides source-layer `.env`, and source-layer `.env` only fills missing values. Compose keeps Docker's own interpolation and container-environment precedence rules.
+`compose.yaml` includes `app-bootstrap-init` and `obs-bootstrap-init` one-shot init services that prepare runtime artifacts before app/obs services start.
+Auth-service healthchecks in the combined stack probe fixed `http://127.0.0.1:3000/health`; host-shell `PORT` is not part of the healthcheck contract.
 
 ## Runtime Artifact Contract
 
-Obs bootstrap renders and materializes final runtime artifacts before `compose.obs.yml` can be trusted:
+Obs bootstrap renders and materializes final runtime artifacts before monitoring services can be trusted:
 
 - `.blue-team-vm/runtime/obs.generated.env`
 - `.blue-team-vm/runtime/grafana-admin-secret`
@@ -180,7 +175,7 @@ Obs bootstrap renders and materializes final runtime artifacts before `compose.o
 If those files are missing locally, regenerate them with:
 
 ```bash
-BT_STATE_DIR="$(pwd)/.blue-team-vm" BT_COMPOSE_OBS_FILE="$(pwd)/compose.obs.yml" ./ops/bootstrap/bootstrap-obs.sh prepare
+docker compose up --build app-bootstrap-init obs-bootstrap-init
 ```
 
 Obs path derivation authority now lives at `ops/config/config-contract.yml`.
@@ -198,7 +193,7 @@ This project has three intentional test entrypoints across two authority levels:
 `composer test:sqlite` is not evidence that the full default or PostgreSQL path passed. Read [docs/runbooks/test-verification-paths.md](docs/runbooks/test-verification-paths.md) before treating sqlite-safe output as full verification.
 If you are working in a git worktree, do not symlink `vendor/` from another checkout; use a real worktree-local dependency install and `composer test:worktree` instead.
 
-For a running local stack, prefer `docker exec jobs-boards-laravel.test composer test` over bare `docker compose exec ...`; it avoids re-interpolating the combined compose file when obs runtime artifacts are already mounted. When project shell wrappers do invoke Compose, that resolver-consumer precedence remains explicit shell exports first, generated obs runtime artifacts second, and source-layer `.env` last for missing values only.
+For a running local stack, prefer `docker exec jobs-boards-laravel.test composer test` over bare `docker compose exec ...`; it avoids extra interpolation churn while runtime artifacts are already mounted.
 
 ## Verification
 
@@ -267,7 +262,7 @@ The guest-side flow also normalizes the smoke/runtime boundary:
 
 - `guest-install-deps.sh` prepares the current SSH user for non-root smoke execution through the `docker` group
 - `ops/smoke/run-all.sh` is executed from the extracted repo root with explicit `RUNNER`, `APP_COMPOSE_FILE`, and `OBS_COMPOSE_FILE`
-- compose state evidence is collected through `ops/lib/common.sh` / `bt_compose`, not by bypassing the split-plane runtime env contract with raw `docker compose`
+- compose state evidence is collected through `ops/lib/common.sh` / `bt_compose`, not by bypassing bootstrap runtime env loading with ad-hoc raw `docker compose` calls
 
 The host proof bundle now collects metadata-safe guest evidence under `guest-output/`, including:
 
@@ -285,6 +280,7 @@ Raw VM-local obs runtime files such as `obs.generated.env` and `obs.generated-se
 
 ## Deployment Notes
 
-- Security-contract fixes for the blue-team VM must land in `compose.app.yml` or `compose.obs.yml` first.
-- Updating `compose.yaml` alone does not update the blue-team VM runtime contract.
-- If an operator, bootstrap, or smoke path still depends on `compose.yaml`, treat that as drift and fix the split-file path instead of extending the combined file.
+- For local/dev operator flow, `compose.yaml` is the primary runtime contract.
+- Split compose files are internal compatibility artifacts and must not become required operator commands.
+- Historical split-plane compatibility checks keep the app-plane subnet contract at `172.29.0.0/24`.
+- Runtime contract changes should keep bootstrap-derived artifacts (`obs.generated.env`, rendered configs, runtime secrets) consistent with `compose.yaml`.
