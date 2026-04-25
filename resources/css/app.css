@@ -645,6 +645,24 @@ html[data-theme-mode="dark"][data-theme-accent="forest"] {
     color: var(--app-accent-soft-fg);
 }
 
+.theme-icon-tile-info {
+    background: var(--app-info-bg);
+    border: 1px solid var(--app-info-border);
+    color: var(--app-info-fg);
+}
+
+.theme-icon-tile-success {
+    background: var(--app-success-bg);
+    border: 1px solid var(--app-success-border);
+    color: var(--app-success-fg);
+}
+
+.theme-icon-tile-warning {
+    background: var(--app-warning-bg);
+    border: 1px solid var(--app-warning-border);
+    color: var(--app-warning-fg);
+}
+
 .theme-table-shell {
     background: var(--app-panel-bg);
     border-color: var(--app-panel-border);

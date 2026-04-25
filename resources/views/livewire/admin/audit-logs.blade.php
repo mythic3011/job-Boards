@@ -377,44 +377,44 @@ new class extends Component
 
 <div>
     <div class="flex items-center justify-between mb-6">
-        <h1 class="text-3xl font-bold">Audit Logs</h1>
+        <h1 class="theme-text-strong text-3xl font-bold">Audit Logs</h1>
     </div>
 
     <!-- Stats -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <x-ui.stat-card label="Events Today" :value="$this->stats['total_today']" icon-color="text-indigo-600">
+        <x-ui.stat-card label="Events Today" :value="$this->stats['total_today']" icon-color="theme-signal-accent">
             <x-slot:icon><x-heroicon-o-chart-bar class="h-12 w-12" /></x-slot:icon>
         </x-ui.stat-card>
 
-        <x-ui.stat-card label="Failed Logins" :value="$this->stats['failed_logins']" icon-color="text-yellow-600">
+        <x-ui.stat-card label="Failed Logins" :value="$this->stats['failed_logins']" icon-color="theme-signal-warning">
             <x-slot:icon><x-heroicon-o-exclamation-triangle class="h-12 w-12" /></x-slot:icon>
         </x-ui.stat-card>
 
-        <x-ui.stat-card label="Suspicious" :value="$this->stats['suspicious']" icon-color="text-orange-600">
+        <x-ui.stat-card label="Suspicious" :value="$this->stats['suspicious']" icon-color="theme-signal-warning">
             <x-slot:icon><x-heroicon-o-shield-exclamation class="h-12 w-12" /></x-slot:icon>
         </x-ui.stat-card>
 
-        <x-ui.stat-card label="Locked Accounts" :value="$this->stats['locked_accounts']" icon-color="text-red-600">
+        <x-ui.stat-card label="Locked Accounts" :value="$this->stats['locked_accounts']" icon-color="theme-signal-danger">
             <x-slot:icon><x-heroicon-o-lock-closed class="h-12 w-12" /></x-slot:icon>
         </x-ui.stat-card>
     </div>
 
     <div class="mb-4 flex flex-wrap items-center gap-2">
         @php
-            $chipBase = 'inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition-colors';
+            $chipBase = 'theme-button inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors';
         @endphp
 
-        <button type="button" wire:click="applyQuickFilter('admin_actions')" class="{{ $chipBase }} {{ $quickFilter === 'admin_actions' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Admin Actions</button>
-        <button type="button" wire:click="applyQuickFilter('company_actions')" class="{{ $chipBase }} {{ $quickFilter === 'company_actions' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Company Actions</button>
-        <button type="button" wire:click="applyQuickFilter('individual_actions')" class="{{ $chipBase }} {{ $quickFilter === 'individual_actions' ? 'bg-indigo-600 text-white ring-indigo-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Individual Actions</button>
-        <button type="button" wire:click="applyQuickFilter('failed_requests')" class="{{ $chipBase }} {{ $quickFilter === 'failed_requests' ? 'bg-rose-600 text-white ring-rose-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Failed Requests</button>
-        <button type="button" wire:click="applyQuickFilter('application_submitted')" class="{{ $chipBase }} {{ $quickFilter === 'application_submitted' ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Application Submitted</button>
-        <button type="button" wire:click="applyQuickFilter('job_created')" class="{{ $chipBase }} {{ $quickFilter === 'job_created' ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Job Created</button>
-        <button type="button" wire:click="applyQuickFilter('profile_updated')" class="{{ $chipBase }} {{ $quickFilter === 'profile_updated' ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Profile Updated</button>
-        <button type="button" wire:click="applyQuickFilter('password_updated')" class="{{ $chipBase }} {{ $quickFilter === 'password_updated' ? 'bg-emerald-600 text-white ring-emerald-600' : 'bg-white text-gray-700 ring-gray-300 hover:bg-gray-50' }}">Password Updated</button>
+        <button type="button" wire:click="applyQuickFilter('admin_actions')" class="{{ $chipBase }} {{ $quickFilter === 'admin_actions' ? 'theme-button-primary' : 'theme-button-outline' }}">Admin Actions</button>
+        <button type="button" wire:click="applyQuickFilter('company_actions')" class="{{ $chipBase }} {{ $quickFilter === 'company_actions' ? 'theme-button-primary' : 'theme-button-outline' }}">Company Actions</button>
+        <button type="button" wire:click="applyQuickFilter('individual_actions')" class="{{ $chipBase }} {{ $quickFilter === 'individual_actions' ? 'theme-button-primary' : 'theme-button-outline' }}">Individual Actions</button>
+        <button type="button" wire:click="applyQuickFilter('failed_requests')" class="{{ $chipBase }} {{ $quickFilter === 'failed_requests' ? 'theme-button-danger' : 'theme-button-outline' }}">Failed Requests</button>
+        <button type="button" wire:click="applyQuickFilter('application_submitted')" class="{{ $chipBase }} {{ $quickFilter === 'application_submitted' ? 'theme-button-secondary' : 'theme-button-outline' }}">Application Submitted</button>
+        <button type="button" wire:click="applyQuickFilter('job_created')" class="{{ $chipBase }} {{ $quickFilter === 'job_created' ? 'theme-button-secondary' : 'theme-button-outline' }}">Job Created</button>
+        <button type="button" wire:click="applyQuickFilter('profile_updated')" class="{{ $chipBase }} {{ $quickFilter === 'profile_updated' ? 'theme-button-secondary' : 'theme-button-outline' }}">Profile Updated</button>
+        <button type="button" wire:click="applyQuickFilter('password_updated')" class="{{ $chipBase }} {{ $quickFilter === 'password_updated' ? 'theme-button-secondary' : 'theme-button-outline' }}">Password Updated</button>
 
         @if($quickFilter !== '')
-            <button type="button" wire:click="clearQuickFilters" class="inline-flex items-center rounded-full px-3 py-1.5 text-xs font-medium text-gray-600 ring-1 ring-gray-300 hover:bg-gray-50">Clear</button>
+            <button type="button" wire:click="clearQuickFilters" class="theme-button theme-button-outline inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium">Clear</button>
         @endif
     </div>
 
@@ -422,19 +422,19 @@ new class extends Component
     <div class="mb-6 flex flex-wrap gap-3">
         {{-- Search --}}
         <div class="relative flex-1 min-w-48">
-            <div class="flex items-center gap-3 rounded-lg border border-gray-300 bg-white px-4 py-2.5 shadow-sm transition-all duration-150 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-100">
-                <svg style="width:18px;height:18px;flex-shrink:0;color:#9ca3af" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <div class="theme-input-shell flex items-center gap-3 rounded-lg border px-4 py-2.5 transition-all duration-150">
+                <svg class="theme-text-muted shrink-0" style="width:18px;height:18px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                 </svg>
                 <input
                     type="text"
                     wire:model.live.debounce.300ms="search"
                     placeholder="IP, user, target…"
-                    class="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none min-w-0"
+                    class="theme-input flex-1 min-w-0 border-0 bg-transparent px-0 py-0 text-sm shadow-none outline-none focus:ring-0"
                     autocomplete="off"
                 />
                 @if($search)
-                    <button wire:click="$set('search', '')" class="shrink-0 rounded-full p-0.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors cursor-pointer" aria-label="Clear search">
+                    <button wire:click="$set('search', '')" class="theme-text-muted shrink-0 rounded-full p-0.5 transition-colors cursor-pointer hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)]" aria-label="Clear search">
                         <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                         </svg>
@@ -443,34 +443,34 @@ new class extends Component
             </div>
         </div>
 
-        <select wire:model.live="eventType" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+        <select wire:model.live="eventType" class="theme-input shrink-0 rounded-lg border px-3 py-2.5 text-sm shadow-sm outline-none transition-all duration-150 cursor-pointer focus:ring-2 focus:ring-[var(--app-focus-ring)]">
             <option value="">All Events</option>
             @foreach($this->eventTypes as $type)
                 <option value="{{ $type }}">{{ str_replace('_', ' ', $type) }}</option>
             @endforeach
         </select>
 
-        <select wire:model.live="actorType" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+        <select wire:model.live="actorType" class="theme-input shrink-0 rounded-lg border px-3 py-2.5 text-sm shadow-sm outline-none transition-all duration-150 cursor-pointer focus:ring-2 focus:ring-[var(--app-focus-ring)]">
             <option value="">All Actors</option>
             <option value="user">User</option>
             <option value="guest">Guest</option>
             <option value="system">System</option>
         </select>
 
-        <select wire:model.live="actorRole" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+        <select wire:model.live="actorRole" class="theme-input shrink-0 rounded-lg border px-3 py-2.5 text-sm shadow-sm outline-none transition-all duration-150 cursor-pointer focus:ring-2 focus:ring-[var(--app-focus-ring)]">
             <option value="">All Roles</option>
             @foreach($this->actorRoles as $role)
                 <option value="{{ $role }}">{{ Str::headline($role) }}</option>
             @endforeach
         </select>
 
-        <select wire:model.live="status" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+        <select wire:model.live="status" class="theme-input shrink-0 rounded-lg border px-3 py-2.5 text-sm shadow-sm outline-none transition-all duration-150 cursor-pointer focus:ring-2 focus:ring-[var(--app-focus-ring)]">
             <option value="">All Statuses</option>
             <option value="success">Success (2xx)</option>
             <option value="failed">Failed (4xx+)</option>
         </select>
 
-        <select wire:model.live="dateRange" class="shrink-0 rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 shadow-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all duration-150 cursor-pointer">
+        <select wire:model.live="dateRange" class="theme-input shrink-0 rounded-lg border px-3 py-2.5 text-sm shadow-sm outline-none transition-all duration-150 cursor-pointer focus:ring-2 focus:ring-[var(--app-focus-ring)]">
             <option value="today">Today</option>
             <option value="last_7_days">Last 7 Days</option>
             <option value="last_30_days">Last 30 Days</option>
@@ -480,9 +480,9 @@ new class extends Component
 
     <!-- Results -->
     <x-ui.card>
-        <div class="hidden lg:block overflow-x-auto rounded-xl border border-gray-200">
-            <table class="min-w-full divide-y divide-gray-200 text-sm">
-                <thead class="bg-gray-50/90">
+        <div class="theme-table-shell hidden lg:block overflow-x-auto rounded-xl border">
+            <table class="min-w-full theme-table-divider divide-y text-sm">
+                <thead class="theme-table-head">
                     <tr>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
@@ -492,14 +492,14 @@ new class extends Component
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspect</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="theme-table-divider theme-panel divide-y">
                     @forelse($logs as $log)
                         @php
                             $eventClass = match(true) {
-                                str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') || str_contains($log->event_type, 'denied') || $log->event_type === 'audit.auth.verify.denied' => 'bg-red-100 text-red-800',
-                                str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') || $log->event_type === 'honeypot.triggered' => 'bg-orange-100 text-orange-800',
-                                str_contains($log->event_type, 'login') || $log->event_type === 'audit.auth.verify.success' => 'bg-green-100 text-green-800',
-                                default => 'bg-gray-100 text-gray-700',
+                                str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') || str_contains($log->event_type, 'denied') || $log->event_type === 'audit.auth.verify.denied' => 'theme-alert-error border',
+                                str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') || $log->event_type === 'honeypot.triggered' => 'theme-alert-warning border',
+                                str_contains($log->event_type, 'login') || $log->event_type === 'audit.auth.verify.success' => 'theme-alert-success border',
+                                default => 'theme-panel-subtle theme-text-muted border',
                             };
                         @endphp
                         <tr wire:key="log-desktop-{{ $log->id }}" class="hover:bg-gray-50 align-top">
@@ -522,7 +522,7 @@ new class extends Component
                                     @if(! empty($this->actorRoles($log)))
                                         <div class="mt-1 flex flex-wrap gap-1">
                                             @foreach($this->actorRoles($log) as $role)
-                                                <span class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-indigo-200">
+                                                <span class="theme-icon-tile-accent inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium">
                                                     {{ Str::headline($role) }}
                                                 </span>
                                             @endforeach
@@ -537,11 +537,11 @@ new class extends Component
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     @if($log->method)
                                         <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-bold {{ match($log->method) {
-                                            'GET' => 'bg-blue-100 text-blue-700',
-                                            'POST' => 'bg-green-100 text-green-700',
-                                            'PUT', 'PATCH' => 'bg-yellow-100 text-yellow-700',
-                                            'DELETE' => 'bg-red-100 text-red-700',
-                                            default => 'bg-gray-100 text-gray-700',
+                                            'GET' => 'theme-alert-info border',
+                                            'POST' => 'theme-alert-success border',
+                                            'PUT', 'PATCH' => 'theme-alert-warning border',
+                                            'DELETE' => 'theme-alert-error border',
+                                            default => 'theme-panel-subtle theme-text-muted border',
                                         } }}">{{ $log->method }}</span>
                                     @endif
                                     <span class="text-xs text-gray-700 break-all" title="{{ $log->path }}">{{ $this->friendlyPath($log) }}</span>
@@ -550,7 +550,7 @@ new class extends Component
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 @if($log->status_code)
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $log->status_code < 300 ? 'bg-green-100 text-green-800' : ($log->status_code < 500 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">{{ $log->status_code }}</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $log->status_code < 300 ? 'theme-alert-success border' : ($log->status_code < 500 ? 'theme-alert-warning border' : 'theme-alert-error border') }}">{{ $log->status_code }}</span>
                                 @else
                                     <span class="text-gray-400">—</span>
                                 @endif
@@ -558,7 +558,7 @@ new class extends Component
                             <td class="px-4 py-3 min-w-[280px] text-xs text-gray-600">
                                 <div class="font-mono mb-1">target: {{ $this->targetLabel($log) }}</div>
                                 <details>
-                                    <summary class="cursor-pointer text-indigo-600 hover:text-indigo-700">View details</summary>
+                                    <summary class="theme-link cursor-pointer hover:opacity-80">View details</summary>
                                     <div class="mt-2 space-y-2">
                                         @if($log->user_agent)
                                             <div>
@@ -589,10 +589,10 @@ new class extends Component
             @forelse($logs as $log)
                 @php
                     $eventClass = match(true) {
-                        str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') || str_contains($log->event_type, 'denied') || $log->event_type === 'audit.auth.verify.denied' => 'bg-red-100 text-red-800',
-                        str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') || $log->event_type === 'honeypot.triggered' => 'bg-orange-100 text-orange-800',
-                        str_contains($log->event_type, 'login') || $log->event_type === 'audit.auth.verify.success' => 'bg-green-100 text-green-800',
-                        default => 'bg-gray-100 text-gray-700',
+                        str_contains($log->event_type, 'failed') || str_contains($log->event_type, 'locked') || str_contains($log->event_type, 'denied') || $log->event_type === 'audit.auth.verify.denied' => 'theme-alert-error border',
+                        str_contains($log->event_type, 'suspicious') || str_contains($log->event_type, 'probe') || str_starts_with($log->event_type, 'security.') || $log->event_type === 'honeypot.triggered' => 'theme-alert-warning border',
+                        str_contains($log->event_type, 'login') || $log->event_type === 'audit.auth.verify.success' => 'theme-alert-success border',
+                        default => 'theme-panel-subtle theme-text-muted border',
                     };
                 @endphp
                 <article wire:key="log-mobile-{{ $log->id }}" class="rounded-xl border border-gray-200 p-4 space-y-3">
@@ -602,7 +602,7 @@ new class extends Component
                             <div class="text-[11px] text-gray-400">{{ $log->occurred_at->format('Y-m-d H:i:s') }}</div>
                         </div>
                         @if($log->status_code)
-                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $log->status_code < 300 ? 'bg-green-100 text-green-800' : ($log->status_code < 500 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800') }}">{{ $log->status_code }}</span>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $log->status_code < 300 ? 'theme-alert-success border' : ($log->status_code < 500 ? 'theme-alert-warning border' : 'theme-alert-error border') }}">{{ $log->status_code }}</span>
                         @endif
                     </div>
 
@@ -618,7 +618,7 @@ new class extends Component
                         @if(! empty($this->actorRoles($log)))
                             <div class="flex flex-wrap gap-1">
                                 @foreach($this->actorRoles($log) as $role)
-                                    <span class="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700 ring-1 ring-indigo-200">{{ Str::headline($role) }}</span>
+                                    <span class="theme-icon-tile-accent inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium">{{ Str::headline($role) }}</span>
                                 @endforeach
                             </div>
                         @endif
@@ -632,7 +632,7 @@ new class extends Component
                     </div>
 
                     <details>
-                        <summary class="cursor-pointer text-sm text-indigo-600 hover:text-indigo-700">View details</summary>
+                        <summary class="theme-link cursor-pointer text-sm hover:opacity-80">View details</summary>
                         <div class="mt-2 space-y-2 text-xs">
                             @if($log->user_agent)
                                 <div>
