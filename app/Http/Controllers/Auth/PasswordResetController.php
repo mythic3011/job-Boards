@@ -6,11 +6,10 @@ use App\Actions\Fortify\SendPasswordResetLinkWithTwoFactor;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\AuditLogger;
-use App\Services\TwoFactorService;
+use App\Services\PasswordLifecycleService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -20,7 +19,7 @@ class PasswordResetController extends Controller
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
-        private readonly TwoFactorService $twoFactorService
+        private readonly PasswordLifecycleService $passwordLifecycleService
     ) {}
 
     /**
@@ -71,15 +70,15 @@ class PasswordResetController extends Controller
         // Skip 2FA check if this reset was admin-initiated
         $adminInitiated = $user && Cache::pull('admin_reset:'.$request->token);
 
-        if (! $adminInitiated && $user && $this->twoFactorService->isEnabled($user)) {
-            $request->validate([
-                'two_factor_code' => ['required', 'string', 'size:6'],
-            ]);
-
-            if (! $this->twoFactorService->verifyCode($user, $request->two_factor_code)) {
-                return back()->withErrors([
-                    'two_factor_code' => 'The provided two-factor authentication code is invalid.',
-                ]);
+        if ($user) {
+            try {
+                $this->passwordLifecycleService->assertResetAllowed(
+                    $user,
+                    $request->input('two_factor_code'),
+                    $adminInitiated
+                );
+            } catch (ValidationException $e) {
+                return back()->withErrors($e->errors());
             }
         }
 
@@ -87,9 +86,7 @@ class PasswordResetController extends Controller
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function (User $user, string $password) use ($request, $adminInitiated) {
-                $user->forceFill([
-                    'password' => Hash::make($password),
-                ])->save();
+                $this->passwordLifecycleService->setPassword($user, $password);
 
                 $twoFactorVerified = $user->two_factor_confirmed_at !== null;
 

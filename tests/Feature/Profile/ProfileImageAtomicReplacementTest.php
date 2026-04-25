@@ -5,6 +5,7 @@ namespace Tests\Feature\Profile;
 use App\Actions\Fortify\UpdateUserProfileInformation;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\PasswordLifecycleService;
 use App\Services\ProfileImageService;
 use App\Services\ProfileService;
 use App\Services\TwoFactorService;
@@ -50,9 +51,10 @@ class ProfileImageAtomicReplacementTest extends TestCase
 
         $twoFactorService = Mockery::mock(TwoFactorService::class);
         $auditLogger = Mockery::mock(AuditLogger::class);
+        $passwordLifecycleService = Mockery::mock(PasswordLifecycleService::class);
         $auditLogger->shouldNotReceive('logBusinessEvent');
 
-        $service = new ProfileService($profileImageService, $twoFactorService, $auditLogger);
+        $service = new ProfileService($profileImageService, $twoFactorService, $auditLogger, $passwordLifecycleService);
 
         try {
             $service->updateProfile($user, [

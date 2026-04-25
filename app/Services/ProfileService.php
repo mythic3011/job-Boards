@@ -5,11 +5,9 @@ namespace App\Services;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class ProfileService
 {
@@ -23,7 +21,8 @@ class ProfileService
     public function __construct(
         private readonly ProfileImageService $profileImageService,
         private readonly TwoFactorService $twoFactorService,
-        private readonly AuditLogger $auditLogger
+        private readonly AuditLogger $auditLogger,
+        private readonly PasswordLifecycleService $passwordLifecycleService
     ) {}
 
     /**
@@ -62,24 +61,7 @@ class ProfileService
      */
     public function updatePassword(User $user, array $data, Request $request): void
     {
-        $this->validatePasswordData($user, $data);
-
-        // Verify current password
-        if (! Hash::check($data['current_password'], $user->password)) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
-                'current_password' => ['The provided password does not match your current password.'],
-            ]);
-        }
-
-        // Verify 2FA if enabled
-        if ($this->twoFactorService->isEnabled($user)) {
-            $this->twoFactorService->verifyCodeOrFail($user, $data['two_factor_code'] ?? '');
-        }
-
-        // Update password
-        $user->update([
-            'password' => Hash::make($data['password']),
-        ]);
+        $this->passwordLifecycleService->updateViaProfile($user, $data);
 
         $this->logPasswordUpdate($user, $request);
     }
@@ -173,37 +155,6 @@ class ProfileService
         }
 
         $validator->validate();
-    }
-
-    /**
-     * Validate password update data.
-     */
-    private function validatePasswordData(User $user, array $data): void
-    {
-        $rules = [
-            'current_password' => ['required', 'string'],
-            'password' => [
-                'required',
-                'string',
-                'confirmed',
-                Password::min(12)
-                    ->letters()
-                    ->mixedCase()
-                    ->numbers()
-                    ->symbols()
-                    ->uncompromised(3),
-            ],
-        ];
-
-        // Require 2FA code if 2FA is enabled
-        if ($this->twoFactorService->isEnabled($user)) {
-            $rules['two_factor_code'] = ['required', 'string', 'size:6'];
-        }
-
-        Validator::make($data, $rules, [
-            'two_factor_code.required' => 'Two-factor authentication code is required.',
-            'two_factor_code.size' => 'Two-factor authentication code must be 6 digits.',
-        ])->validate();
     }
 
     /**
