@@ -359,7 +359,7 @@ services:
             [
                 "/bin/bash",
                 "-lc",
-                "/usr/local/bin/prepare-laravel-runtime /var/www/html && exec php artisan queue:work --sleep=1 --tries=3 --backoff=10 --timeout=300",
+                "if [ -r /var/www/html/.blue-team-vm/runtime/compat.shell.env ]; then set -a; . /var/www/html/.blue-team-vm/runtime/compat.shell.env; set +a; fi; /usr/local/bin/prepare-laravel-runtime /var/www/html && exec php artisan queue:work --sleep=1 --tries=3 --backoff=10 --timeout=300",
             ]
         environment:
             WWWUSER: ${WWWUSER:-1000}

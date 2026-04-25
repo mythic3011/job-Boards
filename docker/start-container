@@ -8,6 +8,16 @@ if [ -z "$PHP_BIN" ] || [ ! -x "$PHP_BIN" ]; then
 fi
 export PHP_BIN
 
+# Load bootstrap-generated runtime env when present.
+# This is the canonical source once root .env is intentionally absent.
+COMPAT_ENV_FILE="${BT_COMPAT_SHELL_ENV_FILE:-/var/www/html/.blue-team-vm/runtime/compat.shell.env}"
+if [ -r "${COMPAT_ENV_FILE}" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "${COMPAT_ENV_FILE}"
+    set +a
+fi
+
 # Respect explicit runtime command overrides (for init/bootstrap one-shot services).
 if [ "$#" -gt 0 ]; then
     exec "$@"

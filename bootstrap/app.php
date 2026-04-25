@@ -108,6 +108,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // Redirect unexpected exceptions to /error in production
         $exceptions->renderable(function (\Throwable $e, $request) {
             if (! $request->expectsJson() && app()->isProduction()) {
+                // Prevent redirect recursion when the error page itself fails.
+                if ($request->routeIs('error.page') || $request->is('error')) {
+                    return response()->view('errors.app-error', [], 500);
+                }
+
                 $skip = [
                     \Illuminate\Auth\AuthenticationException::class,
                     \Illuminate\Auth\Access\AuthorizationException::class,
