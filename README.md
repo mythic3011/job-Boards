@@ -5,6 +5,7 @@ Laravel job board application.
 Local default flow:
 
 - run `docker compose up -d --build` from repo root
+- `compose.yaml` runs `app-bootstrap-init` to ensure PHP deps (`vendor/`) and frontend build artifacts (`public/build/manifest.json`) exist before app services start
 - `compose.yaml` runs `obs-bootstrap-init` and prepares required obs runtime artifacts before starting auth-service/Prometheus/Grafana
 - `compose.app.yml` and `compose.obs.yml` remain advanced/debug split-plane surfaces
 

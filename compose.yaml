@@ -1,4 +1,32 @@
 services:
+    app-bootstrap-init:
+        image: sail-8.5/app
+        build:
+            context: .
+            dockerfile: docker/Dockerfile.sail
+            args:
+                WWWGROUP: ${WWWGROUP}
+                INSTALL_PLAYWRIGHT: "false"
+                INSTALL_BUN: "false"
+        working_dir: /var/www/html
+        command:
+            - /bin/bash
+            - -lc
+            - |
+                /usr/local/bin/prepare-laravel-runtime /var/www/html
+                if [ ! -f /var/www/html/vendor/autoload.php ]; then
+                  composer install --no-interaction --prefer-dist
+                fi
+                if [ ! -f /var/www/html/public/build/manifest.json ]; then
+                  npm ci --no-audit --no-fund
+                  npm run build
+                fi
+        volumes:
+            - ".:/var/www/html"
+        networks:
+            - sail
+        restart: "no"
+
     obs-bootstrap-init:
         image: python:3.12-alpine
         user: "0:0"
@@ -298,6 +326,8 @@ services:
         networks:
             - sail
         depends_on:
+            app-bootstrap-init:
+                condition: service_completed_successfully
             postgres:
                 condition: service_healthy
             redis:
@@ -330,6 +360,8 @@ services:
         networks:
             - sail
         depends_on:
+            app-bootstrap-init:
+                condition: service_completed_successfully
             postgres:
                 condition: service_healthy
             redis:

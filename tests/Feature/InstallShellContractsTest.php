@@ -1556,6 +1556,9 @@ BASH);
         $contents = file_get_contents($this->repoRoot.'/compose.yaml');
 
         $this->assertIsString($contents);
+        $this->assertStringContainsString("    app-bootstrap-init:\n", $contents);
+        $this->assertStringContainsString('composer install --no-interaction --prefer-dist', $contents);
+        $this->assertStringContainsString('npm run build', $contents);
         $this->assertStringContainsString("    obs-bootstrap-init:\n", $contents);
         $this->assertStringContainsString('/workspace/ops/bootstrap/bootstrap-obs.sh prepare', $contents);
         $this->assertStringContainsString('obs-bootstrap-init:', $contents);
