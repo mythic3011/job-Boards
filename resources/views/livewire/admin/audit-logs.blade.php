@@ -484,12 +484,12 @@ new class extends Component
             <table class="min-w-full theme-table-divider divide-y text-sm">
                 <thead class="theme-table-head">
                     <tr>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actor</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspect</th>
+                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Time</th>
+                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Event</th>
+                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Actor</th>
+                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Request</th>
+                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Inspect</th>
                     </tr>
                 </thead>
                 <tbody class="theme-table-divider theme-panel divide-y">
@@ -502,22 +502,22 @@ new class extends Component
                                 default => 'theme-panel-subtle theme-text-muted border',
                             };
                         @endphp
-                        <tr wire:key="log-desktop-{{ $log->id }}" class="hover:bg-gray-50 align-top">
-                            <td class="px-4 py-3 whitespace-nowrap text-gray-500">
+                        <tr wire:key="log-desktop-{{ $log->id }}" class="align-top hover:bg-[var(--app-panel-subtle-bg)]">
+                            <td class="theme-text-muted px-4 py-3 whitespace-nowrap">
                                 <div title="{{ $log->occurred_at->toDateTimeString() }}">{{ $log->occurred_at->diffForHumans() }}</div>
-                                <div class="text-[11px] text-gray-400 mt-1">{{ $log->occurred_at->format('Y-m-d H:i:s') }}</div>
+                                <div class="theme-text-muted mt-1 text-[11px]">{{ $log->occurred_at->format('Y-m-d H:i:s') }}</div>
                             </td>
                             <td class="px-4 py-3 min-w-[280px]">
                                 <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $eventClass }}">{{ $this->eventLabel($log) }}</span>
                                 @if($this->eventSummary($log))
-                                    <div class="text-xs text-gray-600 mt-1 leading-relaxed">{{ $this->eventSummary($log) }}</div>
+                                    <div class="theme-text-muted mt-1 text-xs leading-relaxed">{{ $this->eventSummary($log) }}</div>
                                 @endif
                             </td>
                             <td class="px-4 py-3 min-w-[220px]">
                                 @if($log->actor)
-                                    <div class="font-medium text-gray-900" title="{{ $log->actor->login_id }}">{{ $this->actorPrimaryLabel($log) }}</div>
+                                    <div class="theme-text-strong font-medium" title="{{ $log->actor->login_id }}">{{ $this->actorPrimaryLabel($log) }}</div>
                                     @if($this->actorSecondaryLabel($log))
-                                        <div class="text-xs text-gray-500">{{ $this->actorSecondaryLabel($log) }}</div>
+                                        <div class="theme-text-muted text-xs">{{ $this->actorSecondaryLabel($log) }}</div>
                                     @endif
                                     @if(! empty($this->actorRoles($log)))
                                         <div class="mt-1 flex flex-wrap gap-1">
@@ -529,9 +529,9 @@ new class extends Component
                                         </div>
                                     @endif
                                 @else
-                                    <span class="text-gray-400">{{ $log->actor_type ?? 'guest' }}</span>
+                                    <span class="theme-text-muted">{{ $log->actor_type ?? 'guest' }}</span>
                                 @endif
-                                <div class="text-[11px] text-gray-400 font-mono mt-1">{{ $log->ip }}</div>
+                                <div class="theme-text-muted mt-1 font-mono text-[11px]">{{ $log->ip }}</div>
                             </td>
                             <td class="px-4 py-3 min-w-[300px]">
                                 <div class="flex items-center gap-1.5 flex-wrap">
@@ -544,32 +544,32 @@ new class extends Component
                                             default => 'theme-panel-subtle theme-text-muted border',
                                         } }}">{{ $log->method }}</span>
                                     @endif
-                                    <span class="text-xs text-gray-700 break-all" title="{{ $log->path }}">{{ $this->friendlyPath($log) }}</span>
+                                    <span class="theme-text-strong break-all text-xs" title="{{ $log->path }}">{{ $this->friendlyPath($log) }}</span>
                                 </div>
-                                <div class="text-[11px] text-gray-400 font-mono mt-1">{{ $log->request_id }}</div>
+                                <div class="theme-text-muted mt-1 font-mono text-[11px]">{{ $log->request_id }}</div>
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 @if($log->status_code)
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $log->status_code < 300 ? 'theme-alert-success border' : ($log->status_code < 500 ? 'theme-alert-warning border' : 'theme-alert-error border') }}">{{ $log->status_code }}</span>
                                 @else
-                                    <span class="text-gray-400">—</span>
+                                    <span class="theme-text-muted">—</span>
                                 @endif
                             </td>
-                            <td class="px-4 py-3 min-w-[280px] text-xs text-gray-600">
+                            <td class="theme-text-muted px-4 py-3 min-w-[280px] text-xs">
                                 <div class="font-mono mb-1">target: {{ $this->targetLabel($log) }}</div>
                                 <details>
                                     <summary class="theme-link cursor-pointer hover:opacity-80">View details</summary>
                                     <div class="mt-2 space-y-2">
                                         @if($log->user_agent)
                                             <div>
-                                                <div class="text-[11px] uppercase tracking-wide text-gray-400">User Agent</div>
-                                                <div class="break-all text-gray-600">{{ $log->user_agent }}</div>
+                                                <div class="theme-text-muted text-[11px] uppercase tracking-wide">User Agent</div>
+                                                <div class="theme-text-muted break-all">{{ $log->user_agent }}</div>
                                             </div>
                                         @endif
                                         @if(is_array($log->meta) && ! empty($log->meta))
                                             <div>
-                                                <div class="text-[11px] uppercase tracking-wide text-gray-400">Meta</div>
-                                                <pre class="mt-1 max-h-44 overflow-auto rounded bg-gray-900 p-2 text-[11px] text-gray-100">{{ json_encode($log->meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                                <div class="theme-text-muted text-[11px] uppercase tracking-wide">Meta</div>
+                                                <pre class="theme-panel mt-1 max-h-44 overflow-auto rounded border p-2 text-[11px]">{{ json_encode($log->meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                             </div>
                                         @endif
                                     </div>
@@ -578,7 +578,7 @@ new class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-gray-500">No audit logs found.</td>
+                            <td colspan="6" class="theme-text-muted px-4 py-8 text-center">No audit logs found.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -595,11 +595,11 @@ new class extends Component
                         default => 'theme-panel-subtle theme-text-muted border',
                     };
                 @endphp
-                <article wire:key="log-mobile-{{ $log->id }}" class="rounded-xl border border-gray-200 p-4 space-y-3">
+                <article wire:key="log-mobile-{{ $log->id }}" class="theme-panel rounded-xl border p-4 space-y-3">
                     <div class="flex items-start justify-between gap-3">
                         <div>
-                            <div class="text-sm text-gray-900 font-medium">{{ $log->occurred_at->diffForHumans() }}</div>
-                            <div class="text-[11px] text-gray-400">{{ $log->occurred_at->format('Y-m-d H:i:s') }}</div>
+                            <div class="theme-text-strong text-sm font-medium">{{ $log->occurred_at->diffForHumans() }}</div>
+                            <div class="theme-text-muted text-[11px]">{{ $log->occurred_at->format('Y-m-d H:i:s') }}</div>
                         </div>
                         @if($log->status_code)
                             <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $log->status_code < 300 ? 'theme-alert-success border' : ($log->status_code < 500 ? 'theme-alert-warning border' : 'theme-alert-error border') }}">{{ $log->status_code }}</span>
@@ -609,12 +609,12 @@ new class extends Component
                     <div>
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium {{ $eventClass }}">{{ $this->eventLabel($log) }}</span>
                         @if($this->eventSummary($log))
-                            <div class="text-xs text-gray-600 mt-1 leading-relaxed">{{ $this->eventSummary($log) }}</div>
+                            <div class="theme-text-muted mt-1 text-xs leading-relaxed">{{ $this->eventSummary($log) }}</div>
                         @endif
                     </div>
 
                     <div class="grid grid-cols-1 gap-2 text-xs">
-                        <div><span class="text-gray-400">Actor:</span> <span class="text-gray-700">{{ $this->actorPrimaryLabel($log) }}</span></div>
+                        <div><span class="theme-text-muted">Actor:</span> <span class="theme-text-strong">{{ $this->actorPrimaryLabel($log) }}</span></div>
                         @if(! empty($this->actorRoles($log)))
                             <div class="flex flex-wrap gap-1">
                                 @foreach($this->actorRoles($log) as $role)
@@ -622,13 +622,13 @@ new class extends Component
                                 @endforeach
                             </div>
                         @endif
-                        <div><span class="text-gray-400">IP:</span> <span class="font-mono text-gray-700">{{ $log->ip }}</span></div>
+                        <div><span class="theme-text-muted">IP:</span> <span class="theme-text-strong font-mono">{{ $log->ip }}</span></div>
                         <div>
-                            <span class="text-gray-400">Request:</span>
-                            <span class="text-gray-700">{{ $log->method ? $log->method.' ' : '' }}{{ $this->friendlyPath($log) }}</span>
+                            <span class="theme-text-muted">Request:</span>
+                            <span class="theme-text-strong">{{ $log->method ? $log->method.' ' : '' }}{{ $this->friendlyPath($log) }}</span>
                         </div>
-                        <div><span class="text-gray-400">Target:</span> <span class="font-mono text-gray-700">{{ $this->targetLabel($log) }}</span></div>
-                        <div><span class="text-gray-400">Request ID:</span> <span class="font-mono text-gray-600 break-all">{{ $log->request_id }}</span></div>
+                        <div><span class="theme-text-muted">Target:</span> <span class="theme-text-strong font-mono">{{ $this->targetLabel($log) }}</span></div>
+                        <div><span class="theme-text-muted">Request ID:</span> <span class="theme-text-muted font-mono break-all">{{ $log->request_id }}</span></div>
                     </div>
 
                     <details>
@@ -636,21 +636,21 @@ new class extends Component
                         <div class="mt-2 space-y-2 text-xs">
                             @if($log->user_agent)
                                 <div>
-                                    <div class="text-[11px] uppercase tracking-wide text-gray-400">User Agent</div>
-                                    <div class="break-all text-gray-600">{{ $log->user_agent }}</div>
+                                    <div class="theme-text-muted text-[11px] uppercase tracking-wide">User Agent</div>
+                                    <div class="theme-text-muted break-all">{{ $log->user_agent }}</div>
                                 </div>
                             @endif
                             @if(is_array($log->meta) && ! empty($log->meta))
                                 <div>
-                                    <div class="text-[11px] uppercase tracking-wide text-gray-400">Meta</div>
-                                    <pre class="mt-1 max-h-40 overflow-auto rounded bg-gray-900 p-2 text-[11px] text-gray-100">{{ json_encode($log->meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
+                                    <div class="theme-text-muted text-[11px] uppercase tracking-wide">Meta</div>
+                                    <pre class="theme-panel mt-1 max-h-40 overflow-auto rounded border p-2 text-[11px]">{{ json_encode($log->meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) }}</pre>
                                 </div>
                             @endif
                         </div>
                     </details>
                 </article>
             @empty
-                <div class="rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-500">No audit logs found.</div>
+                <div class="theme-text-muted theme-panel rounded-xl border px-4 py-8 text-center">No audit logs found.</div>
             @endforelse
         </div>
 

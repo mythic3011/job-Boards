@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use PragmaRX\Google2FALaravel\Google2FA;
 
@@ -106,25 +107,14 @@ class InstallController extends Controller
      */
     public function complete(Request $request): JsonResponse
     {
-        // Normalize demo flags to booleans (or null) for consistent validation
-        if ($request->has('demo')) {
-            $request->merge([
-                'demo' => filter_var($request->input('demo'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
-            ]);
-        }
-
-        if ($request->has('install_demo_data')) {
-            $request->merge([
-                'install_demo_data' => filter_var($request->input('install_demo_data'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE),
-            ]);
-        }
+        $this->normalizeCompletePayload($request);
 
         // Check if this is a Livewire request (no timestamp/session validation needed)
         $isLivewireRequest = ! $request->has('timestamp') || ! $request->has('session');
 
         if (! $isLivewireRequest) {
             // JavaScript installer - validate timestamp
-            $this->validateCompleteRequest($request);
+            $this->validateCompleteRequest($request, requireReplayFields: true);
 
             $isActiveSession = $this->isInstallSessionValid($request);
 
@@ -139,14 +129,8 @@ class InstallController extends Controller
                 $this->validateRequestAge($request, self::REQUEST_MAX_AGE_COMPLETE);
             }
         } else {
-            // Livewire installer - basic validation only
-            $request->validate([
-                'admin_name' => 'required|string|max:255',
-                'admin_email' => 'required|email|unique:users,email|max:255',
-                'admin_password' => 'required|string|min:12|max:255',
-                'two_factor_secret' => 'required|string|min:16',
-                'otp_code' => 'required|string|size:6',
-            ]);
+            // Livewire installer - same canonical validation rules, without replay fields
+            $this->validateCompleteRequest($request, requireReplayFields: false);
         }
 
         $this->verifyInstallOtp($request);
@@ -166,6 +150,7 @@ class InstallController extends Controller
             $installDemo = $request->boolean('install_demo_data') || $request->boolean('demo');
 
             $this->installService->completeInstallation([
+                'admin_username' => $request->input('admin_username'),
                 'admin_name' => $request->admin_name ?? $request->name,
                 'admin_email' => $request->admin_email ?? $request->email,
                 'admin_password' => $request->admin_password ?? $request->password,
@@ -216,9 +201,10 @@ class InstallController extends Controller
     /**
      * Validate complete installation request.
      */
-    private function validateCompleteRequest(Request $request): void
+    private function validateCompleteRequest(Request $request, bool $requireReplayFields): void
     {
-        $request->validate([
+        $rules = [
+            'admin_username' => 'nullable|string|min:3|max:255|regex:/^[a-zA-Z0-9_]+$/',
             'admin_name' => 'required|string|max:255',
             'admin_email' => 'required|email:rfc|unique:users,email|max:255',
             'admin_password' => 'required|string|min:12|max:255|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/',
@@ -227,9 +213,91 @@ class InstallController extends Controller
             'otp_code' => 'required|string|size:6',
             'install_demo_data' => 'nullable|boolean',
             'demo' => 'nullable|boolean',
-            'timestamp' => 'required|integer',
-            'session' => 'required|string|max:100',
+        ];
+
+        if ($requireReplayFields) {
+            $rules['timestamp'] = 'required|integer';
+            $rules['session'] = 'required|string|max:100';
+        }
+
+        $request->validate($rules);
+    }
+
+    /**
+     * Normalize install payload aliases into one canonical shape.
+     */
+    private function normalizeCompletePayload(Request $request): void
+    {
+        $adminPassword = $this->firstString($request, ['admin_password', 'password']);
+
+        $request->merge([
+            'admin_username' => $this->normalizeOptionalUsername($this->firstString($request, ['admin_username', 'username'])),
+            'admin_name' => $this->firstString($request, ['admin_name', 'name']),
+            'admin_email' => $this->firstString($request, ['admin_email', 'email']),
+            'admin_password' => $adminPassword,
+            'admin_password_confirmation' => $this->firstString(
+                $request,
+                ['admin_password_confirmation', 'password_confirmation']
+            ) ?? $adminPassword,
+            'two_factor_secret' => $this->firstString($request, ['two_factor_secret', 'twoFactorSecret']),
+            'otp_code' => $this->firstString($request, ['otp_code']),
+            'recovery_codes' => $this->firstArray($request, ['recovery_codes', 'recoveryCodes']),
+            'install_demo_data' => $this->normalizeBoolean(
+                $request->input('install_demo_data', $request->input('demo'))
+            ),
+            'demo' => $this->normalizeBoolean($request->input('demo')),
         ]);
+    }
+
+    /**
+     * @param  list<string>  $keys
+     */
+    private function firstString(Request $request, array $keys): ?string
+    {
+        foreach ($keys as $key) {
+            $value = $request->input($key);
+            if (is_string($value)) {
+                $trimmed = trim($value);
+                if ($trimmed !== '') {
+                    return $trimmed;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  list<string>  $keys
+     */
+    private function firstArray(Request $request, array $keys): array
+    {
+        foreach ($keys as $key) {
+            $value = $request->input($key);
+            if (is_array($value)) {
+                return $value;
+            }
+        }
+
+        return [];
+    }
+
+    private function normalizeBoolean(mixed $value): ?bool
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+    }
+
+    private function normalizeOptionalUsername(?string $username): ?string
+    {
+        if ($username === null) {
+            return null;
+        }
+
+        return Str::lower($username);
     }
 
     /**

@@ -539,12 +539,12 @@ new class extends Component
 
     <!-- Delete Confirmation Modal -->
     <div
-        x-data="{ show: @entangle('confirmingUserDeletion') }"
+        x-data="{ show: @entangle('confirmingUserDeletion'), lastActiveEl: null }"
         x-show="show"
         x-cloak
         style="display: none;"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm"
-        x-on:keydown.escape.window="show = null"
+        class="theme-overlay-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        x-on:keydown.escape.window="show = null; lastActiveEl?.focus()"
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0"
         x-transition:enter-end="opacity-100"
@@ -553,6 +553,12 @@ new class extends Component
         x-transition:leave-end="opacity-0"
     >
         <div 
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-user-title"
+            tabindex="-1"
+            x-ref="deleteUserDialog"
+            x-effect="if (show) { $nextTick(() => $refs.deleteUserDialog?.focus()) }"
             class="theme-modal-surface w-full max-w-lg rounded-xl"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0 scale-95"
@@ -560,7 +566,7 @@ new class extends Component
             x-transition:leave="transition ease-in duration-200"
             x-transition:leave-start="opacity-100 scale-100"
             x-transition:leave-end="opacity-0 scale-95"
-            @click.outside="show = null"
+            @click.outside="show = null; lastActiveEl?.focus()"
         >
             <div class="space-y-4 px-6 py-6">
                 <div class="flex items-start gap-4">
@@ -570,7 +576,7 @@ new class extends Component
                         </svg>
                     </div>
                     <div>
-                        <h3 class="theme-text-strong text-lg font-medium">Confirm Deletion</h3>
+                        <h3 id="delete-user-title" class="theme-text-strong text-lg font-medium">Confirm Deletion</h3>
                         <p class="theme-text-muted mt-2 text-sm">
                             Are you sure you want to delete this user? This action cannot be undone.
                             <span class="theme-alert-error mt-2 inline-flex rounded-full border px-2 py-0.5 font-medium">All user data will be permanently removed.</span>
@@ -583,7 +589,7 @@ new class extends Component
             </div>
     
             <div class="theme-table-head flex justify-end gap-x-4 border-t px-6 py-4 rounded-b-xl">
-                <x-ui.button variant="outline" type="button" x-on:click="show = null">Cancel</x-ui.button>
+                <x-ui.button variant="outline" type="button" x-on:click="show = null; lastActiveEl?.focus()">Cancel</x-ui.button>
                 <x-ui.button variant="danger" type="button" wire:click="deleteUser">Delete User</x-ui.button>
             </div>
         </div>
@@ -591,12 +597,12 @@ new class extends Component
 
     <!-- Reset Password URL Modal -->
     <div
-        x-data="{ show: @entangle('resetUrl') }"
+        x-data="{ show: @entangle('resetUrl'), lastActiveEl: null }"
         x-show="show"
         x-cloak
         style="display: none;"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm"
-        x-on:keydown.escape.window="$wire.set('resetUrl', null)"
+        class="theme-overlay-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
+        x-on:keydown.escape.window="$wire.set('resetUrl', null); lastActiveEl?.focus()"
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0"
         x-transition:enter-end="opacity-100"
@@ -605,6 +611,12 @@ new class extends Component
         x-transition:leave-end="opacity-0"
     >
         <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-url-title"
+            tabindex="-1"
+            x-ref="resetUrlDialog"
+            x-effect="if (show) { $nextTick(() => $refs.resetUrlDialog?.focus()) }"
             class="theme-modal-surface w-full max-w-lg rounded-xl"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0 scale-95"
@@ -612,7 +624,7 @@ new class extends Component
             x-transition:leave="transition ease-in duration-200"
             x-transition:leave-start="opacity-100 scale-100"
             x-transition:leave-end="opacity-0 scale-95"
-            @click.outside="$wire.set('resetUrl', null)"
+            @click.outside="$wire.set('resetUrl', null); lastActiveEl?.focus()"
         >
             <div class="px-6 py-6 space-y-4">
                 <div class="flex items-start gap-4">
@@ -622,7 +634,7 @@ new class extends Component
                         </svg>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <h3 class="theme-text-strong text-lg font-medium">Password Reset Link</h3>
+                        <h3 id="reset-url-title" class="theme-text-strong text-lg font-medium">Password Reset Link</h3>
                         <p class="theme-text-muted mt-1 text-sm">
                             Share this link with <span class="theme-text-strong font-medium">{{ $resetUserName }}</span>. It expires after use or 60 minutes.
                         </p>
@@ -646,7 +658,7 @@ new class extends Component
                         class="theme-input shrink-0 min-w-[64px] rounded-lg border px-3 py-2 text-center text-xs font-medium transition-colors hover:bg-[var(--app-panel-subtle-bg)]"
                     >
                         <span data-copy-default>Copy</span>
-                        <span data-copy-success class="theme-text-strong hidden">Copied!</span>
+                        <span data-copy-success class="theme-copy-button-feedback hidden">Copied!</span>
                     </button>
                 </div>
 
@@ -656,7 +668,7 @@ new class extends Component
             </div>
 
             <div class="theme-table-head flex justify-end border-t px-6 py-4 rounded-b-xl">
-                <x-ui.button variant="outline" type="button" wire:click="$set('resetUrl', null)">Close</x-ui.button>
+                <x-ui.button variant="outline" type="button" wire:click="$set('resetUrl', null)" x-on:click="lastActiveEl?.focus()">Close</x-ui.button>
             </div>
         </div>
     </div>

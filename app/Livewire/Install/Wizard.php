@@ -227,6 +227,7 @@ class Wizard extends Component
             $this->validateStep3();
 
             app(InstallService::class)->completeInstallation([
+                'admin_username' => $this->username,
                 'admin_name' => $this->name,
                 'admin_email' => $this->email,
                 'admin_password' => $this->password,

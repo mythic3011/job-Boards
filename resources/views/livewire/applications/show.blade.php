@@ -63,7 +63,7 @@ new class extends Component
 
 }; ?>
 
-<div class="max-w-4xl mx-auto" x-data="{ showApprove: false, showReject: false }">
+<div class="max-w-4xl mx-auto" x-data="{ showApprove: false, showReject: false, lastActiveEl: null }">
     {{-- Breadcrumb --}}
     <nav class="theme-text-muted mb-4 flex items-center gap-2 text-sm">
         <a href="{{ $backRoute }}" class="theme-link transition-colors">Applications</a>
@@ -80,7 +80,7 @@ new class extends Component
             @if($isJobOwner)
                 @if($application->status->value === 'pending')
                     <button type="button"
-                        x-on:click="showApprove = true"
+                        x-on:click="lastActiveEl = $event.currentTarget; showApprove = true"
                         class="theme-button theme-button-primary inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold cursor-pointer">
                         <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -88,7 +88,7 @@ new class extends Component
                         Approve
                     </button>
                     <button type="button"
-                        x-on:click="showReject = true"
+                        x-on:click="lastActiveEl = $event.currentTarget; showReject = true"
                         class="theme-button theme-button-danger inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold cursor-pointer">
                         <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -119,9 +119,15 @@ new class extends Component
             x-transition:leave-start="opacity-100"
             x-transition:leave-end="opacity-0"
             class="theme-overlay-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
-            x-on:keydown.escape.window="showApprove = false"
+            x-on:keydown.escape.window="showApprove = false; lastActiveEl?.focus()"
         >
             <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="approve-application-title"
+                tabindex="-1"
+                x-ref="approveDialog"
+                x-effect="if (showApprove) { $nextTick(() => $refs.approveDialog?.focus()) }"
                 class="theme-modal-surface w-full max-w-md rounded-2xl"
                 x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 scale-95"
@@ -129,7 +135,7 @@ new class extends Component
                 x-transition:leave="transition ease-in duration-150"
                 x-transition:leave-start="opacity-100 scale-100"
                 x-transition:leave-end="opacity-0 scale-95"
-                @click.outside="showApprove = false"
+                @click.outside="showApprove = false; lastActiveEl?.focus()"
             >
                 <div class="flex items-start gap-4 px-6 pt-6 pb-4">
                     <div class="theme-alert-success shrink-0 rounded-full border p-3">
@@ -138,7 +144,7 @@ new class extends Component
                         </svg>
                     </div>
                     <div>
-                        <h2 class="theme-text-strong text-lg font-semibold">Approve Application</h2>
+                        <h2 id="approve-application-title" class="theme-text-strong text-lg font-semibold">Approve Application</h2>
                         <p class="theme-text-muted mt-1 text-sm">Optionally leave a message for the applicant.</p>
                     </div>
                 </div>
@@ -158,7 +164,7 @@ new class extends Component
                         ></textarea>
                     </div>
                     <div class="theme-panel-subtle theme-table-divider flex justify-end gap-3 rounded-b-2xl border-t px-6 py-4">
-                        <button type="button" x-on:click="showApprove = false"
+                        <button type="button" x-on:click="showApprove = false; lastActiveEl?.focus()"
                             class="theme-button theme-button-outline rounded-lg border px-4 py-2 text-sm font-medium cursor-pointer">
                             Cancel
                         </button>
@@ -182,9 +188,15 @@ new class extends Component
             x-transition:leave-start="opacity-100"
             x-transition:leave-end="opacity-0"
             class="theme-overlay-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
-            x-on:keydown.escape.window="showReject = false"
+            x-on:keydown.escape.window="showReject = false; lastActiveEl?.focus()"
         >
             <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="reject-application-title"
+                tabindex="-1"
+                x-ref="rejectDialog"
+                x-effect="if (showReject) { $nextTick(() => $refs.rejectDialog?.focus()) }"
                 class="theme-modal-surface w-full max-w-md rounded-2xl"
                 x-transition:enter="transition ease-out duration-200"
                 x-transition:enter-start="opacity-0 scale-95"
@@ -192,7 +204,7 @@ new class extends Component
                 x-transition:leave="transition ease-in duration-150"
                 x-transition:leave-start="opacity-100 scale-100"
                 x-transition:leave-end="opacity-0 scale-95"
-                @click.outside="showReject = false"
+                @click.outside="showReject = false; lastActiveEl?.focus()"
             >
                 <div class="flex items-start gap-4 px-6 pt-6 pb-4">
                     <div class="theme-alert-error shrink-0 rounded-full border p-3">
@@ -201,7 +213,7 @@ new class extends Component
                         </svg>
                     </div>
                     <div>
-                        <h2 class="theme-text-strong text-lg font-semibold">Reject Application</h2>
+                        <h2 id="reject-application-title" class="theme-text-strong text-lg font-semibold">Reject Application</h2>
                         <p class="theme-text-muted mt-1 text-sm">Optionally leave a message for the applicant.</p>
                     </div>
                 </div>
@@ -221,7 +233,7 @@ new class extends Component
                         ></textarea>
                     </div>
                     <div class="theme-panel-subtle theme-table-divider flex justify-end gap-3 rounded-b-2xl border-t px-6 py-4">
-                        <button type="button" x-on:click="showReject = false"
+                        <button type="button" x-on:click="showReject = false; lastActiveEl?.focus()"
                             class="theme-button theme-button-outline rounded-lg border px-4 py-2 text-sm font-medium cursor-pointer">
                             Cancel
                         </button>

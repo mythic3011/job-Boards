@@ -82,6 +82,27 @@ class InstallSecurityTest extends TestCase
             ->assertJsonValidationErrors(['otp_code']);
     }
 
+    public function test_install_complete_applies_strong_password_validation_without_timestamp_session_fields(): void
+    {
+        config(['app.install_token' => 'bootstrap-secret']);
+        $this->createUsersTable();
+
+        $installService = Mockery::mock(InstallService::class);
+        $installService->shouldNotReceive('completeInstallation');
+        $this->app->instance(InstallService::class, $installService);
+
+        $secret = 'JBSWY3DPEHPK3PXP';
+
+        $this->withBrowser()->postJson('/install/complete?token=bootstrap-secret', [
+            'admin_name' => 'Admin User',
+            'admin_email' => 'admin@example.com',
+            'admin_password' => 'alllowercase123',
+            'two_factor_secret' => $secret,
+            'otp_code' => app(Google2FA::class)->getCurrentOtp($secret),
+        ])->assertStatus(422)
+            ->assertJsonValidationErrors(['admin_password']);
+    }
+
     public function test_install_controller_completion_produces_single_setup_completed_audit_row(): void
     {
         config(['app.install_token' => 'bootstrap-secret']);

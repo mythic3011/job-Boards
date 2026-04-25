@@ -13,7 +13,7 @@ class AdminJobsIndexUiContractTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString('{{ $job->salary }}', $contents);
         $this->assertStringContainsString('No salary stated', $contents);
-        $this->assertStringContainsString('text-xs italic text-gray-400', $contents);
+        $this->assertStringContainsString('theme-text-muted mt-1 text-xs italic', $contents);
         $this->assertStringNotContainsString('HK$ {{ $job->salary }}', $contents);
     }
 

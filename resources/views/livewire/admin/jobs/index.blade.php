@@ -134,7 +134,7 @@ new class extends Component
         ->count();
 @endphp
 
-<div x-data="{ showDeleteModal: false, pendingDeleteId: '' }" class="space-y-8">
+<div x-data="{ showDeleteModal: false, pendingDeleteId: '', lastActiveEl: null }" class="space-y-8">
     <div class="theme-hero-surface rounded-3xl border px-6 py-7 sm:px-8">
         <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div class="max-w-2xl">
@@ -263,7 +263,7 @@ new class extends Component
                                         @if($job->salary)
                                             <div class="theme-text-muted mt-1 text-xs">{{ $job->salary }}</div>
                                         @else
-                                            <div class="mt-1 text-xs italic text-gray-400">No salary stated</div>
+                                            <div class="theme-text-muted mt-1 text-xs italic">No salary stated</div>
                                         @endif
                                     </td>
                                     <td class="px-6 py-4">
@@ -300,7 +300,7 @@ new class extends Component
                                             <button
                                                 type="button"
                                                 data-job-id="{{ $job->id }}"
-                                                @click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"
+                                                @click="lastActiveEl = $event.currentTarget; showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"
                                                 class="theme-alert-error inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors hover:brightness-95 cursor-pointer"
                                             >
                                                 Delete
@@ -381,9 +381,9 @@ new class extends Component
         x-show="showDeleteModal"
         x-cloak
         style="display: none;"
-        @close-delete-modal.window="showDeleteModal = false"
-        x-on:keydown.escape.window="showDeleteModal = false"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 p-4 backdrop-blur-sm"
+        @close-delete-modal.window="showDeleteModal = false; pendingDeleteId = ''; lastActiveEl?.focus()"
+        x-on:keydown.escape.window="showDeleteModal = false; pendingDeleteId = ''; lastActiveEl?.focus()"
+        class="theme-overlay-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0"
         x-transition:enter-end="opacity-100"
@@ -392,6 +392,12 @@ new class extends Component
         x-transition:leave-end="opacity-0"
     >
         <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-job-title"
+            tabindex="-1"
+            x-ref="deleteJobDialog"
+            x-effect="if (showDeleteModal) { $nextTick(() => $refs.deleteJobDialog?.focus()) }"
             class="theme-modal-surface w-full max-w-lg rounded-xl"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0 scale-95"
@@ -399,7 +405,7 @@ new class extends Component
             x-transition:leave="transition ease-in duration-200"
             x-transition:leave-start="opacity-100 scale-100"
             x-transition:leave-end="opacity-0 scale-95"
-            @click.outside="showDeleteModal = false"
+            @click.outside="showDeleteModal = false; pendingDeleteId = ''; lastActiveEl?.focus()"
         >
             <div class="space-y-4 px-6 py-6">
                 <div class="flex items-start gap-4">
@@ -409,7 +415,7 @@ new class extends Component
                         </svg>
                     </div>
                     <div>
-                        <h3 class="theme-text-strong text-lg font-medium">Delete job posting</h3>
+                        <h3 id="delete-job-title" class="theme-text-strong text-lg font-medium">Delete job posting</h3>
                         <p class="theme-text-muted mt-2 text-sm">
                             Are you sure you want to remove this listing? This action cannot be undone.
                             <span class="theme-alert-error mt-2 inline-flex rounded-full border px-2 py-0.5 font-medium">Related applications are removed as part of this cleanup.</span>
@@ -419,7 +425,7 @@ new class extends Component
             </div>
 
             <div class="theme-table-head flex justify-end gap-x-4 border-t px-6 py-4 rounded-b-xl">
-                <x-ui.button variant="outline" type="button" x-on:click="showDeleteModal = false">Cancel</x-ui.button>
+                <x-ui.button variant="outline" type="button" x-on:click="showDeleteModal = false; pendingDeleteId = ''; lastActiveEl?.focus()">Cancel</x-ui.button>
                 <x-ui.button variant="danger" type="button" @click="$wire.deleteJob(pendingDeleteId)" wire:loading.attr="disabled" wire:target="deleteJob">
                     <span wire:loading.remove wire:target="deleteJob">Delete Job</span>
                     <span wire:loading wire:target="deleteJob">Deleting...</span>

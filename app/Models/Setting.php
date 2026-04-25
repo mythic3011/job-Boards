@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class Setting extends Model
 {
@@ -23,7 +24,12 @@ class Setting extends Model
      */
     public static function get(string $key, mixed $default = null): mixed
     {
+        if (! Schema::hasTable((new static)->getTable())) {
+            return $default;
+        }
+
         $setting = static::find($key);
+
         return $setting ? $setting->value : $default;
     }
 
@@ -48,7 +54,8 @@ class Setting extends Model
         if ($value === null) {
             return $default;
         }
-        return in_array(strtolower($value), ['true', '1', 'yes', 'on'], true);
+
+        return in_array(strtolower((string) $value), ['true', '1', 'yes', 'on'], true);
     }
 
     /**

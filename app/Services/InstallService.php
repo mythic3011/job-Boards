@@ -217,7 +217,7 @@ class InstallService
 
         $admin = User::create([
             'idcode' => 'user_admin_'.Str::uuid()->toString(),
-            'login_id' => 'admin_'.Str::random(8),
+            'login_id' => $this->resolveAdminLoginId($data['admin_username'] ?? null),
             'nickname' => $data['admin_name'],
             'email' => $data['admin_email'],
             'password' => Hash::make($data['admin_password']),
@@ -228,6 +228,35 @@ class InstallService
         $admin->assignRole($adminRole);
 
         return $admin;
+    }
+
+    private function resolveAdminLoginId(mixed $requested): string
+    {
+        if (is_string($requested)) {
+            $normalized = trim(Str::lower($requested));
+            if ($normalized !== '' && preg_match('/^[a-z0-9_]{3,255}$/', $normalized) === 1) {
+                if (! User::where('login_id', $normalized)->exists()) {
+                    return $normalized;
+                }
+
+                $suffix = 2;
+                while ($suffix < 10000) {
+                    $suffixText = '_'.$suffix;
+                    $baseLength = max(3, 255 - strlen($suffixText));
+                    $candidate = Str::substr($normalized, 0, $baseLength).$suffixText;
+                    if (! User::where('login_id', $candidate)->exists()) {
+                        return $candidate;
+                    }
+                    $suffix++;
+                }
+            }
+        }
+
+        do {
+            $candidate = 'admin_'.Str::random(8);
+        } while (User::where('login_id', $candidate)->exists());
+
+        return $candidate;
     }
 
     /**

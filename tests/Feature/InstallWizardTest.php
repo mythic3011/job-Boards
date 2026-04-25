@@ -207,4 +207,39 @@ class InstallWizardTest extends TestCase
             ->assertSet('error', 'Installation failed. Please try again.')
             ->assertDontSee('Admin role not found.');
     }
+
+    public function test_install_wizard_passes_username_into_installation_payload(): void
+    {
+        $installService = Mockery::mock(InstallService::class);
+        $installService->shouldReceive('completeInstallation')
+            ->once()
+            ->with(Mockery::on(function (array $payload): bool {
+                return ($payload['admin_username'] ?? null) === 'adminuser'
+                    && ($payload['admin_name'] ?? null) === 'Admin User'
+                    && ($payload['admin_email'] ?? null) === 'admin@gmail.com';
+            }))
+            ->andReturnNull();
+        $this->app->instance(InstallService::class, $installService);
+
+        Livewire::test(Wizard::class)
+            ->set('username', 'adminuser')
+            ->set('name', 'Admin User')
+            ->set('email', 'admin@gmail.com')
+            ->set('password', 'StrongPass123!')
+            ->set('password_confirmation', 'StrongPass123!')
+            ->set('app_name', 'Jobs Board')
+            ->set('app_url', 'https://jobboard.example.com')
+            ->set('timezone', 'Asia/Hong_Kong')
+            ->set('checksLoaded', true)
+            ->set('systemChecks', [
+                'database' => true,
+                'storage' => true,
+                'cache' => true,
+            ])
+            ->set('twoFactorSecret', 'JBSWY3DPEHPK3PXP')
+            ->set('recoveryCodes', ['RCODE-1'])
+            ->set('testSuccess', true)
+            ->call('complete')
+            ->assertSet('error', '');
+    }
 }
