@@ -1,0 +1,135 @@
+{
+  "modeDefaults": {
+    "lab": {
+      "APP_DOMAIN": "jobs-board.lab",
+      "STATE_DIR": ".blue-team-vm",
+      "APP_ENV": "local"
+    },
+    "demo": {
+      "APP_DOMAIN": "jobs-board.lab",
+      "STATE_DIR": ".blue-team-vm",
+      "APP_ENV": "local"
+    },
+    "production": {
+      "STATE_DIR": ".blue-team-vm",
+      "APP_ENV": "production"
+    },
+    "reset-demo": {
+      "APP_DOMAIN": "jobs-board.lab",
+      "STATE_DIR": ".blue-team-vm",
+      "APP_ENV": "local"
+    }
+  },
+  "canonicalOperatorInputs": [
+    "APP_DOMAIN",
+    "ADMIN_EMAIL",
+    "STATE_DIR"
+  ],
+  "protectedCanonicalValues": [
+    "APP_DOMAIN",
+    "STATE_DIR",
+    "TRUSTED_PROXIES",
+    "APP_KEY",
+    "APP_PREVIOUS_KEYS"
+  ],
+  "allowedOverrides": [
+    "APP_DOMAIN",
+    "STATE_DIR",
+    "ADMIN_EMAIL",
+    "APP_KEY",
+    "APP_PREVIOUS_KEYS"
+  ],
+  "outputFilenames": {
+    "compatShellEnv": "compat.shell.env",
+    "persistedState": "pr2a.generated.json"
+  },
+  "secretSourceOrder": [
+    "explicit-injected-env",
+    "approved-secret-file",
+    "approved-persisted-bootstrap-output"
+  ],
+  "conflictHandlingPolicy": {
+    "default": "fail",
+    "dominantSources": {}
+  },
+  "legacyMappings": [
+    {
+      "oldCommand": "full",
+      "oldBehavior": "deploy",
+      "newBehavior": "legacy-runtime-flow",
+      "destructive": false,
+      "pr2aAction": "allow-existing-flow",
+      "messageKey": "legacy.full"
+    },
+    {
+      "oldCommand": "quick",
+      "oldBehavior": "reset",
+      "newBehavior": "legacy-runtime-flow",
+      "destructive": true,
+      "pr2aAction": "allow-existing-flow",
+      "messageKey": "legacy.quick"
+    },
+    {
+      "oldCommand": "bootstrap",
+      "oldBehavior": "bootstrap",
+      "newBehavior": "legacy-runtime-flow",
+      "destructive": false,
+      "pr2aAction": "allow-existing-flow",
+      "messageKey": "legacy.bootstrap"
+    },
+    {
+      "oldCommand": "seed-admin",
+      "oldBehavior": "seed-admin",
+      "newBehavior": "legacy-runtime-flow",
+      "destructive": false,
+      "pr2aAction": "allow-existing-flow",
+      "messageKey": "legacy.seed_admin"
+    },
+    {
+      "oldCommand": "mark-installed",
+      "oldBehavior": "mark-installed",
+      "newBehavior": "legacy-runtime-flow",
+      "destructive": false,
+      "pr2aAction": "allow-existing-flow",
+      "messageKey": "legacy.mark_installed"
+    },
+    {
+      "oldCommand": "test-prepare",
+      "oldBehavior": "test-prepare",
+      "newBehavior": "legacy-runtime-flow",
+      "destructive": false,
+      "pr2aAction": "allow-existing-flow",
+      "messageKey": "legacy.test_prepare"
+    },
+    {
+      "oldCommand": "reset-demo dev|production",
+      "oldBehavior": "destructive-reset-demo",
+      "newBehavior": "legacy-runtime-flow",
+      "destructive": true,
+      "pr2aAction": "allow-existing-flow",
+      "messageKey": "legacy.reset_demo"
+    },
+    {
+      "oldCommand": "demo production",
+      "oldBehavior": "ambiguous-destructive-demo",
+      "newBehavior": "none",
+      "destructive": true,
+      "pr2aAction": "fail-with-guidance",
+      "messageKey": "legacy.demo_production_blocked"
+    }
+  ],
+  "migrationMessageKeys": {
+    "prepareOnly": "PR2A prepare/validate completed. Runtime wiring lands in PR2B/PR3.",
+    "resetDemoValidateOnlyStop": "PR2A reset-demo uses validate-only-stop.",
+    "nonInteractiveNoArg": "No mode provided in non-interactive mode. Use ./install.sh lab, ./install.sh demo, or ./install.sh production.",
+    "legacy_full": "Legacy command full remains on the existing runtime flow during PR2A.",
+    "legacy_quick": "Legacy command quick remains on the existing runtime flow during PR2A.",
+    "legacy_bootstrap": "Legacy command bootstrap remains on the existing runtime flow during PR2A.",
+    "legacy_seed_admin": "Legacy command seed-admin remains on the existing runtime flow during PR2A.",
+    "legacy_mark_installed": "Legacy command mark-installed remains on the existing runtime flow during PR2A.",
+    "legacy_test_prepare": "Legacy command test-prepare remains on the existing runtime flow during PR2A.",
+    "legacy_reset_demo": "Legacy two-argument reset-demo remains on the existing runtime flow during PR2A.",
+    "legacy_demo_production_blocked": "Migration required: legacy destructive demo semantics are blocked. Use ./install.sh reset-demo for explicit destructive intent."
+  },
+  "resetDemoBehavior": "validate-only-stop"
+}

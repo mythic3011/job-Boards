@@ -1,15 +1,233 @@
 #!/usr/bin/env bash
 # bootstrap-env.sh — hardened edition
-# Usage: ./bootstrap-env.sh [dev|production|test]
+# Usage:
+#   ./bootstrap-env.sh [dev|production|test]
+#   ./bootstrap-env.sh prepare [lab|demo|production|reset-demo]
 #   dev        — fill missing/weak secrets only, never overwrite existing strong values
 #   production — force-regenerate ALL secrets regardless of current value
 #   test       — sync .env.testing with .env credentials (DB_PASSWORD, APP_KEY)
+#   prepare    — PR2A prepare/validate bridge that emits shell-consumer outputs only
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=ops/lib/common.sh
 source "${SCRIPT_DIR}/ops/lib/common.sh"
 BOOTSTRAP_COMPOSE_FILE="${BOOTSTRAP_COMPOSE_FILE:-${SCRIPT_DIR}/compose.yaml}"
+
+pr2a_contract_file() {
+    printf '%s\n' "${SCRIPT_DIR}/ops/bootstrap/contract.json"
+}
+
+pr2a_contract_validator() {
+    printf '%s\n' "${SCRIPT_DIR}/ops/bootstrap/validate-contract.py"
+}
+
+validate_pr2a_contract() {
+    python3 "$(pr2a_contract_validator)" "$(pr2a_contract_file)"
+}
+
+run_pr2a_prepare() {
+    local prepare_mode="$1"
+    validate_pr2a_contract
+
+    [[ -f .env.example ]] || { echo "Error: .env.example not found"; exit 1; }
+    [[ -f .env ]] || { cp .env.example .env; echo "Created .env from .env.example"; }
+
+    SCRIPT_DIR="${SCRIPT_DIR}" PREPARE_MODE="${prepare_mode}" python3 - <<'PYEOF'
+from __future__ import annotations
+
+import json
+import os
+import secrets
+import tempfile
+from pathlib import Path
+
+
+def parse_env_file(path: Path) -> dict[str, str]:
+    values: dict[str, str] = {}
+    if not path.exists():
+        return values
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in raw_line:
+            continue
+        key, value = raw_line.split("=", 1)
+        key = key.strip()
+        if key:
+            values[key] = value
+    return values
+
+
+def atomic_write(path: Path, content: str, mode: int) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(prefix=".tmp-", dir=path.parent)
+    tmp_path = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            try:
+                os.fsync(handle.fileno())
+            except OSError:
+                pass
+        os.chmod(tmp_path, mode)
+        os.replace(tmp_path, path)
+        try:
+            dir_fd = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
+        except OSError:
+            pass
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink(missing_ok=True)
+
+
+def shell_quote(value: str) -> str:
+    if "\n" in value or "\r" in value:
+        raise SystemExit("newline-bearing values cannot be written to compat.shell.env")
+    return "'" + value.replace("'", "'\\''") + "'"
+
+
+def random_app_key() -> str:
+    return "base64:" + secrets.token_urlsafe(32)
+
+
+def random_secret_hex() -> str:
+    return secrets.token_hex(32)
+
+
+root = Path(os.environ["SCRIPT_DIR"])
+mode = os.environ["PREPARE_MODE"]
+contract = json.loads((root / "ops/bootstrap/contract.json").read_text(encoding="utf-8"))
+env_file = parse_env_file(root / ".env")
+
+allowed_overrides = set(contract["allowedOverrides"])
+protected_values = set(contract["protectedCanonicalValues"])
+mode_defaults = contract["modeDefaults"][mode]
+injected_keys = {
+    item.strip()
+    for item in os.environ.get("BT_BOOTSTRAP_INJECTED_KEYS", "").split(",")
+    if item.strip()
+}
+
+
+def env_override(key: str) -> str | None:
+    if key not in allowed_overrides:
+        return None
+    if key not in injected_keys:
+        return None
+    return os.environ.get(key)
+
+
+def resolve_value(key: str, *, default: str = "", protected: bool = False) -> str:
+    env_value = env_override(key)
+    file_value = env_file.get(key)
+    if protected and env_value and file_value and env_value != file_value:
+        raise SystemExit(f"conflicting values for protected key {key}")
+    if env_value:
+        return env_value
+    if file_value:
+        return file_value
+    return default
+
+
+state_dir_raw = resolve_value("STATE_DIR", default=mode_defaults["STATE_DIR"], protected=True)
+state_dir = Path(state_dir_raw)
+if not state_dir.is_absolute():
+    state_dir = root / state_dir
+state_dir = state_dir.resolve()
+
+runtime_dir = state_dir / "runtime"
+rendered_dir = runtime_dir / "rendered"
+persisted_state_path = runtime_dir / contract["outputFilenames"]["persistedState"]
+compat_shell_env_path = runtime_dir / contract["outputFilenames"]["compatShellEnv"]
+
+persisted_state: dict[str, str] = {}
+if persisted_state_path.exists():
+    persisted_state = json.loads(persisted_state_path.read_text(encoding="utf-8"))
+
+
+def resolve_generated_secret(key: str, generator) -> str:
+    env_value = env_override(key)
+    file_value = env_file.get(key)
+    persisted_value = persisted_state.get(key)
+    approved_values = [value for value in (env_value, file_value, persisted_value) if value]
+    if len(set(approved_values)) > 1:
+        raise SystemExit(f"conflicting values for protected key {key}")
+    if approved_values:
+        return approved_values[0]
+    if mode == "production":
+        raise SystemExit(f"missing required production secret {key}")
+    return generator()
+
+
+app_domain_default = mode_defaults.get("APP_DOMAIN", "")
+app_domain = resolve_value("APP_DOMAIN", default=app_domain_default, protected=True)
+admin_email = resolve_value("ADMIN_EMAIL", default="", protected=False)
+
+app_key = resolve_generated_secret("APP_KEY", random_app_key)
+app_previous_keys = resolve_value("APP_PREVIOUS_KEYS", default="", protected=True)
+monitoring_password = resolve_generated_secret("MONITORING_PASSWORD", random_secret_hex)
+session_secret = resolve_generated_secret("SESSION_SECRET", random_secret_hex)
+db_password = resolve_generated_secret("DB_PASSWORD", random_secret_hex)
+
+grafana_secret_file = runtime_dir / "grafana-admin-secret"
+prometheus_web_config_file = rendered_dir / "prometheus.web-config.yml"
+grafana_datasources_file = rendered_dir / "grafana.datasources.yml"
+
+atomic_write(grafana_secret_file, monitoring_password, 0o600)
+atomic_write(persisted_state_path, json.dumps({
+    "APP_KEY": app_key,
+    "MONITORING_PASSWORD": monitoring_password,
+    "SESSION_SECRET": session_secret,
+    "DB_PASSWORD": db_password,
+}, indent=2) + "\n", 0o600)
+
+compat_values = {
+    "APP_DOMAIN": app_domain,
+    "APP_URL": f"https://{app_domain}" if app_domain else "",
+    "ADMIN_EMAIL": admin_email,
+    "STATE_DIR": str(state_dir),
+    "BT_STATE_DIR": str(state_dir),
+    "BT_RUNTIME_DIR": str(runtime_dir),
+    "APP_KEY": app_key,
+    "APP_PREVIOUS_KEYS": app_previous_keys,
+    "DB_PASSWORD": db_password,
+    "MONITORING_PASSWORD": monitoring_password,
+    "SESSION_SECRET": session_secret,
+    "PROMETHEUS_WEB_CONFIG_FILE": str(prometheus_web_config_file),
+    "GRAFANA_DATASOURCES_FILE": str(grafana_datasources_file),
+    "GRAFANA_ADMIN_SECRET_FILE": str(grafana_secret_file),
+}
+
+rendered_lines = []
+for key, value in compat_values.items():
+    rendered_lines.append(f"{key}={shell_quote(value)}")
+atomic_write(compat_shell_env_path, "\n".join(rendered_lines) + "\n", 0o600)
+
+print(f"PR2A prepare/validate completed for {mode}.")
+print(f"compat.shell.env: {compat_shell_env_path}")
+print("Runtime wiring lands in PR2B/PR3.")
+if mode == "reset-demo":
+    print("reset-demo behavior: validate-only-stop")
+PYEOF
+}
+
+if [[ "${1:-}" == "prepare" ]]; then
+    PREPARE_MODE="${2:-}"
+    case "${PREPARE_MODE}" in
+        lab|demo|production|reset-demo) ;;
+        *)
+            echo "Usage: $0 prepare [lab|demo|production|reset-demo]" >&2
+            exit 1
+            ;;
+    esac
+    run_pr2a_prepare "${PREPARE_MODE}"
+    exit 0
+fi
 
 # ─── Mode validation ──────────────────────────────────────────────────────────
 MODE="${1:-dev}"

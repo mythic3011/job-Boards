@@ -18,8 +18,6 @@ set -euo pipefail
 # - secrets are never printed to stdout by this script
 # - credentials are only saved when INSTALL_SAVE_CREDS=true
 
-SETUP_MODE="${1:-full}"
-ENV_MODE="${2:-dev}"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_BT_STATE_DIR="${INSTALL_BT_STATE_DIR:-${ROOT_DIR}/.blue-team-vm}"
 INSTALL_COMPOSE_FILE="${INSTALL_COMPOSE_FILE:-${ROOT_DIR}/compose.yaml}"
@@ -33,9 +31,92 @@ source "${ROOT_DIR}/ops/lib/common.sh"
 
 cd "${ROOT_DIR}"
 
+RAW_MODE="${1-}"
+RAW_ARG_2="${2-}"
+RAW_ARG_3="${3-}"
+SETUP_MODE="${RAW_MODE:-full}"
+INSTALL_SSL_SWITCH_TARGET="${INSTALL_SSL_SWITCH_TARGET:-}"
+ENV_MODE="${INSTALL_ENV_MODE:-dev}"
+
+contract_file() {
+    printf '%s\n' "${ROOT_DIR}/ops/bootstrap/contract.json"
+}
+
+contract_validator() {
+    printf '%s\n' "${ROOT_DIR}/ops/bootstrap/validate-contract.py"
+}
+
+ensure_contract_reader() {
+    if command -v python3 >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if command -v jq >/dev/null 2>&1; then
+        return 0
+    fi
+
+    err "Missing contract reader dependency. Install python3 or jq."
+    exit 1
+}
+
+validate_install_contract() {
+    ensure_contract_reader
+    if command -v python3 >/dev/null 2>&1; then
+        python3 "$(contract_validator)" "$(contract_file)"
+        return 0
+    fi
+
+    jq empty "$(contract_file)" >/dev/null
+}
+
+contract_json_get() {
+    local path_expression="$1"
+    ensure_contract_reader
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - "$(contract_file)" "${path_expression}" <<'PY'
+import json
+import sys
+
+payload = json.load(open(sys.argv[1], encoding="utf-8"))
+value = payload
+for part in sys.argv[2].split('.'):
+    value = value[part]
+if isinstance(value, bool):
+    print("true" if value else "false")
+elif isinstance(value, (dict, list)):
+    print(json.dumps(value))
+else:
+    print(value)
+PY
+        return 0
+    fi
+
+    jq -r ".${path_expression}" "$(contract_file)"
+}
+
+err() {
+    printf '%s\n' "$*" >&2
+}
+
+warn() {
+    err "WARNING: $*"
+}
+
 usage() {
     cat <<'EOF'
-Usage: ./install.sh [bootstrap|up|deploy|reset|reset-demo|seed-admin|mark-installed|test-prepare|verify] [dev|production]
+Usage:
+  ./install.sh lab
+  ./install.sh demo
+  ./install.sh production
+  ./install.sh reset-demo
+  ./install.sh
+  ./install.sh [bootstrap|up|deploy|reset|reset-demo|seed-admin|mark-installed|test-prepare|verify] [dev|production]
+  ./install.sh ssl-switch <self-signed|cloudflare-origin|letsencrypt> [dev|production]
+
+PR2A:
+  lab/demo/production run bootstrap prepare/validate only, then stop with guidance.
+  reset-demo is validate-only-stop in PR2A.
+  No-arg interactive mode requires a TTY.
 
   bootstrap      Prepare .env defaults, obs runtime artifacts, and local port checks
   up             Build and start the combined local stack
@@ -56,6 +137,74 @@ Aliases:
   test -> test-prepare
 EOF
 }
+
+prompt_pr2a_mode() {
+    local choice=""
+
+    while true; do
+        printf '%s\n' "Select deployment mode:"
+        printf '%s\n' "  1) lab"
+        printf '%s\n' "  2) demo"
+        printf '%s\n' "  3) production"
+        read -r -p "> " choice
+        case "${choice}" in
+            1|lab) printf '%s\n' "lab"; return 0 ;;
+            2|demo) printf '%s\n' "demo"; return 0 ;;
+            3|production) printf '%s\n' "production"; return 0 ;;
+            *) err "Invalid choice."; ;;
+        esac
+    done
+}
+
+run_pr2a_prepare_only() {
+    local mode="$1"
+
+    validate_install_contract
+    ./bootstrap-env.sh prepare "${mode}"
+    printf '%s\n' "$(contract_json_get 'migrationMessageKeys.prepareOnly')"
+    if [[ "${mode}" == "reset-demo" ]]; then
+        printf '%s\n' "$(contract_json_get 'migrationMessageKeys.resetDemoValidateOnlyStop')"
+    fi
+}
+
+handle_pr2a_invocation() {
+    local mode="$1"
+    local extra_arg="${2:-}"
+
+    if [[ -n "${extra_arg}" ]]; then
+        err "$(contract_json_get 'migrationMessageKeys.legacy_demo_production_blocked')"
+        usage
+        exit 1
+    fi
+
+    run_pr2a_prepare_only "${mode}"
+    exit 0
+}
+
+if [[ -z "${RAW_MODE}" ]]; then
+    if [[ ! -t 0 ]]; then
+        err "$(contract_json_get 'migrationMessageKeys.nonInteractiveNoArg')"
+        usage
+        exit 1
+    fi
+
+    handle_pr2a_invocation "$(prompt_pr2a_mode)"
+fi
+
+if [[ "${RAW_MODE}" == "lab" || "${RAW_MODE}" == "demo" || "${RAW_MODE}" == "production" ]]; then
+    handle_pr2a_invocation "${RAW_MODE}" "${RAW_ARG_2:-}"
+fi
+
+if [[ "${RAW_MODE}" == "reset-demo" && -z "${RAW_ARG_2:-}" ]]; then
+    handle_pr2a_invocation "reset-demo"
+fi
+
+if [[ "${RAW_MODE}" == "ssl-switch" ]]; then
+    INSTALL_SSL_SWITCH_TARGET="${RAW_ARG_2:-${INSTALL_SSL_SWITCH_TARGET:-}}"
+    ENV_MODE="${RAW_ARG_3:-${INSTALL_ENV_MODE:-dev}}"
+else
+    ENV_MODE="${RAW_ARG_2:-${INSTALL_ENV_MODE:-dev}}"
+fi
 
 canonical_mode() {
     case "${1:-}" in
@@ -98,14 +247,6 @@ CANONICAL_MODE="$(canonical_mode "${SETUP_MODE}")" || {
 
 export WWWUSER="${WWWUSER:-$(id -u)}"
 export WWWGROUP="${WWWGROUP:-$(id -g)}"
-
-err() {
-    printf '%s\n' "$*" >&2
-}
-
-warn() {
-    err "WARNING: $*"
-}
 
 normalized_choice() {
     printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]'
