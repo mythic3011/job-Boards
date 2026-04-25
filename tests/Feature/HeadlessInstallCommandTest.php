@@ -138,4 +138,17 @@ class HeadlessInstallCommandTest extends TestCase
         $this->assertSame('admin', $admin->user_type);
         $this->assertTrue(Setting::isSetupCompleted());
     }
+
+    public function test_headless_install_rejects_passwords_that_do_not_match_canonical_policy(): void
+    {
+        $this->artisan('install:headless', [
+            '--admin-email' => 'admin@example.com',
+            '--admin-password' => 'alllowercase123',
+            '--admin-name' => 'Root Admin',
+        ])
+            ->expectsOutputToContain('format is invalid')
+            ->assertExitCode(CommandAlias::INVALID);
+
+        $this->assertNull(User::query()->where('email', 'admin@example.com')->first());
+    }
 }

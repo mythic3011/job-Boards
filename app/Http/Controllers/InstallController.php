@@ -3,14 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Services\AuditLogger;
+use App\Services\InstallCompletionCoordinator;
 use App\Services\InstallService;
-use App\Services\TwoFactorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 class InstallController extends Controller
 {
@@ -18,22 +16,14 @@ class InstallController extends Controller
 
     private const REQUEST_MAX_AGE_COMPLETE = 1800;
 
-    private const REQUEST_TOLERANCE = 60;
-
-    private const MAX_INSTALL_ATTEMPTS = 5;
-
-    private const INSTALL_ATTEMPT_CACHE_TTL = 10;
-
     private const INSTALL_SESSION_KEY = 'IP_INSTALL_SESSION';
 
     private const INSTALL_SESSION_TIMEOUT = 3600;
 
-    private const INSTALL_MAX_ATTEMPTS_DURING_SESSION = 20;
-
     public function __construct(
         private readonly InstallService $installService,
+        private readonly InstallCompletionCoordinator $installCompletionCoordinator,
         private readonly AuditLogger $auditLogger,
-        private readonly TwoFactorService $twoFactorService,
     ) {}
 
     /**
@@ -70,9 +60,9 @@ class InstallController extends Controller
         $this->setInstallSession($request);
 
         if (! $this->isInstallSessionValid($request)) {
-            $this->validateRequestAge($request, self::REQUEST_MAX_AGE_CHECKS);
+            $this->installCompletionCoordinator->validateRequestAge($request, self::REQUEST_MAX_AGE_CHECKS);
         } else {
-            $this->validateRequestAge($request, self::REQUEST_MAX_AGE_CHECKS * 6);
+            $this->installCompletionCoordinator->validateRequestAge($request, self::REQUEST_MAX_AGE_CHECKS * 6);
         }
 
         try {
@@ -113,37 +103,23 @@ class InstallController extends Controller
         // Check if this is a Livewire request (no timestamp/session validation needed)
         $isLivewireRequest = ! $request->has('timestamp') || ! $request->has('session');
 
+        $isActiveSession = false;
         if (! $isLivewireRequest) {
             // JavaScript installer - validate timestamp
             $this->validateCompleteRequest($request, requireReplayFields: true);
 
             $isActiveSession = $this->isInstallSessionValid($request);
-
-            if ($isActiveSession) {
-                $requestAge = now()->timestamp - $request->timestamp;
-                if ($requestAge > self::REQUEST_MAX_AGE_COMPLETE) {
-                    throw ValidationException::withMessages([
-                        'timestamp' => 'Request expired',
-                    ]);
-                }
-            } else {
-                $this->validateRequestAge($request, self::REQUEST_MAX_AGE_COMPLETE);
-            }
         } else {
             // Livewire installer - same canonical validation rules, without replay fields
             $this->validateCompleteRequest($request, requireReplayFields: false);
         }
 
-        $this->verifyInstallOtp($request);
-
-        if (! $isLivewireRequest) {
-            $isActiveSession = $this->isInstallSessionValid($request);
-            if ($isActiveSession) {
-                $this->checkRateLimitDuringInstall($request);
-            } else {
-                $this->checkRateLimit($request);
-            }
-        }
+        $this->installCompletionCoordinator->enforceCompletionChecks(
+            request: $request,
+            checkReplayAndRateLimit: ! $isLivewireRequest,
+            isActiveInstallSession: $isActiveSession,
+            maxAge: self::REQUEST_MAX_AGE_COMPLETE
+        );
 
         try {
             $this->logInstallAttempt($request);
@@ -164,7 +140,7 @@ class InstallController extends Controller
             ]);
 
             if (! $isLivewireRequest) {
-                $this->clearRateLimit($request);
+                $this->installCompletionCoordinator->clearRateLimit($request);
                 $this->clearInstallSession($request);
             }
 
@@ -204,24 +180,7 @@ class InstallController extends Controller
      */
     private function validateCompleteRequest(Request $request, bool $requireReplayFields): void
     {
-        $rules = [
-            'admin_username' => 'nullable|string|min:3|max:255|regex:/^[a-zA-Z0-9_]+$/',
-            'admin_name' => 'required|string|max:255',
-            'admin_email' => 'required|email:rfc|unique:users,email|max:255',
-            'admin_password' => 'required|string|min:12|max:255|regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/',
-            'admin_password_confirmation' => 'required|string|same:admin_password',
-            'two_factor_secret' => 'required|string|regex:/^[A-Z2-7]{16,}$/i',
-            'otp_code' => 'required|string|size:6',
-            'install_demo_data' => 'nullable|boolean',
-            'demo' => 'nullable|boolean',
-        ];
-
-        if ($requireReplayFields) {
-            $rules['timestamp'] = 'required|integer';
-            $rules['session'] = 'required|string|max:100';
-        }
-
-        $request->validate($rules);
+        $request->validate($this->installCompletionCoordinator->completionValidationRules($requireReplayFields));
     }
 
     /**
@@ -299,72 +258,6 @@ class InstallController extends Controller
         }
 
         return Str::lower($username);
-    }
-
-    /**
-     * Validate request age to prevent replay attacks.
-     */
-    private function validateRequestAge(Request $request, int $maxAge): void
-    {
-        $requestAge = now()->timestamp - $request->timestamp;
-        if ($requestAge > $maxAge || $requestAge < -self::REQUEST_TOLERANCE) {
-            throw ValidationException::withMessages([
-                'timestamp' => 'Request expired',
-            ]);
-        }
-    }
-
-    /**
-     * Check rate limit for installation attempts.
-     * Standard rate limiting for new sessions.
-     */
-    private function checkRateLimit(Request $request): void
-    {
-        $key = $this->getRateLimitKey($request);
-        $attempts = Cache::get($key, 0);
-
-        if ($attempts >= self::MAX_INSTALL_ATTEMPTS) {
-            abort(429, 'Too many attempts. Try again later.');
-        }
-
-        Cache::put($key, $attempts + 1, now()->addMinutes(self::INSTALL_ATTEMPT_CACHE_TTL));
-    }
-
-    /**
-     * Check rate limit during active installation session.
-     * More lenient but still provides protection against abuse.
-     */
-    private function checkRateLimitDuringInstall(Request $request): void
-    {
-        $key = $this->getRateLimitKey($request).'_install';
-        $attempts = Cache::get($key, 0);
-
-        if ($attempts >= self::INSTALL_MAX_ATTEMPTS_DURING_SESSION) {
-            Log::warning('Install rate limit exceeded during active session', [
-                'ip' => $request->ip(),
-                'session' => $request->session()->getId(),
-                'attempts' => $attempts,
-            ]);
-            abort(429, 'Too many attempts during installation. Please wait a moment.');
-        }
-
-        Cache::put($key, $attempts + 1, now()->addMinutes(5));
-    }
-
-    /**
-     * Clear rate limit cache.
-     */
-    private function clearRateLimit(Request $request): void
-    {
-        Cache::forget($this->getRateLimitKey($request));
-    }
-
-    /**
-     * Get rate limit cache key.
-     */
-    private function getRateLimitKey(Request $request): string
-    {
-        return 'install_attempts_'.$request->ip();
     }
 
     /**
@@ -449,29 +342,6 @@ class InstallController extends Controller
         }
 
         return true;
-    }
-
-    /**
-     * Verify the OTP code against the provided 2FA secret during installation.
-     */
-    private function verifyInstallOtp(Request $request): void
-    {
-        $secret = $request->input('two_factor_secret') ?? $request->input('twoFactorSecret');
-        $code = $request->input('otp_code');
-
-        if (! $secret || ! $code) {
-            throw ValidationException::withMessages([
-                'otp_code' => ['OTP verification is required.'],
-            ]);
-        }
-
-        $valid = $this->twoFactorService->verifyProvisioningCode((string) $secret, (string) $code);
-
-        if (! $valid) {
-            throw ValidationException::withMessages([
-                'otp_code' => ['The verification code is invalid. Please check your authenticator app.'],
-            ]);
-        }
     }
 
     /**

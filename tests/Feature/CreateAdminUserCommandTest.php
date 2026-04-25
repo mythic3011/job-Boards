@@ -88,4 +88,17 @@ class CreateAdminUserCommandTest extends TestCase
         $this->assertSame('admin', $admin->user_type);
         $this->assertTrue($admin->hasRole('admin'));
     }
+
+    public function test_admin_create_rejects_passwords_that_do_not_match_canonical_policy(): void
+    {
+        $this->artisan('admin:create', [
+            '--email' => 'weak-admin@example.com',
+            '--name' => 'Weak Admin',
+            '--password' => 'alllowercase123',
+        ])
+            ->expectsOutputToContain('format is invalid')
+            ->assertExitCode(CommandAlias::FAILURE);
+
+        $this->assertNull(User::query()->where('email', 'weak-admin@example.com')->first());
+    }
 }

@@ -2,11 +2,10 @@
 
 namespace App\Livewire\Install;
 
+use App\Services\InstallCompletionCoordinator;
 use App\Services\InstallService;
-use App\Services\TwoFactorService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Validation\Rules\Password;
 use Livewire\Component;
 use Throwable;
 
@@ -98,11 +97,13 @@ class Wizard extends Component
 
     protected function validateStep1(): void
     {
+        $coordinator = app(InstallCompletionCoordinator::class);
+
         $this->validate([
             'username' => ['required', 'string', 'min:3', 'max:255', 'regex:/^[a-zA-Z0-9_]+$/'],
             'name' => ['required', 'string', 'min:2', 'max:255'],
             'email' => ['required', 'email:rfc', 'max:255'],
-            'password' => ['required', 'confirmed', Password::min(12)->mixedCase()->numbers()],
+            'password' => $coordinator->passwordRules(withConfirmation: true),
         ], [
             'username.regex' => 'Username can only contain letters, numbers, and underscores.',
             'password.min' => 'Password must be at least 12 characters.',
@@ -138,12 +139,12 @@ class Wizard extends Component
     public function generate2FA(): void
     {
         $this->resetTwoFactorState();
+        $coordinator = app(InstallCompletionCoordinator::class);
 
         try {
-            $twoFactorService = app(TwoFactorService::class);
-            $this->twoFactorSecret = $twoFactorService->generateSetupSecret();
-            $this->qrCodeDataUrl = $this->generateQRCodeSVG();
-            $this->recoveryCodes = $twoFactorService->generateRecoveryCodes(10);
+            $this->twoFactorSecret = $coordinator->generateProvisioningSecret();
+            $this->qrCodeDataUrl = $coordinator->generateQrCodeInline($this->app_name, $this->email, $this->twoFactorSecret);
+            $this->recoveryCodes = $coordinator->generateRecoveryCodes();
 
         } catch (Throwable $e) {
             $this->currentStep = 2;
@@ -154,15 +155,6 @@ class Wizard extends Component
                 'error_class' => $e::class,
             ]);
         }
-    }
-
-    protected function generateQRCodeSVG(): string
-    {
-        return app(TwoFactorService::class)->generateQrCodeInline(
-            $this->app_name,
-            $this->email,
-            $this->twoFactorSecret
-        );
     }
 
     public function testOTP(): void
@@ -177,7 +169,8 @@ class Wizard extends Component
         }
 
         try {
-            $valid = app(TwoFactorService::class)->verifyProvisioningCode($this->twoFactorSecret, $this->testCode);
+            $valid = app(InstallCompletionCoordinator::class)
+                ->verifyProvisioningCode($this->twoFactorSecret, $this->testCode);
 
             if ($valid) {
                 $this->testSuccess = true;

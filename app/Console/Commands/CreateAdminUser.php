@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Services\InstallCompletionCoordinator;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -20,6 +21,12 @@ class CreateAdminUser extends Command
                             {--name= : Admin name}';
 
     protected $description = 'Create the first admin user (fallback for headless deployments)';
+
+    public function __construct(
+        private readonly InstallCompletionCoordinator $installCompletionCoordinator,
+    ) {
+        parent::__construct();
+    }
 
     public function handle(): int
     {
@@ -49,7 +56,7 @@ class CreateAdminUser extends Command
             'name' => $name,
         ], [
             'email' => ['required', 'email', 'unique:users,email'],
-            'password' => ['required', 'min:12'],
+            'password' => $this->installCompletionCoordinator->passwordRules(),
             'name' => ['required', 'string', 'max:255'],
         ]);
 

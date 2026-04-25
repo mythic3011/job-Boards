@@ -4,8 +4,8 @@ namespace App\Console\Commands;
 
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\InstallCompletionCoordinator;
 use App\Services\InstallService;
-use App\Services\TwoFactorService;
 use Illuminate\Console\Command;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -31,7 +31,7 @@ class HeadlessInstall extends Command
 
     public function __construct(
         private readonly InstallService $installService,
-        private readonly TwoFactorService $twoFactorService,
+        private readonly InstallCompletionCoordinator $installCompletionCoordinator,
     ) {
         parent::__construct();
     }
@@ -80,7 +80,7 @@ class HeadlessInstall extends Command
 
         $validator = Validator::make($data, [
             'admin_email' => ['required', 'email'],
-            'admin_password' => ['required', 'string', 'min:12'],
+            'admin_password' => $this->installCompletionCoordinator->passwordRules(),
             'admin_name' => ['required', 'string', 'max:255'],
             'app_name' => ['nullable', 'string', 'max:255'],
             'app_url' => ['nullable', 'url', 'max:255'],
@@ -97,10 +97,10 @@ class HeadlessInstall extends Command
 
         $twoFactorSecret = trim((string) ($this->option('two-factor-secret') ?: ''));
         if ($twoFactorSecret === '') {
-            $twoFactorSecret = $this->twoFactorService->generateSetupSecret();
+            $twoFactorSecret = $this->installCompletionCoordinator->generateProvisioningSecret();
         }
 
-        $recoveryCodes = $this->twoFactorService->generateRecoveryCodes(8);
+        $recoveryCodes = $this->installCompletionCoordinator->generateRecoveryCodes();
 
         $request = Request::create('/cli/install/headless', 'POST', [], [], [], [
             'REMOTE_ADDR' => '127.0.0.1',
