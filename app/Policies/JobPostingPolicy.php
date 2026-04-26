@@ -54,6 +54,14 @@ class JobPostingPolicy
     }
 
     /**
+     * Determine if an admin can moderate this job posting.
+     */
+    public function adminModerate(User $user, JobPosting $jobPosting): bool
+    {
+        return $user->hasPermissionTo('admin.jobs.moderate');
+    }
+
+    /**
      * Determine if the user can view applications for this job posting.
      */
     public function viewApplications(User $user, JobPosting $jobPosting): bool
