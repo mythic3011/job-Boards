@@ -537,6 +537,20 @@ new class extends Component
                             <span class="theme-alert-error mt-2 inline-flex rounded-full border px-2 py-0.5 font-medium">All user data will be permanently removed.</span>
                         </p>
                         <p class="theme-text-muted mt-2 text-xs">Confirm only when account recovery and data-retention requirements have been reviewed.</p>
+                        @php
+                            $deletionTargetUser = $users->firstWhere('id', $confirmingUserDeletion);
+                        @endphp
+                        @if($deletionTargetUser)
+                            <div class="theme-panel-subtle mt-3 rounded-lg border px-3 py-3 text-xs">
+                                <p class="theme-text-strong mb-2 font-semibold">Target account</p>
+                                <div class="theme-text-muted space-y-1">
+                                    <p><span class="font-medium">Nickname:</span> {{ $deletionTargetUser->nickname }}</p>
+                                    <p><span class="font-medium">Email:</span> {{ $deletionTargetUser->email ?: '—' }}</p>
+                                    <p><span class="font-medium">Login ID:</span> {{ $deletionTargetUser->login_id }}</p>
+                                    <p><span class="font-medium">Role:</span> {{ $deletionTargetUser->getRoleNames()->implode(', ') ?: 'No role' }}</p>
+                                </div>
+                            </div>
+                        @endif
                         @error('delete') 
                             <p class="theme-alert-error mt-2 inline-flex rounded-lg border px-3 py-2 text-sm font-bold">{{ $message }}</p> 
                         @enderror

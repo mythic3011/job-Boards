@@ -50,5 +50,7 @@ class AdminUsersUiContractTest extends TestCase
         $this->assertStringContainsString('aria-controls="users-operator-notes"', $contents);
         $this->assertStringContainsString(":aria-expanded=\"notesOpen.toString()\"", $contents);
         $this->assertStringContainsString("x-text=\"notesOpen ? 'Hide notes' : 'Show notes'\"", $contents);
+        $this->assertStringContainsString('Target account', $contents);
+        $this->assertStringContainsString('Login ID:', $contents);
     }
 }
