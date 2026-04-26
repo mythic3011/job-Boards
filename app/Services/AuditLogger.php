@@ -8,6 +8,8 @@ use Illuminate\Support\Str;
 
 class AuditLogger
 {
+    private const MAX_METADATA_LIST_ITEMS = 20;
+
     /**
      * @var list<string>
      */
@@ -214,6 +216,23 @@ class AuditLogger
     {
         foreach (self::NON_CANONICAL_PII_KEYS as $key) {
             unset($meta[$key]);
+        }
+
+        return $this->capLargeListValues($meta);
+    }
+
+    private function capLargeListValues(array $meta): array
+    {
+        foreach ($meta as $key => $value) {
+            if (! is_array($value) || ! array_is_list($value) || count($value) <= self::MAX_METADATA_LIST_ITEMS) {
+                continue;
+            }
+
+            $meta[$key] = [
+                'count' => count($value),
+                'sample' => array_slice($value, 0, self::MAX_METADATA_LIST_ITEMS),
+                'truncated' => true,
+            ];
         }
 
         return $meta;
