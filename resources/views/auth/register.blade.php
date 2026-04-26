@@ -9,7 +9,7 @@
     <x-auth.shell
         title="Create your account"
         subtitle="Pick the account type that matches how you will use the platform."
-        max-width="max-w-6xl"
+        max-width="max-w-5xl"
     >
         <x-slot:icon>
             <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -39,7 +39,7 @@
                 </div>
             </x-ui.card>
         @else
-            <div class="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-start">
+            <div class="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.8fr)] lg:items-start">
                 <x-ui.card padding="p-8">
                     <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                         @csrf
@@ -87,7 +87,7 @@
                             </div>
 
                             <div class="grid gap-3 sm:grid-cols-2">
-                                <div>
+                                <div class="relative">
                                     <input
                                         id="user_type_individual"
                                         type="radio"
@@ -96,6 +96,9 @@
                                         class="peer sr-only"
                                         {{ $selectedUserType === 'individual' ? 'checked' : '' }}
                                     >
+                                    <span class="pointer-events-none absolute right-4 top-4 hidden rounded-full border border-[var(--app-accent-soft-border)] bg-[var(--app-accent-soft-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-accent-soft-fg)] peer-checked:inline-flex">
+                                        Selected
+                                    </span>
                                     <label
                                         for="user_type_individual"
                                         data-workspace-option
@@ -106,18 +109,11 @@
                                                 <span class="theme-text-strong block text-base font-semibold">Individual Workspace</span>
                                                 <span class="theme-text-muted mt-2 block text-sm leading-6">For candidates who want to browse jobs, submit applications, and manage profile/security from one workspace.</span>
                                             </span>
-                                            <span
-                                                data-workspace-indicator
-                                                class="theme-icon-tile inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition-all peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-accent-strong)] peer-checked:text-white"
-                                                aria-hidden="true"
-                                            >
-                                                <span class="peer-checked:block hidden">✓</span>
-                                            </span>
                                         </span>
                                     </label>
                                 </div>
 
-                                <div>
+                                <div class="relative">
                                     <input
                                         id="user_type_company"
                                         type="radio"
@@ -126,6 +122,9 @@
                                         class="peer sr-only"
                                         {{ $selectedUserType === 'company' ? 'checked' : '' }}
                                     >
+                                    <span class="pointer-events-none absolute right-4 top-4 hidden rounded-full border border-[var(--app-accent-soft-border)] bg-[var(--app-accent-soft-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-accent-soft-fg)] peer-checked:inline-flex">
+                                        Selected
+                                    </span>
                                     <label
                                         for="user_type_company"
                                         data-workspace-option
@@ -135,13 +134,6 @@
                                             <span class="block">
                                                 <span class="theme-text-strong block text-base font-semibold">Company Workspace</span>
                                                 <span class="theme-text-muted mt-2 block text-sm leading-6">For employers who need to publish listings, review applicants, and keep the hiring queue moving.</span>
-                                            </span>
-                                            <span
-                                                data-workspace-indicator
-                                                class="theme-icon-tile inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition-all peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-accent-strong)] peer-checked:text-white"
-                                                aria-hidden="true"
-                                            >
-                                                <span class="peer-checked:block hidden">✓</span>
                                             </span>
                                         </span>
                                     </label>
@@ -219,41 +211,27 @@
 
                 <div class="space-y-4">
                     <x-ui.card tone="subtle" padding="p-6">
-                        <x-ui.section-label class="mb-2">Onboarding</x-ui.section-label>
-                        <h2 class="theme-text-strong text-xl font-semibold">Launch Checklist</h2>
-                        <ul class="theme-text-muted mt-4 space-y-3 text-sm leading-6">
-                            <li class="flex gap-3">
-                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
-                                <span>Choose the workspace that matches what you want to do here.</span>
-                            </li>
-                            <li class="flex gap-3">
-                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
-                                <span>Use a strong password immediately so you do not start with security debt.</span>
-                            </li>
-                            <li class="flex gap-3">
-                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
-                                <span>Add an avatar and display name if you want the profile workspace to feel complete right away.</span>
-                            </li>
-                            <li class="flex gap-3">
-                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
-                                <span>Enable 2FA now if you want protected recovery and password workflows from the start.</span>
-                            </li>
-                        </ul>
-                    </x-ui.card>
-
-                    <x-ui.card padding="p-6">
-                        <x-ui.section-label class="mb-2">Next</x-ui.section-label>
-                        <h2 class="theme-text-strong text-xl font-semibold">After You Join</h2>
-                        <div class="mt-4 space-y-3">
-                            <div class="rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)] px-4 py-4">
-                                <p class="theme-text-strong text-sm font-semibold">Individual accounts</p>
-                                <p class="theme-text-muted mt-1 text-sm leading-6">Land in a candidate dashboard focused on application progress, role discovery, and account security.</p>
+                        <x-ui.section-label class="mb-2">Guidance</x-ui.section-label>
+                        <h2 class="theme-text-strong text-lg font-semibold">Before You Submit</h2>
+                        <details class="mt-4 rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)]">
+                            <summary class="cursor-pointer list-none px-4 py-3 text-sm font-semibold theme-text-strong">
+                                Setup Tips
+                            </summary>
+                            <ul class="theme-text-muted space-y-2 px-4 pb-4 text-sm leading-6">
+                                <li>Use the workspace option that matches your main task.</li>
+                                <li>Set a strong password so recovery risk stays low.</li>
+                                <li>Enable 2FA now if you want protected password flows immediately.</li>
+                            </ul>
+                        </details>
+                        <details class="mt-3 rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)]">
+                            <summary class="cursor-pointer list-none px-4 py-3 text-sm font-semibold theme-text-strong">
+                                What Happens After Sign-Up
+                            </summary>
+                            <div class="theme-text-muted space-y-2 px-4 pb-4 text-sm leading-6">
+                                <p><span class="theme-text-strong">Individual:</span> Candidate workspace with applications, job discovery, and account security.</p>
+                                <p><span class="theme-text-strong">Company:</span> Hiring workspace with listings, applicants, and review queue.</p>
                             </div>
-                            <div class="rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)] px-4 py-4">
-                                <p class="theme-text-strong text-sm font-semibold">Company accounts</p>
-                                <p class="theme-text-muted mt-1 text-sm leading-6">Land in a hiring dashboard centred on active listings, inbound candidates, and response throughput.</p>
-                            </div>
-                        </div>
+                        </details>
                     </x-ui.card>
                 </div>
             </div>
