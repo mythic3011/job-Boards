@@ -60,6 +60,8 @@ class ApplicationWorkflowUiContractTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString('selectedJobTitle', $contents);
         $this->assertStringContainsString('Applications for:', $contents);
+        $this->assertStringContainsString("@can('downloadCv', \$application)", $contents);
+        $this->assertStringContainsString('CV restricted', $contents);
         $this->assertStringNotContainsString("{{ \$jobIdcode ? 'Applications for Job' : 'All Applications' }}", $contents);
     }
 

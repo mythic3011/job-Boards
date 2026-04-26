@@ -285,10 +285,16 @@ new class extends Component
                                     View details &rarr;
                                 </a>
                                 @if($application->cv_original_name)
-                                    <a href="{{ route('applications.download-cv', $application->idcode) }}"
-                                       class="theme-button theme-button-secondary inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer">
-                                        Download CV
-                                    </a>
+                                    @can('downloadCv', $application)
+                                        <a href="{{ route('applications.download-cv', $application->idcode) }}"
+                                           class="theme-button theme-button-secondary inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-semibold cursor-pointer">
+                                            Download CV
+                                        </a>
+                                    @else
+                                        <span class="theme-text-muted inline-flex items-center rounded-lg border px-3 py-1.5 text-xs font-semibold">
+                                            CV restricted
+                                        </span>
+                                    @endcan
                                 @endif
                             </div>
                         </div>
