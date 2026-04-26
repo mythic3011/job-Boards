@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Concerns\InteractsWithBrowserRequests;
 use Tests\Concerns\UsesInMemorySqlite;
@@ -34,15 +35,21 @@ class ApplicationAuthorizationAuditTest extends TestCase
 
         app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
 
+        DB::table('roles')->insert([
+            ['name' => 'admin', 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
         DB::table('permissions')->insert([
             ['name' => 'download cv', 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()],
             ['name' => 'manage applications', 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()],
+            ['name' => 'admin.applications.view', 'guard_name' => 'web', 'created_at' => now(), 'updated_at' => now()],
         ]);
     }
 
     public function test_download_cv_permission_deny_creates_canonical_audit_log(): void
     {
         [$company, $application] = $this->makeOwnedApplicationFixture();
+        $initialStatus = DB::table('applications')->where('id', $application->id)->value('status');
 
         $this->withBrowser()
             ->actingAs($company)
@@ -62,11 +69,17 @@ class ApplicationAuthorizationAuditTest extends TestCase
         $this->assertSame('application', $log->target_type);
         $this->assertSame($application->idcode, $log->target_idcode);
         $this->assertSame('downloadCv', $log->meta['policy'] ?? null);
+        $this->assertSame($initialStatus, DB::table('applications')->where('id', $application->id)->value('status'));
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'cv_download',
+            'target_idcode' => $application->idcode,
+        ]);
     }
 
     public function test_approve_permission_deny_creates_canonical_audit_log(): void
     {
         [$company, $application] = $this->makeOwnedApplicationFixture();
+        $initialStatus = DB::table('applications')->where('id', $application->id)->value('status');
 
         $this->withBrowser()
             ->actingAs($company)
@@ -88,11 +101,13 @@ class ApplicationAuthorizationAuditTest extends TestCase
         $this->assertSame('application', $log->target_type);
         $this->assertSame($application->idcode, $log->target_idcode);
         $this->assertSame('approve', $log->meta['policy'] ?? null);
+        $this->assertSame($initialStatus, DB::table('applications')->where('id', $application->id)->value('status'));
     }
 
     public function test_reject_permission_deny_creates_canonical_audit_log(): void
     {
         [$company, $application] = $this->makeOwnedApplicationFixture();
+        $initialStatus = DB::table('applications')->where('id', $application->id)->value('status');
 
         $this->withBrowser()
             ->actingAs($company)
@@ -114,6 +129,7 @@ class ApplicationAuthorizationAuditTest extends TestCase
         $this->assertSame('application', $log->target_type);
         $this->assertSame($application->idcode, $log->target_idcode);
         $this->assertSame('reject', $log->meta['policy'] ?? null);
+        $this->assertSame($initialStatus, DB::table('applications')->where('id', $application->id)->value('status'));
     }
 
     public function test_admin_cannot_download_cv_and_action_is_audited_as_denied(): void
@@ -142,6 +158,50 @@ class ApplicationAuthorizationAuditTest extends TestCase
         $this->assertSame('application', $log->target_type);
         $this->assertSame($application->idcode, $log->target_idcode);
         $this->assertSame('downloadCv', $log->meta['policy'] ?? null);
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'cv_download',
+            'target_idcode' => $application->idcode,
+        ]);
+    }
+
+    public function test_admin_review_routes_show_cv_as_restricted_and_hide_download_link(): void
+    {
+        [, $application] = $this->makeOwnedApplicationFixture();
+        $admin = $this->createAdminWithPermissions(['admin.applications.view']);
+
+        $this->withBrowser()
+            ->actingAs($admin)
+            ->get(route('admin.applications.index'))
+            ->assertOk()
+            ->assertSee('CV restricted');
+
+        $this->withBrowser()
+            ->actingAs($admin)
+            ->get(route('admin.applications.show', $application->idcode))
+            ->assertOk()
+            ->assertSee('CV restricted')
+            ->assertDontSee(route('applications.download-cv', $application->idcode), false);
+    }
+
+    public function test_company_with_download_permission_can_download_owned_cv_without_denied_audit(): void
+    {
+        Storage::fake('private');
+        [$company, $application] = $this->makeOwnedApplicationFixture();
+
+        Storage::disk('private')->put($application->cv_file_path, 'fake cv body');
+        $this->grantPermission($company, 'download cv');
+
+        $this->withBrowser()
+            ->actingAs($company)
+            ->get(route('applications.download-cv', $application->idcode))
+            ->assertOk()
+            ->assertHeader('x-content-type-options', 'nosniff');
+
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'audit.application.download_cv.denied',
+            'actor_user_id' => $company->id,
+            'target_idcode' => $application->idcode,
+        ]);
     }
 
     /**
@@ -196,5 +256,55 @@ class ApplicationAuthorizationAuditTest extends TestCase
             'password' => Hash::make('StrongPass123!'),
             ...$attributes,
         ]);
+    }
+
+    /**
+     * @param  list<string>  $permissions
+     */
+    private function createAdminWithPermissions(array $permissions): User
+    {
+        $admin = $this->createUser([
+            'user_type' => 'admin',
+            'login_id' => 'admin_' . Str::lower(Str::random(6)),
+            'email' => Str::lower(Str::random(6)) . '@example.com',
+        ]);
+
+        $admin->forceFill([
+            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
+            'two_factor_confirmed_at' => now(),
+        ])->save();
+
+        $adminRoleId = DB::table('roles')
+            ->where('name', 'admin')
+            ->where('guard_name', 'web')
+            ->value('id');
+
+        DB::table('model_has_roles')->insert([
+            'role_id' => $adminRoleId,
+            'model_type' => User::class,
+            'model_id' => $admin->id,
+        ]);
+
+        foreach ($permissions as $permission) {
+            $this->grantPermission($admin, $permission);
+        }
+
+        return $admin;
+    }
+
+    private function grantPermission(User $user, string $permissionName): void
+    {
+        $permissionId = DB::table('permissions')
+            ->where('name', $permissionName)
+            ->where('guard_name', 'web')
+            ->value('id');
+
+        DB::table('model_has_permissions')->insert([
+            'permission_id' => $permissionId,
+            'model_type' => User::class,
+            'model_id' => $user->id,
+        ]);
+
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
     }
 }

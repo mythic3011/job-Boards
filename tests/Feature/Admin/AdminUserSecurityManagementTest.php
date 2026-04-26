@@ -158,6 +158,124 @@ class AdminUserSecurityManagementTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $target->id]);
     }
 
+    public function test_force_password_reset_requires_permission_and_denied_attempt_has_no_side_effects(): void
+    {
+        $admin = $this->makeAdmin([
+            'admin.users.view',
+            'admin.users.lock',
+            'admin.users.unlock',
+            'admin.users.delete',
+        ]);
+        $target = $this->makeUser();
+
+        Volt::actingAs($admin)->test('admin.users.index')
+            ->call('forcePasswordReset', $target->id)
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'user.force_password_reset',
+            'target_idcode' => $target->idcode,
+            'actor_user_id' => $admin->id,
+        ]);
+    }
+
+    public function test_lock_user_requires_permission_and_denied_attempt_does_not_mutate_target(): void
+    {
+        $admin = $this->makeAdmin([
+            'admin.users.view',
+            'admin.users.force_password_reset',
+            'admin.users.unlock',
+            'admin.users.delete',
+        ]);
+        $target = $this->makeUser();
+
+        Volt::actingAs($admin)->test('admin.users.index')
+            ->call('lockUser', $target->id)
+            ->assertForbidden();
+
+        $this->assertFalse($target->fresh()->isLocked());
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'user.locked',
+            'target_idcode' => $target->idcode,
+            'actor_user_id' => $admin->id,
+        ]);
+    }
+
+    public function test_unlock_user_requires_permission_and_denied_attempt_does_not_mutate_target(): void
+    {
+        $admin = $this->makeAdmin([
+            'admin.users.view',
+            'admin.users.force_password_reset',
+            'admin.users.lock',
+            'admin.users.delete',
+        ]);
+        $target = $this->makeUser();
+        $target->forceFill(['locked_until' => now()->addDay()])->save();
+
+        Volt::actingAs($admin)->test('admin.users.index')
+            ->call('unlockUser', $target->id)
+            ->assertForbidden();
+
+        $this->assertTrue((bool) $target->fresh()?->isLocked());
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'user.unlocked',
+            'target_idcode' => $target->idcode,
+            'actor_user_id' => $admin->id,
+        ]);
+    }
+
+    public function test_self_target_delete_attempt_has_no_side_effects_or_delete_audit(): void
+    {
+        $admin = $this->makeAdmin();
+
+        Volt::actingAs($admin)->test('admin.users.index')
+            ->set('confirmingUserDeletion', $admin->id)
+            ->call('deleteUser')
+            ->assertHasErrors(['delete']);
+
+        $this->assertDatabaseHas('users', ['id' => $admin->id]);
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'user.deleted',
+            'target_idcode' => $admin->idcode,
+            'actor_user_id' => $admin->id,
+        ]);
+    }
+
+    public function test_last_admin_self_delete_is_denied_and_preserves_account(): void
+    {
+        $admin = $this->makeAdmin();
+
+        Volt::actingAs($admin)->test('admin.users.index')
+            ->set('confirmingUserDeletion', $admin->id)
+            ->call('deleteUser')
+            ->assertHasErrors(['delete']);
+
+        $this->assertDatabaseHas('users', ['id' => $admin->id]);
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'user.deleted',
+            'target_idcode' => $admin->idcode,
+            'actor_user_id' => $admin->id,
+        ]);
+    }
+
+    public function test_admin_target_delete_is_denied_and_has_no_side_effects(): void
+    {
+        $actor = $this->makeAdmin();
+        $targetAdmin = $this->makeAdmin();
+
+        Volt::actingAs($actor)->test('admin.users.index')
+            ->set('confirmingUserDeletion', $targetAdmin->id)
+            ->call('deleteUser')
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('users', ['id' => $targetAdmin->id]);
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'user.deleted',
+            'target_idcode' => $targetAdmin->idcode,
+            'actor_user_id' => $actor->id,
+        ]);
+    }
+
     /**
      * @param  list<string>|null  $permissions
      */

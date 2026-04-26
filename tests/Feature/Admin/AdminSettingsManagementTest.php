@@ -8,6 +8,7 @@ use App\Services\AdminSettingsService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Http\Request;
 use Livewire\Volt\Volt;
 use Tests\Concerns\InteractsWithBrowserRequests;
@@ -173,6 +174,124 @@ class AdminSettingsManagementTest extends TestCase
             'event_type' => 'demo.data_cleared',
             'actor_user_id' => $admin->id,
         ]);
+    }
+
+    public function test_confirm_save_requires_password_and_denied_attempt_has_no_side_effects(): void
+    {
+        Setting::set('demo_mode', 'false');
+        Setting::set('registrations_open', 'true');
+        Setting::set('maintenance_mode', 'false');
+        Setting::set('app_name', 'Jobs Board');
+        Setting::set('app_url', 'https://jb.mythic3011.com');
+        Setting::set('timezone', 'Asia/Hong_Kong');
+
+        $admin = $this->adminUser();
+
+        Volt::actingAs($admin)->test('admin.settings.index')
+            ->set('app_name', 'Jobs Board Updated')
+            ->call('save')
+            ->assertSet('showConfirmModal', true)
+            ->call('confirmSave')
+            ->assertHasErrors(['password'])
+            ->assertSet('showConfirmModal', true);
+
+        $this->assertSame('Jobs Board', Setting::get('app_name'));
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'settings.updated',
+            'actor_user_id' => $admin->id,
+        ]);
+    }
+
+    public function test_confirm_save_with_wrong_password_has_no_side_effects(): void
+    {
+        Setting::set('demo_mode', 'false');
+        Setting::set('registrations_open', 'true');
+        Setting::set('maintenance_mode', 'false');
+        Setting::set('app_name', 'Jobs Board');
+        Setting::set('app_url', 'https://jb.mythic3011.com');
+        Setting::set('timezone', 'Asia/Hong_Kong');
+
+        $admin = $this->adminUser();
+
+        Volt::actingAs($admin)->test('admin.settings.index')
+            ->set('app_name', 'Jobs Board Updated')
+            ->call('save')
+            ->assertSet('showConfirmModal', true)
+            ->set('password', 'WrongPassword123!')
+            ->call('confirmSave')
+            ->assertHasErrors(['password'])
+            ->assertSet('showConfirmModal', true);
+
+        $this->assertSame('Jobs Board', Setting::get('app_name'));
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'settings.updated',
+            'actor_user_id' => $admin->id,
+        ]);
+    }
+
+    public function test_confirm_save_rate_limited_attempt_has_no_side_effects_and_no_success_audit(): void
+    {
+        Setting::set('demo_mode', 'false');
+        Setting::set('registrations_open', 'true');
+        Setting::set('maintenance_mode', 'false');
+        Setting::set('app_name', 'Jobs Board');
+        Setting::set('app_url', 'https://jb.mythic3011.com');
+        Setting::set('timezone', 'Asia/Hong_Kong');
+
+        $admin = $this->adminUser();
+        $rateLimitKey = 'settings-update:'.$admin->id;
+
+        for ($i = 0; $i < 5; $i++) {
+            RateLimiter::hit($rateLimitKey, 60);
+        }
+
+        Volt::actingAs($admin)->test('admin.settings.index')
+            ->set('app_name', 'Jobs Board Updated')
+            ->call('save')
+            ->assertSet('showConfirmModal', true)
+            ->set('password', 'Password123!')
+            ->call('confirmSave')
+            ->assertSet('showConfirmModal', false);
+
+        $this->assertSame('Jobs Board', Setting::get('app_name'));
+        $this->assertDatabaseMissing('audit_logs', [
+            'event_type' => 'settings.updated',
+            'actor_user_id' => $admin->id,
+        ]);
+    }
+
+    public function test_successful_confirm_save_audit_contains_minimal_change_metadata(): void
+    {
+        Setting::set('demo_mode', 'false');
+        Setting::set('registrations_open', 'true');
+        Setting::set('maintenance_mode', 'false');
+        Setting::set('app_name', 'Jobs Board');
+        Setting::set('app_url', 'https://jb.mythic3011.com');
+        Setting::set('timezone', 'Asia/Hong_Kong');
+
+        $admin = $this->adminUser();
+
+        Volt::actingAs($admin)->test('admin.settings.index')
+            ->set('app_name', 'Jobs Boards')
+            ->set('app_url', 'https://jobs.example.test')
+            ->set('timezone', 'UTC')
+            ->call('save')
+            ->set('password', 'Password123!')
+            ->call('confirmSave')
+            ->assertHasNoErrors();
+
+        $audit = \App\Models\AuditLog::query()
+            ->where('event_type', 'settings.updated')
+            ->where('actor_user_id', $admin->id)
+            ->latest('occurred_at')
+            ->first();
+
+        $this->assertNotNull($audit);
+        $this->assertSame('setting', $audit->target_type);
+        $this->assertSame('Jobs Board', $audit->meta['app_name']['before'] ?? null);
+        $this->assertSame('Jobs Boards', $audit->meta['app_name']['after'] ?? null);
+        $this->assertSame('Asia/Hong_Kong', $audit->meta['timezone']['before'] ?? null);
+        $this->assertSame('UTC', $audit->meta['timezone']['after'] ?? null);
     }
 
     private function adminUser(): User
