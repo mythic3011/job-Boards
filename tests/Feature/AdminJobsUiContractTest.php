@@ -31,6 +31,8 @@ class AdminJobsUiContractTest extends TestCase
         $this->assertStringContainsString('aria-controls="operator-notes-jobs"', $contents);
         $this->assertStringContainsString("x-bind:aria-expanded=\"notesOpen ? 'true' : 'false'\"", $contents);
         $this->assertStringContainsString('Use for listing moderation guidance. Expand for full notes.', $contents);
+        $this->assertStringContainsString("@can('adminModerate', \$job)", $contents);
+        $this->assertStringContainsString('Moderation restricted', $contents);
         $this->assertStringContainsString('data-job-id="{{ $job->id }}"', $contents);
         $this->assertStringContainsString('@click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"', $contents);
         $this->assertStringNotContainsString("@click=\"pendingDeleteId = '{{ \$job->id }}'; showDeleteModal = true\"", $contents);
