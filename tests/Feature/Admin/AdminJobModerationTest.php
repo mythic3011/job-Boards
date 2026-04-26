@@ -19,10 +19,6 @@ class AdminJobModerationTest extends TestCase
     {
         parent::setUp();
 
-        if (! class_exists('App\\Http\\Middleware\\HandleSuspiciousUserAgent')) {
-            eval('namespace App\\Http\\Middleware; class HandleSuspiciousUserAgent { public function isSuspicious(\\Illuminate\\Http\\Request $request): bool { return false; } }');
-        }
-
         $this->useInMemorySqlite();
         $this->createUsersTable();
         $this->createAuditLogsTable();
