@@ -32,6 +32,8 @@ class AdminApplicationsUiContractTest extends TestCase
         $this->assertStringContainsString('Review & Timeline', $contents);
         $this->assertStringContainsString('Open review', $contents);
         $this->assertStringContainsString('CV file', $contents);
+        $this->assertStringContainsString('Try adjusting your search or filters', $contents);
+        $this->assertStringContainsString('The review queue is currently empty. New submissions will appear here.', $contents);
         $this->assertStringNotContainsString('>Submitted<', $contents);
     }
 
