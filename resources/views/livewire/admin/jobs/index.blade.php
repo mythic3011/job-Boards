@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\JobPosting;
-use App\Models\User;
+use App\Services\AdminCompanyOptionsService;
 use App\Services\AdminJobModerationService;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -70,7 +70,7 @@ new class extends Component
         session()->flash('message', 'Job deleted successfully.');
     }
 
-    public function with(): array
+    public function with(AdminCompanyOptionsService $companyOptionsService): array
     {
         $query = JobPosting::with('companyUser')->withCount('applications');
 
@@ -90,9 +90,7 @@ new class extends Component
             default => $query->latest(),
         };
 
-        $companies = User::where('user_type', 'company')
-            ->orderBy('nickname')
-            ->get(['id', 'nickname']);
+        $companies = $companyOptionsService->getCompanyOptions();
 
         return [
             'jobs' => $query->paginate($this->visibleCount),

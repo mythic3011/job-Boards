@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Livewire\Volt\Volt;
@@ -76,6 +77,37 @@ class PerformanceQuickWinsTest extends TestCase
             1,
             $perRowApplicationCountQueries,
             'Application counts should be loaded with the jobs query, not counted once per rendered job row.'
+        );
+    }
+
+    public function test_admin_company_filter_options_query_is_cached_across_admin_render_paths(): void
+    {
+        Cache::flush();
+
+        User::factory()->company()->count(3)->create();
+
+        $companyOptionsQueries = 0;
+        DB::listen(function ($query) use (&$companyOptionsQueries): void {
+            $sql = strtolower($query->sql);
+
+            $isUsersQuery = str_contains($sql, 'from "users"')
+                || str_contains($sql, 'from `users`')
+                || str_contains($sql, 'from users');
+
+            if ($isUsersQuery
+                && str_contains($sql, 'user_type')
+                && in_array('company', $query->bindings, true)) {
+                $companyOptionsQueries++;
+            }
+        });
+
+        Volt::test('admin.jobs.index')->assertSee('All companies');
+        Volt::test('admin.applications.index')->assertSee('All companies');
+
+        $this->assertLessThanOrEqual(
+            1,
+            $companyOptionsQueries,
+            'Company filter options should be cached and not re-queried for each admin render path.'
         );
     }
 
