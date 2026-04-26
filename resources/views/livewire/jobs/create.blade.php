@@ -109,7 +109,7 @@ new class extends Component
                 rows="6"
                 required
             />
-            <p class="theme-text-muted -mt-4 text-xs">List must-have qualifications, certifications, and experience thresholds.</p>
+            <p class="theme-text-muted -mt-4 text-xs">Use this field for entry criteria (who qualifies): must-have skills, certifications, and minimum experience.</p>
 
             <x-ui.textarea
                 label="Job Duties"
@@ -118,7 +118,7 @@ new class extends Component
                 rows="6"
                 required
             />
-            <p class="theme-text-muted -mt-4 text-xs">Describe day-to-day responsibilities and expected outcomes in this role.</p>
+            <p class="theme-text-muted -mt-4 text-xs">Use this field for scope of work (what they do): day-to-day responsibilities, ownership areas, and expected outcomes.</p>
 
             <div>
                 <x-ui.form-label>Salary (Optional, HK$)</x-ui.form-label>

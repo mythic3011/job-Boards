@@ -16,8 +16,8 @@ class AdminJobEditUiContractTest extends TestCase
         $this->assertStringContainsString('theme-alert-error', $contents);
         $this->assertStringContainsString('theme-panel-subtle', $contents);
         $this->assertStringContainsString('theme-input', $contents);
-        $this->assertStringContainsString('List must-have qualifications, certifications, and experience thresholds.', $contents);
-        $this->assertStringContainsString('Describe day-to-day responsibilities and expected outcomes in this role.', $contents);
+        $this->assertStringContainsString('Use this field for entry criteria (who qualifies): must-have skills, certifications, and minimum experience.', $contents);
+        $this->assertStringContainsString('Use this field for scope of work (what they do): day-to-day responsibilities, ownership areas, and expected outcomes.', $contents);
         $this->assertStringContainsString('<x-ui.button', $contents);
         $this->assertStringNotContainsString('text-gray-900', $contents);
         $this->assertStringNotContainsString('ring-gray-300', $contents);
