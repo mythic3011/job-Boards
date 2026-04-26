@@ -70,7 +70,7 @@
             >
             <div>
                 <span class="theme-text-strong block text-sm font-medium">Install demo data</span>
-                <span class="theme-text-muted block text-xs mt-0.5">Adds sample jobs and applications so you can explore features right away.</span>
+                <span class="theme-text-muted block text-xs mt-0.5">Creates sample users, jobs, and applications for evaluation flows. You can remove seeded demo data later from Admin Settings.</span>
             </div>
         </label>
     </div>
