@@ -9,7 +9,7 @@
     <x-auth.shell
         title="Create your account"
         subtitle="Pick the account type that matches how you will use the platform."
-        max-width="max-w-6xl"
+        max-width="max-w-3xl"
     >
         <x-slot:icon>
             <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -39,9 +39,14 @@
                 </div>
             </x-ui.card>
         @else
-            <div class="grid gap-6 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)] lg:items-start">
-                <x-ui.card padding="p-8">
-                    <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+            <x-ui.card padding="p-8">
+                <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+                    <div class="theme-panel-subtle rounded-xl border p-4">
+                        <p class="theme-text-muted text-sm leading-6">
+                            Complete the required fields first. Profile image and two-factor setup are optional and can be configured now or later.
+                        </p>
+                    </div>
+
                         @csrf
                         <x-honeypot />
 
@@ -87,7 +92,7 @@
                             </div>
 
                             <div class="grid gap-3 sm:grid-cols-2">
-                                <div>
+                                <div class="relative">
                                     <input
                                         id="user_type_individual"
                                         type="radio"
@@ -96,28 +101,24 @@
                                         class="peer sr-only"
                                         {{ $selectedUserType === 'individual' ? 'checked' : '' }}
                                     >
+                                    <span class="pointer-events-none absolute right-4 top-4 hidden rounded-full border border-[var(--app-accent-soft-border)] bg-[var(--app-accent-soft-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-accent-soft-fg)] peer-checked:inline-flex">
+                                        Selected
+                                    </span>
                                     <label
                                         for="user_type_individual"
                                         data-workspace-option
-                                        class="theme-panel-subtle block cursor-pointer rounded-[1.75rem] border p-5 transition-all hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)] peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-panel-bg)] peer-checked:shadow-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--app-focus-ring)]"
+                                        class="theme-panel-subtle block cursor-pointer rounded-xl border p-5 transition-all hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)] peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-panel-bg)] peer-checked:shadow-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--app-focus-ring)]"
                                     >
                                         <span class="flex items-start justify-between gap-4">
                                             <span class="block">
                                                 <span class="theme-text-strong block text-base font-semibold">Individual Workspace</span>
                                                 <span class="theme-text-muted mt-2 block text-sm leading-6">For candidates who want to browse jobs, submit applications, and manage profile/security from one workspace.</span>
                                             </span>
-                                            <span
-                                                data-workspace-indicator
-                                                class="theme-icon-tile inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition-all peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-accent-strong)] peer-checked:text-white"
-                                                aria-hidden="true"
-                                            >
-                                                <span class="peer-checked:block hidden">✓</span>
-                                            </span>
                                         </span>
                                     </label>
                                 </div>
 
-                                <div>
+                                <div class="relative">
                                     <input
                                         id="user_type_company"
                                         type="radio"
@@ -126,22 +127,18 @@
                                         class="peer sr-only"
                                         {{ $selectedUserType === 'company' ? 'checked' : '' }}
                                     >
+                                    <span class="pointer-events-none absolute right-4 top-4 hidden rounded-full border border-[var(--app-accent-soft-border)] bg-[var(--app-accent-soft-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-accent-soft-fg)] peer-checked:inline-flex">
+                                        Selected
+                                    </span>
                                     <label
                                         for="user_type_company"
                                         data-workspace-option
-                                        class="theme-panel-subtle block cursor-pointer rounded-[1.75rem] border p-5 transition-all hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)] peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-panel-bg)] peer-checked:shadow-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--app-focus-ring)]"
+                                        class="theme-panel-subtle block cursor-pointer rounded-xl border p-5 transition-all hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)] peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-panel-bg)] peer-checked:shadow-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--app-focus-ring)]"
                                     >
                                         <span class="flex items-start justify-between gap-4">
                                             <span class="block">
                                                 <span class="theme-text-strong block text-base font-semibold">Company Workspace</span>
                                                 <span class="theme-text-muted mt-2 block text-sm leading-6">For employers who need to publish listings, review applicants, and keep the hiring queue moving.</span>
-                                            </span>
-                                            <span
-                                                data-workspace-indicator
-                                                class="theme-icon-tile inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold transition-all peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-accent-strong)] peer-checked:text-white"
-                                                aria-hidden="true"
-                                            >
-                                                <span class="peer-checked:block hidden">✓</span>
                                             </span>
                                         </span>
                                     </label>
@@ -172,91 +169,57 @@
                             />
                         </div>
 
-                        <div class="space-y-3">
-                            <div>
-                                <x-ui.form-label for="profile_image">Profile Image</x-ui.form-label>
-                                <x-ui.form-help class="mt-1">Optional. JPG, PNG, or GIF up to 2MB.</x-ui.form-help>
-                            </div>
-                            <div class="theme-panel-subtle rounded-2xl border p-4">
-                                <input
-                                    id="profile_image"
-                                    name="profile_image"
-                                    type="file"
-                                    accept="image/*"
-                                    class="theme-text-muted block w-full cursor-pointer text-sm file:mr-4 file:rounded-full file:border-0 file:bg-[var(--app-panel-bg)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--app-accent-strong)] hover:file:bg-[var(--app-panel-border)]"
-                                >
-                                <div class="mt-4 flex items-center gap-4">
-                                    <img id="profile_image_preview" src="" alt="Profile Image Preview" class="hidden h-20 w-20 rounded-2xl object-cover" />
-                                    <div class="theme-text-muted text-sm leading-6">
-                                        Add an avatar now if you want your profile to look complete the moment you enter the workspace.
+                        <details class="theme-panel-subtle rounded-xl border">
+                            <summary class="theme-text-strong cursor-pointer px-4 py-3 text-sm font-semibold">
+                                Optional profile & security setup
+                            </summary>
+                            <div class="space-y-4 border-t border-[var(--app-panel-border)] px-4 py-4">
+                                <div class="space-y-3">
+                                    <div>
+                                        <x-ui.form-label for="profile_image">Profile Image</x-ui.form-label>
+                                        <x-ui.form-help class="mt-1">Optional. JPG, PNG, or GIF up to 2MB.</x-ui.form-help>
                                     </div>
+                                    <div class="theme-panel-subtle rounded-xl border p-4">
+                                        <input
+                                            id="profile_image"
+                                            name="profile_image"
+                                            type="file"
+                                            accept="image/*"
+                                            class="theme-text-muted block w-full cursor-pointer text-sm file:mr-4 file:rounded-full file:border-0 file:bg-[var(--app-panel-bg)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--app-accent-strong)] hover:file:bg-[var(--app-panel-border)]"
+                                        >
+                                        <div class="mt-4 flex items-center gap-4">
+                                            <img id="profile_image_preview" src="" alt="Profile Image Preview" class="hidden h-20 w-20 rounded-2xl object-cover" />
+                                            <div class="theme-text-muted text-sm leading-6">
+                                                Add an avatar now if you want your profile to look complete immediately.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <x-ui.form-error name="profile_image" />
+                                </div>
+
+                                <div class="rounded-xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)] px-4 py-4">
+                                    <label for="enable_2fa" class="flex cursor-pointer items-start gap-3">
+                                        <input
+                                            id="enable_2fa"
+                                            name="enable_2fa"
+                                            type="checkbox"
+                                            value="1"
+                                            class="mt-0.5 h-4 w-4 rounded border-[var(--app-panel-border)] text-[var(--app-accent-strong)] focus:ring-[var(--app-accent-soft)]"
+                                        >
+                                        <div>
+                                            <span class="theme-text-strong block text-sm font-semibold">Enable two-factor authentication</span>
+                                            <span class="theme-text-muted mt-1 block text-sm leading-6">Recommended for stronger sign-in protection. You can also enable it later from profile security.</span>
+                                        </div>
+                                    </label>
                                 </div>
                             </div>
-                            <x-ui.form-error name="profile_image" />
-                        </div>
-
-                        <div class="rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)] px-4 py-4">
-                            <label for="enable_2fa" class="flex cursor-pointer items-start gap-3">
-                                <input
-                                    id="enable_2fa"
-                                    name="enable_2fa"
-                                    type="checkbox"
-                                    value="1"
-                                    class="mt-0.5 h-4 w-4 rounded border-[var(--app-panel-border)] text-[var(--app-accent-strong)] focus:ring-[var(--app-accent-soft)]"
-                                >
-                                <div>
-                                    <span class="theme-text-strong block text-sm font-semibold">Enable two-factor authentication</span>
-                                    <span class="theme-text-muted mt-1 block text-sm leading-6">Recommended. You can enable it later too, but turning it on early unlocks the protected password workflow from day one.</span>
-                                </div>
-                            </label>
-                        </div>
+                        </details>
 
                         <x-ui.button type="submit" variant="primary" class="w-full justify-center">
                             Create account
                         </x-ui.button>
-                    </form>
-                </x-ui.card>
-
-                <div class="space-y-4">
-                    <x-ui.card tone="subtle" padding="p-6">
-                        <x-ui.section-label class="mb-2">Onboarding</x-ui.section-label>
-                        <h2 class="theme-text-strong text-xl font-semibold">Launch Checklist</h2>
-                        <ul class="theme-text-muted mt-4 space-y-3 text-sm leading-6">
-                            <li class="flex gap-3">
-                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
-                                <span>Choose the workspace that matches what you want to do here.</span>
-                            </li>
-                            <li class="flex gap-3">
-                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
-                                <span>Use a strong password immediately so you do not start with security debt.</span>
-                            </li>
-                            <li class="flex gap-3">
-                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
-                                <span>Add an avatar and display name if you want the profile workspace to feel complete right away.</span>
-                            </li>
-                            <li class="flex gap-3">
-                                <span class="mt-1 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]"></span>
-                                <span>Enable 2FA now if you want protected recovery and password workflows from the start.</span>
-                            </li>
-                        </ul>
-                    </x-ui.card>
-
-                    <x-ui.card padding="p-6">
-                        <x-ui.section-label class="mb-2">Next</x-ui.section-label>
-                        <h2 class="theme-text-strong text-xl font-semibold">After You Join</h2>
-                        <div class="mt-4 space-y-3">
-                            <div class="rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)] px-4 py-4">
-                                <p class="theme-text-strong text-sm font-semibold">Individual accounts</p>
-                                <p class="theme-text-muted mt-1 text-sm leading-6">Land in a candidate dashboard focused on application progress, role discovery, and account security.</p>
-                            </div>
-                            <div class="rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)] px-4 py-4">
-                                <p class="theme-text-strong text-sm font-semibold">Company accounts</p>
-                                <p class="theme-text-muted mt-1 text-sm leading-6">Land in a hiring dashboard centred on active listings, inbound candidates, and response throughput.</p>
-                            </div>
-                        </div>
-                    </x-ui.card>
-                </div>
-            </div>
+                </form>
+            </x-ui.card>
         @endif
 
         <x-slot:footer>
