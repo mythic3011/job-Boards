@@ -621,6 +621,18 @@ BASH);
         $this->assertStringContainsString('if should_log_warning then', $contents);
     }
 
+    public function test_nginx_crowdsec_worker_shutdown_errors_are_treated_as_non_fatal_during_restart(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('local function is_worker_shutdown_error(err)', $contents);
+        $this->assertStringContainsString('string.find(message, "worker is exiting", 1, true)', $contents);
+        $this->assertStringContainsString('string.find(message, "process exiting", 1, true)', $contents);
+        $this->assertStringContainsString('[Crowdsec] worker shutdown detected; skipping runtime setup', $contents);
+        $this->assertStringContainsString('[Crowdsec] worker shutdown detected; skipping recovery timer setup', $contents);
+    }
+
     public function test_obs_promtail_scrapes_auth_service_structured_logs(): void
     {
         $contents = file_get_contents($this->repoRoot.'/docker/promtail/config.yaml');

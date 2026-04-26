@@ -208,6 +208,11 @@ render_ssl_mode_conf() {
     resolve_ssl_mode_template
     mkdir -p "${SSL_GENERATED_DIR}"
 
+    if [ -d "${SSL_MODE_CONF}" ]; then
+        echo "WARNING: ${SSL_MODE_CONF} is a directory; removing it so SSL mode config can be rendered." >&2
+        rmdir "${SSL_MODE_CONF}" 2>/dev/null || rm -rf "${SSL_MODE_CONF}"
+    fi
+
     sed \
         -e "s|__SSL_CERT_PATH__|${RESOLVED_SSL_CERT_PATH}|g" \
         -e "s|__SSL_KEY_PATH__|${RESOLVED_SSL_KEY_PATH}|g" \
