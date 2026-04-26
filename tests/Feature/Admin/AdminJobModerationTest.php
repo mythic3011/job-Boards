@@ -74,6 +74,29 @@ class AdminJobModerationTest extends TestCase
         $this->assertDatabaseHas('job_postings', ['id' => $job->id]);
     }
 
+    public function test_non_admin_actor_with_moderate_permission_cannot_delete_job(): void
+    {
+        $actor = User::factory()->create([
+            'user_type' => 'company',
+            'password' => Hash::make('Password123!'),
+            'two_factor_secret' => encrypt('JBSWY3DPEHPK3PXP'),
+            'two_factor_confirmed_at' => now(),
+        ]);
+        $actor->givePermissionTo(['admin.jobs.view', 'admin.jobs.moderate']);
+
+        $jobOwner = User::factory()->create([
+            'user_type' => 'company',
+        ]);
+
+        $job = JobPosting::factory()->for($jobOwner, 'companyUser')->create();
+
+        Volt::actingAs($actor)->test('admin.jobs.index')
+            ->call('deleteJob', $job->id)
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('job_postings', ['id' => $job->id]);
+    }
+
     /**
      * @param  list<string>|null  $permissions
      * @return array{0: User, 1: JobPosting}

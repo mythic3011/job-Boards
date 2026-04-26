@@ -58,7 +58,7 @@ class JobPostingPolicy
      */
     public function adminModerate(User $user, JobPosting $jobPosting): bool
     {
-        return $user->hasPermissionTo('admin.jobs.moderate');
+        return $user->isAdmin() && $user->hasPermissionTo('admin.jobs.moderate');
     }
 
     /**
