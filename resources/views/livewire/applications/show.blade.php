@@ -140,6 +140,15 @@ new class extends Component
                     <div>
                         <h2 class="theme-text-strong text-lg font-semibold">Approve Application</h2>
                         <p class="theme-text-muted mt-1 text-sm">Optionally leave a message for the applicant.</p>
+                        <div class="theme-panel-subtle mt-3 rounded-lg border px-3 py-2 text-xs">
+                            <p class="theme-text-muted">
+                                Decision target:
+                                <span class="theme-text-strong font-semibold">{{ $application->applicantUser->nickname }}</span>
+                                for
+                                <span class="theme-text-strong font-semibold">{{ $application->jobPosting->title }}</span>
+                            </p>
+                            <p class="theme-text-muted mt-1">Confirming this sets the application status to <span class="theme-alert-success font-semibold">Approved</span> and the note is visible to the applicant.</p>
+                        </div>
                     </div>
                 </div>
                 <form method="POST" action="{{ route('applications.approve', $application->idcode) }}">
@@ -203,6 +212,15 @@ new class extends Component
                     <div>
                         <h2 class="theme-text-strong text-lg font-semibold">Reject Application</h2>
                         <p class="theme-text-muted mt-1 text-sm">Optionally leave a message for the applicant.</p>
+                        <div class="theme-panel-subtle mt-3 rounded-lg border px-3 py-2 text-xs">
+                            <p class="theme-text-muted">
+                                Decision target:
+                                <span class="theme-text-strong font-semibold">{{ $application->applicantUser->nickname }}</span>
+                                for
+                                <span class="theme-text-strong font-semibold">{{ $application->jobPosting->title }}</span>
+                            </p>
+                            <p class="theme-text-muted mt-1">Confirming this sets the application status to <span class="theme-alert-error font-semibold">Rejected</span> and the note is visible to the applicant.</p>
+                        </div>
                     </div>
                 </div>
                 <form method="POST" action="{{ route('applications.reject', $application->idcode) }}">
