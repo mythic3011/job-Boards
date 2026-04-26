@@ -89,6 +89,23 @@ class ApplicationIndexFiltersTest extends TestCase
             ->assertDontSee('Graphic Designer');
     }
 
+    public function test_individual_job_scoped_index_shows_filtered_job_title_context(): void
+    {
+        $applicant = $this->makeUser('individual', 'Applicant');
+        $company = $this->makeUser('company', 'Acme Labs');
+
+        $engineerJob = $this->makeJob($company, 'Platform Engineer');
+        $designerJob = $this->makeJob($company, 'Graphic Designer');
+
+        $this->makeApplication($engineerJob, $applicant, 'pending');
+        $this->makeApplication($designerJob, $applicant, 'approved');
+
+        Volt::actingAs($applicant)->test('applications.index', ['jobIdcode' => $engineerJob->idcode])
+            ->assertSee('Applications for: Platform Engineer')
+            ->assertSee('Platform Engineer')
+            ->assertDontSee('Graphic Designer');
+    }
+
     private function makeUser(string $type, string $nickname): User
     {
         return User::create([

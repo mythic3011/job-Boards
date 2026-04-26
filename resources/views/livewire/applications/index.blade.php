@@ -82,6 +82,16 @@ new class extends Component
         } else {
             $query = Application::byApplicant($user->id)
                 ->with(['jobPosting.companyUser']);
+
+            if ($this->jobIdcode) {
+                $scopedApplication = Application::byApplicant($user->id)
+                    ->whereHas('jobPosting', fn ($jobQuery) => $jobQuery->where('idcode', $this->jobIdcode))
+                    ->with('jobPosting:id,title')
+                    ->firstOrFail();
+
+                $filteredJobTitle = $scopedApplication->jobPosting?->title;
+                $query->forJob($scopedApplication->job_id);
+            }
         }
 
         if ($this->search) {
@@ -124,7 +134,7 @@ new class extends Component
                 @if($isCompany)
                     {{ $filteredJobTitle ? 'Applications for: ' . $filteredJobTitle : 'All Applications' }}
                 @else
-                    My Applications
+                    {{ $filteredJobTitle ? 'Applications for: ' . $filteredJobTitle : 'My Applications' }}
                 @endif
             </h1>
             <p class="theme-text-muted mt-1 text-sm">{{ $applications->total() }} {{ Str::plural('application', $applications->total()) }}</p>
