@@ -647,12 +647,14 @@ bt_preload_compose_honeypot_source() {
     local resolved_honeypot_source
 
     if bt_env_snapshot_has_key "${preserved_env_keys}" "BT_HONEYPOT_SOURCE"; then
-        export BT_HONEYPOT_SOURCE="$(bt_normalize_honeypot_source "${BT_HONEYPOT_SOURCE}")"
+        BT_HONEYPOT_SOURCE="$(bt_normalize_honeypot_source "${BT_HONEYPOT_SOURCE}")"
+        export BT_HONEYPOT_SOURCE
         return 0
     fi
 
     if [[ -n "${BT_HONEYPOT_SOURCE:-}" ]]; then
-        export BT_HONEYPOT_SOURCE="$(bt_normalize_honeypot_source "${BT_HONEYPOT_SOURCE}")"
+        BT_HONEYPOT_SOURCE="$(bt_normalize_honeypot_source "${BT_HONEYPOT_SOURCE}")"
+        export BT_HONEYPOT_SOURCE
         return 0
     fi
 

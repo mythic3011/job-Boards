@@ -21,7 +21,7 @@ repo_path() {
         "~")
             printf '%s\n' "${HOME}"
             ;;
-        "~/"*)
+        \~/*)
             printf '%s\n' "${HOME}/${path#"~/"}"
             ;;
         /*)
@@ -138,7 +138,6 @@ SSL_CLOUDFLARE_ORIGIN_KEY="$(maybe_repo_path "${SSL_CLOUDFLARE_ORIGIN_KEY}")"
 SSL_LETSENCRYPT_CERT_PATH="$(maybe_repo_path "${SSL_LETSENCRYPT_CERT_PATH}")"
 SSL_LETSENCRYPT_KEY_PATH="$(maybe_repo_path "${SSL_LETSENCRYPT_KEY_PATH}")"
 
-CURRENT_MODE=""
 TARGET_MODE=""
 PROVISIONED_CERT_PATH=""
 PROVISIONED_KEY_PATH=""
@@ -1090,8 +1089,6 @@ activate_target_mode() {
 }
 
 apply_mode() {
-    CURRENT_MODE="$(current_mode)"
-
     ensure_runtime_layout
     validate_target_mode_prereqs
     provision_target_mode

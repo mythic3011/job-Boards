@@ -4,7 +4,6 @@ set -euo pipefail
 
 BT_NGINX_SSL_LE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BT_NGINX_SSL_LE_OPS_DIR="$(cd "${BT_NGINX_SSL_LE_LIB_DIR}/../.." && pwd)"
-BT_NGINX_SSL_LE_ROOT_DIR="$(cd "${BT_NGINX_SSL_LE_LIB_DIR}/../../.." && pwd)"
 # shellcheck source=../../lib/common.sh
 source "${BT_NGINX_SSL_LE_OPS_DIR}/lib/common.sh"
 

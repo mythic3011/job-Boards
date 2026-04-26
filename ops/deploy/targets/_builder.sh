@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=SC2034
+# This builder intentionally materializes DEPLOY_* variables as a sourced contract for deploy scripts.
+
 deploy_require_value() {
     local key="$1"
     local value="${!key:-}"
@@ -74,6 +77,8 @@ target_append_unique_csv_item() {
 }
 
 target_append_unique_domain_csv_item() {
+    # shellcheck disable=SC2178
+    # Nameref points to caller-provided array variable.
     local -n items_ref="$1"
     local candidate="${2:-}"
     local existing=""
@@ -126,7 +131,7 @@ target_join_space_items() {
 build_lab_deploy_server_names() {
     local -a items=()
     local lan_host=""
-    local extra=""
+    local -a extra=()
     local candidate=""
 
     target_append_unique_csv_item items "${DEPLOY_DOMAIN:-}"
@@ -147,7 +152,7 @@ build_lab_deploy_server_names() {
 build_lab_deploy_self_signed_alt_names() {
     local -a items=()
     local lan_host=""
-    local extra=""
+    local -a extra=()
     local candidate=""
 
     target_append_unique_csv_item items "${DEPLOY_DOMAIN:-}"
@@ -169,7 +174,7 @@ build_lab_deploy_self_signed_alt_names() {
 
 build_lab_deploy_cert_alt_names() {
     local -a items=()
-    local extra=""
+    local -a extra=()
     local candidate=""
 
     target_append_unique_domain_csv_item items "${DEPLOY_DOMAIN:-}"
@@ -232,8 +237,6 @@ build_reverse_proxy_target() {
     deploy_require_value TARGET_REMOTE_ROOT || return 1
     deploy_require_value TARGET_COMPOSE_PROJECT_NAME || return 1
 
-    # shellcheck disable=SC2034
-    # These DEPLOY_* variables are emitted as the sourced target contract for ops/deploy/vps-deploy.sh.
     DEPLOY_PROFILE_NAME="${TARGET_PROFILE_NAME:-from-env}"
     DEPLOY_PROFILE_KIND="${TARGET_PROFILE_KIND:-reverse-proxy}"
     DEPLOY_DOMAIN="$(resolve_target_domain)" || return 1
