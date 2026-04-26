@@ -15,6 +15,7 @@ class AdminApplicationsUiContractTest extends TestCase
         $this->assertStringContainsString('Review posture', $contents);
         $this->assertStringContainsString('Search submitted applications', $contents);
         $this->assertStringContainsString('Review Filters', $contents);
+        $this->assertStringContainsString('x-ui.card class="grid grid-cols-1 gap-4 sm:grid-cols-2"', $contents);
         $this->assertStringContainsString('public string $jobIdcode = \'\';', $contents);
         $this->assertStringContainsString('Applications for:', $contents);
         $this->assertStringContainsString('Clear job scope', $contents);

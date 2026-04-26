@@ -53,6 +53,32 @@ services:
                 condition: service_completed_successfully
         restart: "no"
 
+    redis-config-init:
+        image: alpine:3.20
+        user: "0:0"
+        command:
+            - /bin/sh
+            - -ec
+            - |
+                REDIS_PASSWORD_VALUE="${REDIS_PASSWORD:-jobs_redis_local_password}"
+                if [ -z "$${REDIS_PASSWORD_VALUE}" ]; then
+                  echo "REDIS_PASSWORD must not be empty" >&2
+                  exit 1
+                fi
+                cat > /runtime/redis.conf <<EOF
+                bind 0.0.0.0
+                protected-mode yes
+                port 6379
+                dir /data
+                appendonly yes
+                requirepass $${REDIS_PASSWORD_VALUE}
+                EOF
+                chmod 600 /runtime/redis.conf
+        volumes:
+            - redis-runtime:/runtime
+        network_mode: none
+        restart: "no"
+
     nginx:
         container_name: jobs-boards-nginx
         labels:
@@ -329,6 +355,7 @@ services:
             DB_PASSWORD: ${DB_PASSWORD:-jobs_local_password}
             DB_SSLMODE: ${DB_SSLMODE:-prefer}
             REDIS_HOST: redis
+            REDIS_PASSWORD: ${REDIS_PASSWORD:-jobs_redis_local_password}
             CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID: ${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
             CANONICAL_AUDIT_AUTH_SERVICE_SECRET: ${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}
             CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS: ${CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS:-10.0.0.0/8,172.16.0.0/12,192.168.0.0/16}
@@ -371,6 +398,7 @@ services:
             DB_PASSWORD: ${DB_PASSWORD:-jobs_local_password}
             DB_SSLMODE: ${DB_SSLMODE:-prefer}
             REDIS_HOST: redis
+            REDIS_PASSWORD: ${REDIS_PASSWORD:-jobs_redis_local_password}
         volumes:
             - ".:/var/www/html"
         networks:
@@ -421,14 +449,23 @@ services:
     redis:
         container_name: jobs-boards-redis
         image: redis:alpine
+        command:
+            - redis-server
+            - /run/redis/redis.conf
         ports:
             - "127.0.0.1:${FORWARD_REDIS_PORT:-6379}:6379"
+        environment:
+            REDIS_PASSWORD: ${REDIS_PASSWORD:-jobs_redis_local_password}
         volumes:
             - sail-redis:/data
+            - redis-runtime:/run/redis:ro
         networks:
             - sail
+        depends_on:
+            redis-config-init:
+                condition: service_completed_successfully
         healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
+            test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep -q PONG"]
             interval: 5s
             timeout: 5s
             retries: 3
@@ -445,6 +482,8 @@ volumes:
     sail-postgres:
         driver: local
     sail-redis:
+        driver: local
+    redis-runtime:
         driver: local
     auth-service-logs:
         driver: local
