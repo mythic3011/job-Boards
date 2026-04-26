@@ -66,7 +66,7 @@ class InstallService
         }
 
         // Check for suspicious user agent
-        if (app(\App\Http\Middleware\HandleSuspiciousUserAgent::class)->isSuspicious($request)) {
+        if (app(\App\Http\Middleware\HandleSuspiciousUserAgent::class)->isSuspicious((string) $request->userAgent())) {
             $issues[] = 'Suspicious request detected';
         }
 

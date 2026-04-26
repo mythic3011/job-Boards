@@ -252,7 +252,7 @@ class InstallController extends Controller
      */
     private function checkSuspiciousActivity(Request $request): void
     {
-        if (app(\App\Http\Middleware\HandleSuspiciousUserAgent::class)->isSuspicious($request)) {
+        if (app(\App\Http\Middleware\HandleSuspiciousUserAgent::class)->isSuspicious((string) $request->userAgent())) {
             Log::warning('Suspicious install attempt blocked', [
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
