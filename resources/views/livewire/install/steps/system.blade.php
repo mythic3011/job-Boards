@@ -5,6 +5,11 @@
         'storage' => 'Writable local storage',
         'cache' => 'Working cache store',
     ];
+    $systemRequirementFixHints = [
+        'database' => 'Check DB_HOST/DB_PORT/DB_DATABASE/DB_USERNAME/DB_PASSWORD and confirm the database service is reachable.',
+        'storage' => 'Ensure storage and bootstrap/cache are writable by the application user inside the container.',
+        'cache' => 'Verify cache driver config and confirm the cache backend is running and reachable.',
+    ];
 @endphp
 
 <div class="space-y-6">
@@ -61,6 +66,11 @@
                     <div>
                         <p class="theme-text-strong text-sm font-medium">{{ $label }}</p>
                         <p class="theme-text-muted text-xs mt-0.5">{{ ucfirst($key) }} must be available during installation.</p>
+                        @if($loaded && ! $passed)
+                            <p class="theme-install-warning-text mt-1 text-xs">
+                                {{ $systemRequirementFixHints[$key] ?? 'Resolve this check and run Re-check again.' }}
+                            </p>
+                        @endif
                     </div>
                     <span class="theme-install-status-pill inline-flex shrink-0 items-center" data-status="{{ $statusTone }}">
                         {{ $statusLabel }}
