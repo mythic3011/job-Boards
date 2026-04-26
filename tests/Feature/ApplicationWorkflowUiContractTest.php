@@ -71,5 +71,7 @@ class ApplicationWorkflowUiContractTest extends TestCase
         $this->assertStringContainsString('wire:target="submit"', $contents);
         $this->assertStringContainsString('Submitting...', $contents);
         $this->assertStringContainsString('animate-spin', $contents);
+        $this->assertStringContainsString('your account avatar is updated across profile and application views after submit', $contents);
+        $this->assertStringContainsString('Uploading a CV does not change your profile photo', $contents);
     }
 }
