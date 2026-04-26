@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\JobPosting;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\DashboardService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Cache;
@@ -200,6 +201,60 @@ class PerformanceQuickWinsTest extends TestCase
             0,
             $perCardUserCountQueries,
             'Admin users stats should not issue separate COUNT queries per role/lock/2FA card.'
+        );
+    }
+
+    public function test_dashboard_stats_use_bounded_query_budget_on_hot_tables(): void
+    {
+        $company = User::factory()->company()->create();
+        $individual = User::factory()->create();
+
+        $job = JobPosting::factory()->for($company, 'companyUser')->create();
+        JobPosting::factory()->count(2)->for($company, 'companyUser')->create();
+        Application::factory()->count(4)
+            ->for($job, 'jobPosting')
+            ->for($individual, 'applicantUser')
+            ->create();
+        AuditLog::factory()->count(5)->create([
+            'occurred_at' => now(),
+        ]);
+
+        $dashboardService = app(DashboardService::class);
+        $dashboardService->clearCache();
+
+        $hotTableQueries = 0;
+        DB::listen(function ($query) use (&$hotTableQueries): void {
+            $sql = strtolower($query->sql);
+
+            $touchesHotTable = str_contains($sql, 'from "users"')
+                || str_contains($sql, 'from `users`')
+                || str_contains($sql, 'from users')
+                || str_contains($sql, 'from "job_postings"')
+                || str_contains($sql, 'from `job_postings`')
+                || str_contains($sql, 'from job_postings')
+                || str_contains($sql, 'from "applications"')
+                || str_contains($sql, 'from `applications`')
+                || str_contains($sql, 'from applications')
+                || str_contains($sql, 'from "audit_logs"')
+                || str_contains($sql, 'from `audit_logs`')
+                || str_contains($sql, 'from audit_logs');
+
+            if ($touchesHotTable) {
+                $hotTableQueries++;
+            }
+        });
+
+        $stats = $dashboardService->getStats();
+
+        $this->assertIsArray($stats);
+        $this->assertArrayHasKey('total_users', $stats);
+        $this->assertArrayHasKey('total_jobs', $stats);
+        $this->assertArrayHasKey('total_applications', $stats);
+        $this->assertArrayHasKey('events_today', $stats);
+        $this->assertLessThanOrEqual(
+            6,
+            $hotTableQueries,
+            'Dashboard stats should stay within a bounded query budget for users/jobs/applications/audit hot tables.'
         );
     }
 
