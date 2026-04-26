@@ -146,6 +146,11 @@ new class extends Component
                     <div>
                         <h2 id="approve-application-title" class="theme-text-strong text-lg font-semibold">Approve Application</h2>
                         <p class="theme-text-muted mt-1 text-sm">Optionally leave a message for the applicant.</p>
+                        <p class="theme-text-muted mt-2 text-xs">
+                            You are approving <span class="theme-text-strong font-medium">{{ $application->applicantUser->nickname }}</span> for
+                            <span class="theme-text-strong font-medium">{{ $application->jobPosting->title }}</span>.
+                            Your message will be visible to the applicant in their application timeline.
+                        </p>
                     </div>
                 </div>
                 <form method="POST" action="{{ route('applications.approve', $application->idcode) }}">
@@ -215,6 +220,11 @@ new class extends Component
                     <div>
                         <h2 id="reject-application-title" class="theme-text-strong text-lg font-semibold">Reject Application</h2>
                         <p class="theme-text-muted mt-1 text-sm">Optionally leave a message for the applicant.</p>
+                        <p class="theme-text-muted mt-2 text-xs">
+                            You are rejecting <span class="theme-text-strong font-medium">{{ $application->applicantUser->nickname }}</span> for
+                            <span class="theme-text-strong font-medium">{{ $application->jobPosting->title }}</span>.
+                            Your message will be visible to the applicant in their application timeline.
+                        </p>
                     </div>
                 </div>
                 <form method="POST" action="{{ route('applications.reject', $application->idcode) }}">

@@ -29,6 +29,9 @@ class ApplicationWorkflowUiContractTest extends TestCase
         $this->assertStringContainsString('theme-modal-surface', $contents);
         $this->assertStringContainsString('theme-panel-subtle', $contents);
         $this->assertStringContainsString('theme-link', $contents);
+        $this->assertStringContainsString('You are approving', $contents);
+        $this->assertStringContainsString('You are rejecting', $contents);
+        $this->assertStringContainsString('Your message will be visible to the applicant in their application timeline.', $contents);
         $this->assertStringNotContainsString('text-gray-900', $contents);
         $this->assertStringNotContainsString('bg-white', $contents);
     }
