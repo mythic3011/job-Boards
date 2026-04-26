@@ -18,6 +18,8 @@ new class extends Component
 
     private const PAGE_SIZE = 15;
 
+    private const COMPANY_FILTER_LIMIT = 200;
+
     private const ALLOWED_SORTS = ['latest', 'oldest'];
 
     public string $search = '';
@@ -92,6 +94,7 @@ new class extends Component
 
         $companies = User::where('user_type', 'company')
             ->orderBy('nickname')
+            ->limit(self::COMPANY_FILTER_LIMIT)
             ->get(['id', 'nickname']);
 
         return [
@@ -99,7 +102,7 @@ new class extends Component
             'companies' => $companies,
             'stats' => [
                 'total_jobs' => JobPosting::count(),
-                'company_accounts' => $companies->count(),
+                'company_accounts' => User::where('user_type', 'company')->count(),
             ],
         ];
     }

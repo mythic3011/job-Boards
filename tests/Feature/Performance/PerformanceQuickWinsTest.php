@@ -75,6 +75,58 @@ class PerformanceQuickWinsTest extends TestCase
         );
     }
 
+    public function test_admin_users_index_loads_header_stats_with_one_user_aggregate_query(): void
+    {
+        User::factory()->create([
+            'user_type' => 'admin',
+            'locked_until' => now()->addDay(),
+            'two_factor_confirmed_at' => now(),
+        ]);
+        User::factory()->company()->create(['two_factor_confirmed_at' => now()]);
+        User::factory()->individual()->create();
+
+        $legacyPerStatCountQueries = 0;
+        $statsAggregateQueries = 0;
+        DB::listen(function ($query) use (&$legacyPerStatCountQueries, &$statsAggregateQueries): void {
+            $sql = strtolower($query->sql);
+
+            if (str_contains($sql, 'count(*)')
+                && str_contains($sql, 'from')
+                && str_contains($sql, 'users')
+                && (
+                    str_contains($sql, 'user_type')
+                    || str_contains($sql, 'locked_until')
+                    || str_contains($sql, 'two_factor_confirmed_at')
+                )
+                && str_contains($sql, 'count(*) as aggregate')) {
+                $legacyPerStatCountQueries++;
+            }
+
+            if (str_contains($sql, 'sum(case when user_type')
+                && str_contains($sql, 'sum(case when locked_until')
+                && str_contains($sql, 'sum(case when two_factor_confirmed_at')) {
+                $statsAggregateQueries++;
+            }
+        });
+
+        Volt::test('admin.users.index')
+            ->assertSee('Total Users')
+            ->assertSee('Admin Accounts')
+            ->assertSee('Locked Accounts')
+            ->assertSee('2FA Enabled');
+
+        $this->assertSame(
+            0,
+            $legacyPerStatCountQueries,
+            'Admin users index should avoid legacy per-stat count queries in render path.'
+        );
+        $this->assertGreaterThanOrEqual(
+            1,
+            $statsAggregateQueries,
+            'Admin users index should load header stats using one aggregate query.'
+        );
+    }
+
     public function test_cv_download_returns_the_file_without_controller_buffering_the_cv_body(): void
     {
         $controller = file_get_contents(dirname(__DIR__, 3).'/app/Http/Controllers/ApplicationController.php');
@@ -124,6 +176,19 @@ class PerformanceQuickWinsTest extends TestCase
         $this->assertCount(20, $meta['user_ids']['sample']);
         $this->assertTrue($meta['user_ids']['truncated']);
         $this->assertSame('user-1', $meta['user_ids']['sample'][0]);
+    }
+
+    public function test_admin_company_filter_option_queries_are_capped(): void
+    {
+        $jobsView = file_get_contents(dirname(__DIR__, 3).'/resources/views/livewire/admin/jobs/index.blade.php');
+        $applicationsView = file_get_contents(dirname(__DIR__, 3).'/resources/views/livewire/admin/applications/index.blade.php');
+
+        $this->assertIsString($jobsView);
+        $this->assertIsString($applicationsView);
+        $this->assertStringContainsString('private const COMPANY_FILTER_LIMIT = 200;', $jobsView);
+        $this->assertStringContainsString('private const COMPANY_FILTER_LIMIT = 200;', $applicationsView);
+        $this->assertStringContainsString('->limit(self::COMPANY_FILTER_LIMIT)', $jobsView);
+        $this->assertStringContainsString('->limit(self::COMPANY_FILTER_LIMIT)', $applicationsView);
     }
 
     /**

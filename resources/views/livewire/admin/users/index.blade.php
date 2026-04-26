@@ -35,6 +35,12 @@ new class extends Component
     public function with(): array
     {
         $query = User::query();
+        $stats = User::query()
+            ->selectRaw('COUNT(*) as total_users')
+            ->selectRaw('COALESCE(SUM(CASE WHEN user_type = ? THEN 1 ELSE 0 END), 0) as admin_users', ['admin'])
+            ->selectRaw('COALESCE(SUM(CASE WHEN locked_until IS NOT NULL AND locked_until > ? THEN 1 ELSE 0 END), 0) as locked_users', [now()])
+            ->selectRaw('COALESCE(SUM(CASE WHEN two_factor_confirmed_at IS NOT NULL THEN 1 ELSE 0 END), 0) as two_factor_users')
+            ->first();
 
         if ($this->search) {
             $query->where(function ($q) {
@@ -52,10 +58,10 @@ new class extends Component
             'users' => $query->with('roles')->latest()->paginate($this->visibleCount),
             'roles' => \Spatie\Permission\Models\Role::all(),
             'stats' => [
-                'total_users' => User::count(),
-                'admin_users' => User::where('user_type', 'admin')->count(),
-                'locked_users' => User::whereNotNull('locked_until')->where('locked_until', '>', now())->count(),
-                'two_factor_users' => User::whereNotNull('two_factor_confirmed_at')->count(),
+                'total_users' => (int) $stats->total_users,
+                'admin_users' => (int) $stats->admin_users,
+                'locked_users' => (int) $stats->locked_users,
+                'two_factor_users' => (int) $stats->two_factor_users,
             ],
         ];
     }

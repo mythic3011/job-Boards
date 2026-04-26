@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Http\Middleware\HandleSuspiciousUserAgent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -21,8 +20,7 @@ class InstallCompletionCoordinator
     private const DEFAULT_RECOVERY_CODE_COUNT = 8;
 
     public function __construct(
-        private readonly TwoFactorService $twoFactorService,
-        private readonly HandleSuspiciousUserAgent $suspiciousUserAgent
+        private readonly TwoFactorService $twoFactorService
     ) {}
 
     /**
@@ -91,8 +89,6 @@ class InstallCompletionCoordinator
         }
 
         $this->verifyOtp($request);
-        $this->checkSuspiciousActivity($request);
-
         if (! $checkReplayAndRateLimit) {
             return;
         }
@@ -148,21 +144,6 @@ class InstallCompletionCoordinator
                 'otp_code' => ['The verification code is invalid. Please check your authenticator app.'],
             ]);
         }
-    }
-
-    private function checkSuspiciousActivity(Request $request): void
-    {
-        if (! $this->suspiciousUserAgent->isSuspicious($request)) {
-            return;
-        }
-
-        Log::warning('Suspicious install attempt blocked', [
-            'ip' => $request->ip(),
-            'user_agent' => $request->userAgent(),
-            'session' => $request->session()->getId(),
-        ]);
-
-        abort(403, 'Access denied');
     }
 
     private function checkRateLimit(Request $request): void

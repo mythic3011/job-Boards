@@ -15,6 +15,7 @@ new class extends Component
     use WithPagination;
 
     private const PAGE_SIZE = 15;
+    private const COMPANY_FILTER_LIMIT = 200;
     public string $search = '';
     public string $statusFilter = '';
     public string $companyFilter = '';
@@ -85,16 +86,24 @@ new class extends Component
 
         $companies = User::where('user_type', 'company')
             ->orderBy('nickname')
+            ->limit(self::COMPANY_FILTER_LIMIT)
             ->get(['id', 'nickname']);
+
+        $stats = Application::query()
+            ->selectRaw('COUNT(*) as total_applications')
+            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_applications")
+            ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_applications")
+            ->selectRaw('SUM(CASE WHEN cv_original_name IS NOT NULL THEN 1 ELSE 0 END) as cv_attached')
+            ->first();
 
         return [
             'applications' => $query->paginate($this->visibleCount),
             'companies'    => $companies,
             'stats'        => [
-                'total_applications' => Application::count(),
-                'pending_applications' => Application::where('status', 'pending')->count(),
-                'approved_applications' => Application::where('status', 'approved')->count(),
-                'cv_attached' => Application::whereNotNull('cv_original_name')->count(),
+                'total_applications' => (int) ($stats?->total_applications ?? 0),
+                'pending_applications' => (int) ($stats?->pending_applications ?? 0),
+                'approved_applications' => (int) ($stats?->approved_applications ?? 0),
+                'cv_attached' => (int) ($stats?->cv_attached ?? 0),
             ],
         ];
     }
@@ -322,13 +331,19 @@ new class extends Component
                                         Open review
                                     </a>
                                     @if($application->cv_original_name)
-                                        <a href="{{ route('applications.download-cv', $application->idcode) }}"
-                                           class="theme-link inline-flex items-center gap-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer">
-                                            <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                                            </svg>
-                                            CV file
-                                        </a>
+                                        @can('downloadCv', $application)
+                                            <a href="{{ route('applications.download-cv', $application->idcode) }}"
+                                               class="theme-link inline-flex items-center gap-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer">
+                                                <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                                </svg>
+                                                CV file
+                                            </a>
+                                        @else
+                                            <span class="theme-text-muted inline-flex items-center gap-1.5 text-xs font-semibold">
+                                                CV restricted
+                                            </span>
+                                        @endcan
                                     @endif
                                 </div>
                             </td>

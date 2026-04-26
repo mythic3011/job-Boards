@@ -83,4 +83,18 @@ class AdminApplicationsUiContractTest extends TestCase
         $this->assertStringNotContainsString('bg-yellow-50 text-yellow-700', $contents);
         $this->assertStringNotContainsString('bg-slate-900', $contents);
     }
+
+    public function test_admin_application_cv_download_actions_are_policy_gated(): void
+    {
+        $index = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/applications/index.blade.php');
+        $show = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/applications/show.blade.php');
+
+        $this->assertIsString($index);
+        $this->assertIsString($show);
+
+        $this->assertStringContainsString("@can('downloadCv', \$application)", $index);
+        $this->assertStringContainsString("@can('downloadCv', \$application)", $show);
+        $this->assertStringContainsString('CV restricted', $index);
+        $this->assertStringContainsString('CV restricted', $show);
+    }
 }
