@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Models\Application;
 use App\Models\JobPosting;
+use App\Models\User;
 use App\Policies\ApplicationPolicy;
 use App\Policies\JobPostingPolicy;
+use App\Policies\UserPolicy;
 use App\Services\AntiBot\ChallengeVerifier;
 use App\Services\AntiBot\NullChallengeVerifier;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -29,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
     protected $policies = [
         JobPosting::class => JobPostingPolicy::class,
         Application::class => ApplicationPolicy::class,
+        User::class => UserPolicy::class,
     ];
 
     /**

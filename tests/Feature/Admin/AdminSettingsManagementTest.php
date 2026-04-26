@@ -4,8 +4,11 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\AdminSettingsService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Http\Request;
 use Livewire\Volt\Volt;
 use Tests\Concerns\InteractsWithBrowserRequests;
 use Tests\Concerns\UsesInMemorySqlite;
@@ -22,6 +25,10 @@ class AdminSettingsManagementTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        if (! class_exists('App\\Http\\Middleware\\HandleSuspiciousUserAgent')) {
+            eval('namespace App\\Http\\Middleware; class HandleSuspiciousUserAgent { public function isSuspicious(\\Illuminate\\Http\\Request $request): bool { return false; } }');
+        }
 
         $this->useInMemorySqlite();
         $this->createUsersTable();
@@ -115,6 +122,61 @@ class AdminSettingsManagementTest extends TestCase
             ->call('save')
             ->assertSet('showConfirmModal', true)
             ->assertHasNoErrors();
+    }
+
+    public function test_admin_settings_service_persists_changes_clears_demo_data_and_dashboard_cache(): void
+    {
+        Setting::set('demo_mode', 'true');
+        Setting::set('registrations_open', 'true');
+        Setting::set('maintenance_mode', 'false');
+        Setting::set('app_name', 'Jobs Board');
+        Setting::set('app_url', 'https://jb.mythic3011.com');
+        Setting::set('timezone', 'Asia/Hong_Kong');
+        Setting::set('demo_seeded_at', now()->toIso8601String());
+
+        $admin = $this->adminUser();
+        $demoUser = User::factory()->create([
+            'user_type' => 'individual',
+            'password' => Hash::make('Password123!'),
+        ]);
+        Setting::set('demo_seed_user_ids', json_encode([$demoUser->id]));
+
+        Cache::put('dashboard.stats', ['stale' => true], 300);
+
+        $request = Request::create('/admin/settings', 'PUT', [], [], [], [
+            'REMOTE_ADDR' => '127.0.0.1',
+            'HTTP_USER_AGENT' => 'PHPUnit',
+        ]);
+        $request->setUserResolver(fn (): User => $admin);
+
+        $result = app(AdminSettingsService::class)->updateSettings([
+            'app_name' => 'Jobs Boards',
+            'app_url' => 'https://jb.mythic3011.com',
+            'timezone' => 'UTC',
+            'demo_mode' => false,
+            'registrations_open' => false,
+            'maintenance_mode' => true,
+        ], $request);
+
+        $this->assertTrue($result['changed']);
+        $this->assertTrue($result['demo_data_removed']);
+        $this->assertSame('Jobs Boards', Setting::get('app_name'));
+        $this->assertSame('UTC', Setting::get('timezone'));
+        $this->assertFalse(Setting::getBool('demo_mode', true));
+        $this->assertFalse(Setting::getBool('registrations_open', true));
+        $this->assertTrue(Setting::getBool('maintenance_mode', false));
+        $this->assertNull(Setting::get('demo_seeded_at'));
+        $this->assertNull(Setting::get('demo_seed_user_ids'));
+        $this->assertDatabaseMissing('users', ['id' => $demoUser->id]);
+        $this->assertNull(Cache::get('dashboard.stats'));
+        $this->assertDatabaseHas('audit_logs', [
+            'event_type' => 'settings.updated',
+            'actor_user_id' => $admin->id,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'event_type' => 'demo.data_cleared',
+            'actor_user_id' => $admin->id,
+        ]);
     }
 
     private function adminUser(): User
