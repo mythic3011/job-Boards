@@ -391,7 +391,7 @@ new class extends Component
                     <x-ui.section-label class="mb-2">Review posture</x-ui.section-label>
                     <p class="theme-text-muted text-sm">Queue health signals before you open an application detail view.</p>
                 </div>
-                <x-ui.card class="space-y-4">
+                <x-ui.card class="grid gap-4 lg:grid-cols-2">
                     <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                         <div class="flex items-baseline justify-between gap-3">
                             <p class="theme-text-strong text-sm font-medium">Pending Review</p>

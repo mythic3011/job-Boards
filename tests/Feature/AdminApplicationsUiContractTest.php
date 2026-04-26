@@ -13,6 +13,7 @@ class AdminApplicationsUiContractTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString('Application queue', $contents);
         $this->assertStringContainsString('Review posture', $contents);
+        $this->assertStringContainsString('grid gap-4 lg:grid-cols-2', $contents);
         $this->assertStringContainsString('Search submitted applications', $contents);
         $this->assertStringContainsString('Review Filters', $contents);
     }

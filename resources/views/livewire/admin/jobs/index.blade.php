@@ -355,7 +355,7 @@ new class extends Component
                     <x-ui.section-label class="mb-2">Queue posture</x-ui.section-label>
                     <p class="theme-text-muted text-sm">Quick context for moderation and cleanup before you open a listing.</p>
                 </div>
-                <x-ui.card class="space-y-4">
+                <x-ui.card class="grid gap-4 lg:grid-cols-2">
                     <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                         <div class="flex items-baseline justify-between gap-3">
                             <p class="theme-text-strong text-sm font-medium">Companies in view</p>
@@ -374,9 +374,21 @@ new class extends Component
                 </x-ui.card>
             </div>
 
-            <x-ui.card>
-                <h2 class="theme-text-strong text-lg font-semibold">Operator Notes</h2>
-                <div class="theme-text-muted mt-4 space-y-3 text-sm">
+            <x-ui.card x-data="{ notesOpen: false }">
+                <button
+                    type="button"
+                    class="flex w-full items-center justify-between gap-3 text-left"
+                    @click="notesOpen = !notesOpen"
+                    :aria-expanded="notesOpen.toString()"
+                    aria-controls="jobs-operator-notes"
+                >
+                    <div>
+                        <h2 class="theme-text-strong text-lg font-semibold">Operator Notes</h2>
+                        <p class="theme-text-muted mt-1 text-sm">Use for moderation/deletion guidance. Expand for full review notes.</p>
+                    </div>
+                    <span class="theme-text-muted text-xs font-semibold" x-text="notesOpen ? 'Hide notes' : 'Show notes'"></span>
+                </button>
+                <div id="jobs-operator-notes" x-cloak x-show="notesOpen" class="theme-text-muted mt-4 space-y-3 text-sm">
                     <p>Open a listing when you need full context, edit it when the post is still valid, and delete only when moderation policy calls for removal.</p>
                     <p>Application counts link straight into the filtered review queue so you can move from listing health to applicant posture without rebuilding filters.</p>
                     <p>Before deleting, verify the posting age, complaint context, and whether policy requires record retention or internal escalation.</p>

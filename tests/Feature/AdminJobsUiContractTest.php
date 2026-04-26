@@ -33,4 +33,15 @@ class AdminJobsUiContractTest extends TestCase
         $this->assertStringContainsString('@click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"', $contents);
         $this->assertStringNotContainsString("@click=\"pendingDeleteId = '{{ \$job->id }}'; showDeleteModal = true\"", $contents);
     }
+
+    public function test_admin_jobs_operator_notes_are_collapsible_with_accessible_toggle(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/jobs/index.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('grid gap-4 lg:grid-cols-2', $contents);
+        $this->assertStringContainsString('aria-controls="jobs-operator-notes"', $contents);
+        $this->assertStringContainsString(":aria-expanded=\"notesOpen.toString()\"", $contents);
+        $this->assertStringContainsString("x-text=\"notesOpen ? 'Hide notes' : 'Show notes'\"", $contents);
+    }
 }

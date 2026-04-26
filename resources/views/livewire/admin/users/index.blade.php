@@ -441,7 +441,7 @@ new class extends Component
                     <x-ui.section-label class="mb-2">Access & Risk</x-ui.section-label>
                     <p class="theme-text-muted text-sm">High-level account posture before you drill into the directory.</p>
                 </div>
-                <x-ui.card class="space-y-4">
+                <x-ui.card class="grid gap-4 lg:grid-cols-2">
                     <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                         <div class="flex items-baseline justify-between gap-3">
                             <p class="theme-text-strong text-sm font-medium">2FA Enabled</p>
@@ -468,9 +468,21 @@ new class extends Component
                 </x-ui.card>
             </div>
 
-            <x-ui.card>
-                <h2 class="theme-text-strong text-lg font-semibold">Operator Notes</h2>
-                <div class="theme-text-muted mt-4 space-y-3 text-sm">
+            <x-ui.card x-data="{ notesOpen: false }">
+                <button
+                    type="button"
+                    class="flex w-full items-center justify-between gap-3 text-left"
+                    @click="notesOpen = !notesOpen"
+                    :aria-expanded="notesOpen.toString()"
+                    aria-controls="users-operator-notes"
+                >
+                    <div>
+                        <h2 class="theme-text-strong text-lg font-semibold">Operator Notes</h2>
+                        <p class="theme-text-muted mt-1 text-sm">Use for lock/reset/delete guidance. Expand for full policy notes.</p>
+                    </div>
+                    <span class="theme-text-muted text-xs font-semibold" x-text="notesOpen ? 'Hide notes' : 'Show notes'"></span>
+                </button>
+                <div id="users-operator-notes" x-cloak x-show="notesOpen" class="theme-text-muted mt-4 space-y-3 text-sm">
                     <p>Use <span class="theme-text-strong font-medium">Lock</span> for temporary access suspension and <span class="theme-text-strong font-medium">Reset Password</span> only when you control the handoff channel.</p>
                     <p>Admin-initiated reset links bypass email delivery. Treat the copied URL as sensitive until it expires or is used.</p>
                     <p>Deletion is permanent and should only be used when moderation or data-retention policy explicitly allows it.</p>

@@ -40,4 +40,15 @@ class AdminUsersUiContractTest extends TestCase
         $this->assertStringNotContainsString('navigator.clipboard.writeText', $contents);
         $this->assertStringNotContainsString('setTimeout(() => copied = false, 2000)', $contents);
     }
+
+    public function test_admin_users_operator_notes_are_collapsible_with_accessible_toggle(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/users/index.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('grid gap-4 lg:grid-cols-2', $contents);
+        $this->assertStringContainsString('aria-controls="users-operator-notes"', $contents);
+        $this->assertStringContainsString(":aria-expanded=\"notesOpen.toString()\"", $contents);
+        $this->assertStringContainsString("x-text=\"notesOpen ? 'Hide notes' : 'Show notes'\"", $contents);
+    }
 }
