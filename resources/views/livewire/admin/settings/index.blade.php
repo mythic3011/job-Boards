@@ -1,11 +1,6 @@
 <?php
 
-use App\Jobs\SeedDemoData;
-use App\Models\Setting;
-use App\Models\User;
-use App\Services\AuditLogger;
-use App\Services\DashboardService;
-use Illuminate\Support\Facades\DB;
+use App\Services\AdminSettingsService;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -51,13 +46,7 @@ new class extends Component
 
     public function mount(): void
     {
-        $this->app_name = (string) Setting::get('app_name', config('app.name', 'Jobs Board'));
-        $this->app_url = (string) (Setting::get('app_url') ?? '');
-        $this->timezone = (string) Setting::get('timezone', config('app.timezone', 'UTC'));
-        $this->demo_mode = Setting::getBool('demo_mode', false);
-        $this->registrations_open = Setting::getBool('registrations_open', true);
-        $this->maintenance_mode = Setting::getBool('maintenance_mode', false);
-
+        $this->applyState(app(AdminSettingsService::class)->getCurrentState());
         $this->syncCurrentState();
         $this->closeConfirmModal();
     }
@@ -126,110 +115,31 @@ new class extends Component
 
         RateLimiter::hit($rateLimitKey, 60);
 
-        $demoModeBefore = Setting::getBool('demo_mode', false);
-        $registrationsOpenBefore = Setting::getBool('registrations_open', true);
-        $maintenanceModeBefore = Setting::getBool('maintenance_mode', false);
-        $appNameBefore = (string) Setting::get('app_name', config('app.name', 'Jobs Board'));
-        $appUrlBefore = (string) (Setting::get('app_url') ?? '');
-        $timezoneBefore = (string) Setting::get('timezone', config('app.timezone', 'UTC'));
-        $normalizedAppName = trim($this->app_name);
-        $normalizedAppUrl = trim($this->app_url);
-        $normalizedTimezone = trim($this->timezone);
-
-        $settingsActuallyChanged =
-            $normalizedAppName !== $appNameBefore ||
-            $normalizedAppUrl !== $appUrlBefore ||
-            $normalizedTimezone !== $timezoneBefore ||
-            $this->demo_mode !== $demoModeBefore ||
-            $this->registrations_open !== $registrationsOpenBefore ||
-            $this->maintenance_mode !== $maintenanceModeBefore;
-
-        if (! $settingsActuallyChanged) {
-            $this->syncCurrentStateFromDb(
-                $appNameBefore,
-                $appUrlBefore,
-                $timezoneBefore,
-                $demoModeBefore,
-                $registrationsOpenBefore,
-                $maintenanceModeBefore
-            );
-            $this->closeConfirmModal();
-            session()->flash('info', 'Settings are already up to date.');
-            return;
-        }
-
         try {
-            DB::transaction(function () use (
-                $appNameBefore,
-                $appUrlBefore,
-                $timezoneBefore,
-                $demoModeBefore,
-                $registrationsOpenBefore,
-                $maintenanceModeBefore,
-                $normalizedAppName,
-                $normalizedAppUrl,
-                $normalizedTimezone
-            ) {
-                Setting::set('app_name', $normalizedAppName);
-                Setting::set('app_url', $normalizedAppUrl !== '' ? $normalizedAppUrl : null);
-                Setting::set('timezone', $normalizedTimezone);
-                Setting::setBool('demo_mode', $this->demo_mode);
-                Setting::setBool('registrations_open', $this->registrations_open);
-                Setting::setBool('maintenance_mode', $this->maintenance_mode);
+            $result = app(AdminSettingsService::class)->updateSettings([
+                'app_name' => $this->app_name,
+                'app_url' => $this->app_url,
+                'timezone' => $this->timezone,
+                'demo_mode' => $this->demo_mode,
+                'registrations_open' => $this->registrations_open,
+                'maintenance_mode' => $this->maintenance_mode,
+            ], request());
 
-                if ($demoModeBefore && ! $this->demo_mode) {
-                    $this->clearDemoData();
-                }
-
-                app(AuditLogger::class)->logBusinessEvent(
-                    eventType: 'settings.updated',
-                    request: request(),
-                    targetType: 'setting',
-                    targetIdcode: null,
-                    meta: [
-                        'app_name' => [
-                            'before' => $appNameBefore,
-                            'after' => $normalizedAppName,
-                        ],
-                        'app_url' => [
-                            'before' => $appUrlBefore,
-                            'after' => $normalizedAppUrl !== '' ? $normalizedAppUrl : null,
-                        ],
-                        'timezone' => [
-                            'before' => $timezoneBefore,
-                            'after' => $normalizedTimezone,
-                        ],
-                        'demo_mode' => [
-                            'before' => $demoModeBefore,
-                            'after' => $this->demo_mode,
-                        ],
-                        'registrations_open' => [
-                            'before' => $registrationsOpenBefore,
-                            'after' => $this->registrations_open,
-                        ],
-                        'maintenance_mode' => [
-                            'before' => $maintenanceModeBefore,
-                            'after' => $this->maintenance_mode,
-                        ],
-                    ]
-                );
-            });
-
-            if (! $demoModeBefore && $this->demo_mode) {
-                // Temporarily disabled during 500 triage to isolate UI state from backend side effects.
-                // SeedDemoData::dispatch();
-            }
-
-            app(DashboardService::class)->clearCache();
-
+            $this->applyState($result['state']);
             $this->syncCurrentState();
             $this->closeConfirmModal();
 
+            if (! $result['changed']) {
+                session()->flash('info', 'Settings are already up to date.');
+
+                return;
+            }
+
             session()->flash(
                 'message',
-                $this->demo_mode
+                $result['demo_mode_activated']
                     ? 'Settings saved successfully! Demo data seeding queued.'
-                    : 'Settings saved successfully!' . ($demoModeBefore ? ' Demo data removed.' : '')
+                    : 'Settings saved successfully!' . ($result['demo_data_removed'] ? ' Demo data removed.' : '')
             );
         } catch (\Throwable $e) {
             report($e);
@@ -255,6 +165,16 @@ new class extends Component
         ]);
     }
 
+    protected function applyState(array $state): void
+    {
+        $this->app_name = $state['app_name'];
+        $this->app_url = $state['app_url'];
+        $this->timezone = $state['timezone'];
+        $this->demo_mode = $state['demo_mode'];
+        $this->registrations_open = $state['registrations_open'];
+        $this->maintenance_mode = $state['maintenance_mode'];
+    }
+
     protected function syncCurrentState(): void
     {
         $this->current_app_name = $this->app_name;
@@ -263,84 +183,6 @@ new class extends Component
         $this->current_demo_mode = $this->demo_mode;
         $this->current_registrations_open = $this->registrations_open;
         $this->current_maintenance_mode = $this->maintenance_mode;
-    }
-
-    protected function syncCurrentStateFromDb(
-        string $appName,
-        string $appUrl,
-        string $timezone,
-        bool $demo,
-        bool $registrations,
-        bool $maintenance
-    ): void
-    {
-        $this->current_app_name = $appName;
-        $this->current_app_url = $appUrl;
-        $this->current_timezone = $timezone;
-        $this->current_demo_mode = $demo;
-        $this->current_registrations_open = $registrations;
-        $this->current_maintenance_mode = $maintenance;
-    }
-
-    protected function clearDemoData(): void
-    {
-        $demoSeededAt = Setting::get('demo_seeded_at');
-        $demoSeedUserIds = $this->getDemoSeedUserIds();
-
-        if (empty($demoSeedUserIds)) {
-            Log::warning('Attempted to clear demo data but no seeded demo user IDs found');
-            return;
-        }
-
-        DB::transaction(function () use ($demoSeededAt, $demoSeedUserIds) {
-            $demoUsers = User::whereDoesntHave('roles', function ($query) {
-                $query->where('name', 'admin');
-            })
-                ->whereIn('id', $demoSeedUserIds)
-                ->get();
-
-            if ($demoUsers->isEmpty()) {
-                Log::info('No demo users to delete');
-                return;
-            }
-
-            app(AuditLogger::class)->logBusinessEvent(
-                eventType: 'demo.data_cleared',
-                request: request(),
-                targetType: 'system',
-                targetIdcode: null,
-                meta: [
-                    'users_deleted' => $demoUsers->count(),
-                    'demo_seeded_at' => $demoSeededAt,
-                    'seeded_user_count' => count($demoSeedUserIds),
-                    'user_ids' => $demoUsers->pluck('id')->all(),
-                ]
-            );
-
-            foreach ($demoUsers as $user) {
-                $user->delete();
-            }
-        });
-
-        Setting::set('demo_seeded_at', null);
-        Setting::set('demo_seed_user_ids', null);
-    }
-
-    protected function getDemoSeedUserIds(): array
-    {
-        $raw = Setting::get('demo_seed_user_ids');
-
-        if (blank($raw)) {
-            return [];
-        }
-
-        $decoded = is_string($raw) ? json_decode($raw, true) : $raw;
-
-        if (! is_array($decoded)) {
-            return [];
-        }
-
-        return array_values(array_filter($decoded, fn ($id) => is_string($id) || is_int($id)));
     }
 }; ?>
 
@@ -367,7 +209,7 @@ new class extends Component
         <form wire:submit.prevent="save" class="space-y-6">
             <div>
                 <h2 class="theme-text-strong text-lg font-semibold">System Identity</h2>
-                <p class="theme-text-muted mt-1 text-sm">Keep the application name, public website, and timezone editable after install.</p>
+                <p class="theme-text-muted mt-1 text-sm">These values drive public-facing links and time-based behavior across the system. Review carefully before saving.</p>
             </div>
 
             <div class="grid gap-4 md:grid-cols-2">
@@ -380,6 +222,7 @@ new class extends Component
                         class="theme-input w-full rounded-lg border px-3 py-2.5 text-sm shadow-sm placeholder:text-[var(--app-text-muted)] focus:border-[var(--app-accent-soft-border)] focus:ring-2 focus:ring-[var(--app-focus-ring)] focus:outline-hidden transition"
                         placeholder="Jobs Board"
                     >
+                    <p class="theme-text-muted text-xs">Shown in UI labels and system-generated messaging.</p>
                     @error('app_name') <p class="theme-error-text text-xs">{{ $message }}</p> @enderror
                 </div>
 
@@ -392,7 +235,7 @@ new class extends Component
                         class="theme-input w-full rounded-lg border px-3 py-2.5 text-sm shadow-sm placeholder:text-[var(--app-text-muted)] focus:border-[var(--app-accent-soft-border)] focus:ring-2 focus:ring-[var(--app-focus-ring)] focus:outline-hidden transition"
                         placeholder="https://jobs.example.com"
                     >
-                    <p class="theme-text-muted text-xs">Optional during install, but editable here for canonical links and operational fixes.</p>
+                    <p class="theme-text-muted text-xs">Used for canonical links and redirects. An incorrect value can send users to the wrong domain.</p>
                     @error('app_url') <p class="theme-error-text text-xs">{{ $message }}</p> @enderror
                 </div>
 
@@ -406,14 +249,14 @@ new class extends Component
                         placeholder="Asia/Hong_Kong"
                         spellcheck="false"
                     >
-                    <p class="theme-text-muted text-xs">Use a valid IANA timezone, for example <code>Asia/Hong_Kong</code> or <code>UTC</code>.</p>
+                    <p class="theme-text-muted text-xs">Use a valid IANA timezone (for example <code>Asia/Hong_Kong</code> or <code>UTC</code>) so schedules and timestamps stay accurate.</p>
                     @error('timezone') <p class="theme-error-text text-xs">{{ $message }}</p> @enderror
                 </div>
             </div>
 
             <div class="theme-table-divider border-t pt-6">
                 <h2 class="theme-text-strong text-lg font-semibold">Feature Toggles</h2>
-                <p class="theme-text-muted mt-1 text-sm">Configure system-wide settings and features.</p>
+                <p class="theme-text-muted mt-1 text-sm">Each change applies immediately after password confirmation and may affect live users.</p>
             </div>
 
             <div class="grid gap-4">
@@ -430,7 +273,7 @@ new class extends Component
                                     <strong class="theme-text-strong">Demo Mode</strong>
                                 </div>
                                 <p class="theme-text-muted mt-1 text-sm">
-                                    Populate the system with sample data for demonstration purposes. Disables certain production features.
+                                    Adds sample records for demos and can disable parts of normal production flow. Turning it off removes demo records.
                                 </p>
                             </div>
                         </label>
@@ -465,7 +308,7 @@ new class extends Component
                                     <strong class="theme-text-strong">User Registrations</strong>
                                 </div>
                                 <p class="theme-text-muted mt-1 text-sm">
-                                    Allow new users to create accounts and access the platform.
+                                    Controls whether new users can create accounts. Closing registrations does not remove existing accounts.
                                 </p>
                             </div>
                         </label>
@@ -500,7 +343,7 @@ new class extends Component
                                     <strong class="theme-text-strong">Enable System Maintenance Mode</strong>
                                 </div>
                                 <p class="theme-text-muted mt-1 text-sm">
-                                    Block user access to the job board during system maintenance.
+                                    Blocks normal user access while admins perform maintenance tasks. Enable only for planned maintenance windows.
                                 </p>
                             </div>
                         </label>
@@ -576,7 +419,7 @@ new class extends Component
                         </div>
                         <div>
                             <h3 class="theme-text-strong text-base font-semibold leading-tight">Confirm Changes</h3>
-                            <p class="theme-text-muted mt-0.5 text-sm">Review the impact before applying.</p>
+                            <p class="theme-text-muted mt-0.5 text-sm">Review impact and authenticate. Changes are applied right away after confirmation.</p>
                         </div>
                     </div>
                 </div>
@@ -601,6 +444,7 @@ new class extends Component
                                 autocomplete="current-password"
                             >
                         </div>
+                        <p class="theme-text-muted text-xs">This step confirms that an authorized admin is applying these live changes.</p>
 
                         @error('password')
                             <div class="theme-alert-error inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm">
