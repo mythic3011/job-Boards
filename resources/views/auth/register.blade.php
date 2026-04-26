@@ -9,7 +9,7 @@
     <x-auth.shell
         title="Create your account"
         subtitle="Pick the account type that matches how you will use the platform."
-        max-width="max-w-5xl"
+        max-width="max-w-3xl"
     >
         <x-slot:icon>
             <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -39,9 +39,14 @@
                 </div>
             </x-ui.card>
         @else
-            <div class="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.8fr)] lg:items-start">
-                <x-ui.card padding="p-8">
-                    <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+            <x-ui.card padding="p-8">
+                <form action="{{ route('register.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+                    <div class="theme-panel-subtle rounded-xl border p-4">
+                        <p class="theme-text-muted text-sm leading-6">
+                            Complete the required fields first. Profile image and two-factor setup are optional and can be configured now or later.
+                        </p>
+                    </div>
+
                         @csrf
                         <x-honeypot />
 
@@ -102,7 +107,7 @@
                                     <label
                                         for="user_type_individual"
                                         data-workspace-option
-                                        class="theme-panel-subtle block cursor-pointer rounded-[1.75rem] border p-5 transition-all hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)] peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-panel-bg)] peer-checked:shadow-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--app-focus-ring)]"
+                                        class="theme-panel-subtle block cursor-pointer rounded-xl border p-5 transition-all hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)] peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-panel-bg)] peer-checked:shadow-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--app-focus-ring)]"
                                     >
                                         <span class="flex items-start justify-between gap-4">
                                             <span class="block">
@@ -128,7 +133,7 @@
                                     <label
                                         for="user_type_company"
                                         data-workspace-option
-                                        class="theme-panel-subtle block cursor-pointer rounded-[1.75rem] border p-5 transition-all hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)] peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-panel-bg)] peer-checked:shadow-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--app-focus-ring)]"
+                                        class="theme-panel-subtle block cursor-pointer rounded-xl border p-5 transition-all hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)] peer-checked:border-[var(--app-accent-strong)] peer-checked:bg-[var(--app-panel-bg)] peer-checked:shadow-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--app-focus-ring)]"
                                     >
                                         <span class="flex items-start justify-between gap-4">
                                             <span class="block">
@@ -164,77 +169,57 @@
                             />
                         </div>
 
-                        <div class="space-y-3">
-                            <div>
-                                <x-ui.form-label for="profile_image">Profile Image</x-ui.form-label>
-                                <x-ui.form-help class="mt-1">Optional. JPG, PNG, or GIF up to 2MB.</x-ui.form-help>
-                            </div>
-                            <div class="theme-panel-subtle rounded-2xl border p-4">
-                                <input
-                                    id="profile_image"
-                                    name="profile_image"
-                                    type="file"
-                                    accept="image/*"
-                                    class="theme-text-muted block w-full cursor-pointer text-sm file:mr-4 file:rounded-full file:border-0 file:bg-[var(--app-panel-bg)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--app-accent-strong)] hover:file:bg-[var(--app-panel-border)]"
-                                >
-                                <div class="mt-4 flex items-center gap-4">
-                                    <img id="profile_image_preview" src="" alt="Profile Image Preview" class="hidden h-20 w-20 rounded-2xl object-cover" />
-                                    <div class="theme-text-muted text-sm leading-6">
-                                        Add an avatar now if you want your profile to look complete the moment you enter the workspace.
+                        <details class="theme-panel-subtle rounded-xl border">
+                            <summary class="theme-text-strong cursor-pointer px-4 py-3 text-sm font-semibold">
+                                Optional profile & security setup
+                            </summary>
+                            <div class="space-y-4 border-t border-[var(--app-panel-border)] px-4 py-4">
+                                <div class="space-y-3">
+                                    <div>
+                                        <x-ui.form-label for="profile_image">Profile Image</x-ui.form-label>
+                                        <x-ui.form-help class="mt-1">Optional. JPG, PNG, or GIF up to 2MB.</x-ui.form-help>
                                     </div>
+                                    <div class="theme-panel-subtle rounded-xl border p-4">
+                                        <input
+                                            id="profile_image"
+                                            name="profile_image"
+                                            type="file"
+                                            accept="image/*"
+                                            class="theme-text-muted block w-full cursor-pointer text-sm file:mr-4 file:rounded-full file:border-0 file:bg-[var(--app-panel-bg)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--app-accent-strong)] hover:file:bg-[var(--app-panel-border)]"
+                                        >
+                                        <div class="mt-4 flex items-center gap-4">
+                                            <img id="profile_image_preview" src="" alt="Profile Image Preview" class="hidden h-20 w-20 rounded-2xl object-cover" />
+                                            <div class="theme-text-muted text-sm leading-6">
+                                                Add an avatar now if you want your profile to look complete immediately.
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <x-ui.form-error name="profile_image" />
+                                </div>
+
+                                <div class="rounded-xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)] px-4 py-4">
+                                    <label for="enable_2fa" class="flex cursor-pointer items-start gap-3">
+                                        <input
+                                            id="enable_2fa"
+                                            name="enable_2fa"
+                                            type="checkbox"
+                                            value="1"
+                                            class="mt-0.5 h-4 w-4 rounded border-[var(--app-panel-border)] text-[var(--app-accent-strong)] focus:ring-[var(--app-accent-soft)]"
+                                        >
+                                        <div>
+                                            <span class="theme-text-strong block text-sm font-semibold">Enable two-factor authentication</span>
+                                            <span class="theme-text-muted mt-1 block text-sm leading-6">Recommended for stronger sign-in protection. You can also enable it later from profile security.</span>
+                                        </div>
+                                    </label>
                                 </div>
                             </div>
-                            <x-ui.form-error name="profile_image" />
-                        </div>
-
-                        <div class="rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)] px-4 py-4">
-                            <label for="enable_2fa" class="flex cursor-pointer items-start gap-3">
-                                <input
-                                    id="enable_2fa"
-                                    name="enable_2fa"
-                                    type="checkbox"
-                                    value="1"
-                                    class="mt-0.5 h-4 w-4 rounded border-[var(--app-panel-border)] text-[var(--app-accent-strong)] focus:ring-[var(--app-accent-soft)]"
-                                >
-                                <div>
-                                    <span class="theme-text-strong block text-sm font-semibold">Enable two-factor authentication</span>
-                                    <span class="theme-text-muted mt-1 block text-sm leading-6">Recommended. You can enable it later too, but turning it on early unlocks the protected password workflow from day one.</span>
-                                </div>
-                            </label>
-                        </div>
+                        </details>
 
                         <x-ui.button type="submit" variant="primary" class="w-full justify-center">
                             Create account
                         </x-ui.button>
-                    </form>
-                </x-ui.card>
-
-                <div class="space-y-4">
-                    <x-ui.card tone="subtle" padding="p-6">
-                        <x-ui.section-label class="mb-2">Guidance</x-ui.section-label>
-                        <h2 class="theme-text-strong text-lg font-semibold">Before You Submit</h2>
-                        <details class="mt-4 rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)]">
-                            <summary class="cursor-pointer list-none px-4 py-3 text-sm font-semibold theme-text-strong">
-                                Setup Tips
-                            </summary>
-                            <ul class="theme-text-muted space-y-2 px-4 pb-4 text-sm leading-6">
-                                <li>Use the workspace option that matches your main task.</li>
-                                <li>Set a strong password so recovery risk stays low.</li>
-                                <li>Enable 2FA now if you want protected password flows immediately.</li>
-                            </ul>
-                        </details>
-                        <details class="mt-3 rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)]">
-                            <summary class="cursor-pointer list-none px-4 py-3 text-sm font-semibold theme-text-strong">
-                                What Happens After Sign-Up
-                            </summary>
-                            <div class="theme-text-muted space-y-2 px-4 pb-4 text-sm leading-6">
-                                <p><span class="theme-text-strong">Individual:</span> Candidate workspace with applications, job discovery, and account security.</p>
-                                <p><span class="theme-text-strong">Company:</span> Hiring workspace with listings, applicants, and review queue.</p>
-                            </div>
-                        </details>
-                    </x-ui.card>
-                </div>
-            </div>
+                </form>
+            </x-ui.card>
         @endif
 
         <x-slot:footer>
