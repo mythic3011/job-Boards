@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Application;
-use App\Services\ApplicationQueryService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use Livewire\Volt\Component;
@@ -60,7 +59,7 @@ new class extends Component
         $this->resetPage();
     }
 
-    public function with(ApplicationQueryService $applicationQueryService): array
+    public function with(): array
     {
         $user = Auth::user();
         $isCompany = $user->isCompany();
