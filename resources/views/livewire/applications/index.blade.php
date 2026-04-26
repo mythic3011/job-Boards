@@ -65,6 +65,7 @@ new class extends Component
         $user = Auth::user();
         $isCompany = $user->isCompany();
         $like = $this->likeOperator();
+        $selectedJobTitle = null;
 
         // Build query directly for filtering/search/pagination
         if ($isCompany) {
@@ -75,6 +76,7 @@ new class extends Component
                 $job = \App\Models\JobPosting::byIdcode($this->jobIdcode)
                     ->byCompany($user->id)
                     ->firstOrFail();
+                $selectedJobTitle = $job->title;
                 $query->forJob($job->id);
             }
         } else {
@@ -104,6 +106,7 @@ new class extends Component
         return [
             'applications' => $query->paginate(10),
             'isCompany'    => $isCompany,
+            'selectedJobTitle' => $selectedJobTitle,
         ];
     }
 
@@ -119,7 +122,11 @@ new class extends Component
         <div>
             <h1 class="theme-text-strong text-2xl font-bold">
                 @if($isCompany)
-                    {{ $jobIdcode ? 'Applications for Job' : 'All Applications' }}
+                    @if($jobIdcode)
+                        {{ $selectedJobTitle ? "Applications for: {$selectedJobTitle}" : 'Applications for Job' }}
+                    @else
+                        All Applications
+                    @endif
                 @else
                     My Applications
                 @endif

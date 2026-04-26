@@ -47,6 +47,16 @@ class ApplicationWorkflowUiContractTest extends TestCase
         $this->assertStringNotContainsString("where('nickname', 'ilike'", $contents);
     }
 
+    public function test_company_job_filtered_applications_index_shows_selected_job_context(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/applications/index.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('selectedJobTitle', $contents);
+        $this->assertStringContainsString('Applications for:', $contents);
+        $this->assertStringNotContainsString("{{ \$jobIdcode ? 'Applications for Job' : 'All Applications' }}", $contents);
+    }
+
     public function test_file_upload_component_uses_theme_aware_dropzone_tokens(): void
     {
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/components/ui/file-upload.blade.php');
