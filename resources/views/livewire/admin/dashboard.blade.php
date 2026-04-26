@@ -281,7 +281,7 @@ new class extends Component
                     <x-ui.section-label class="mb-2">Security Pulse</x-ui.section-label>
                     <p class="theme-text-muted text-sm">Auth and platform risk indicators from today’s audit stream.</p>
                 </div>
-                <x-ui.card class="space-y-4">
+                <x-ui.card class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     @foreach($securityPulse as $item)
                         <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                             <div class="flex items-baseline justify-between gap-3">
@@ -299,7 +299,7 @@ new class extends Component
                     <x-ui.section-label class="mb-2">Today</x-ui.section-label>
                     <p class="theme-text-muted text-sm">Daily operational movement across users, jobs, and audits.</p>
                 </div>
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <x-ui.stat-card label="New Jobs Today" :value="$stats['new_jobs_today']" icon-color="theme-signal-accent">
                         <x-slot:icon><x-heroicon-o-plus-circle class="h-12 w-12" /></x-slot:icon>
                     </x-ui.stat-card>

@@ -35,6 +35,7 @@ class AdminDashboardUiContractTest extends TestCase
         $this->assertStringContainsString('Platform Snapshot', $contents);
         $this->assertStringContainsString('Security Pulse', $contents);
         $this->assertStringContainsString('Recent Activity', $contents);
+        $this->assertStringContainsString('x-ui.card class="grid grid-cols-1 gap-4 sm:grid-cols-2"', $contents);
     }
 
     public function test_admin_dashboard_surfaces_action_oriented_summary_labels(): void
