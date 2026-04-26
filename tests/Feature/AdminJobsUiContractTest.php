@@ -27,6 +27,8 @@ class AdminJobsUiContractTest extends TestCase
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/jobs/index.blade.php');
 
         $this->assertIsString($contents);
+        $this->assertStringContainsString("@can('adminModerate', \$job)", $contents);
+        $this->assertStringContainsString('Moderation restricted', $contents);
         $this->assertStringContainsString('data-job-id="{{ $job->id }}"', $contents);
         $this->assertStringContainsString('@click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"', $contents);
         $this->assertStringNotContainsString("@click=\"pendingDeleteId = '{{ \$job->id }}'; showDeleteModal = true\"", $contents);

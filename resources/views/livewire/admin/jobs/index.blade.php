@@ -281,23 +281,27 @@ new class extends Component
                                             >
                                                 Open
                                             </a>
-                                            <a
-                                                href="{{ route('admin.jobs.edit', $job->idcode) }}"
-                                                class="theme-link inline-flex items-center gap-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer"
-                                                title="Edit listing content and moderation details"
-                                            >
-                                                Edit
-                                            </a>
-                                            <button
-                                                type="button"
-                                                data-job-id="{{ $job->id }}"
-                                                @mousedown="lastActiveEl = $event.currentTarget"
-                                                @click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"
-                                                class="theme-alert-error inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors hover:brightness-95 cursor-pointer"
-                                                title="Permanently remove this listing and related applications"
-                                            >
-                                                Delete
-                                            </button>
+                                            @can('adminModerate', $job)
+                                                <a
+                                                    href="{{ route('admin.jobs.edit', $job->idcode) }}"
+                                                    class="theme-link inline-flex items-center gap-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer"
+                                                    title="Edit listing content and moderation details"
+                                                >
+                                                    Edit
+                                                </a>
+                                                <button
+                                                    type="button"
+                                                    data-job-id="{{ $job->id }}"
+                                                    @mousedown="lastActiveEl = $event.currentTarget"
+                                                    @click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"
+                                                    class="theme-alert-error inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors hover:brightness-95 cursor-pointer"
+                                                    title="Permanently remove this listing and related applications"
+                                                >
+                                                    Delete
+                                                </button>
+                                            @else
+                                                <span class="theme-text-muted text-xs font-medium">Moderation restricted</span>
+                                            @endcan
                                         </div>
                                     </td>
                                 </tr>
