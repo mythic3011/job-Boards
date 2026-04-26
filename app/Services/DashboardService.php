@@ -55,17 +55,36 @@ class DashboardService
         return Cache::remember(self::CACHE_KEY, self::CACHE_DURATION, function () {
             $today = now()->startOfDay();
             $auditToday = AuditLog::query()->where('occurred_at', '>=', $today);
+            $todayDateTime = $today->toDateTimeString();
+
+            $userStats = User::query()
+                ->selectRaw('COUNT(*) as total_users')
+                ->selectRaw('COALESCE(SUM(CASE WHEN user_type = ? THEN 1 ELSE 0 END), 0) as total_companies', ['company'])
+                ->selectRaw('COALESCE(SUM(CASE WHEN user_type = ? THEN 1 ELSE 0 END), 0) as total_individuals', ['individual'])
+                ->selectRaw('COALESCE(SUM(CASE WHEN locked_until IS NOT NULL AND locked_until > ? THEN 1 ELSE 0 END), 0) as locked_users', [now()])
+                ->selectRaw('COALESCE(SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END), 0) as new_users_today', [$todayDateTime])
+                ->first();
+
+            $applicationStats = Application::query()
+                ->selectRaw('COUNT(*) as total_applications')
+                ->selectRaw("COALESCE(SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END), 0) as pending_applications")
+                ->first();
+
+            $jobStats = JobPosting::query()
+                ->selectRaw('COUNT(*) as total_jobs')
+                ->selectRaw('COALESCE(SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END), 0) as new_jobs_today', [$todayDateTime])
+                ->first();
 
             return [
-                'total_users'        => User::count(),
-                'total_companies'    => User::where('user_type', 'company')->count(),
-                'total_individuals'  => User::where('user_type', 'individual')->count(),
-                'total_jobs'         => JobPosting::count(),
-                'total_applications' => Application::count(),
-                'pending_applications' => Application::pending()->count(),
-                'locked_users'       => User::locked()->count(),
-                'new_users_today'    => User::where('created_at', '>=', $today)->count(),
-                'new_jobs_today'     => JobPosting::where('created_at', '>=', $today)->count(),
+                'total_users'        => (int) ($userStats?->total_users ?? 0),
+                'total_companies'    => (int) ($userStats?->total_companies ?? 0),
+                'total_individuals'  => (int) ($userStats?->total_individuals ?? 0),
+                'total_jobs'         => (int) ($jobStats?->total_jobs ?? 0),
+                'total_applications' => (int) ($applicationStats?->total_applications ?? 0),
+                'pending_applications' => (int) ($applicationStats?->pending_applications ?? 0),
+                'locked_users'       => (int) ($userStats?->locked_users ?? 0),
+                'new_users_today'    => (int) ($userStats?->new_users_today ?? 0),
+                'new_jobs_today'     => (int) ($jobStats?->new_jobs_today ?? 0),
                 'events_today'       => (clone $auditToday)->count(),
                 'failed_logins_today' => (clone $auditToday)
                     ->whereIn('event_type', ['login_failed', 'audit.auth.verify.denied'])
