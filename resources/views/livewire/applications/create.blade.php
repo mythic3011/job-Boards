@@ -168,6 +168,7 @@ new class extends Component
                 <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
                     <div class="space-y-3">
                         <x-ui.form-label for="profile_image">Update Profile Photo</x-ui.form-label>
+                        <p class="theme-text-muted text-xs">This changes your account profile photo across the platform after you submit this application.</p>
                         <div class="theme-panel-subtle min-h-[320px] rounded-2xl border p-6 md:p-7">
                             <div class="flex flex-col items-center gap-4 text-center">
                                 <x-ui.avatar
