@@ -44,7 +44,10 @@ new class extends Component
 
     {{-- Page header --}}
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 class="theme-text-strong text-2xl font-bold">Application Details</h1>
+        <div>
+            <h1 class="theme-text-strong text-2xl font-bold">Application Details</h1>
+            <p class="theme-text-muted mt-1 text-sm">Use this record to verify applicant context before approving or rejecting.</p>
+        </div>
         <a href="{{ route('admin.applications.index') }}"
            class="theme-button theme-button-outline inline-flex items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-medium cursor-pointer">
             <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -129,6 +132,7 @@ new class extends Component
             {{-- Cover message --}}
             <div>
                 <h3 class="theme-text-muted mb-3 text-sm font-semibold uppercase tracking-wider">Cover Message</h3>
+                <p class="theme-text-muted mb-2 text-xs">Submitted by the applicant to explain fit and intent for this role.</p>
                 <div class="theme-panel-subtle theme-text-muted rounded-xl border p-4 text-sm leading-relaxed">
                     @if($application->message)
                         {!! nl2br(e($application->message)) !!}
@@ -142,6 +146,7 @@ new class extends Component
             @if($application->decision_message)
                 <div>
                     <h3 class="theme-text-muted mb-3 text-sm font-semibold uppercase tracking-wider">Company Message</h3>
+                    <p class="theme-text-muted mb-2 text-xs">This is the decision note sent to the applicant. Keep language clear and final before sending updates.</p>
                     <div class="theme-alert-info rounded-xl border p-4 text-sm leading-relaxed">
                         {!! nl2br(e($application->decision_message)) !!}
                     </div>
@@ -170,6 +175,7 @@ new class extends Component
                             Download
                         </x-ui.button>
                     </div>
+                    <p class="theme-text-muted mt-2 text-xs">Contains applicant-provided personal data. Download only when needed for review.</p>
                 @else
                     <div class="theme-panel-subtle theme-text-muted rounded-xl border p-4 text-sm">No CV attached.</div>
                 @endif
