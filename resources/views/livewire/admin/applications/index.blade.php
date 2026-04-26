@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Application;
+use App\Models\JobPosting;
 use App\Services\AdminCompanyOptionsService;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
@@ -18,11 +19,17 @@ new class extends Component
     public string $search = '';
     public string $statusFilter = '';
     public string $companyFilter = '';
+    public string $jobIdcode = '';
     public string $sort = 'latest';
     public int $visibleCount = self::PAGE_SIZE;
 
     private const ALLOWED_STATUSES = ['', 'pending', 'approved', 'rejected'];
     private const ALLOWED_SORTS    = ['latest', 'oldest'];
+
+    public function mount(?string $jobIdcode = null): void
+    {
+        $this->jobIdcode = (string) ($jobIdcode ?? request()->query('jobIdcode', ''));
+    }
 
     public function updatedSearch(): void { $this->resetInfinitePagination(); }
     public function updatedCompanyFilter(): void { $this->resetInfinitePagination(); }
@@ -58,9 +65,27 @@ new class extends Component
         $this->resetInfinitePagination();
     }
 
+    public function clearJobScope(): void
+    {
+        $this->jobIdcode = '';
+        $this->resetInfinitePagination();
+    }
+
     public function with(AdminCompanyOptionsService $companyOptionsService): array
     {
         $query = Application::with(['jobPosting.companyUser', 'applicantUser'])->latest();
+        $jobFilterTitle = null;
+
+        if ($this->jobIdcode !== '') {
+            $jobFilter = JobPosting::query()
+                ->where('idcode', $this->jobIdcode)
+                ->first(['id', 'title']);
+
+            if ($jobFilter) {
+                $query->where('job_id', $jobFilter->id);
+                $jobFilterTitle = $jobFilter->title;
+            }
+        }
 
         if ($this->search) {
             $search = $this->search;
@@ -88,6 +113,7 @@ new class extends Component
         return [
             'applications' => $query->paginate($this->visibleCount),
             'companies'    => $companies,
+            'jobFilterTitle' => $jobFilterTitle,
             'stats'        => [
                 'total_applications' => Application::count(),
                 'pending_applications' => Application::where('status', 'pending')->count(),
@@ -157,6 +183,20 @@ new class extends Component
                     <div>
                         <x-ui.section-label class="mb-2">Review Filters</x-ui.section-label>
                         <p class="theme-text-muted text-sm">Search submitted applications by job title, applicant, status, or company.</p>
+                        @if($jobFilterTitle)
+                            <div class="mt-2 inline-flex items-center gap-2 text-xs">
+                                <span class="theme-pill inline-flex items-center rounded-full border px-2.5 py-1 font-semibold">
+                                    Applications for: {{ $jobFilterTitle }}
+                                </span>
+                                <button
+                                    type="button"
+                                    wire:click="clearJobScope"
+                                    class="theme-link text-xs font-semibold cursor-pointer"
+                                >
+                                    Clear job scope
+                                </button>
+                            </div>
+                        @endif
                     </div>
                     <div class="theme-pill inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold">
                         <span>{{ $applications->total() }} {{ \Illuminate\Support\Str::plural('application', $applications->total()) }}</span>

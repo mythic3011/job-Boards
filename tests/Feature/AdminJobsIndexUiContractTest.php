@@ -28,5 +28,7 @@ class AdminJobsIndexUiContractTest extends TestCase
         $this->assertStringContainsString('Try adjusting your search term', $contents);
         $this->assertStringContainsString('@elseif($companyFilter || $sort !== \'latest\')', $contents);
         $this->assertStringContainsString('Try adjusting your filters', $contents);
+        $this->assertStringContainsString("route('admin.applications.index', ['jobIdcode' => \$job->idcode])", $contents);
+        $this->assertStringContainsString('Open applications filtered to this posting', $contents);
     }
 }
