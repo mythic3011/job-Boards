@@ -2,7 +2,7 @@
     <x-auth.shell
         title="Reset your password"
         subtitle="For security, password reset requires a verified second factor or one of your recovery codes."
-        max-width="max-w-5xl"
+        max-width="max-w-3xl"
     >
         <x-slot:icon>
             <svg class="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -10,7 +10,7 @@
             </svg>
         </x-slot:icon>
 
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)] lg:items-start">
+        <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,0.75fr)] lg:items-start">
             <x-ui.card padding="p-8">
                 <form class="space-y-6" action="{{ route('password.email') }}" method="POST" x-data="{ useRecovery: false }">
                     @csrf
@@ -92,24 +92,20 @@
                 </form>
             </x-ui.card>
 
-            <div class="space-y-4">
-                <x-ui.card tone="subtle" padding="p-6">
-                    <x-ui.section-label class="mb-2">Security</x-ui.section-label>
-                    <h2 class="theme-text-strong text-xl font-semibold">Why do I need 2FA?</h2>
-                    <div class="theme-text-muted mt-4 space-y-3 text-sm leading-6">
-                        <p>Password recovery stays tied to the same second-factor posture as your sign-in flow.</p>
-                        <p>If you no longer have the authenticator app, switch to a recovery code instead of retrying the same request.</p>
+            <x-ui.card tone="subtle" padding="p-6">
+                <x-ui.section-label class="mb-2">Guidance</x-ui.section-label>
+                <h2 class="theme-text-strong text-lg font-semibold">Recovery Notes</h2>
+                <details class="mt-4 rounded-2xl border border-[var(--app-panel-border)] bg-[var(--app-panel-bg)]">
+                    <summary class="cursor-pointer list-none px-4 py-3 text-sm font-semibold theme-text-strong">
+                        Why verification is required
+                    </summary>
+                    <div class="theme-text-muted space-y-2 px-4 pb-4 text-sm leading-6">
+                        <p>Password recovery follows the same second-factor posture as sign-in.</p>
+                        <p>Switch to a recovery code if your authenticator app is unavailable.</p>
+                        <p>Reset links are issued only after verification succeeds.</p>
                     </div>
-                </x-ui.card>
-
-                <x-ui.card padding="p-6">
-                    <x-ui.section-label class="mb-2">Recovery notes</x-ui.section-label>
-                    <div class="theme-text-muted space-y-3 text-sm leading-6">
-                        <p>Reset links are only issued after the verification step on this screen succeeds.</p>
-                        <p>If you have lost both the authenticator app and your recovery codes, contact support before continuing.</p>
-                    </div>
-                </x-ui.card>
-            </div>
+                </details>
+            </x-ui.card>
         </div>
     </x-auth.shell>
 </x-layouts.base>
