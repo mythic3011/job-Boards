@@ -6,7 +6,10 @@ use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 
 class AdminSettingsService
 {
@@ -34,6 +37,54 @@ class AdminSettingsService
             'demo_mode' => Setting::getBool('demo_mode', false),
             'registrations_open' => Setting::getBool('registrations_open', true),
             'maintenance_mode' => Setting::getBool('maintenance_mode', false),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     allowed: bool,
+     *     error: ?string,
+     *     close_modal: bool
+     * }
+     */
+    public function verifyUpdateIntent(User $actor, string $password, Request $request): array
+    {
+        Gate::forUser($actor)->authorize('admin.settings.update');
+
+        if ($password === '') {
+            return [
+                'allowed' => false,
+                'error' => 'Password confirmation is required.',
+                'close_modal' => false,
+            ];
+        }
+
+        if (! Hash::check($password, (string) $actor->password)) {
+            return [
+                'allowed' => false,
+                'error' => 'The provided password is incorrect.',
+                'close_modal' => false,
+            ];
+        }
+
+        $rateLimitKey = 'settings-update:' . ($actor->id ?? $request->ip());
+
+        if (RateLimiter::tooManyAttempts($rateLimitKey, 5)) {
+            $seconds = RateLimiter::availableIn($rateLimitKey);
+
+            return [
+                'allowed' => false,
+                'error' => "Too many attempts. Please try again in {$seconds} seconds.",
+                'close_modal' => true,
+            ];
+        }
+
+        RateLimiter::hit($rateLimitKey, 60);
+
+        return [
+            'allowed' => true,
+            'error' => null,
+            'close_modal' => false,
         ];
     }
 

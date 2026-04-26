@@ -8,6 +8,7 @@ use App\Services\AdminSettingsService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Http\Request;
 use Livewire\Volt\Volt;
 use Tests\Concerns\InteractsWithBrowserRequests;
@@ -122,6 +123,55 @@ class AdminSettingsManagementTest extends TestCase
             ->call('save')
             ->assertSet('showConfirmModal', true)
             ->assertHasNoErrors();
+    }
+
+    public function test_confirm_save_shows_password_error_when_confirmation_password_is_invalid(): void
+    {
+        Setting::set('demo_mode', 'false');
+        Setting::set('registrations_open', 'true');
+        Setting::set('maintenance_mode', 'false');
+        Setting::set('app_name', 'Jobs Board');
+        Setting::set('app_url', 'https://jb.mythic3011.com');
+        Setting::set('timezone', 'Asia/Hong_Kong');
+
+        $admin = $this->adminUser();
+
+        Volt::actingAs($admin)->test('admin.settings.index')
+            ->set('app_name', 'Jobs Boards')
+            ->call('save')
+            ->assertSet('showConfirmModal', true)
+            ->set('password', 'WrongPassword!')
+            ->call('confirmSave')
+            ->assertSet('showConfirmModal', true)
+            ->assertHasErrors(['password'])
+            ->assertSee('The provided password is incorrect.');
+    }
+
+    public function test_verify_update_intent_returns_throttle_error_and_close_modal_instruction(): void
+    {
+        $admin = $this->adminUser();
+        $request = Request::create('/admin/settings', 'PUT', [], [], [], [
+            'REMOTE_ADDR' => '127.0.0.1',
+            'HTTP_USER_AGENT' => 'PHPUnit',
+        ]);
+        $request->setUserResolver(fn (): User => $admin);
+
+        $rateLimitKey = 'settings-update:' . $admin->id;
+        RateLimiter::clear($rateLimitKey);
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            RateLimiter::hit($rateLimitKey, 60);
+        }
+
+        $result = app(AdminSettingsService::class)->verifyUpdateIntent(
+            $admin,
+            'Password123!',
+            $request
+        );
+
+        $this->assertFalse($result['allowed']);
+        $this->assertTrue($result['close_modal']);
+        $this->assertStringContainsString('Too many attempts. Please try again in', (string) $result['error']);
     }
 
     public function test_admin_settings_service_persists_changes_clears_demo_data_and_dashboard_cache(): void
