@@ -40,4 +40,17 @@ class AdminUsersUiContractTest extends TestCase
         $this->assertStringNotContainsString('navigator.clipboard.writeText', $contents);
         $this->assertStringNotContainsString('setTimeout(() => copied = false, 2000)', $contents);
     }
+
+    public function test_admin_users_quick_actions_and_delete_modal_expose_risk_and_target_context(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/users/index.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('Lock:</span> blocks sign-in immediately.', $contents);
+        $this->assertStringContainsString('Reset password:</span> generates a one-time bypass link.', $contents);
+        $this->assertStringContainsString('Delete:</span> permanently removes account data.', $contents);
+        $this->assertStringContainsString('Target: <span class="theme-text-strong font-semibold">{{ $confirmingUserNickname ?: \'Unknown user\' }}</span>', $contents);
+        $this->assertStringContainsString('Email: <span class="theme-text-strong">{{ $confirmingUserEmail }}</span>', $contents);
+        $this->assertStringContainsString('Role: <span class="theme-text-strong">{{ $confirmingUserRole ?: \'No role assigned\' }}</span>', $contents);
+    }
 }

@@ -19,6 +19,10 @@ new class extends Component
     public string $roleFilter = '';
     public int $visibleCount = self::PAGE_SIZE;
     public ?string $confirmingUserDeletion = null;
+    public ?string $confirmingUserNickname = null;
+    public ?string $confirmingUserLoginId = null;
+    public ?string $confirmingUserEmail = null;
+    public ?string $confirmingUserRole = null;
     public ?string $resetUrl = null;
     public ?string $resetUserName = null;
 
@@ -96,7 +100,15 @@ new class extends Component
 
     public function confirmUserDeletion(string $userId): void
     {
-       $this->confirmingUserDeletion = $userId;
+        $user = User::query()->with('roles')->findOrFail($userId);
+
+        $this->confirmingUserDeletion = $userId;
+        $this->confirmingUserNickname = $user->nickname;
+        $this->confirmingUserLoginId = $user->login_id;
+        $this->confirmingUserEmail = $user->email;
+        $this->confirmingUserRole = $user->roles->pluck('name')
+            ->map(fn (string $role): string => ucfirst($role))
+            ->implode(', ');
     }
 
     public function deleteUser(): void
@@ -110,7 +122,7 @@ new class extends Component
         } catch (\Illuminate\Auth\Access\AuthorizationException $exception) {
             if ($exception->getMessage() === 'You cannot delete your own account.') {
                 $this->addError('delete', $exception->getMessage());
-                $this->confirmingUserDeletion = null;
+                $this->resetDeletionConfirmation();
 
                 return;
             }
@@ -118,10 +130,17 @@ new class extends Component
             throw $exception;
         }
 
-        $this->confirmingUserDeletion = null;
+        $this->resetDeletionConfirmation();
         $this->dispatch('$refresh');
 
         session()->flash('message', 'User deleted successfully.');
+    }
+
+    public function updatedConfirmingUserDeletion(?string $value): void
+    {
+        if ($value === null) {
+            $this->resetDeletionConfirmation();
+        }
     }
 
     public function loadMore(): void
@@ -141,6 +160,15 @@ new class extends Component
         abort_unless($actor instanceof User, 403);
 
         return $actor;
+    }
+
+    private function resetDeletionConfirmation(): void
+    {
+        $this->confirmingUserDeletion = null;
+        $this->confirmingUserNickname = null;
+        $this->confirmingUserLoginId = null;
+        $this->confirmingUserEmail = null;
+        $this->confirmingUserRole = null;
     }
 }; ?>
 
@@ -396,6 +424,13 @@ new class extends Component
                                                             <span>Delete user</span>
                                                         </button>
                                                     </div>
+                                                    <div class="theme-table-divider border-t px-3 pb-2 pt-2">
+                                                        <p class="theme-text-muted text-[11px] leading-5">
+                                                            <span class="theme-text-strong font-medium">Lock:</span> blocks sign-in immediately.
+                                                            <span class="theme-text-strong font-medium">Reset password:</span> generates a one-time bypass link.
+                                                            <span class="theme-alert-error font-semibold">Delete:</span> permanently removes account data.
+                                                        </p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -512,6 +547,18 @@ new class extends Component
                             You are about to permanently delete this user account. This action cannot be undone.
                             <span class="theme-alert-error mt-2 inline-flex rounded-full border px-2 py-0.5 font-medium">All user data will be permanently removed.</span>
                         </p>
+                        <div class="theme-panel-subtle mt-3 rounded-lg border px-3 py-3 text-xs">
+                            <p class="theme-text-muted">
+                                Target: <span class="theme-text-strong font-semibold">{{ $confirmingUserNickname ?: 'Unknown user' }}</span>
+                                @if($confirmingUserLoginId)
+                                    <span class="theme-text-muted">({{ $confirmingUserLoginId }})</span>
+                                @endif
+                            </p>
+                            @if($confirmingUserEmail)
+                                <p class="theme-text-muted mt-1">Email: <span class="theme-text-strong">{{ $confirmingUserEmail }}</span></p>
+                            @endif
+                            <p class="theme-text-muted mt-1">Role: <span class="theme-text-strong">{{ $confirmingUserRole ?: 'No role assigned' }}</span></p>
+                        </div>
                         <p class="theme-text-muted mt-2 text-xs">Confirm only when account recovery and data-retention requirements have been reviewed.</p>
                         @error('delete') 
                             <p class="theme-alert-error mt-2 inline-flex rounded-lg border px-3 py-2 text-sm font-bold">{{ $message }}</p> 
