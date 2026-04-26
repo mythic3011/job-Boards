@@ -117,6 +117,36 @@ class ApplicationAuthorizationAuditTest extends TestCase
         $this->assertSame('reject', $log->meta['policy'] ?? null);
     }
 
+    public function test_admin_download_cv_denial_is_logged_with_canonical_policy_meta(): void
+    {
+        [, $application] = $this->makeOwnedApplicationFixture();
+
+        $admin = $this->createUser([
+            'user_type' => 'admin',
+            'login_id' => 'admin_' . Str::lower(Str::random(6)),
+            'email' => Str::lower(Str::random(6)) . '@example.com',
+        ]);
+
+        $this->withBrowser()
+            ->actingAs($admin)
+            ->get(route('applications.download-cv', $application->idcode))
+            ->assertForbidden();
+
+        $log = AuditLog::query()
+            ->where('event_type', 'audit.application.download_cv.denied')
+            ->latest('occurred_at')
+            ->first();
+
+        $this->assertNotNull($log);
+        $this->assertSame('denied', $log->outcome);
+        $this->assertSame('laravel', $log->source);
+        $this->assertSame(403, $log->status_code);
+        $this->assertSame($admin->id, $log->actor_user_id);
+        $this->assertSame('application', $log->target_type);
+        $this->assertSame($application->idcode, $log->target_idcode);
+        $this->assertSame('downloadCv', $log->meta['policy'] ?? null);
+    }
+
     public function test_admin_with_download_permission_can_download_any_application_cv(): void
     {
         [$company, $application] = $this->makeOwnedApplicationFixture();
