@@ -1,7 +1,7 @@
 <?php
 
 use App\Models\Application;
-use App\Models\User;
+use App\Services\AdminCompanyOptionsService;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -58,7 +58,7 @@ new class extends Component
         $this->resetInfinitePagination();
     }
 
-    public function with(): array
+    public function with(AdminCompanyOptionsService $companyOptionsService): array
     {
         $query = Application::with(['jobPosting.companyUser', 'applicantUser'])->latest();
 
@@ -83,9 +83,7 @@ new class extends Component
             default  => $query,
         };
 
-        $companies = User::where('user_type', 'company')
-            ->orderBy('nickname')
-            ->get(['id', 'nickname']);
+        $companies = $companyOptionsService->getCompanyOptions();
 
         return [
             'applications' => $query->paginate($this->visibleCount),
