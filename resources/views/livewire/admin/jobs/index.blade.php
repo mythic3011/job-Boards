@@ -132,7 +132,7 @@ new class extends Component
         ->count();
 @endphp
 
-<div x-data="{ showDeleteModal: false, pendingDeleteId: '', lastActiveEl: null }" class="space-y-8">
+<div x-data="{ showDeleteModal: false, pendingDeleteId: '', pendingDeleteTitle: '', lastActiveEl: null }" class="space-y-8">
     <div class="theme-hero-surface rounded-3xl border px-6 py-7 sm:px-8">
         <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div class="max-w-2xl">
@@ -309,8 +309,9 @@ new class extends Component
                                                 <button
                                                     type="button"
                                                     data-job-id="{{ $job->id }}"
+                                                    data-job-title="{{ $job->title }}"
                                                     @mousedown="lastActiveEl = $event.currentTarget"
-                                                    @click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"
+                                                    @click="pendingDeleteId = $event.currentTarget.dataset.jobId; pendingDeleteTitle = $event.currentTarget.dataset.jobTitle || ''; showDeleteModal = !!pendingDeleteId"
                                                     class="theme-alert-error inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors hover:brightness-95 cursor-pointer"
                                                     title="Permanently remove this listing and related applications"
                                                 >
@@ -408,8 +409,8 @@ new class extends Component
         x-show="showDeleteModal"
         x-cloak
         style="display: none;"
-        @close-delete-modal.window="showDeleteModal = false; pendingDeleteId = ''; lastActiveEl?.focus()"
-        x-on:keydown.escape.window="showDeleteModal = false; pendingDeleteId = ''; lastActiveEl?.focus()"
+        @close-delete-modal.window="showDeleteModal = false; pendingDeleteId = ''; pendingDeleteTitle = ''; lastActiveEl?.focus()"
+        x-on:keydown.escape.window="showDeleteModal = false; pendingDeleteId = ''; pendingDeleteTitle = ''; lastActiveEl?.focus()"
         class="theme-overlay-backdrop fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-sm"
         x-transition:enter="transition ease-out duration-200"
         x-transition:enter-start="opacity-0"
@@ -432,7 +433,7 @@ new class extends Component
             x-transition:leave="transition ease-in duration-200"
             x-transition:leave-start="opacity-100 scale-100"
             x-transition:leave-end="opacity-0 scale-95"
-            @click.outside="showDeleteModal = false; pendingDeleteId = ''; lastActiveEl?.focus()"
+            @click.outside="showDeleteModal = false; pendingDeleteId = ''; pendingDeleteTitle = ''; lastActiveEl?.focus()"
         >
             <div class="space-y-4 px-6 py-6">
                 <div class="flex items-start gap-4">
@@ -447,13 +448,17 @@ new class extends Component
                             You are about to permanently remove this listing. This action cannot be undone.
                             <span class="theme-alert-error mt-2 inline-flex rounded-full border px-2 py-0.5 font-medium">Related applications are removed as part of this cleanup.</span>
                         </p>
+                        <div x-show="pendingDeleteTitle" class="theme-panel-subtle mt-3 rounded-lg border px-3 py-3 text-xs">
+                            <p class="theme-text-strong mb-1 font-semibold">Target listing</p>
+                            <p class="theme-text-muted" x-text="pendingDeleteTitle"></p>
+                        </div>
                         <p class="theme-text-muted mt-2 text-xs">Confirm only after validating policy grounds and whether downstream review teams have completed required checks.</p>
                     </div>
                 </div>
             </div>
 
             <div class="theme-table-head flex justify-end gap-x-4 border-t px-6 py-4 rounded-b-xl">
-                <x-ui.button variant="outline" type="button" x-on:click="showDeleteModal = false; pendingDeleteId = ''; lastActiveEl?.focus()">Cancel</x-ui.button>
+                <x-ui.button variant="outline" type="button" x-on:click="showDeleteModal = false; pendingDeleteId = ''; pendingDeleteTitle = ''; lastActiveEl?.focus()">Cancel</x-ui.button>
                 <x-ui.button variant="danger" type="button" @click="$wire.deleteJob(pendingDeleteId)" wire:loading.attr="disabled" wire:target="deleteJob">
                     <span wire:loading.remove wire:target="deleteJob">Delete Job</span>
                     <span wire:loading wire:target="deleteJob">Deleting...</span>

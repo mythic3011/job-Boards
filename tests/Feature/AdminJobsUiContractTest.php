@@ -30,7 +30,9 @@ class AdminJobsUiContractTest extends TestCase
         $this->assertStringContainsString("@can('adminModerate', \$job)", $contents);
         $this->assertStringContainsString('Moderation restricted', $contents);
         $this->assertStringContainsString('data-job-id="{{ $job->id }}"', $contents);
-        $this->assertStringContainsString('@click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"', $contents);
+        $this->assertStringContainsString('data-job-title="{{ $job->title }}"', $contents);
+        $this->assertStringContainsString('@click="pendingDeleteId = $event.currentTarget.dataset.jobId; pendingDeleteTitle = $event.currentTarget.dataset.jobTitle || \'\'; showDeleteModal = !!pendingDeleteId"', $contents);
+        $this->assertStringContainsString('Target listing', $contents);
         $this->assertStringNotContainsString("@click=\"pendingDeleteId = '{{ \$job->id }}'; showDeleteModal = true\"", $contents);
     }
 
