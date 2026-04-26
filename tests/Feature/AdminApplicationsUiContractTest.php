@@ -35,6 +35,8 @@ class AdminApplicationsUiContractTest extends TestCase
         $this->assertStringContainsString('CV file', $contents);
         $this->assertStringContainsString('Try adjusting your search or filters', $contents);
         $this->assertStringContainsString('The review queue is currently empty. New submissions will appear here.', $contents);
+        $this->assertStringContainsString("@can('downloadCv', \$application)", $contents);
+        $this->assertStringContainsString('CV restricted', $contents);
         $this->assertStringNotContainsString('>Submitted<', $contents);
     }
 
@@ -71,6 +73,8 @@ class AdminApplicationsUiContractTest extends TestCase
         $this->assertStringContainsString('theme-text-muted', $contents);
         $this->assertStringContainsString('theme-panel-subtle', $contents);
         $this->assertStringContainsString('theme-link', $contents);
+        $this->assertStringContainsString("@can('downloadCv', \$application)", $contents);
+        $this->assertStringContainsString('CV restricted', $contents);
         $this->assertStringNotContainsString('text-gray-900', $contents);
         $this->assertStringNotContainsString('bg-white', $contents);
     }

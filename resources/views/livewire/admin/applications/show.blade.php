@@ -171,9 +171,18 @@ new class extends Component
                                 @endif
                             </div>
                         </div>
-                        <x-ui.button href="{{ route('applications.download-cv', $application->idcode) }}" variant="primary" size="sm">
-                            Download
-                        </x-ui.button>
+                        @can('downloadCv', $application)
+                            <x-ui.button href="{{ route('applications.download-cv', $application->idcode) }}" variant="primary" size="sm">
+                                Download
+                            </x-ui.button>
+                        @else
+                            <span class="theme-text-muted inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium" title="You do not have permission to download this CV">
+                                <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0V10.5m-.75 0h10.5a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5v-6a1.5 1.5 0 0 1 1.5-1.5Z" />
+                                </svg>
+                                CV restricted
+                            </span>
+                        @endcan
                     </div>
                     <p class="theme-text-muted mt-2 text-xs">Contains applicant-provided personal data. Download only when needed for review.</p>
                 @else

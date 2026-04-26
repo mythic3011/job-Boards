@@ -367,13 +367,22 @@ new class extends Component
                                         Open review
                                     </a>
                                     @if($application->cv_original_name)
-                                        <a href="{{ route('applications.download-cv', $application->idcode) }}"
-                                           class="theme-link inline-flex items-center gap-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer">
-                                            <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-                                            </svg>
-                                            CV file
-                                        </a>
+                                        @can('downloadCv', $application)
+                                            <a href="{{ route('applications.download-cv', $application->idcode) }}"
+                                               class="theme-link inline-flex items-center gap-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer">
+                                                <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                                </svg>
+                                                CV file
+                                            </a>
+                                        @else
+                                            <span class="theme-text-muted inline-flex items-center gap-1.5 text-xs font-medium" title="You do not have permission to download this CV">
+                                                <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0V10.5m-.75 0h10.5a1.5 1.5 0 0 1 1.5 1.5v6a1.5 1.5 0 0 1-1.5 1.5H6.75a1.5 1.5 0 0 1-1.5-1.5v-6a1.5 1.5 0 0 1 1.5-1.5Z" />
+                                                </svg>
+                                                CV restricted
+                                            </span>
+                                        @endcan
                                     @endif
                                 </div>
                             </td>
