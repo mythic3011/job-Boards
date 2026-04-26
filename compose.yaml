@@ -52,6 +52,21 @@ services:
                 condition: service_completed_successfully
         restart: "no"
 
+    auth-service-logs-init:
+        image: alpine:3.20
+        user: "0:0"
+        command:
+            - /bin/sh
+            - -ec
+            - mkdir -p /var/log/auth-service && chown -R 100:101 /var/log/auth-service
+        volumes:
+            - auth-service-logs:/var/log/auth-service
+        network_mode: none
+        depends_on:
+            obs-bootstrap-init:
+                condition: service_completed_successfully
+        restart: "no"
+
     nginx:
         container_name: jobs-boards-nginx
         labels:
@@ -128,6 +143,8 @@ services:
             - sail
         depends_on:
             obs-bootstrap-init:
+                condition: service_completed_successfully
+            auth-service-logs-init:
                 condition: service_completed_successfully
         restart: unless-stopped
         healthcheck:
