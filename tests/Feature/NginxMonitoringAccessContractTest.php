@@ -37,8 +37,10 @@ class NginxMonitoringAccessContractTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString('MONITORING_ACCESS_MODE', $contents);
         $this->assertStringContainsString('MONITORING_ALLOWED_CIDRS', $contents);
-        $this->assertStringContainsString('/etc/nginx/generated/monitoring-geo.conf', $contents);
-        $this->assertStringContainsString('/etc/nginx/generated/monitoring-access.conf', $contents);
+        $this->assertStringContainsString('MONITORING_GEO_CONF="${MONITORING_GENERATED_DIR}/monitoring-geo.conf"', $contents);
+        $this->assertStringContainsString('MONITORING_ACCESS_CONF="${MONITORING_GENERATED_DIR}/monitoring-access.conf"', $contents);
+        $this->assertStringContainsString('PRIVATE_NETWORK_ALLOW_CONF="/etc/nginx/includes/private-network-allow.conf"', $contents);
+        $this->assertStringContainsString('Rendered ${PRIVATE_NETWORK_ALLOW_CONF} from MONITORING_ALLOWED_CIDRS fallback.', $contents);
         $this->assertStringContainsString('internal-only', $contents);
         $this->assertStringContainsString('auth-only', $contents);
         $this->assertStringContainsString('disabled', $contents);

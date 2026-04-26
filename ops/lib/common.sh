@@ -534,7 +534,7 @@ bt_compose_uses_shared_app_plane_network() {
 
     [[ -r "${compose_file}" ]] || return 1
     grep -Fq 'BT_APP_PLANE_NETWORK_NAME' "${compose_file}" || return 1
-    grep -Fq 'external: true' "${compose_file}"
+    grep -Fq 'app-plane:' "${compose_file}"
 }
 
 bt_preload_compose_app_plane_network() {

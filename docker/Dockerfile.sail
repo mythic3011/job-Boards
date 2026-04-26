@@ -9,7 +9,7 @@ LABEL description="Laravel Sail Dockerfile"
 LABEL github="https://github.com/mythic3011/"
 
 # arg variables for configuration dockerfile
-ARG WWWGROUP
+ARG WWWGROUP=1000
 ARG NODE_VERSION=24
 ARG POSTGRES_VERSION=18
 ARG INSTALL_PLAYWRIGHT=false
@@ -54,8 +54,21 @@ RUN if [ "$INSTALL_PLAYWRIGHT" = "true" ]; then npx playwright install-deps && n
 
 RUN setcap "cap_net_bind_service=+ep" /usr/bin/php || true
 
-RUN groupadd --force -g $WWWGROUP sail \
-    && useradd -ms /bin/bash --no-user-group -g $WWWGROUP -u 1337 sail || true
+RUN set -eu; \
+    SAIL_GID="${WWWGROUP:-1000}"; \
+    case "${SAIL_GID}" in \
+        ''|*[!0-9]*) SAIL_GID=1000 ;; \
+    esac; \
+    if ! getent group sail >/dev/null 2>&1; then \
+        if getent group "${SAIL_GID}" >/dev/null 2>&1; then \
+            groupadd sail; \
+        else \
+            groupadd -g "${SAIL_GID}" sail; \
+        fi; \
+    fi; \
+    if ! id -u sail >/dev/null 2>&1; then \
+        useradd -ms /bin/bash --no-user-group -g sail -u 1337 sail; \
+    fi
 RUN git config --global --add safe.directory /var/www/html
 
 COPY docker/start-container /usr/local/bin/start-container

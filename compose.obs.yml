@@ -180,8 +180,11 @@ networks:
   obs-plane:
     driver: bridge
   app-plane:
-    external: true
     name: "${BT_APP_PLANE_NETWORK_NAME:-${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane}"
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24
 
 volumes:
   auth-service-logs:

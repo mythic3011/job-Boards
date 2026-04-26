@@ -8,20 +8,67 @@ if [ -z "$PHP_BIN" ] || [ ! -x "$PHP_BIN" ]; then
 fi
 export PHP_BIN
 
+ensure_sail_identity() {
+    local sail_gid sail_uid
+
+    sail_gid="${WWWGROUP:-1000}"
+    case "${sail_gid}" in
+        ''|*[!0-9]*) sail_gid=1000 ;;
+    esac
+
+    sail_uid="${WWWUSER:-1337}"
+    case "${sail_uid}" in
+        ''|*[!0-9]*) sail_uid=1337 ;;
+    esac
+
+    if ! getent group sail >/dev/null 2>&1; then
+        if getent group "${sail_gid}" >/dev/null 2>&1; then
+            groupadd sail || true
+        else
+            groupadd -g "${sail_gid}" sail || true
+        fi
+    fi
+
+    if ! id -u sail >/dev/null 2>&1; then
+        useradd -ms /bin/bash --no-user-group -g sail -u "${sail_uid}" sail || true
+    fi
+}
+
 # Load bootstrap-generated runtime env when present.
 # This is the canonical source once root .env is intentionally absent.
 COMPAT_ENV_FILE="${BT_COMPAT_SHELL_ENV_FILE:-/var/www/html/.blue-team-vm/runtime/compat.shell.env}"
+EXPLICIT_DB_HOST="${DB_HOST-__UNSET__}"
+EXPLICIT_DB_DATABASE="${DB_DATABASE-__UNSET__}"
+EXPLICIT_DB_USERNAME="${DB_USERNAME-__UNSET__}"
+EXPLICIT_DB_PASSWORD="${DB_PASSWORD-__UNSET__}"
+EXPLICIT_DB_SSLMODE="${DB_SSLMODE-__UNSET__}"
+EXPLICIT_REDIS_HOST="${REDIS_HOST-__UNSET__}"
 if [ -r "${COMPAT_ENV_FILE}" ]; then
     set -a
     # shellcheck disable=SC1090
     . "${COMPAT_ENV_FILE}"
     set +a
 fi
+if [ "${EXPLICIT_DB_HOST}" != "__UNSET__" ]; then export DB_HOST="${EXPLICIT_DB_HOST}"; fi
+if [ "${EXPLICIT_DB_DATABASE}" != "__UNSET__" ]; then export DB_DATABASE="${EXPLICIT_DB_DATABASE}"; fi
+if [ "${EXPLICIT_DB_USERNAME}" != "__UNSET__" ]; then export DB_USERNAME="${EXPLICIT_DB_USERNAME}"; fi
+if [ "${EXPLICIT_DB_PASSWORD}" != "__UNSET__" ]; then export DB_PASSWORD="${EXPLICIT_DB_PASSWORD}"; fi
+if [ "${EXPLICIT_DB_SSLMODE}" != "__UNSET__" ]; then export DB_SSLMODE="${EXPLICIT_DB_SSLMODE}"; fi
+if [ "${EXPLICIT_REDIS_HOST}" != "__UNSET__" ]; then export REDIS_HOST="${EXPLICIT_REDIS_HOST}"; fi
+
+: "${DB_HOST:=postgres}"
+: "${DB_DATABASE:=jobs_db}"
+: "${DB_USERNAME:=jobs_user}"
+: "${DB_SSLMODE:=prefer}"
+: "${REDIS_HOST:=redis}"
+export DB_HOST DB_DATABASE DB_USERNAME DB_SSLMODE REDIS_HOST
 
 # Respect explicit runtime command overrides (for init/bootstrap one-shot services).
 if [ "$#" -gt 0 ]; then
     exec "$@"
 fi
+
+ensure_sail_identity
 
 /usr/local/bin/prepare-laravel-runtime /var/www/html
 

@@ -393,8 +393,14 @@ class BlueTeamVmShellContractsTest extends TestCase
 
         $this->assertIsString($appContents);
         $this->assertIsString($obsContents);
-        $this->assertStringContainsString("  app-plane:\n    external: true\n", $appContents);
-        $this->assertStringContainsString("  app-plane:\n    external: true\n", $obsContents);
+        $this->assertStringContainsString("  app-plane:\n    name:", $appContents);
+        $this->assertStringContainsString("  app-plane:\n    name:", $obsContents);
+        $this->assertStringContainsString('driver: bridge', $appContents);
+        $this->assertStringContainsString('driver: bridge', $obsContents);
+        $this->assertStringContainsString('ipam:', $appContents);
+        $this->assertStringContainsString('ipam:', $obsContents);
+        $this->assertStringContainsString('subnet: 172.29.0.0/24', $appContents);
+        $this->assertStringContainsString('subnet: 172.29.0.0/24', $obsContents);
         $this->assertStringContainsString('name: "${BT_APP_PLANE_NETWORK_NAME:-${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane}"', $appContents);
         $this->assertStringContainsString('name: "${BT_APP_PLANE_NETWORK_NAME:-${COMPOSE_PROJECT_NAME:-jobs-borads}_app-plane}"', $obsContents);
     }
@@ -1655,9 +1661,10 @@ BASH);
         $contents = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
 
         $this->assertIsString($contents);
-        $this->assertStringNotContainsString('set $monitoring_auth_assets_upstream', $contents);
-        $this->assertMatchesRegularExpression('/location \^~ \/monitoring\/assets\/ \{\s+limit_req zone=static burst=40 nodelay;\s+proxy_pass http:\/\/auth-service:3000;\s+/s', $contents);
-        $this->assertMatchesRegularExpression('/location \^~ \/monitoring\/icons\/ \{\s+limit_req zone=static burst=40 nodelay;\s+proxy_pass http:\/\/auth-service:3000;\s+/s', $contents);
+        $this->assertStringContainsString('set $monitoring_auth_assets_upstream http://auth-service:3000;', $contents);
+        $this->assertStringContainsString('set $monitoring_auth_icons_upstream http://auth-service:3000;', $contents);
+        $this->assertMatchesRegularExpression('/location \^~ \/monitoring\/assets\/ \{\s+limit_req zone=static burst=40 nodelay;\s+proxy_pass \$monitoring_auth_assets_upstream;\s+/s', $contents);
+        $this->assertMatchesRegularExpression('/location \^~ \/monitoring\/icons\/ \{\s+limit_req zone=static burst=40 nodelay;\s+proxy_pass \$monitoring_auth_icons_upstream;\s+/s', $contents);
     }
 
     public function test_honeypot_integration_probe_uses_configured_https_binding_instead_of_assuming_port_443(): void

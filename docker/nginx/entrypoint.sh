@@ -28,6 +28,7 @@ MONITORING_ACCESS_CONF="${MONITORING_GENERATED_DIR}/monitoring-access.conf"
 MONITORING_SERVER_ACCESS_CONF="${MONITORING_GENERATED_DIR}/monitoring-server-access.conf"
 MONITORING_ACCESS_MODE="${MONITORING_ACCESS_MODE:-internal-only}"
 MONITORING_ALLOWED_CIDRS="${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,192.168.0.0/16}"
+PRIVATE_NETWORK_ALLOW_CONF="/etc/nginx/includes/private-network-allow.conf"
 
 if ! command -v openssl >/dev/null 2>&1; then
     echo "ERROR: openssl is required in the nginx image." >&2
@@ -333,6 +334,32 @@ render_monitoring_policy() {
     chmod 0644 "${MONITORING_GEO_CONF}" "${MONITORING_ACCESS_CONF}" "${MONITORING_SERVER_ACCESS_CONF}"
 }
 
+ensure_private_network_allow_include() {
+    mkdir -p /etc/nginx/includes
+
+    if [ -s "${PRIVATE_NETWORK_ALLOW_CONF}" ]; then
+        return 0
+    fi
+
+    {
+        echo 'allow 127.0.0.1;'
+
+        old_ifs="${IFS}"
+        IFS=','
+        for cidr in ${MONITORING_ALLOWED_CIDRS}; do
+            cidr="$(printf '%s' "${cidr}" | tr -d '[:space:]')"
+            [ -n "${cidr}" ] || continue
+            printf 'allow %s;\n' "${cidr}"
+        done
+        IFS="${old_ifs}"
+
+        echo 'deny all;'
+    } > "${PRIVATE_NETWORK_ALLOW_CONF}"
+
+    chmod 0644 "${PRIVATE_NETWORK_ALLOW_CONF}"
+    echo "Rendered ${PRIVATE_NETWORK_ALLOW_CONF} from MONITORING_ALLOWED_CIDRS fallback."
+}
+
 render_crowdsec_bouncer_config() {
     KEY_FILE="/crowdsec-keys/bouncer.key"
 
@@ -373,6 +400,7 @@ case "${1:-}" in
 esac
 
 render_monitoring_policy
+ensure_private_network_allow_include
 render_ssl_mode_conf "${SSL_MODE}"
 
 mkdir -p /var/log/nginx
@@ -386,7 +414,7 @@ trap cleanup EXIT INT TERM
 if [ -L /var/log/nginx/access.log ] || [ -L /var/log/nginx/error.log ]; then
     echo "log symlinks detected, leaving in place"
 else
-    tail -n+1 -F /var/log/nginx/access.log /var/log/nginx/error.log &
+    tail -n 0 -F /var/log/nginx/access.log /var/log/nginx/error.log &
     TAIL_PID=$!
 fi
 
