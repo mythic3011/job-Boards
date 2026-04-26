@@ -154,6 +154,8 @@ reuse_remote_port_settings() {
     existing_app_ssl_port="$(read_remote_shared_env_value APP_SSL_PORT)"
 
     if [[ -n "${existing_app_port}" ]]; then
+        # shellcheck disable=SC2034
+        # DEPLOY_APP_PORT is consumed by later environment rendering steps.
         DEPLOY_APP_PORT="${existing_app_port}"
     fi
 

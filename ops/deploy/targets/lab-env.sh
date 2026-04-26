@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=SC2034
+# This file emits DEPLOY_* contract variables for consumption by ops/deploy/vps-deploy.sh.
+
 TARGETS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=./_builder.sh
 source "${TARGETS_DIR}/_builder.sh"
@@ -10,8 +13,6 @@ TARGET_PROFILE_NAME="${TARGET_PROFILE_NAME:-lab-env}"
 LAB_DEPLOY_PUBLIC_HOST="${LAB_DEPLOY_PUBLIC_HOST:-}"
 LAB_DEPLOY_EXTRA_HOSTS="${LAB_DEPLOY_EXTRA_HOSTS:-}"
 
-# shellcheck disable=SC2034
-# These DEPLOY_* variables are the sourced output contract consumed by ops/deploy/vps-deploy.sh.
 DEPLOY_PROFILE_NAME="${TARGET_PROFILE_NAME:-lab-env}"
 DEPLOY_PROFILE_KIND="${TARGET_PROFILE_KIND:-lab}"
 DEPLOY_DOMAIN="${LAB_DEPLOY_DOMAIN:-${LAB_DEPLOY_PUBLIC_HOST:-${LAB_DEPLOY_HOST}}}"
