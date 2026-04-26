@@ -52,14 +52,21 @@ new class extends Component
             $query->role($this->roleFilter);
         }
 
+        $statsRow = User::query()
+            ->selectRaw('COUNT(*) as total_users')
+            ->selectRaw("SUM(CASE WHEN user_type = 'admin' THEN 1 ELSE 0 END) as admin_users")
+            ->selectRaw("SUM(CASE WHEN locked_until IS NOT NULL AND locked_until > ? THEN 1 ELSE 0 END) as locked_users", [now()])
+            ->selectRaw('SUM(CASE WHEN two_factor_confirmed_at IS NOT NULL THEN 1 ELSE 0 END) as two_factor_users')
+            ->first();
+
         return [
             'users' => $query->with('roles')->latest()->paginate($this->visibleCount),
             'roles' => \Spatie\Permission\Models\Role::all(),
             'stats' => [
-                'total_users' => User::count(),
-                'admin_users' => User::where('user_type', 'admin')->count(),
-                'locked_users' => User::whereNotNull('locked_until')->where('locked_until', '>', now())->count(),
-                'two_factor_users' => User::whereNotNull('two_factor_confirmed_at')->count(),
+                'total_users' => (int) ($statsRow->total_users ?? 0),
+                'admin_users' => (int) ($statsRow->admin_users ?? 0),
+                'locked_users' => (int) ($statsRow->locked_users ?? 0),
+                'two_factor_users' => (int) ($statsRow->two_factor_users ?? 0),
             ],
         ];
     }

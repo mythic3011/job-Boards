@@ -158,6 +158,20 @@ class PerformanceQuickWinsTest extends TestCase
         $this->assertSame('user-1', $meta['user_ids']['sample'][0]);
     }
 
+    public function test_admin_users_index_uses_single_aggregate_stats_query_shape(): void
+    {
+        $usersIndex = file_get_contents(dirname(__DIR__, 3).'/resources/views/livewire/admin/users/index.blade.php');
+
+        $this->assertIsString($usersIndex);
+        $this->assertStringContainsString("selectRaw('COUNT(*) as total_users')", $usersIndex);
+        $this->assertStringContainsString("SUM(CASE WHEN user_type = 'admin' THEN 1 ELSE 0 END) as admin_users", $usersIndex);
+        $this->assertStringContainsString("SUM(CASE WHEN locked_until IS NOT NULL AND locked_until > ? THEN 1 ELSE 0 END) as locked_users", $usersIndex);
+        $this->assertStringContainsString('SUM(CASE WHEN two_factor_confirmed_at IS NOT NULL THEN 1 ELSE 0 END) as two_factor_users', $usersIndex);
+        $this->assertStringNotContainsString("'admin_users' => User::where('user_type', 'admin')->count()", $usersIndex);
+        $this->assertStringNotContainsString("'locked_users' => User::whereNotNull('locked_until')->where('locked_until', '>', now())->count()", $usersIndex);
+        $this->assertStringNotContainsString("'two_factor_users' => User::whereNotNull('two_factor_confirmed_at')->count()", $usersIndex);
+    }
+
     /**
      * @return array{0: User, 1: Application}
      */
