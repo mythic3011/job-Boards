@@ -16,6 +16,8 @@ class AdminJobEditUiContractTest extends TestCase
         $this->assertStringContainsString('theme-alert-error', $contents);
         $this->assertStringContainsString('theme-panel-subtle', $contents);
         $this->assertStringContainsString('theme-input', $contents);
+        $this->assertStringContainsString('Use requirements for must-have skills', $contents);
+        $this->assertStringContainsString('Use duties for day-to-day responsibilities', $contents);
         $this->assertStringContainsString('<x-ui.button', $contents);
         $this->assertStringNotContainsString('text-gray-900', $contents);
         $this->assertStringNotContainsString('ring-gray-300', $contents);

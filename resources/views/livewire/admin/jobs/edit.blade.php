@@ -177,6 +177,7 @@ new class extends Component
                 rows="6"
                 required
             />
+            <p class="theme-text-muted -mt-3 text-xs">Use requirements for must-have skills, certifications, and experience thresholds.</p>
 
             <x-ui.textarea
                 label="Job Duties"
@@ -185,6 +186,7 @@ new class extends Component
                 rows="6"
                 required
             />
+            <p class="theme-text-muted -mt-3 text-xs">Use duties for day-to-day responsibilities and expected scope after hiring.</p>
 
             <div>
                 <x-ui.form-label>Salary (Optional, HK$)</x-ui.form-label>
