@@ -105,7 +105,6 @@ new class extends Component
 
             return;
         }
-
         try {
             $result = $settingsService->updateSettings([
                 'app_name' => $this->app_name,

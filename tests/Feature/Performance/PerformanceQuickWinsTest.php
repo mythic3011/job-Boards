@@ -108,6 +108,24 @@ class PerformanceQuickWinsTest extends TestCase
         );
     }
 
+    public function test_admin_company_filter_options_are_bounded_for_large_company_sets(): void
+    {
+        Cache::flush();
+
+        User::factory()->company()->count(260)->create();
+
+        Volt::test('admin.jobs.index')
+            ->assertSet('visibleCount', 15);
+
+        $serviceResults = app(\App\Services\AdminCompanyOptionsService::class)->getCompanyOptions();
+
+        $this->assertLessThanOrEqual(
+            200,
+            $serviceResults->count(),
+            'Company filter options should be bounded to keep admin render payloads predictable on large datasets.'
+        );
+    }
+
     public function test_admin_applications_index_uses_bounded_aggregate_queries_for_stats_cards(): void
     {
         $company = User::factory()->company()->create();

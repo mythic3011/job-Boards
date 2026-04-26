@@ -10,6 +10,7 @@ class AdminCompanyOptionsService
 {
     private const CACHE_KEY = 'admin.company_filter_options.v1';
     private const CACHE_TTL_MINUTES = 5;
+    private const MAX_OPTIONS = 200;
 
     /**
      * @return Collection<int, User>
@@ -23,10 +24,10 @@ class AdminCompanyOptionsService
             static fn (): Collection => User::query()
                 ->where('user_type', 'company')
                 ->orderBy('nickname')
+                ->limit(self::MAX_OPTIONS)
                 ->get(['id', 'nickname'])
         );
 
         return $companies;
     }
 }
-
