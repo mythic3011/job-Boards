@@ -56,6 +56,8 @@ class MarketplaceThemeContractTest extends TestCase
         $this->assertStringContainsString('theme-text-muted', $contents);
         $this->assertStringContainsString('theme-panel-subtle', $contents);
         $this->assertStringContainsString('theme-link', $contents);
+        $this->assertStringContainsString('List must-have qualifications, certifications, and experience thresholds.', $contents);
+        $this->assertStringContainsString('Describe day-to-day responsibilities and expected outcomes in this role.', $contents);
         $this->assertStringNotContainsString('text-gray-900', $contents);
         $this->assertStringNotContainsString('ring-gray-300', $contents);
     }
