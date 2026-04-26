@@ -1,9 +1,8 @@
 <?php
 
 use App\Services\AdminSettingsService;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Auth\Access\AuthorizationException;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 
@@ -88,32 +87,7 @@ new class extends Component
     {
         $this->authorize('admin.settings.update');
         $this->validateOnlySettings();
-
-        if ($this->password === '') {
-            $this->addError('password', 'Password confirmation is required.');
-            $this->showConfirmModal = true;
-            return;
-        }
-
-        $user = auth()->user();
-
-        if (! $user || ! Hash::check($this->password, (string) $user->password)) {
-            $this->addError('password', 'The provided password is incorrect.');
-            $this->password = '';
-            $this->showConfirmModal = true;
-            return;
-        }
-
-        $rateLimitKey = 'settings-update:' . ($user->id ?? request()->ip());
-
-        if (RateLimiter::tooManyAttempts($rateLimitKey, 5)) {
-            $seconds = RateLimiter::availableIn($rateLimitKey);
-            $this->closeConfirmModal();
-            session()->flash('error', "Too many attempts. Please try again in {$seconds} seconds.");
-            return;
-        }
-
-        RateLimiter::hit($rateLimitKey, 60);
+        request()->merge(['password' => $this->password]);
 
         try {
             $result = app(AdminSettingsService::class)->updateSettings([
@@ -141,6 +115,26 @@ new class extends Component
                     ? 'Settings saved successfully! Demo data seeding queued.'
                     : 'Settings saved successfully!' . ($result['demo_data_removed'] ? ' Demo data removed.' : '')
             );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            foreach ($e->errors() as $field => $messages) {
+                foreach ((array) $messages as $message) {
+                    $this->addError($field, (string) $message);
+                }
+            }
+
+            $this->showConfirmModal = true;
+        } catch (AuthorizationException $e) {
+            $message = trim($e->getMessage());
+
+            if (str_contains(strtolower($message), 'password')) {
+                $this->addError('password', $message !== '' ? $message : 'Password confirmation is required.');
+                $this->password = '';
+                $this->showConfirmModal = true;
+                return;
+            }
+
+            $this->closeConfirmModal();
+            session()->flash('error', $message !== '' ? $message : 'You are not authorized to update settings.');
         } catch (\Throwable $e) {
             report($e);
             Log::error('Failed to save settings', [
@@ -186,6 +180,10 @@ new class extends Component
     }
 }; ?>
 
+@php
+    $canUpdateSettings = auth()->user()?->can('admin.settings.update') ?? false;
+@endphp
+
 <div>
     @if (session('message'))
         <x-ui.alert type="success" class="mb-6">
@@ -206,6 +204,12 @@ new class extends Component
     @endif
 
     <x-ui.card padding="p-8">
+        @unless($canUpdateSettings)
+            <x-ui.alert type="warning" class="mb-6">
+                Settings updates are restricted by your current policy scope. You can review values, but update actions are disabled.
+            </x-ui.alert>
+        @endunless
+
         <form wire:submit.prevent="save" class="space-y-6">
             <div>
                 <h2 class="theme-text-strong text-lg font-semibold">System Identity</h2>
@@ -219,6 +223,7 @@ new class extends Component
                         id="app_name"
                         type="text"
                         wire:model.live="app_name"
+                        @disabled(! $canUpdateSettings)
                         class="theme-input w-full rounded-lg border px-3 py-2.5 text-sm shadow-sm placeholder:text-[var(--app-text-muted)] focus:border-[var(--app-accent-soft-border)] focus:ring-2 focus:ring-[var(--app-focus-ring)] focus:outline-hidden transition"
                         placeholder="Jobs Board"
                     >
@@ -232,6 +237,7 @@ new class extends Component
                         id="app_url"
                         type="url"
                         wire:model.live="app_url"
+                        @disabled(! $canUpdateSettings)
                         class="theme-input w-full rounded-lg border px-3 py-2.5 text-sm shadow-sm placeholder:text-[var(--app-text-muted)] focus:border-[var(--app-accent-soft-border)] focus:ring-2 focus:ring-[var(--app-focus-ring)] focus:outline-hidden transition"
                         placeholder="https://jobs.example.com"
                     >
@@ -245,6 +251,7 @@ new class extends Component
                         id="timezone"
                         type="text"
                         wire:model.live="timezone"
+                        @disabled(! $canUpdateSettings)
                         class="theme-input w-full rounded-lg border px-3 py-2.5 text-sm shadow-sm placeholder:text-[var(--app-text-muted)] focus:border-[var(--app-accent-soft-border)] focus:ring-2 focus:ring-[var(--app-focus-ring)] focus:outline-hidden transition"
                         placeholder="Asia/Hong_Kong"
                         spellcheck="false"
@@ -266,6 +273,7 @@ new class extends Component
                             <input
                                 type="checkbox"
                                 wire:model.live="demo_mode"
+                                @disabled(! $canUpdateSettings)
                                 class="theme-input mt-1 h-5 w-5 rounded border text-[var(--app-accent-strong)] transition focus:ring-2 focus:ring-[var(--app-focus-ring)]"
                             >
                             <div class="ml-3 flex-1">
@@ -301,6 +309,7 @@ new class extends Component
                             <input
                                 type="checkbox"
                                 wire:model.live="registrations_open"
+                                @disabled(! $canUpdateSettings)
                                 class="theme-input mt-1 h-5 w-5 rounded border text-[var(--app-accent-strong)] transition focus:ring-2 focus:ring-[var(--app-focus-ring)]"
                             >
                             <div class="ml-3 flex-1">
@@ -336,6 +345,7 @@ new class extends Component
                             <input
                                 type="checkbox"
                                 wire:model.live="maintenance_mode"
+                                @disabled(! $canUpdateSettings)
                                 class="theme-input mt-1 h-5 w-5 rounded border text-[var(--app-danger-fg)] transition focus:ring-2 focus:ring-[var(--app-focus-ring)]"
                             >
                             <div class="ml-3 flex-1">
@@ -369,7 +379,7 @@ new class extends Component
             <div class="theme-table-divider flex items-center justify-start gap-4 border-t pt-4">
                 <button
                     type="submit"
-                    @disabled(! $this->hasChanges)
+                    @disabled(! $this->hasChanges || ! $canUpdateSettings)
                     wire:loading.attr="disabled"
                     class="theme-button theme-button-primary min-w-[140px] rounded-lg border px-4 py-2 text-sm font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
                 >
@@ -389,8 +399,13 @@ new class extends Component
         </form>
     </x-ui.card>
 
-    @if ($showConfirmModal)
-        <div class="theme-overlay-backdrop-strong fixed inset-0 z-50 flex items-end justify-center backdrop-blur-sm sm:items-center sm:p-4">
+    <div
+        @class([
+            'theme-overlay-backdrop-strong fixed inset-0 z-50 items-end justify-center backdrop-blur-sm sm:items-center sm:p-4',
+            'hidden' => ! $showConfirmModal,
+            'flex' => $showConfirmModal,
+        ])
+    >
             <button
                 type="button"
                 class="absolute inset-0 cursor-default"
@@ -540,12 +555,12 @@ new class extends Component
                         >
                             Cancel
                         </x-ui.button>
-                        <x-ui.button
+                        <button
                             type="button"
-                            variant="primary"
                             wire:click="confirmSave"
                             wire:loading.attr="disabled"
-                            class="min-w-[160px]"
+                            @disabled(! $canUpdateSettings)
+                            class="theme-button theme-button-primary min-w-[160px] rounded-lg border px-4 py-2 text-sm font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             <span wire:loading.remove wire:target="confirmSave" class="inline-flex items-center gap-1.5 whitespace-nowrap">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -560,10 +575,9 @@ new class extends Component
                                 </svg>
                                 Applying…
                             </span>
-                        </x-ui.button>
+                        </button>
                     </div>
                 </div>
             </div>
-        </div>
-    @endif
+    </div>
 </div>

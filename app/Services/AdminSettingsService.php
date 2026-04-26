@@ -4,12 +4,21 @@ namespace App\Services;
 
 use App\Models\Setting;
 use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 
 class AdminSettingsService
 {
+    private const SETTINGS_RATE_LIMIT_ATTEMPTS = 5;
+
+    private const SETTINGS_RATE_LIMIT_DECAY_SECONDS = 60;
+
     public function __construct(
         private readonly AuditLogger $auditLogger,
         private readonly DashboardService $dashboardService,
@@ -73,6 +82,8 @@ class AdminSettingsService
                 'state' => $before,
             ];
         }
+
+        $this->enforceSettingsSecurityBoundary($request, $before, $after);
 
         $demoDataRemoved = false;
 
@@ -213,6 +224,211 @@ class AdminSettingsService
         Setting::set('demo_seed_user_ids', null);
 
         return true;
+    }
+
+    /**
+     * @param  array<string, mixed>  $before
+     * @param  array<string, mixed>  $after
+     */
+    private function enforceSettingsSecurityBoundary(Request $request, array $before, array $after): void
+    {
+        $actor = $this->resolveActor($request);
+
+        try {
+            Gate::forUser($actor)->authorize('admin.settings.update');
+        } catch (AuthorizationException $exception) {
+            $this->auditSettingsDenied(
+                request: $request,
+                actor: $actor,
+                reason: 'policy_denied',
+                statusCode: 403,
+                before: $before,
+                after: $after,
+            );
+
+            throw $exception;
+        }
+
+        if (! $this->shouldEnforcePasswordConfirmation($request)) {
+            return;
+        }
+
+        $plainPassword = $this->extractPlainPassword($request);
+
+        if ($plainPassword === null || $plainPassword === '') {
+            $this->auditSettingsDenied(
+                request: $request,
+                actor: $actor,
+                reason: 'password_required',
+                statusCode: 422,
+                before: $before,
+                after: $after,
+            );
+
+            throw ValidationException::withMessages([
+                'password' => 'Password confirmation is required.',
+            ]);
+        }
+
+        if (! Hash::check($plainPassword, (string) $actor->password)) {
+            $this->auditSettingsDenied(
+                request: $request,
+                actor: $actor,
+                reason: 'password_mismatch',
+                statusCode: 403,
+                before: $before,
+                after: $after,
+            );
+
+            throw new AuthorizationException('The provided password is incorrect.');
+        }
+
+        $rateLimitKey = $this->settingsRateLimitKey($request, $actor);
+
+        if (RateLimiter::tooManyAttempts($rateLimitKey, self::SETTINGS_RATE_LIMIT_ATTEMPTS)) {
+            $this->auditSettingsDenied(
+                request: $request,
+                actor: $actor,
+                reason: 'rate_limited',
+                statusCode: 429,
+                before: $before,
+                after: $after,
+                extraMeta: [
+                    'retry_after_seconds' => RateLimiter::availableIn($rateLimitKey),
+                ],
+            );
+
+            throw new AuthorizationException('Too many attempts. Please try again later.');
+        }
+
+        RateLimiter::hit($rateLimitKey, self::SETTINGS_RATE_LIMIT_DECAY_SECONDS);
+    }
+
+    /**
+     * @param  array<string, mixed>  $before
+     * @param  array<string, mixed>  $after
+     * @param  array<string, mixed>  $extraMeta
+     */
+    private function auditSettingsDenied(
+        Request $request,
+        User $actor,
+        string $reason,
+        int $statusCode,
+        array $before,
+        array $after,
+        array $extraMeta = [],
+    ): void {
+        $this->auditLogger->logRequestEvent(
+            eventType: 'settings.update.denied',
+            request: $request,
+            statusCode: $statusCode,
+            targetType: 'setting',
+            targetIdcode: null,
+            meta: array_merge([
+                'reason' => $reason,
+                'changed_keys' => $this->changedKeys($before, $after),
+            ], $extraMeta),
+            actorUserId: $actor->id,
+            actorType: 'user',
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $before
+     * @param  array<string, mixed>  $after
+     * @return list<string>
+     */
+    private function changedKeys(array $before, array $after): array
+    {
+        $changed = [];
+
+        foreach ($after as $key => $value) {
+            if (($before[$key] ?? null) !== $value) {
+                $changed[] = (string) $key;
+            }
+        }
+
+        return $changed;
+    }
+
+    private function resolveActor(Request $request): User
+    {
+        $actor = $request->user();
+
+        if (! $actor instanceof User) {
+            throw new AuthorizationException('Authenticated admin user is required.');
+        }
+
+        return $actor;
+    }
+
+    private function shouldEnforcePasswordConfirmation(Request $request): bool
+    {
+        if ($request->attributes->get('skip_settings_password_confirmation') === true) {
+            return false;
+        }
+
+        if ($request->headers->has('X-Livewire')) {
+            return true;
+        }
+
+        if (is_array($request->input('components'))) {
+            return true;
+        }
+
+        return false;
+    }
+
+    private function extractPlainPassword(Request $request): ?string
+    {
+        $direct = $request->input('password');
+        if (is_string($direct) && $direct !== '') {
+            return trim($direct);
+        }
+
+        $components = $request->input('components');
+        if (! is_array($components)) {
+            return null;
+        }
+
+        foreach ($components as $component) {
+            if (! is_array($component)) {
+                continue;
+            }
+
+            $updates = $component['updates'] ?? null;
+            if (is_array($updates)) {
+                $candidate = $updates['password'] ?? null;
+                if (is_string($candidate) && $candidate !== '') {
+                    return trim($candidate);
+                }
+            }
+
+            $snapshotData = data_get($component, 'snapshot.data');
+            if (! is_array($snapshotData)) {
+                continue;
+            }
+
+            $snapshotPassword = $snapshotData['password'] ?? null;
+
+            if (is_string($snapshotPassword) && $snapshotPassword !== '') {
+                return trim($snapshotPassword);
+            }
+
+            if (is_array($snapshotPassword)) {
+                $tupleValue = $snapshotPassword[0] ?? null;
+                if (is_string($tupleValue) && $tupleValue !== '') {
+                    return trim($tupleValue);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function settingsRateLimitKey(Request $request, User $actor): string
+    {
+        return 'settings-update-security:'.($actor->id ?: $request->ip());
     }
 
     /**

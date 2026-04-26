@@ -267,6 +267,14 @@ new class extends Component
                         </thead>
                         <tbody class="divide-y" style="--tw-divide-opacity: 1; border-color: var(--app-panel-border);">
                             @forelse($users as $user)
+                                @php
+                                    $canLockToggle = $user->isLocked()
+                                        ? (auth()->user()?->can('unlock', $user) ?? false)
+                                        : (auth()->user()?->can('lock', $user) ?? false);
+                                    $canForcePasswordReset = auth()->user()?->can('forcePasswordReset', $user) ?? false;
+                                    $canDeleteUser = auth()->user()?->can('delete', $user) ?? false;
+                                    $hasAnyAccountAction = $canLockToggle || $canForcePasswordReset || $canDeleteUser;
+                                @endphp
                                 <tr wire:key="user-{{ $user->id }}" class="group transition-colors duration-150 hover:bg-[var(--app-panel-subtle-bg)]">
                                     <td class="px-6 py-4">
                                         <div class="flex items-center gap-3">
@@ -337,9 +345,9 @@ new class extends Component
                                                     data-dropdown-button
                                                     aria-expanded="false"
                                                     aria-haspopup="true"
-                                                    title="Open account actions for this user"
+                                                    title="{{ $hasAnyAccountAction ? 'Open account actions for this user' : 'Account actions are restricted by policy' }}"
                                                 >
-                                                    <span>Account actions</span>
+                                                    <span>{{ $hasAnyAccountAction ? 'Account actions' : 'Actions restricted' }}</span>
                                                     <svg class="h-4 w-4 transition-transform duration-200" data-dropdown-arrow fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
                                                     </svg>
@@ -356,55 +364,79 @@ new class extends Component
                                                         <p class="theme-text-muted mt-1 text-[11px]">Lock blocks sign-in immediately. Reset creates a sensitive one-time link.</p>
                                                     </div>
                                                     <div class="space-y-1 p-2">
-                                                        @if($user->isLocked())
-                                                            <button
-                                                            type="button"
-                                                            wire:click="toggleLock('{{ $user->id }}')"
-                                                            wire:confirm="Unlock {{ $user->nickname }}? This restores sign-in access immediately."
-                                                            wire:loading.attr="disabled"
-                                                            wire:target="toggleLock('{{ $user->id }}')"
-                                                            class="theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] disabled:opacity-60"
-                                                            title="Restore sign-in access for this account"
-                                                        >
-                                                            <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Unlock user</span>
-                                                            <span wire:loading wire:target="toggleLock('{{ $user->id }}')">Processing…</span>
-                                                            </button>
+                                                        @if($canLockToggle)
+                                                            @if($user->isLocked())
+                                                                <button
+                                                                    type="button"
+                                                                    wire:click="toggleLock('{{ $user->id }}')"
+                                                                    wire:confirm="Unlock {{ $user->nickname }}? This restores sign-in access immediately."
+                                                                    wire:loading.attr="disabled"
+                                                                    wire:target="toggleLock('{{ $user->id }}')"
+                                                                    class="theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] disabled:opacity-60"
+                                                                    title="Restore sign-in access for this account"
+                                                                >
+                                                                    <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Unlock user</span>
+                                                                    <span wire:loading wire:target="toggleLock('{{ $user->id }}')">Processing…</span>
+                                                                </button>
+                                                            @else
+                                                                <button
+                                                                    type="button"
+                                                                    wire:click="toggleLock('{{ $user->id }}')"
+                                                                    wire:confirm="Lock {{ $user->nickname }}? This blocks sign-in until an operator unlocks the account."
+                                                                    wire:loading.attr="disabled"
+                                                                    wire:target="toggleLock('{{ $user->id }}')"
+                                                                    class="theme-alert-warning flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95 disabled:opacity-60"
+                                                                    title="Temporarily block this account from signing in"
+                                                                >
+                                                                    <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Lock user</span>
+                                                                    <span wire:loading wire:target="toggleLock('{{ $user->id }}')">Processing…</span>
+                                                                </button>
+                                                            @endif
                                                         @else
-                                                        <button
-                                                            type="button"
-                                                            wire:click="toggleLock('{{ $user->id }}')"
-                                                            wire:confirm="Lock {{ $user->nickname }}? This blocks sign-in until an operator unlocks the account."
-                                                            wire:loading.attr="disabled"
-                                                            wire:target="toggleLock('{{ $user->id }}')"
-                                                            class="theme-alert-warning flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95 disabled:opacity-60"
-                                                            title="Temporarily block this account from signing in"
-                                                        >
-                                                            <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Lock user</span>
-                                                            <span wire:loading wire:target="toggleLock('{{ $user->id }}')">Processing…</span>
-                                                            </button>
+                                                            <span class="theme-text-muted inline-flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-semibold">
+                                                                {{ $user->isLocked() ? 'Unlock restricted' : 'Lock restricted' }}
+                                                            </span>
                                                         @endif
 
-                                                        <button
-                                                            type="button"
-                                                            wire:click="forcePasswordReset('{{ $user->id }}')"
-                                                            wire:confirm="Generate password reset link for {{ $user->nickname }}? Share only through a verified handoff channel."
-                                                            wire:loading.attr="disabled"
-                                                            wire:target="forcePasswordReset('{{ $user->id }}')"
-                                                            class="theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] disabled:opacity-60"
-                                                            title="Generate a one-time reset link for controlled handoff"
-                                                        >
-                                                            <span wire:loading.remove wire:target="forcePasswordReset('{{ $user->id }}')">Reset password</span>
-                                                            <span wire:loading wire:target="forcePasswordReset('{{ $user->id }}')">Preparing…</span>
-                                                        </button>
+                                                        @if($canForcePasswordReset)
+                                                            <button
+                                                                type="button"
+                                                                wire:click="forcePasswordReset('{{ $user->id }}')"
+                                                                wire:confirm="Generate password reset link for {{ $user->nickname }}? Share only through a verified handoff channel."
+                                                                wire:loading.attr="disabled"
+                                                                wire:target="forcePasswordReset('{{ $user->id }}')"
+                                                                class="theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] disabled:opacity-60"
+                                                                title="Generate a one-time reset link for controlled handoff"
+                                                            >
+                                                                <span wire:loading.remove wire:target="forcePasswordReset('{{ $user->id }}')">Reset password</span>
+                                                                <span wire:loading wire:target="forcePasswordReset('{{ $user->id }}')">Preparing…</span>
+                                                            </button>
+                                                        @else
+                                                            <span class="theme-text-muted inline-flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-semibold">
+                                                                Reset restricted
+                                                            </span>
+                                                        @endif
 
-                                                        <button
-                                                            type="button"
-                                                            wire:click="confirmUserDeletion('{{ $user->id }}')"
-                                                            class="theme-alert-error flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95"
-                                                            title="Permanently remove this user account and related data"
-                                                        >
-                                                            <span>Delete user</span>
-                                                        </button>
+                                                        @if($canDeleteUser)
+                                                            <button
+                                                                type="button"
+                                                                wire:click="confirmUserDeletion('{{ $user->id }}')"
+                                                                class="theme-alert-error flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95"
+                                                                title="Permanently remove this user account and related data"
+                                                            >
+                                                                <span>Delete user</span>
+                                                            </button>
+                                                        @else
+                                                            <span class="theme-text-muted inline-flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-semibold">
+                                                                Delete restricted
+                                                            </span>
+                                                        @endif
+
+                                                        @unless($hasAnyAccountAction)
+                                                            <p class="theme-text-muted px-1 pt-1 text-[11px]">
+                                                                No account actions available under your current policy scope.
+                                                            </p>
+                                                        @endunless
                                                     </div>
                                                 </div>
                                             </div>

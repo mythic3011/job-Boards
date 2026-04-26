@@ -329,14 +329,20 @@ new class extends Component
                             </td>
                             <td class="px-6 py-4">
                                 <div class="flex flex-col items-end gap-2">
-                                    <a href="{{ route('admin.applications.show', $application->idcode) }}"
-                                       class="theme-button theme-button-primary inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer">
-                                        <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" />
-                                        </svg>
-                                        Open review
-                                    </a>
+                                    @can('admin.applications.view')
+                                        <a href="{{ route('admin.applications.show', $application->idcode) }}"
+                                           class="theme-button theme-button-primary inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer">
+                                            <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" />
+                                            </svg>
+                                            Open review
+                                        </a>
+                                    @else
+                                        <span class="theme-text-muted inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold">
+                                            Review restricted
+                                        </span>
+                                    @endcan
                                     @if($application->cv_original_name)
                                         @can('downloadCv', $application)
                                             <a href="{{ route('applications.download-cv', $application->idcode) }}"

@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Password;
@@ -22,7 +24,12 @@ class AdminUserSecurityService
     {
         $target = $this->findUserOrFail($targetUserId);
 
-        Gate::forUser($actor)->authorize('forcePasswordReset', $target);
+        $this->authorizeSensitiveAction(
+            actor: $actor,
+            ability: 'forcePasswordReset',
+            target: $target,
+            deniedEventType: 'user.force_password_reset.denied',
+        );
 
         $token = Password::broker()->createToken($target);
         Cache::put('admin_reset:'.$token, true, now()->addMinutes(60));
@@ -53,7 +60,12 @@ class AdminUserSecurityService
     {
         $target = $this->findUserOrFail($targetUserId);
 
-        Gate::forUser($actor)->authorize('lock', $target);
+        $this->authorizeSensitiveAction(
+            actor: $actor,
+            ability: 'lock',
+            target: $target,
+            deniedEventType: 'user.lock.denied',
+        );
 
         $before = $target->locked_until?->toDateTimeString();
         $target->forceFill(['locked_until' => now()->addDays(30)])->save();
@@ -80,7 +92,12 @@ class AdminUserSecurityService
     {
         $target = $this->findUserOrFail($targetUserId);
 
-        Gate::forUser($actor)->authorize('unlock', $target);
+        $this->authorizeSensitiveAction(
+            actor: $actor,
+            ability: 'unlock',
+            target: $target,
+            deniedEventType: 'user.unlock.denied',
+        );
 
         $before = $target->locked_until?->toDateTimeString();
         $target->forceFill(['locked_until' => null])->save();
@@ -121,7 +138,12 @@ class AdminUserSecurityService
     {
         $target = $this->findUserOrFail($targetUserId);
 
-        Gate::forUser($actor)->authorize('delete', $target);
+        $this->authorizeSensitiveAction(
+            actor: $actor,
+            ability: 'delete',
+            target: $target,
+            deniedEventType: 'user.delete.denied',
+        );
 
         $this->auditLogger->logBusinessEvent(
             eventType: 'user.deleted',
@@ -144,5 +166,35 @@ class AdminUserSecurityService
     private function findUserOrFail(string $targetUserId): User
     {
         return User::query()->findOrFail($targetUserId);
+    }
+
+    private function authorizeSensitiveAction(User $actor, string $ability, User $target, string $deniedEventType): void
+    {
+        try {
+            Gate::forUser($actor)->authorize($ability, $target);
+        } catch (AuthorizationException $exception) {
+            $this->auditLogger->logRequestEvent(
+                eventType: $deniedEventType,
+                request: $this->requestContext(),
+                statusCode: 403,
+                targetType: 'user',
+                targetIdcode: $target->idcode,
+                meta: [
+                    'ability' => $ability,
+                ],
+                actorUserId: $actor->id,
+                actorType: 'user',
+            );
+
+            throw $exception;
+        }
+    }
+
+    private function requestContext(): Request
+    {
+        /** @var Request|null $request */
+        $request = request();
+
+        return $request ?? Request::create('/', 'POST');
     }
 }

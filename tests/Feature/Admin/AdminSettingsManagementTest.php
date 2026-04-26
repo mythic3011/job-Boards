@@ -239,7 +239,7 @@ class AdminSettingsManagementTest extends TestCase
         Setting::set('timezone', 'Asia/Hong_Kong');
 
         $admin = $this->adminUser();
-        $rateLimitKey = 'settings-update:'.$admin->id;
+        $rateLimitKey = 'settings-update-security:'.$admin->id;
 
         for ($i = 0; $i < 5; $i++) {
             RateLimiter::hit($rateLimitKey, 60);
