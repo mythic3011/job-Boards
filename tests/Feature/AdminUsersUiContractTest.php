@@ -52,5 +52,9 @@ class AdminUsersUiContractTest extends TestCase
         $this->assertStringContainsString("x-text=\"notesOpen ? 'Hide notes' : 'Show notes'\"", $contents);
         $this->assertStringContainsString('Target account', $contents);
         $this->assertStringContainsString('Login ID:', $contents);
+        $this->assertStringContainsString('wire:confirm="Unlock {{ $user->nickname }}? This restores sign-in access immediately."', $contents);
+        $this->assertStringContainsString('wire:confirm="Lock {{ $user->nickname }}? This blocks sign-in until an operator unlocks the account."', $contents);
+        $this->assertStringContainsString('wire:confirm="Generate password reset link for {{ $user->nickname }}? Share only through a verified handoff channel."', $contents);
+        $this->assertStringContainsString('Lock blocks sign-in immediately. Reset creates a sensitive one-time link.', $contents);
     }
 }

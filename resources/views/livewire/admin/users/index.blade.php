@@ -353,12 +353,14 @@ new class extends Component
                                                     <div class="theme-table-divider border-b px-3 py-2">
                                                         <p class="theme-text-muted text-[11px] font-semibold uppercase tracking-[0.16em]">User operations</p>
                                                         <p class="theme-text-strong mt-1 truncate text-sm font-semibold">{{ $user->nickname }}</p>
+                                                        <p class="theme-text-muted mt-1 text-[11px]">Lock blocks sign-in immediately. Reset creates a sensitive one-time link.</p>
                                                     </div>
                                                     <div class="space-y-1 p-2">
                                                         @if($user->isLocked())
                                                             <button
                                                             type="button"
                                                             wire:click="toggleLock('{{ $user->id }}')"
+                                                            wire:confirm="Unlock {{ $user->nickname }}? This restores sign-in access immediately."
                                                             wire:loading.attr="disabled"
                                                             wire:target="toggleLock('{{ $user->id }}')"
                                                             class="theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] disabled:opacity-60"
@@ -371,6 +373,7 @@ new class extends Component
                                                         <button
                                                             type="button"
                                                             wire:click="toggleLock('{{ $user->id }}')"
+                                                            wire:confirm="Lock {{ $user->nickname }}? This blocks sign-in until an operator unlocks the account."
                                                             wire:loading.attr="disabled"
                                                             wire:target="toggleLock('{{ $user->id }}')"
                                                             class="theme-alert-warning flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95 disabled:opacity-60"
@@ -384,6 +387,7 @@ new class extends Component
                                                         <button
                                                             type="button"
                                                             wire:click="forcePasswordReset('{{ $user->id }}')"
+                                                            wire:confirm="Generate password reset link for {{ $user->nickname }}? Share only through a verified handoff channel."
                                                             wire:loading.attr="disabled"
                                                             wire:target="forcePasswordReset('{{ $user->id }}')"
                                                             class="theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] disabled:opacity-60"
