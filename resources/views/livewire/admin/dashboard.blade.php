@@ -99,9 +99,19 @@ new class extends Component
             'can' => auth()->user()?->can('admin.settings.view'),
             'href' => route('admin.settings.index'),
             'label' => 'Settings',
-            'description' => 'Adjust platform controls and admin defaults.',
-            'value' => 'Admin',
-            'valueLabel' => 'controls',
+            'description' => 'Review system defaults with current auth and lock posture in view.',
+            'value' => number_format($stats['failed_logins_today']),
+            'valueLabel' => 'failed sign-ins today',
+            'stateChips' => [
+                [
+                    'label' => 'Locked users',
+                    'value' => number_format($stats['locked_users']),
+                ],
+                [
+                    'label' => 'Suspicious events',
+                    'value' => number_format($stats['suspicious_today']),
+                ],
+            ],
             'iconBg' => 'bg-emerald-50 text-emerald-600',
             'icon' => 'cog',
         ],
@@ -196,6 +206,15 @@ new class extends Component
                                 <span class="text-xs font-medium uppercase tracking-[0.14em] text-gray-400">{{ $item['valueLabel'] }}</span>
                             @endif
                         </div>
+                        @if(isset($item['stateChips']) && is_array($item['stateChips']) && count($item['stateChips']) > 0)
+                            <div class="mt-3 flex flex-wrap gap-2">
+                                @foreach($item['stateChips'] as $chip)
+                                    <span class="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-600">
+                                        {{ $chip['label'] }}: {{ $chip['value'] }}
+                                    </span>
+                                @endforeach
+                            </div>
+                        @endif
                     </a>
                 @endif
             @endforeach

@@ -64,5 +64,8 @@ class AdminDashboardUiContractTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString("'bot_fingerprint_probe' => 'Bot fingerprint probe'", $contents);
         $this->assertStringContainsString("'honeypot.triggered' => 'Honeypot triggered'", $contents);
+        $this->assertStringContainsString("'valueLabel' => 'failed sign-ins today'", $contents);
+        $this->assertStringContainsString("'label' => 'Locked users'", $contents);
+        $this->assertStringContainsString("'label' => 'Suspicious events'", $contents);
     }
 }
