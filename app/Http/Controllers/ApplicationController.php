@@ -66,6 +66,9 @@ class ApplicationController extends Controller
         } elseif ($user->isIndividual()) {
             // Individual can only download their own CVs
             $query->byApplicant($user->id);
+        } elseif ($user->isAdmin()) {
+            // Allow lookup for admins so policy + audit can produce an explicit denied event.
+            // Authorization remains enforced by the subsequent policy check.
         } else {
             // No access for other user types
             $query->whereRaw('1 = 0');

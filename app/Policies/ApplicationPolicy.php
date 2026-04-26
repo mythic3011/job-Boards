@@ -54,6 +54,11 @@ class ApplicationPolicy
      */
     public function downloadCv(User $user, Application $application): bool
     {
+        if ($user->isAdmin()) {
+            // Admin review surfaces should not bypass company/applicant CV access boundaries.
+            return false;
+        }
+
         if ($user->isCompany()) {
             return $user->hasPermissionTo('download cv')
                 && $this->isApplicationForCompanyJob($application, $user);
