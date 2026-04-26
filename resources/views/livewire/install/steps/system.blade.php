@@ -43,6 +43,7 @@
                 <div class="theme-alert theme-alert-error rounded-xl border px-3 py-2 text-xs">
                     {{ $checksError }}
                 </div>
+                <p class="theme-text-muted text-xs">Review the failed checks below, correct the environment, then run <span class="theme-text-strong font-medium">Re-check</span>.</p>
             @endif
 
             @foreach($systemRequirements as $key => $label)
@@ -61,6 +62,17 @@
                     <div>
                         <p class="theme-text-strong text-sm font-medium">{{ $label }}</p>
                         <p class="theme-text-muted text-xs mt-0.5">{{ ucfirst($key) }} must be available during installation.</p>
+                        @if($loaded && ! $passed)
+                            <p class="theme-alert-error mt-1 inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium">
+                                @if($key === 'database')
+                                    Check DB host, port, credentials, and container readiness.
+                                @elseif($key === 'storage')
+                                    Confirm storage directories are writable by the PHP runtime user.
+                                @elseif($key === 'cache')
+                                    Verify cache driver connectivity and clear stale cache config.
+                                @endif
+                            </p>
+                        @endif
                     </div>
                     <span class="theme-install-status-pill inline-flex shrink-0 items-center" data-status="{{ $statusTone }}">
                         {{ $statusLabel }}
