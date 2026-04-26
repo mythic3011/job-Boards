@@ -260,8 +260,9 @@ new class extends Component
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <a
-                                            href="{{ route('admin.applications.index', ['companyFilter' => $job->company_user_id]) }}"
+                                            href="{{ route('admin.applications.index', ['jobIdcode' => $job->idcode]) }}"
                                             class="theme-pill inline-flex min-w-[2.25rem] items-center justify-center rounded-full px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer"
+                                            title="Open applications filtered to this posting"
                                         >
                                             {{ $job->applications_count }}
                                         </a>
