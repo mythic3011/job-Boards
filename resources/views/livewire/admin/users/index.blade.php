@@ -3,7 +3,6 @@
 use App\Models\User;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
-use Illuminate\Support\Facades\Password;
 
 use function Livewire\Volt\{layout, title};
 
@@ -63,100 +62,36 @@ new class extends Component
 
     public function forcePasswordReset(string $userId): void
     {
-        $this->authorize('admin.users.force_password_reset');
+        $result = app(\App\Services\AdminUserSecurityService::class)->forcePasswordReset($this->currentActor(), $userId);
 
-        $user = User::findOrFail($userId);
-
-        $token = Password::broker()->createToken($user);
-
-        // Mark this token as admin-initiated so the reset form skips 2FA check
-        \Illuminate\Support\Facades\Cache::put('admin_reset:' . $token, true, now()->addMinutes(60));
-
-        $this->resetUrl = url('/reset-password/' . $token) . '?' . http_build_query(['email' => $user->email]);
-        $this->resetUserName = $user->nickname;
-
-        app(\App\Services\AuditLogger::class)->logBusinessEvent(
-            eventType: 'user.force_password_reset',
-            request: request(),
-            targetType: 'user',
-            targetIdcode: $user->idcode,
-            meta: [
-                'user_email' => $user->email,
-                'admin_id' => auth()->id(),
-                'admin_initiated' => true,
-            ]
-        );
+        $this->resetUrl = $result['reset_url'];
+        $this->resetUserName = $result['reset_user_name'];
     }
 
     public function lockUser(string $userId): void
     {
-        $this->authorize('admin.users.lock');
-
-        $user = User::findOrFail($userId);
-        $before = $user->locked_until?->toDateTimeString();
-
-        $user->forceFill(['locked_until' => now()->addDays(30)])->save();
-
-        app(\App\Services\DashboardService::class)->clearCache();
-
+        app(\App\Services\AdminUserSecurityService::class)->lockUser($this->currentActor(), $userId);
         $this->dispatch('$refresh');
-        
-        app(\App\Services\AuditLogger::class)->logBusinessEvent(
-            eventType: 'user.locked',
-            request: request(),
-            targetType: 'user',
-            targetIdcode: $user->idcode,
-            meta: [
-                'before' => $before,
-                'after' => $user->locked_until->toDateTimeString(),
-                'locked_until' => $user->locked_until->toDateTimeString(),
-                'user_email' => $user->email,
-                'user_nickname' => $user->nickname,
-            ]
-        );
 
         session()->flash('message', 'User locked successfully.');
     }
 
     public function unlockUser(string $userId): void
     {
-        $this->authorize('admin.users.unlock');
-
-        $user = User::findOrFail($userId);
-        $before = $user->locked_until?->toDateTimeString();
-
-        $user->forceFill(['locked_until' => null])->save();
-
-        app(\App\Services\DashboardService::class)->clearCache();
-
+        app(\App\Services\AdminUserSecurityService::class)->unlockUser($this->currentActor(), $userId);
         $this->dispatch('$refresh');
-        
-        app(\App\Services\AuditLogger::class)->logBusinessEvent(
-            eventType: 'user.unlocked',
-            request: request(),
-            targetType: 'user',
-            targetIdcode: $user->idcode,
-            meta: [
-                'before' => $before,
-                'after' => null,
-                'user_email' => $user->email,
-                'user_nickname' => $user->nickname,
-            ]
-        );
 
         session()->flash('message', 'User unlocked successfully.');
     }
 
     public function toggleLock(string $userId): void
     {
-        $user = User::findOrFail($userId);
+        $state = app(\App\Services\AdminUserSecurityService::class)->toggleLock($this->currentActor(), $userId);
+        $this->dispatch('$refresh');
 
-        if ($user->isLocked()) {
-            $this->unlockUser($userId);
-            return;
-        }
-
-        $this->lockUser($userId);
+        session()->flash('message', $state === 'locked'
+            ? 'User locked successfully.'
+            : 'User unlocked successfully.');
     }
 
     public function confirmUserDeletion(string $userId): void
@@ -166,40 +101,26 @@ new class extends Component
 
     public function deleteUser(): void
     {
-        // Add permission check
-        $this->authorize('admin.users.delete'); 
-        
         if (! $this->confirmingUserDeletion) {
-             return;
+            return;
         }
 
-        $user = User::findOrFail($this->confirmingUserDeletion);
+        try {
+            app(\App\Services\AdminUserSecurityService::class)->deleteUser($this->currentActor(), $this->confirmingUserDeletion);
+        } catch (\Illuminate\Auth\Access\AuthorizationException $exception) {
+            if ($exception->getMessage() === 'You cannot delete your own account.') {
+                $this->addError('delete', $exception->getMessage());
+                $this->confirmingUserDeletion = null;
 
-        // Prevent deleting self
-        if ($user->id === auth()->id()) {
-             $this->addError('delete', 'You cannot delete your own account.');
-             $this->confirmingUserDeletion = null;
-             return;
+                return;
+            }
+
+            throw $exception;
         }
 
-        app(\App\Services\AuditLogger::class)->logBusinessEvent(
-            eventType: 'user.deleted',
-            request: request(),
-            targetType: 'user',
-            targetIdcode: $user->idcode,
-            meta: [
-                'user_email' => $user->email,
-                'user_nickname' => $user->nickname,
-                'deleted_at' => now()->toDateTimeString(),
-            ]
-        );
-
-        $user->delete();
-
-        app(\App\Services\DashboardService::class)->clearCache();
         $this->confirmingUserDeletion = null;
         $this->dispatch('$refresh');
-        
+
         session()->flash('message', 'User deleted successfully.');
     }
 
@@ -212,6 +133,14 @@ new class extends Component
     {
         $this->visibleCount = self::PAGE_SIZE;
         $this->resetPage();
+    }
+
+    private function currentActor(): User
+    {
+        $actor = auth()->user();
+        abort_unless($actor instanceof User, 403);
+
+        return $actor;
     }
 }; ?>
 
@@ -261,6 +190,7 @@ new class extends Component
                     <div>
                         <x-ui.section-label class="mb-2">Directory</x-ui.section-label>
                         <p class="theme-text-muted text-sm">Search the user base by login ID, email, or display name.</p>
+                        <p class="theme-text-muted mt-1 text-xs">Use role and security signals to validate account risk before opening quick actions.</p>
                     </div>
                     <div class="theme-pill inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold">
                         <span>{{ $users->total() }} {{ \Illuminate\Support\Str::plural('user', $users->total()) }}</span>
@@ -284,6 +214,7 @@ new class extends Component
                                 placeholder="Search by username, email, or name"
                                 class="theme-input flex-1 min-w-0 border-0 bg-transparent px-0 py-0 text-sm shadow-none outline-none"
                                 autocomplete="off"
+                                aria-label="Search users by login ID, email, or display name"
                             />
                             @if($search)
                                 <button wire:click="$set('search', '')" class="theme-text-muted shrink-0 rounded-full p-0.5 transition-colors hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)] cursor-pointer" aria-label="Clear search">
@@ -325,7 +256,7 @@ new class extends Component
                                 <th class="theme-text-muted px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Account</th>
                                 <th class="theme-text-muted px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Role & Access</th>
                                 <th class="theme-text-muted px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Security</th>
-                                <th class="theme-text-muted px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider">Actions</th>
+                                <th class="theme-text-muted px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider">Actions (Risk-Aware)</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y" style="--tw-divide-opacity: 1; border-color: var(--app-panel-border);">
@@ -400,8 +331,9 @@ new class extends Component
                                                     data-dropdown-button
                                                     aria-expanded="false"
                                                     aria-haspopup="true"
+                                                    title="Open account actions for this user"
                                                 >
-                                                    <span>Quick actions</span>
+                                                    <span>Account actions</span>
                                                     <svg class="h-4 w-4 transition-transform duration-200" data-dropdown-arrow fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
                                                     </svg>
@@ -419,14 +351,15 @@ new class extends Component
                                                     <div class="space-y-1 p-2">
                                                         @if($user->isLocked())
                                                             <button
-                                                                type="button"
-                                                                wire:click="toggleLock('{{ $user->id }}')"
-                                                                wire:loading.attr="disabled"
-                                                                wire:target="toggleLock('{{ $user->id }}')"
-                                                                class="theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] disabled:opacity-60"
-                                                            >
-                                                                <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Unlock user</span>
-                                                                <span wire:loading wire:target="toggleLock('{{ $user->id }}')">Processing…</span>
+                                                            type="button"
+                                                            wire:click="toggleLock('{{ $user->id }}')"
+                                                            wire:loading.attr="disabled"
+                                                            wire:target="toggleLock('{{ $user->id }}')"
+                                                            class="theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] disabled:opacity-60"
+                                                            title="Restore sign-in access for this account"
+                                                        >
+                                                            <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Unlock user</span>
+                                                            <span wire:loading wire:target="toggleLock('{{ $user->id }}')">Processing…</span>
                                                             </button>
                                                         @else
                                                         <button
@@ -435,6 +368,7 @@ new class extends Component
                                                             wire:loading.attr="disabled"
                                                             wire:target="toggleLock('{{ $user->id }}')"
                                                             class="theme-alert-warning flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95 disabled:opacity-60"
+                                                            title="Temporarily block this account from signing in"
                                                         >
                                                             <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Lock user</span>
                                                             <span wire:loading wire:target="toggleLock('{{ $user->id }}')">Processing…</span>
@@ -447,6 +381,7 @@ new class extends Component
                                                             wire:loading.attr="disabled"
                                                             wire:target="forcePasswordReset('{{ $user->id }}')"
                                                             class="theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] disabled:opacity-60"
+                                                            title="Generate a one-time reset link for controlled handoff"
                                                         >
                                                             <span wire:loading.remove wire:target="forcePasswordReset('{{ $user->id }}')">Reset password</span>
                                                             <span wire:loading wire:target="forcePasswordReset('{{ $user->id }}')">Preparing…</span>
@@ -456,6 +391,7 @@ new class extends Component
                                                             type="button"
                                                             wire:click="confirmUserDeletion('{{ $user->id }}')"
                                                             class="theme-alert-error flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95"
+                                                            title="Permanently remove this user account and related data"
                                                         >
                                                             <span>Delete user</span>
                                                         </button>
@@ -532,6 +468,7 @@ new class extends Component
                     <p>Use <span class="theme-text-strong font-medium">Lock</span> for temporary access suspension and <span class="theme-text-strong font-medium">Reset Password</span> only when you control the handoff channel.</p>
                     <p>Admin-initiated reset links bypass email delivery. Treat the copied URL as sensitive until it expires or is used.</p>
                     <p>Deletion is permanent and should only be used when moderation or data-retention policy explicitly allows it.</p>
+                    <p>For privileged users, confirm role ownership and incident context before making account-changing actions.</p>
                 </div>
             </x-ui.card>
         </div>
@@ -570,11 +507,12 @@ new class extends Component
                         </svg>
                     </div>
                     <div>
-                        <h3 class="theme-text-strong text-lg font-medium">Confirm Deletion</h3>
+                        <h3 id="delete-user-title" class="theme-text-strong text-lg font-medium">Delete user account?</h3>
                         <p class="theme-text-muted mt-2 text-sm">
-                            Are you sure you want to delete this user? This action cannot be undone.
+                            You are about to permanently delete this user account. This action cannot be undone.
                             <span class="theme-alert-error mt-2 inline-flex rounded-full border px-2 py-0.5 font-medium">All user data will be permanently removed.</span>
                         </p>
+                        <p class="theme-text-muted mt-2 text-xs">Confirm only when account recovery and data-retention requirements have been reviewed.</p>
                         @error('delete') 
                             <p class="theme-alert-error mt-2 inline-flex rounded-lg border px-3 py-2 text-sm font-bold">{{ $message }}</p> 
                         @enderror
@@ -626,6 +564,7 @@ new class extends Component
                         <p class="theme-text-muted mt-1 text-sm">
                             Share this link with <span class="theme-text-strong font-medium">{{ $resetUserName }}</span>. It expires after use or 60 minutes.
                         </p>
+                        <p class="theme-text-muted mt-1 text-xs">Deliver through a verified channel and avoid posting this link in shared chat threads.</p>
                     </div>
                 </div>
 

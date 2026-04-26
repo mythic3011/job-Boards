@@ -16,7 +16,7 @@
     <div>
         <h1 class="theme-text-strong text-2xl font-bold">{{ $registrationPending ? 'Finish Account Activation' : 'Security Settings' }}</h1>
         <p class="theme-text-muted mt-1">
-            {{ $registrationPending ? 'Complete two-factor setup to finish activating your account.' : 'Manage your account security and two-factor authentication' }}
+            {{ $registrationPending ? 'Complete two-factor setup to finish activating your account.' : 'Manage sign-in protection, recovery access, and high-risk security actions.' }}
         </p>
     </div>
 
@@ -60,11 +60,11 @@
                         
                         <p class="theme-text-muted mb-4 text-sm">
                             @if($is2FAEnabled)
-                                Your account is protected with two-factor authentication. Sign-in requires your authenticator app, such as Google Authenticator, Authy, or 1Password.
+                                Your account is protected with two-factor authentication. Sign-in requires your password plus a valid app code (Google Authenticator, Authy, 1Password, and similar apps).
                             @elseif($isSettingUp2FA)
                                 Complete setup by scanning the QR code and confirming a valid 6-digit code from your authenticator app.
                             @else
-                                Add an extra layer of security to your account with two-factor authentication.
+                                Add an extra layer of security to your account with two-factor authentication before performing sensitive profile actions.
                             @endif
                         </p>
                     </div>
@@ -81,13 +81,16 @@
                                     <div class="flex-1">
                                         <h3 class="mb-1 text-sm font-medium">Recovery Codes</h3>
                                         <p class="mb-3 text-sm">
-                                            Save these codes in a safe place. Use them to access your account if you lose your authenticator device.
+                                            Save these codes in a secure offline location. Each code can be used to recover access if your authenticator device is unavailable.
                                         </p>
                                         <div class="grid grid-cols-2 gap-2 mb-3">
                                             @foreach($recoveryCodes as $code)
                                                 <code class="theme-panel inline-flex rounded border px-3 py-2 text-xs font-mono theme-text-strong">{{ $code }}</code>
                                             @endforeach
                                         </div>
+                                        <p class="mb-3 text-xs">
+                                            Generating new codes immediately invalidates all codes shown above.
+                                        </p>
                                         <button
                                             wire:click="regenerateRecoveryCodes"
                                             wire:confirm="This will invalidate your current recovery codes. Continue?"
@@ -129,6 +132,9 @@
                                 </span>
                             </x-ui.button>
                         </div>
+                        <p class="theme-text-muted text-xs">
+                            Disabling 2FA lowers account protection right away and removes the extra sign-in check.
+                        </p>
                     </div>
 
                 @elseif($isSettingUp2FA)
@@ -136,7 +142,7 @@
                         <div class="text-center">
                             <h3 class="theme-text-strong mb-2 text-lg font-medium">Scan QR Code</h3>
                             <p class="theme-text-muted mb-4 text-sm">
-                                Use your authenticator app (Google Authenticator, Authy, 1Password, etc.) to scan this code:
+                                Use your authenticator app (Google Authenticator, Authy, 1Password, etc.) to scan this code. Setup is not active until a valid verification code is accepted.
                             </p>
                             
                             <div class="theme-panel-subtle inline-block rounded-2xl border p-4">
@@ -185,7 +191,7 @@
                                 @if($errors->has('verificationCode'))
                                     <p class="mt-1 text-sm text-red-600">{{ $errors->first('verificationCode') }}</p>
                                 @else
-                                    <p class="theme-text-muted mt-1 text-sm">Enter the 6-digit code. It will verify automatically.</p>
+                                    <p class="theme-text-muted mt-1 text-sm">Enter the current 6-digit code from your app. Codes expire quickly and verify automatically.</p>
                                 @endif
                             </div>
                             @if($codeIsValid)
@@ -210,6 +216,7 @@
                                 </span>
                             </x-ui.button>
                         </div>
+                        <p class="theme-text-muted text-center text-xs">Cancel stops setup and leaves your account without 2FA protection.</p>
                     </div>
 
                 @else
@@ -221,7 +228,7 @@
                         </div>
                         <h3 class="theme-text-strong mb-2 text-lg font-medium">Secure Your Account</h3>
                         <p class="theme-text-muted mx-auto mb-6 max-w-md">
-                            Two-factor authentication adds an extra layer of security by requiring a code from your phone in addition to your password.
+                            Two-factor authentication adds an extra layer of security by requiring a code from your phone in addition to your password, reducing risk from leaked passwords.
                         </p>
                         <x-ui.button
                             wire:click="enable2FA"
@@ -293,7 +300,7 @@
                     @elseif($isSettingUp2FA)
                         Finish code verification to activate protection and generate recovery codes.
                     @else
-                        Enable 2FA here before you try to use the password change flow.
+                        Enable 2FA here first to unlock sensitive account flows such as password changes.
                     @endif
                 </div>
             </x-ui.card>
@@ -320,14 +327,14 @@
                         <a href="{{ route('profile.show') }}" class="theme-panel-subtle flex items-start justify-between rounded-xl border px-4 py-3 text-sm transition-colors hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)]">
                             <div>
                                 <p class="theme-text-strong font-medium">Profile Overview</p>
-                                <p class="theme-text-muted mt-1 text-xs">Review account details and shortcuts.</p>
+                                <p class="theme-text-muted mt-1 text-xs">Review account details, connected methods, and recent changes.</p>
                             </div>
                             <span class="theme-link">Open</span>
                         </a>
                         <a href="{{ route('profile.edit') }}" class="theme-panel-subtle flex items-start justify-between rounded-xl border px-4 py-3 text-sm transition-colors hover:border-[var(--app-accent-soft-border)] hover:bg-[var(--app-panel-bg)]">
                             <div>
                                 <p class="theme-text-strong font-medium">Edit Profile</p>
-                                <p class="theme-text-muted mt-1 text-xs">Update your photo, display name, and email address.</p>
+                                <p class="theme-text-muted mt-1 text-xs">Update profile details that affect how your account is identified.</p>
                             </div>
                             <span class="theme-link">Open</span>
                         </a>

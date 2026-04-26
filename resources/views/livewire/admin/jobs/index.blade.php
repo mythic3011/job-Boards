@@ -2,12 +2,12 @@
 
 use App\Models\JobPosting;
 use App\Models\User;
-use App\Services\AuditLogger;
-use App\Services\DashboardService;
+use App\Services\AdminJobModerationService;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
-use function Livewire\Volt\{layout, title};
+use function Livewire\Volt\layout;
+use function Livewire\Volt\title;
 
 layout('layouts.app');
 title('Admin - Jobs');
@@ -17,11 +17,15 @@ new class extends Component
     use WithPagination;
 
     private const PAGE_SIZE = 15;
+
     private const ALLOWED_SORTS = ['latest', 'oldest'];
 
     public string $search = '';
+
     public string $companyFilter = '';
+
     public string $sort = 'latest';
+
     public int $visibleCount = self::PAGE_SIZE;
 
     public function updatedSearch(): void
@@ -57,26 +61,10 @@ new class extends Component
         $this->resetInfinitePagination();
     }
 
-    public function deleteJob(string $jobId, DashboardService $dashboardService, AuditLogger $auditLogger): void
+    public function deleteJob(string $jobId, AdminJobModerationService $jobModerationService): void
     {
-        $this->authorize('admin.jobs.moderate');
-
         $job = JobPosting::findOrFail($jobId);
-
-        $auditLogger->logBusinessEvent(
-            eventType: 'admin.job.deleted',
-            request: request(),
-            targetType: 'job',
-            targetIdcode: $job->idcode,
-            meta: [
-                'job_title' => $job->title,
-                'company_user_id' => $job->company_user_id,
-            ]
-        );
-
-        $job->delete();
-
-        $dashboardService->clearCache();
+        $jobModerationService->deleteJob(auth()->user(), $job, request());
         $this->dispatch('close-delete-modal');
 
         session()->flash('message', 'Job deleted successfully.');
@@ -84,12 +72,12 @@ new class extends Component
 
     public function with(): array
     {
-        $query = JobPosting::with('companyUser');
+        $query = JobPosting::with('companyUser')->withCount('applications');
 
         if ($this->search) {
             $query->where(function ($q) {
-                $q->where('title', 'ilike', '%' . $this->search . '%')
-                    ->orWhere('requirement', 'ilike', '%' . $this->search . '%');
+                $q->where('title', 'ilike', '%'.$this->search.'%')
+                    ->orWhere('requirement', 'ilike', '%'.$this->search.'%');
             });
         }
 
@@ -172,6 +160,7 @@ new class extends Component
                     <div>
                         <x-ui.section-label class="mb-2">Listing Filters</x-ui.section-label>
                         <p class="theme-text-muted text-sm">Search job titles, scan requirements, and focus the queue by company.</p>
+                        <p class="theme-text-muted mt-1 text-xs">Apply filters before destructive actions so decisions reflect the intended company and posting age.</p>
                     </div>
                     <div class="theme-pill inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold">
                         <span>{{ $jobs->total() }} {{ \Illuminate\Support\Str::plural('job', $jobs->total()) }}</span>
@@ -195,6 +184,7 @@ new class extends Component
                                 placeholder="Search by title or requirements"
                                 class="theme-input flex-1 min-w-0 border-0 bg-transparent px-0 py-0 text-sm shadow-none outline-none"
                                 autocomplete="off"
+                                aria-label="Search job listings by title or requirements"
                             />
                             @if($search)
                                 <button wire:click="clearSearch" class="theme-text-muted shrink-0 rounded-full p-0.5 transition-colors hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)] cursor-pointer" aria-label="Clear search">
@@ -249,12 +239,11 @@ new class extends Component
                                 <th class="theme-text-muted px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Company</th>
                                 <th class="theme-text-muted px-6 py-3.5 text-center text-xs font-semibold uppercase tracking-wider">Applications</th>
                                 <th class="theme-text-muted px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Created</th>
-                                <th class="theme-text-muted px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider">Actions</th>
+                                <th class="theme-text-muted px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider">Actions (Moderation)</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y" style="--tw-divide-opacity: 1; border-color: var(--app-panel-border);">
                             @forelse($jobs as $job)
-                                @php $appCount = $job->applications()->count(); @endphp
                                 <tr wire:key="admin-job-{{ $job->id }}" class="group transition-colors duration-150 hover:bg-[var(--app-panel-subtle-bg)]">
                                     <td class="px-6 py-4">
                                         <div class="theme-text-strong text-sm font-semibold transition-colors group-hover:text-[var(--app-link-accent)]">
@@ -276,7 +265,7 @@ new class extends Component
                                             href="{{ route('admin.applications.index', ['companyFilter' => $job->company_user_id]) }}"
                                             class="theme-pill inline-flex min-w-[2.25rem] items-center justify-center rounded-full px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer"
                                         >
-                                            {{ $appCount }}
+                                            {{ $job->applications_count }}
                                         </a>
                                     </td>
                                     <td class="px-6 py-4">
@@ -288,20 +277,24 @@ new class extends Component
                                             <a
                                                 href="{{ route('jobs.show', $job->idcode) }}"
                                                 class="theme-button theme-button-primary inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer"
+                                                title="Open public listing details in a new page context"
                                             >
                                                 Open
                                             </a>
                                             <a
                                                 href="{{ route('admin.jobs.edit', $job->idcode) }}"
                                                 class="theme-link inline-flex items-center gap-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer"
+                                                title="Edit listing content and moderation details"
                                             >
                                                 Edit
                                             </a>
                                             <button
                                                 type="button"
                                                 data-job-id="{{ $job->id }}"
+                                                @mousedown="lastActiveEl = $event.currentTarget"
                                                 @click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"
                                                 class="theme-alert-error inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors hover:brightness-95 cursor-pointer"
+                                                title="Permanently remove this listing and related applications"
                                             >
                                                 Delete
                                             </button>
@@ -372,6 +365,7 @@ new class extends Component
                 <div class="theme-text-muted mt-4 space-y-3 text-sm">
                     <p>Open a listing when you need full context, edit it when the post is still valid, and delete only when moderation policy calls for removal.</p>
                     <p>Application counts link straight into the filtered review queue so you can move from listing health to applicant posture without rebuilding filters.</p>
+                    <p>Before deleting, verify the posting age, complaint context, and whether policy requires record retention or internal escalation.</p>
                 </div>
             </x-ui.card>
         </div>
@@ -411,9 +405,10 @@ new class extends Component
                     <div>
                         <h3 class="theme-text-strong text-lg font-medium">Delete job posting</h3>
                         <p class="theme-text-muted mt-2 text-sm">
-                            Are you sure you want to remove this listing? This action cannot be undone.
+                            You are about to permanently remove this listing. This action cannot be undone.
                             <span class="theme-alert-error mt-2 inline-flex rounded-full border px-2 py-0.5 font-medium">Related applications are removed as part of this cleanup.</span>
                         </p>
+                        <p class="theme-text-muted mt-2 text-xs">Confirm only after validating policy grounds and whether downstream review teams have completed required checks.</p>
                     </div>
                 </div>
             </div>
