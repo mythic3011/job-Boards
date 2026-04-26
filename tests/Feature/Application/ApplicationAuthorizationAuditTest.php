@@ -9,6 +9,7 @@ use App\Models\User;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Concerns\InteractsWithBrowserRequests;
 use Tests\Concerns\UsesInMemorySqlite;
@@ -114,6 +115,28 @@ class ApplicationAuthorizationAuditTest extends TestCase
         $this->assertSame('application', $log->target_type);
         $this->assertSame($application->idcode, $log->target_idcode);
         $this->assertSame('reject', $log->meta['policy'] ?? null);
+    }
+
+    public function test_admin_with_download_permission_can_download_any_application_cv(): void
+    {
+        [$company, $application] = $this->makeOwnedApplicationFixture();
+        Storage::fake('private');
+        Storage::disk('private')->put($application->cv_file_path, 'test-cv-content');
+
+        $admin = $this->createUser([
+            'user_type' => 'admin',
+            'login_id' => 'admin_' . Str::lower(Str::random(6)),
+            'email' => Str::lower(Str::random(6)) . '@example.com',
+        ]);
+        $admin->givePermissionTo('download cv');
+
+        $response = $this->withBrowser()
+            ->actingAs($admin)
+            ->get(route('applications.download-cv', $application->idcode));
+
+        $response->assertOk();
+        $response->assertHeader('Content-Disposition');
+        $response->assertHeader('X-Content-Type-Options', 'nosniff');
     }
 
     /**

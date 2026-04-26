@@ -54,6 +54,10 @@ class ApplicationPolicy
      */
     public function downloadCv(User $user, Application $application): bool
     {
+        if ($user->isAdmin()) {
+            return $user->hasPermissionTo('download cv');
+        }
+
         if ($user->isCompany()) {
             return $user->hasPermissionTo('download cv')
                 && $this->isApplicationForCompanyJob($application, $user);

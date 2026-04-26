@@ -63,6 +63,9 @@ class ApplicationController extends Controller
         if ($user->isCompany()) {
             // Company can only download CVs for their own jobs
             $query->forCompanyJobs($user->id);
+        } elseif ($user->isAdmin()) {
+            // Admin access is policy-gated and intentionally cross-company.
+            // Keep query unscoped here so policy is the single access boundary.
         } elseif ($user->isIndividual()) {
             // Individual can only download their own CVs
             $query->byApplicant($user->id);
