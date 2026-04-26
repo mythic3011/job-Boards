@@ -46,6 +46,10 @@ class AdminUsersUiContractTest extends TestCase
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/users/index.blade.php');
 
         $this->assertIsString($contents);
+        $this->assertStringContainsString('x-ui.card class="grid grid-cols-1 gap-4 sm:grid-cols-2"', $contents);
+        $this->assertStringContainsString('aria-controls="operator-notes-users"', $contents);
+        $this->assertStringContainsString("x-bind:aria-expanded=\"notesOpen ? 'true' : 'false'\"", $contents);
+        $this->assertStringContainsString('Use for lock/reset/delete guidance. Expand for full policy notes.', $contents);
         $this->assertStringContainsString('Lock:</span> blocks sign-in immediately.', $contents);
         $this->assertStringContainsString('Reset password:</span> generates a one-time bypass link.', $contents);
         $this->assertStringContainsString('Delete:</span> permanently removes account data.', $contents);

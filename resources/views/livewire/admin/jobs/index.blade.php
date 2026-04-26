@@ -340,7 +340,7 @@ new class extends Component
                     <x-ui.section-label class="mb-2">Queue posture</x-ui.section-label>
                     <p class="theme-text-muted text-sm">Quick context for moderation and cleanup before you open a listing.</p>
                 </div>
-                <x-ui.card class="space-y-4">
+                <x-ui.card class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                         <div class="flex items-baseline justify-between gap-3">
                             <p class="theme-text-strong text-sm font-medium">Companies in view</p>
@@ -356,17 +356,40 @@ new class extends Component
                         </div>
                         <p class="theme-text-muted mt-2 text-sm">Current scoping applied before acting on a listing or opening applications.</p>
                     </div>
+
+                    <div
+                        x-data="{ notesOpen: false }"
+                        class="theme-panel-subtle rounded-2xl border px-4 py-4"
+                    >
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h2 class="theme-text-strong text-sm font-medium">Operator Notes</h2>
+                                <p class="theme-text-muted mt-1 text-xs">Use for listing moderation guidance. Expand for full notes.</p>
+                            </div>
+                            <button
+                                type="button"
+                                class="theme-panel inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-[var(--app-panel-bg)]"
+                                aria-controls="operator-notes-jobs"
+                                x-bind:aria-expanded="notesOpen ? 'true' : 'false'"
+                                x-on:click="notesOpen = !notesOpen"
+                            >
+                                <span x-show="!notesOpen">Show notes</span>
+                                <span x-show="notesOpen">Hide notes</span>
+                            </button>
+                        </div>
+                        <div
+                            id="operator-notes-jobs"
+                            class="theme-text-muted mt-3 space-y-3 text-sm"
+                            x-show="notesOpen"
+                            x-transition
+                        >
+                            <p>Open a listing when you need full context, edit it when the post is still valid, and delete only when moderation policy calls for removal.</p>
+                            <p>Application counts link straight into the filtered review queue so you can move from listing health to applicant posture without rebuilding filters.</p>
+                            <p>Before deleting, verify the posting age, complaint context, and whether policy requires record retention or internal escalation.</p>
+                        </div>
+                    </div>
                 </x-ui.card>
             </div>
-
-            <x-ui.card>
-                <h2 class="theme-text-strong text-lg font-semibold">Operator Notes</h2>
-                <div class="theme-text-muted mt-4 space-y-3 text-sm">
-                    <p>Open a listing when you need full context, edit it when the post is still valid, and delete only when moderation policy calls for removal.</p>
-                    <p>Application counts link straight into the filtered review queue so you can move from listing health to applicant posture without rebuilding filters.</p>
-                    <p>Before deleting, verify the posting age, complaint context, and whether policy requires record retention or internal escalation.</p>
-                </div>
-            </x-ui.card>
         </div>
     </div>
 

@@ -59,6 +59,7 @@ class ProfileWorkspaceUiContractTest extends TestCase
         $this->assertStringContainsString('Workspace Overview', $contents);
         $this->assertStringContainsString('Identity Snapshot', $contents);
         $this->assertStringContainsString('Security Posture', $contents);
+        $this->assertStringContainsString('mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2', $contents);
         $this->assertStringContainsString('data-profile-overview-hero', $contents);
         $this->assertStringContainsString('data-profile-identity-login-id', $contents);
         $this->assertStringContainsString('Member since', $contents);

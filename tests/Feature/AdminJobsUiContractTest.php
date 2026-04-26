@@ -27,6 +27,10 @@ class AdminJobsUiContractTest extends TestCase
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/jobs/index.blade.php');
 
         $this->assertIsString($contents);
+        $this->assertStringContainsString('x-ui.card class="grid grid-cols-1 gap-4 sm:grid-cols-2"', $contents);
+        $this->assertStringContainsString('aria-controls="operator-notes-jobs"', $contents);
+        $this->assertStringContainsString("x-bind:aria-expanded=\"notesOpen ? 'true' : 'false'\"", $contents);
+        $this->assertStringContainsString('Use for listing moderation guidance. Expand for full notes.', $contents);
         $this->assertStringContainsString('data-job-id="{{ $job->id }}"', $contents);
         $this->assertStringContainsString('@click="showDeleteModal = !!(pendingDeleteId = $event.currentTarget.dataset.jobId)"', $contents);
         $this->assertStringNotContainsString("@click=\"pendingDeleteId = '{{ \$job->id }}'; showDeleteModal = true\"", $contents);

@@ -470,7 +470,7 @@ new class extends Component
                     <x-ui.section-label class="mb-2">Access & Risk</x-ui.section-label>
                     <p class="theme-text-muted text-sm">High-level account posture before you drill into the directory.</p>
                 </div>
-                <x-ui.card class="space-y-4">
+                <x-ui.card class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
                         <div class="flex items-baseline justify-between gap-3">
                             <p class="theme-text-strong text-sm font-medium">2FA Enabled</p>
@@ -494,18 +494,41 @@ new class extends Component
                         </div>
                         <p class="theme-text-muted mt-2 text-sm">Accounts with elevated permissions on the platform.</p>
                     </div>
+
+                    <div
+                        x-data="{ notesOpen: @js($stats['locked_users'] > 0) }"
+                        class="theme-panel-subtle rounded-2xl border px-4 py-4"
+                    >
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h2 class="theme-text-strong text-sm font-medium">Operator Notes</h2>
+                                <p class="theme-text-muted mt-1 text-xs">Use for lock/reset/delete guidance. Expand for full policy notes.</p>
+                            </div>
+                            <button
+                                type="button"
+                                class="theme-panel inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-[var(--app-panel-bg)]"
+                                aria-controls="operator-notes-users"
+                                x-bind:aria-expanded="notesOpen ? 'true' : 'false'"
+                                x-on:click="notesOpen = !notesOpen"
+                            >
+                                <span x-show="!notesOpen">Show notes</span>
+                                <span x-show="notesOpen">Hide notes</span>
+                            </button>
+                        </div>
+                        <div
+                            id="operator-notes-users"
+                            class="theme-text-muted mt-3 space-y-3 text-sm"
+                            x-show="notesOpen"
+                            x-transition
+                        >
+                            <p>Use <span class="theme-text-strong font-medium">Lock</span> for temporary access suspension and <span class="theme-text-strong font-medium">Reset Password</span> only when you control the handoff channel.</p>
+                            <p>Admin-initiated reset links bypass email delivery. Treat the copied URL as sensitive until it expires or is used.</p>
+                            <p>Deletion is permanent and should only be used when moderation or data-retention policy explicitly allows it.</p>
+                            <p>For privileged users, confirm role ownership and incident context before making account-changing actions.</p>
+                        </div>
+                    </div>
                 </x-ui.card>
             </div>
-
-            <x-ui.card>
-                <h2 class="theme-text-strong text-lg font-semibold">Operator Notes</h2>
-                <div class="theme-text-muted mt-4 space-y-3 text-sm">
-                    <p>Use <span class="theme-text-strong font-medium">Lock</span> for temporary access suspension and <span class="theme-text-strong font-medium">Reset Password</span> only when you control the handoff channel.</p>
-                    <p>Admin-initiated reset links bypass email delivery. Treat the copied URL as sensitive until it expires or is used.</p>
-                    <p>Deletion is permanent and should only be used when moderation or data-retention policy explicitly allows it.</p>
-                    <p>For privileged users, confirm role ownership and incident context before making account-changing actions.</p>
-                </div>
-            </x-ui.card>
         </div>
     </div>
 

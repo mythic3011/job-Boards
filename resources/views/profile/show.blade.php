@@ -119,7 +119,7 @@
                 <h2 class="theme-text-strong text-lg font-semibold">Security Posture</h2>
                 <p class="theme-text-muted mt-2 text-sm leading-6">{{ $securitySummary }}</p>
 
-                <div class="mt-5 space-y-4">
+                <div class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div class="theme-panel-subtle rounded-2xl border p-4">
                         <div class="flex items-center justify-between gap-3">
                             <div>
