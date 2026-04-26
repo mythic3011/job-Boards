@@ -37,6 +37,10 @@ class InstallUiContractTest extends TestCase
         $this->assertStringContainsString('storage', strtolower($contents));
         $this->assertStringContainsString('cache', strtolower($contents));
         $this->assertStringContainsString('wire:click="refreshSystemChecks"', $contents);
+        $this->assertStringContainsString('Review the failed checks below, correct the environment, then run', $contents);
+        $this->assertStringContainsString('Check DB host, port, credentials, and container readiness.', $contents);
+        $this->assertStringContainsString('Confirm storage directories are writable by the PHP runtime user.', $contents);
+        $this->assertStringContainsString('Verify cache driver connectivity and clear stale cache config.', $contents);
     }
 
     public function test_install_security_step_uses_livewire_continue_and_no_placeholder_qr_copy(): void
