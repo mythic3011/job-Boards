@@ -479,6 +479,14 @@ new class extends Component
     </div>
 
     <!-- Results -->
+    @php
+        $hasActiveFilters = filled($search)
+            || filled($eventType)
+            || filled($actorType)
+            || filled($actorRole)
+            || filled($status)
+            || $dateRange !== 'today';
+    @endphp
     <x-ui.card>
         <div class="hidden lg:block overflow-x-auto rounded-xl border border-gray-200">
             <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -489,7 +497,7 @@ new class extends Component
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actor</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request</th>
                         <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inspect</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Decision Context</th>
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
@@ -578,7 +586,9 @@ new class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="px-4 py-8 text-center text-gray-500">No audit logs found.</td>
+                            <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                                {{ $hasActiveFilters ? 'No audit logs match the current filters. Clear or broaden filters to continue review.' : 'No audit logs recorded yet. Sign-in and security events will appear here when activity starts.' }}
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -650,7 +660,9 @@ new class extends Component
                     </details>
                 </article>
             @empty
-                <div class="rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-500">No audit logs found.</div>
+                <div class="rounded-xl border border-gray-200 px-4 py-8 text-center text-gray-500">
+                    {{ $hasActiveFilters ? 'No audit logs match the current filters. Clear or broaden filters to continue review.' : 'No audit logs recorded yet. Sign-in and security events will appear here when activity starts.' }}
+                </div>
             @endforelse
         </div>
 

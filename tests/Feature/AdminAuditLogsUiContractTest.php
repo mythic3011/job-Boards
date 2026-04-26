@@ -27,5 +27,8 @@ class AdminAuditLogsUiContractTest extends TestCase
         $this->assertIsString($contents);
         $this->assertStringContainsString("if (\$log->event_type === 'bot_fingerprint_probe')", $contents);
         $this->assertStringContainsString("if (\$log->event_type === 'honeypot.triggered')", $contents);
+        $this->assertStringContainsString('Decision Context', $contents);
+        $this->assertStringContainsString('No audit logs match the current filters. Clear or broaden filters to continue review.', $contents);
+        $this->assertStringContainsString('No audit logs recorded yet. Sign-in and security events will appear here when activity starts.', $contents);
     }
 }
