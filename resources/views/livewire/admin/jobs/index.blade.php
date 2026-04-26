@@ -3,6 +3,7 @@
 use App\Models\JobPosting;
 use App\Models\User;
 use App\Services\AdminJobModerationService;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -19,6 +20,8 @@ new class extends Component
     private const PAGE_SIZE = 15;
 
     private const COMPANY_FILTER_LIMIT = 200;
+    private const COMPANY_FILTER_CACHE_KEY = 'admin.jobs.company_filter_options.v1';
+    private const COMPANY_FILTER_CACHE_TTL_SECONDS = 300;
 
     private const ALLOWED_SORTS = ['latest', 'oldest'];
 
@@ -92,10 +95,14 @@ new class extends Component
             default => $query->latest(),
         };
 
-        $companies = User::where('user_type', 'company')
-            ->orderBy('nickname')
-            ->limit(self::COMPANY_FILTER_LIMIT)
-            ->get(['id', 'nickname']);
+        $companies = Cache::remember(
+            self::COMPANY_FILTER_CACHE_KEY,
+            now()->addSeconds(self::COMPANY_FILTER_CACHE_TTL_SECONDS),
+            fn () => User::where('user_type', 'company')
+                ->orderBy('nickname')
+                ->limit(self::COMPANY_FILTER_LIMIT)
+                ->get(['id', 'nickname'])
+        );
 
         return [
             'jobs' => $query->paginate($this->visibleCount),

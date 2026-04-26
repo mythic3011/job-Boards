@@ -2,6 +2,7 @@
 
 use App\Models\Application;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Volt\Component;
 use Livewire\WithPagination;
 
@@ -16,6 +17,8 @@ new class extends Component
 
     private const PAGE_SIZE = 15;
     private const COMPANY_FILTER_LIMIT = 200;
+    private const COMPANY_FILTER_CACHE_KEY = 'admin.applications.company_filter_options.v1';
+    private const COMPANY_FILTER_CACHE_TTL_SECONDS = 300;
     public string $search = '';
     public string $statusFilter = '';
     public string $companyFilter = '';
@@ -84,10 +87,14 @@ new class extends Component
             default  => $query,
         };
 
-        $companies = User::where('user_type', 'company')
-            ->orderBy('nickname')
-            ->limit(self::COMPANY_FILTER_LIMIT)
-            ->get(['id', 'nickname']);
+        $companies = Cache::remember(
+            self::COMPANY_FILTER_CACHE_KEY,
+            now()->addSeconds(self::COMPANY_FILTER_CACHE_TTL_SECONDS),
+            fn () => User::where('user_type', 'company')
+                ->orderBy('nickname')
+                ->limit(self::COMPANY_FILTER_LIMIT)
+                ->get(['id', 'nickname'])
+        );
 
         $stats = Application::query()
             ->selectRaw('COUNT(*) as total_applications')

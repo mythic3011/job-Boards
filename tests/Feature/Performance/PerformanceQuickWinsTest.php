@@ -189,6 +189,10 @@ class PerformanceQuickWinsTest extends TestCase
         $this->assertStringContainsString('private const COMPANY_FILTER_LIMIT = 200;', $applicationsView);
         $this->assertStringContainsString('->limit(self::COMPANY_FILTER_LIMIT)', $jobsView);
         $this->assertStringContainsString('->limit(self::COMPANY_FILTER_LIMIT)', $applicationsView);
+        $this->assertStringContainsString('Cache::remember(', $jobsView);
+        $this->assertStringContainsString('Cache::remember(', $applicationsView);
+        $this->assertStringContainsString('COMPANY_FILTER_CACHE_TTL_SECONDS = 300', $jobsView);
+        $this->assertStringContainsString('COMPANY_FILTER_CACHE_TTL_SECONDS = 300', $applicationsView);
     }
 
     /**
