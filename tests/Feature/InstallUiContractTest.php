@@ -91,6 +91,8 @@ class InstallUiContractTest extends TestCase
         $this->assertStringContainsString('wire:target="complete"', $review);
         $this->assertStringContainsString('Installing...', $review);
         $this->assertStringContainsString('animate-spin', $review);
+        $this->assertStringContainsString('Includes demo users, job listings, and applications', $review);
+        $this->assertStringContainsString('remove demo data later from Admin Settings using the demo cleanup action', $review);
     }
 
     public function test_main_javascript_bundle_does_not_include_legacy_install_wizard(): void

@@ -72,6 +72,8 @@
             <div>
                 <span class="theme-text-strong block text-sm font-medium">Install demo data</span>
                 <span class="theme-text-muted block text-xs mt-0.5">Adds sample jobs and applications so you can explore features right away.</span>
+                <span class="theme-text-muted block text-xs mt-1">Includes demo users, job listings, and applications with review states for end-to-end walkthroughs.</span>
+                <span class="theme-text-muted block text-xs mt-1">You can remove demo data later from Admin Settings using the demo cleanup action.</span>
             </div>
         </label>
     </div>
