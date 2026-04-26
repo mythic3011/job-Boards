@@ -28,4 +28,15 @@ class AdminAuditLogsUiContractTest extends TestCase
         $this->assertStringContainsString("if (\$log->event_type === 'bot_fingerprint_probe')", $contents);
         $this->assertStringContainsString("if (\$log->event_type === 'honeypot.triggered')", $contents);
     }
+
+    public function test_audit_log_viewer_uses_decision_clear_details_label_and_filter_aware_empty_state(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/audit-logs.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('>Details</th>', $contents);
+        $this->assertStringContainsString('Event details', $contents);
+        $this->assertStringContainsString('No audit logs match the current filters. Adjust filters to broaden results.', $contents);
+        $this->assertStringContainsString('No audit logs recorded yet.', $contents);
+    }
 }

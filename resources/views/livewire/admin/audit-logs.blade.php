@@ -375,6 +375,16 @@ new class extends Component
     }
 }; ?>
 
+@php
+    $hasActiveFilters = filled($search)
+        || filled($quickFilter)
+        || filled($eventType)
+        || filled($actorType)
+        || filled($actorRole)
+        || filled($status)
+        || $dateRange !== 'today';
+@endphp
+
 <div>
     <div class="flex items-center justify-between mb-6">
         <h1 class="theme-text-strong text-3xl font-bold">Audit Logs</h1>
@@ -489,7 +499,7 @@ new class extends Component
                         <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Actor</th>
                         <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Request</th>
                         <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
-                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Inspect</th>
+                        <th class="theme-text-muted px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Details</th>
                     </tr>
                 </thead>
                 <tbody class="theme-table-divider theme-panel divide-y">
@@ -558,7 +568,7 @@ new class extends Component
                             <td class="theme-text-muted px-4 py-3 min-w-[280px] text-xs">
                                 <div class="font-mono mb-1">target: {{ $this->targetLabel($log) }}</div>
                                 <details>
-                                    <summary class="theme-link cursor-pointer hover:opacity-80">View details</summary>
+                                    <summary class="theme-link cursor-pointer hover:opacity-80">Event details</summary>
                                     <div class="mt-2 space-y-2">
                                         @if($log->user_agent)
                                             <div>
@@ -578,7 +588,9 @@ new class extends Component
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="theme-text-muted px-4 py-8 text-center">No audit logs found.</td>
+                            <td colspan="6" class="theme-text-muted px-4 py-8 text-center">
+                                {{ $hasActiveFilters ? 'No audit logs match the current filters. Adjust filters to broaden results.' : 'No audit logs recorded yet.' }}
+                            </td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -632,7 +644,7 @@ new class extends Component
                     </div>
 
                     <details>
-                        <summary class="theme-link cursor-pointer text-sm hover:opacity-80">View details</summary>
+                        <summary class="theme-link cursor-pointer text-sm hover:opacity-80">Event details</summary>
                         <div class="mt-2 space-y-2 text-xs">
                             @if($log->user_agent)
                                 <div>
@@ -650,7 +662,9 @@ new class extends Component
                     </details>
                 </article>
             @empty
-                <div class="theme-text-muted theme-panel rounded-xl border px-4 py-8 text-center">No audit logs found.</div>
+                <div class="theme-text-muted theme-panel rounded-xl border px-4 py-8 text-center">
+                    {{ $hasActiveFilters ? 'No audit logs match the current filters. Adjust filters to broaden results.' : 'No audit logs recorded yet.' }}
+                </div>
             @endforelse
         </div>
 
