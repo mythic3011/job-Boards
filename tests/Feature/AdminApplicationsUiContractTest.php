@@ -16,6 +16,8 @@ class AdminApplicationsUiContractTest extends TestCase
         $this->assertStringContainsString('grid gap-4 lg:grid-cols-2', $contents);
         $this->assertStringContainsString('Search submitted applications', $contents);
         $this->assertStringContainsString('Review Filters', $contents);
+        $this->assertStringContainsString('Try adjusting your search or filters', $contents);
+        $this->assertStringContainsString('Queue is clear. New submissions will appear here.', $contents);
     }
 
     public function test_admin_applications_table_uses_avatar_and_compact_review_columns(): void

@@ -367,6 +367,8 @@ new class extends Component
                                     <p class="theme-text-strong text-sm font-semibold">No applications found</p>
                                     @if($search || $statusFilter || $companyFilter)
                                         <p class="theme-text-muted text-xs">Try adjusting your search or filters</p>
+                                    @else
+                                        <p class="theme-text-muted text-xs">Queue is clear. New submissions will appear here.</p>
                                     @endif
                                 </div>
                             </td>
