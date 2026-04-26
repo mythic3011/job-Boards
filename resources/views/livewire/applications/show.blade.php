@@ -356,9 +356,15 @@ new class extends Component
                             @endif
                         </div>
                     </div>
-                    <x-ui.button href="{{ route('applications.download-cv', $application->idcode) }}" variant="primary" size="sm">
-                        Download
-                    </x-ui.button>
+                    @can('downloadCv', $application)
+                        <x-ui.button href="{{ route('applications.download-cv', $application->idcode) }}" variant="primary" size="sm">
+                            Download
+                        </x-ui.button>
+                    @else
+                        <span class="theme-text-muted inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold">
+                            CV restricted
+                        </span>
+                    @endcan
                 </div>
             </div>
         </div>
