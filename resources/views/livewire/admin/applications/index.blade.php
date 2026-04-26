@@ -449,6 +449,39 @@ new class extends Component
                         </div>
                         <p class="theme-text-muted mt-2 text-sm">Applications that already cleared review and moved forward with the employer.</p>
                     </div>
+
+                    <div
+                        x-data="{ notesOpen: @js($stats['pending_applications'] > 0) }"
+                        class="theme-panel-subtle rounded-2xl border px-4 py-4"
+                    >
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <h2 class="theme-text-strong text-sm font-medium">Operator Notes</h2>
+                                <p class="theme-text-muted mt-1 text-xs">Use for approve/reject/CV guidance. Expand for full policy notes.</p>
+                            </div>
+                            <button
+                                type="button"
+                                class="theme-panel inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors hover:bg-[var(--app-panel-bg)]"
+                                aria-controls="operator-notes-applications"
+                                x-bind:aria-expanded="notesOpen ? 'true' : 'false'"
+                                x-on:click="notesOpen = !notesOpen"
+                            >
+                                <span x-show="!notesOpen">Show notes</span>
+                                <span x-show="notesOpen">Hide notes</span>
+                            </button>
+                        </div>
+                        <div
+                            id="operator-notes-applications"
+                            class="theme-text-muted mt-3 space-y-3 text-sm"
+                            x-show="notesOpen"
+                            x-transition
+                        >
+                            <p>Approve and reject actions should follow evidence in the current submission and role comments from prior review steps.</p>
+                            <p>Before approving, verify required applicant fields and CV presence when the role requires attached supporting documents.</p>
+                            <p>Before rejecting, confirm rationale quality because comments can be surfaced to downstream operators during dispute handling.</p>
+                            <p>When CV access is restricted by policy, continue review using available profile and application details instead of bypassing controls.</p>
+                        </div>
+                    </div>
                 </x-ui.card>
             </div>
         </div>
