@@ -1,9 +1,7 @@
 <?php
 
 use App\Services\AdminSettingsService;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Validate;
 use Livewire\Volt\Component;
 
@@ -86,37 +84,30 @@ new class extends Component
 
     public function confirmSave(): void
     {
-        $this->authorize('admin.settings.update');
         $this->validateOnlySettings();
+        $user = $this->currentActor();
+        $settingsService = app(AdminSettingsService::class);
+        $verification = $settingsService->verifyUpdateIntent($user, $this->password, request());
 
-        if ($this->password === '') {
-            $this->addError('password', 'Password confirmation is required.');
-            $this->showConfirmModal = true;
-            return;
-        }
+        if (! $verification['allowed']) {
+            $error = (string) ($verification['error'] ?? 'Unable to confirm settings update.');
 
-        $user = auth()->user();
+            if ($verification['close_modal']) {
+                $this->closeConfirmModal();
+                session()->flash('error', $error);
 
-        if (! $user || ! Hash::check($this->password, (string) $user->password)) {
-            $this->addError('password', 'The provided password is incorrect.');
+                return;
+            }
+
+            $this->addError('password', $error);
             $this->password = '';
             $this->showConfirmModal = true;
+
             return;
         }
-
-        $rateLimitKey = 'settings-update:' . ($user->id ?? request()->ip());
-
-        if (RateLimiter::tooManyAttempts($rateLimitKey, 5)) {
-            $seconds = RateLimiter::availableIn($rateLimitKey);
-            $this->closeConfirmModal();
-            session()->flash('error', "Too many attempts. Please try again in {$seconds} seconds.");
-            return;
-        }
-
-        RateLimiter::hit($rateLimitKey, 60);
 
         try {
-            $result = app(AdminSettingsService::class)->updateSettings([
+            $result = $settingsService->updateSettings([
                 'app_name' => $this->app_name,
                 'app_url' => $this->app_url,
                 'timezone' => $this->timezone,
@@ -183,6 +174,14 @@ new class extends Component
         $this->current_demo_mode = $this->demo_mode;
         $this->current_registrations_open = $this->registrations_open;
         $this->current_maintenance_mode = $this->maintenance_mode;
+    }
+
+    private function currentActor(): \App\Models\User
+    {
+        $actor = auth()->user();
+        abort_unless($actor instanceof \App\Models\User, 403);
+
+        return $actor;
     }
 }; ?>
 
