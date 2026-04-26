@@ -110,15 +110,22 @@ new class extends Component
 
         $companies = $companyOptionsService->getCompanyOptions();
 
+        $applicationStats = Application::query()
+            ->selectRaw('COUNT(*) as total_applications')
+            ->selectRaw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending_applications")
+            ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved_applications")
+            ->selectRaw("SUM(CASE WHEN cv_original_name IS NOT NULL THEN 1 ELSE 0 END) as cv_attached")
+            ->first();
+
         return [
             'applications' => $query->paginate($this->visibleCount),
             'companies'    => $companies,
             'jobFilterTitle' => $jobFilterTitle,
             'stats'        => [
-                'total_applications' => Application::count(),
-                'pending_applications' => Application::where('status', 'pending')->count(),
-                'approved_applications' => Application::where('status', 'approved')->count(),
-                'cv_attached' => Application::whereNotNull('cv_original_name')->count(),
+                'total_applications' => (int) ($applicationStats?->total_applications ?? 0),
+                'pending_applications' => (int) ($applicationStats?->pending_applications ?? 0),
+                'approved_applications' => (int) ($applicationStats?->approved_applications ?? 0),
+                'cv_attached' => (int) ($applicationStats?->cv_attached ?? 0),
             ],
         ];
     }

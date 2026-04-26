@@ -107,6 +107,102 @@ class PerformanceQuickWinsTest extends TestCase
         );
     }
 
+    public function test_admin_applications_index_uses_bounded_aggregate_queries_for_stats_cards(): void
+    {
+        $company = User::factory()->company()->create();
+
+        for ($i = 1; $i <= 35; $i++) {
+            $job = JobPosting::factory()
+                ->for($company, 'companyUser')
+                ->create();
+
+            $applicant = User::factory()->create();
+
+            Application::factory()
+                ->for($job, 'jobPosting')
+                ->for($applicant, 'applicantUser')
+                ->state([
+                    'status' => $i % 2 === 0 ? 'approved' : 'pending',
+                    'cv_original_name' => "candidate-{$i}.pdf",
+                ])
+                ->create();
+        }
+
+        $perCardApplicationCountQueries = 0;
+        DB::listen(function ($query) use (&$perCardApplicationCountQueries): void {
+            $sql = strtolower($query->sql);
+
+            if (! str_contains($sql, 'count(*)') || ! str_contains($sql, 'applications')) {
+                return;
+            }
+
+            $targetsStatus = str_contains($sql, 'status') && str_contains($sql, 'where');
+            $targetsCv = str_contains($sql, 'cv_original_name') && str_contains($sql, 'where');
+
+            if ($targetsStatus || $targetsCv) {
+                $perCardApplicationCountQueries++;
+            }
+        });
+
+        Volt::test('admin.applications.index')
+            ->set('visibleCount', 30)
+            ->assertSee('Application queue');
+
+        $this->assertSame(
+            0,
+            $perCardApplicationCountQueries,
+            'Admin applications stats should not issue separate COUNT queries per status/CV card.'
+        );
+    }
+
+    public function test_admin_users_index_uses_bounded_aggregate_queries_for_stats_cards(): void
+    {
+        User::factory()->count(45)->create();
+
+        $lockedUser = User::factory()->create([
+            'locked_until' => now()->addHour(),
+        ]);
+
+        $twoFactorUser = User::factory()->create([
+            'two_factor_confirmed_at' => now(),
+        ]);
+
+        $adminUser = User::factory()->create([
+            'user_type' => 'admin',
+        ]);
+
+        $this->assertNotNull($lockedUser->id);
+        $this->assertNotNull($twoFactorUser->id);
+        $this->assertNotNull($adminUser->id);
+
+        $perCardUserCountQueries = 0;
+        DB::listen(function ($query) use (&$perCardUserCountQueries): void {
+            $sql = strtolower($query->sql);
+
+            if (! str_contains($sql, 'count(*)') || ! str_contains($sql, 'from') || ! str_contains($sql, 'users')) {
+                return;
+            }
+
+            $targetsUserType = str_contains($sql, 'user_type') && str_contains($sql, 'where');
+            $targetsLock = str_contains($sql, 'locked_until') && str_contains($sql, 'where');
+            $targetsTwoFactor = str_contains($sql, 'two_factor_confirmed_at') && str_contains($sql, 'where');
+
+            if ($targetsUserType || $targetsLock || $targetsTwoFactor) {
+                $perCardUserCountQueries++;
+            }
+        });
+
+        Volt::test('admin.users.index')
+            ->set('visibleCount', 30)
+            ->assertSee('User operations');
+
+        $this->assertSame(
+            0,
+            $perCardUserCountQueries,
+            'Admin users stats should not issue separate COUNT queries per role/lock/2FA card.'
+        );
+    }
+
     public function test_cv_download_returns_the_file_without_controller_buffering_the_cv_body(): void
     {
         $controller = file_get_contents(dirname(__DIR__, 3).'/app/Http/Controllers/ApplicationController.php');
