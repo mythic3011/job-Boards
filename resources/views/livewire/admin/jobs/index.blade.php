@@ -271,12 +271,19 @@ new class extends Component
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
-                                        <a
-                                            href="{{ route('admin.applications.index', ['companyFilter' => $job->company_user_id]) }}"
-                                            class="theme-pill inline-flex min-w-[2.25rem] items-center justify-center rounded-full px-2.5 py-1 text-xs font-bold transition-colors cursor-pointer"
-                                        >
-                                            {{ $job->applications_count }}
-                                        </a>
+                                        <div class="flex flex-col items-center gap-1.5">
+                                            <span class="theme-pill inline-flex min-w-[2.25rem] items-center justify-center rounded-full px-2.5 py-1 text-xs font-bold">
+                                                {{ $job->applications_count }}
+                                            </span>
+                                            <a
+                                                href="{{ route('admin.applications.index', ['companyFilter' => $job->company_user_id]) }}"
+                                                class="theme-link text-[11px] font-semibold"
+                                                aria-label="Open company-wide applications queue for {{ $job->companyUser->nickname }}"
+                                                title="Open company-wide applications queue"
+                                            >
+                                                Company queue
+                                            </a>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4">
                                         <div class="theme-text-strong text-sm font-medium">{{ $job->created_at->diffForHumans() }}</div>

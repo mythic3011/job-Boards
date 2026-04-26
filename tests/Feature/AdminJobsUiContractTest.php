@@ -43,5 +43,7 @@ class AdminJobsUiContractTest extends TestCase
         $this->assertStringContainsString('aria-controls="jobs-operator-notes"', $contents);
         $this->assertStringContainsString(":aria-expanded=\"notesOpen.toString()\"", $contents);
         $this->assertStringContainsString("x-text=\"notesOpen ? 'Hide notes' : 'Show notes'\"", $contents);
+        $this->assertStringContainsString('Company queue', $contents);
+        $this->assertStringContainsString('Open company-wide applications queue', $contents);
     }
 }
