@@ -159,18 +159,32 @@ class ApplicationController extends Controller
     {
         // OWASP File Upload: Force download (never inline) to prevent content-type attacks
         // Always use attachment disposition, never inline
-        $file = Storage::disk('private')->get($application->cv_file_path);
+        $disk = Storage::disk('private');
+        $stream = $disk->readStream($application->cv_file_path);
+
+        if ($stream === false) {
+            Log::error('CV file stream could not be opened', [
+                'application_id' => $application->id,
+                'file_path' => $application->cv_file_path,
+            ]);
+
+            abort(404, 'CV file not found.');
+        }
 
         // Sanitize filename for Content-Disposition header (prevent header injection)
         $filename = $this->sanitizeFilename($application);
+        $contentLength = $disk->size($application->cv_file_path);
 
-        return response()->streamDownload(function () use ($file) {
-            echo $file;
+        return response()->streamDownload(function () use ($stream) {
+            fpassthru($stream);
+
+            if (is_resource($stream)) {
+                fclose($stream);
+            }
         }, $filename, [
             'Content-Type' => $application->cv_mime ?? 'application/octet-stream',
-            'Content-Disposition' => 'attachment; filename="'.addslashes($filename).'"', // Force attachment, never inline
             'X-Content-Type-Options' => 'nosniff', // Prevent MIME sniffing attacks
-            'Content-Length' => strlen($file),
+            'Content-Length' => (string) $contentLength,
         ]);
     }
 
