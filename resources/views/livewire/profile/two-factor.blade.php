@@ -91,132 +91,262 @@
                                         <p class="mb-3 text-xs">
                                             Generating new codes immediately invalidates all codes shown above.
                                         </p>
-                                        <button
-                                            wire:click="regenerateRecoveryCodes"
-                                            wire:confirm="This will invalidate your current recovery codes. Continue?"
-                                            wire:loading.attr="disabled"
-                                            wire:loading.class="opacity-60 cursor-not-allowed"
-                                            wire:target="regenerateRecoveryCodes"
-                                            class="inline-flex items-center gap-2 text-sm font-medium underline transition-opacity disabled:cursor-not-allowed"
-                                        >
-                                            <span wire:loading.remove wire:target="regenerateRecoveryCodes">Generate New Codes</span>
-                                            <span wire:loading wire:target="regenerateRecoveryCodes" class="inline-flex items-center gap-2">
-                                                <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
-                                                </svg>
-                                                Generating...
-                                            </span>
-                                        </button>
+                                        @if(! $showRegenerateConfirmation)
+                                            <button
+                                                wire:click="promptRegenerateRecoveryCodes"
+                                                wire:loading.attr="disabled"
+                                                wire:loading.class="opacity-60 cursor-not-allowed"
+                                                wire:target="promptRegenerateRecoveryCodes"
+                                                class="inline-flex items-center gap-2 text-sm font-medium underline transition-opacity disabled:cursor-not-allowed"
+                                            >
+                                                Create New Recovery Codes
+                                            </button>
+                                        @else
+                                            <div class="mt-2 rounded-lg border border-[var(--app-warning-border)] bg-[var(--app-warning-bg)]/40 p-3">
+                                                <p class="text-sm font-medium">Replace your current recovery codes?</p>
+                                                <p class="mt-1 text-xs">
+                                                    Your existing codes will stop working immediately. Save the new set before leaving this page.
+                                                </p>
+                                                <div class="mt-3 flex flex-wrap gap-2">
+                                                    <x-ui.button
+                                                        wire:click="regenerateRecoveryCodes"
+                                                        wire:loading.attr="disabled"
+                                                        wire:loading.class="opacity-60 cursor-not-allowed"
+                                                        wire:target="regenerateRecoveryCodes"
+                                                        variant="warning"
+                                                        size="sm">
+                                                        <span wire:loading.remove wire:target="regenerateRecoveryCodes">Yes, replace codes</span>
+                                                        <span wire:loading wire:target="regenerateRecoveryCodes" class="inline-flex items-center gap-2">
+                                                            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                                                            </svg>
+                                                            Replacing...
+                                                        </span>
+                                                    </x-ui.button>
+                                                    <x-ui.button
+                                                        wire:click="cancelRegenerateRecoveryCodes"
+                                                        wire:loading.attr="disabled"
+                                                        wire:loading.class="opacity-60 cursor-not-allowed"
+                                                        wire:target="cancelRegenerateRecoveryCodes"
+                                                        variant="outline"
+                                                        size="sm">
+                                                        Keep current codes
+                                                    </x-ui.button>
+                                                </div>
+                                            </div>
+                                        @endif
                                     </div>
                                 </div>
                             </div>
                         @endif
 
-                        <div class="flex gap-3">
-                            <x-ui.button 
-                                wire:click="disable2FA" 
-                                wire:confirm="Are you sure? This will make your account less secure."
-                                wire:loading.attr="disabled"
-                                wire:loading.class="opacity-60 cursor-not-allowed"
-                                wire:target="disable2FA"
-                                variant="danger"
-                                size="sm">
-                                <span wire:loading.remove wire:target="disable2FA">Disable 2FA</span>
-                                <span wire:loading wire:target="disable2FA" class="inline-flex items-center gap-2">
-                                    <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
-                                    </svg>
-                                    Disabling...
-                                </span>
-                            </x-ui.button>
-                        </div>
-                        <p class="theme-text-muted text-xs">
-                            Disabling 2FA lowers account protection right away and removes the extra sign-in check.
-                        </p>
+                        @if(! $showDisableConfirmation)
+                            <div class="space-y-2">
+                                <x-ui.button
+                                    wire:click="promptDisable2FA"
+                                    wire:loading.attr="disabled"
+                                    wire:loading.class="opacity-60 cursor-not-allowed"
+                                    wire:target="promptDisable2FA"
+                                    variant="danger"
+                                    size="sm">
+                                    Disable 2FA
+                                </x-ui.button>
+                                <p class="theme-text-muted text-xs">
+                                    Disabling 2FA lowers account protection right away and removes the extra sign-in check.
+                                </p>
+                            </div>
+                        @else
+                            <div class="theme-alert-warning rounded-xl border p-4">
+                                <p class="font-medium">Disable two-factor authentication?</p>
+                                <p class="mt-1 text-sm">
+                                    You will only need your password to sign in after this. If you are sure, confirm below.
+                                </p>
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    <x-ui.button
+                                        wire:click="disable2FA"
+                                        wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-60 cursor-not-allowed"
+                                        wire:target="disable2FA"
+                                        variant="danger"
+                                        size="sm">
+                                        <span wire:loading.remove wire:target="disable2FA">Yes, disable 2FA</span>
+                                        <span wire:loading wire:target="disable2FA" class="inline-flex items-center gap-2">
+                                            <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                                            </svg>
+                                            Disabling...
+                                        </span>
+                                    </x-ui.button>
+                                    <x-ui.button
+                                        wire:click="cancelDisable2FA"
+                                        wire:loading.attr="disabled"
+                                        wire:loading.class="opacity-60 cursor-not-allowed"
+                                        wire:target="cancelDisable2FA"
+                                        variant="outline"
+                                        size="sm">
+                                        Keep 2FA enabled
+                                    </x-ui.button>
+                                </div>
+                            </div>
+                        @endif
                     </div>
 
                 @elseif($isSettingUp2FA)
-                    <div class="space-y-6">
+                    <div
+                        class="space-y-6"
+                        x-data="twoFactorSetup()"
+                        data-secret="{{ $secret }}"
+                    >
+                        <div class="theme-panel-subtle rounded-2xl border p-4">
+                            <h3 class="theme-text-strong text-base font-semibold">Finish setup in 3 steps</h3>
+                            <ol class="theme-text-muted mt-2 space-y-1 text-sm">
+                                <li>1. Scan the QR code with your authenticator app.</li>
+                                <li>2. Enter the latest 6-digit code.</li>
+                                <li>3. Verify and enable 2FA.</li>
+                            </ol>
+                        </div>
+
                         <div class="text-center">
-                            <h3 class="theme-text-strong mb-2 text-lg font-medium">Scan QR Code</h3>
+                            <h3 class="theme-text-strong mb-2 text-lg font-medium">Step 1: Scan QR code</h3>
                             <p class="theme-text-muted mb-4 text-sm">
-                                Use your authenticator app (Google Authenticator, Authy, 1Password, etc.) to scan this code. Setup is not active until a valid verification code is accepted.
+                                Open Google Authenticator, Authy, 1Password, or another authenticator app and scan this code.
                             </p>
-                            
+
                             <div class="theme-panel-subtle inline-block rounded-2xl border p-4">
                                 {!! $user->twoFactorQrCodeSvg() !!}
                             </div>
                         </div>
 
                         <div class="theme-panel-subtle rounded-2xl border p-4">
-                            <p class="theme-text-strong mb-2 text-sm font-medium">Can't scan? Enter this code manually:</p>
-                            <code class="theme-panel theme-text-strong block rounded border px-3 py-2 text-sm font-mono break-all">
-                                {{ $secret }}
-                            </code>
+                            <button
+                                type="button"
+                                @click="toggleSecret"
+                                class="theme-link inline-flex items-center gap-2 text-sm font-medium"
+                            >
+                                <span x-show="!showSecret">Use manual setup code instead</span>
+                                <span x-show="showSecret">Hide manual setup code</span>
+                            </button>
+
+                            <div x-show="showSecret" x-transition class="mt-3 space-y-3">
+                                <p class="theme-text-muted text-xs">If scanning is unavailable, copy this setup code into your authenticator app.</p>
+                                <code id="manual-secret" class="theme-panel theme-text-strong block rounded border px-3 py-2 text-sm font-mono break-all">{{ $secret }}</code>
+                                <div class="flex items-center gap-3">
+                                    <x-ui.button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        @click="copySecret"
+                                    >
+                                        Copy code
+                                    </x-ui.button>
+                                    <span x-show="copied" class="theme-signal-success text-xs">Copied</span>
+                                </div>
+                            </div>
                         </div>
 
-                        <div class="max-w-xs mx-auto">
-                            <div class="space-y-1">
+                        <div class="max-w-sm mx-auto">
+                            @php($canVerifyCode = strlen($verificationCode) === 6 && ctype_digit($verificationCode))
+
+                            <div class="space-y-2">
                                 <label for="verificationCode" class="theme-text-strong block text-sm font-medium">
-                                    Verification Code
+                                    Step 2: Enter verification code
                                 </label>
                                 <div class="relative">
                                     <input
                                         type="text"
                                         id="verificationCode"
                                         name="verificationCode"
-                                        wire:model.live.debounce.300ms="verificationCode"
+                                        wire:model.live.debounce.200ms="verificationCode"
+                                        wire:keydown.enter="verifyCode"
                                         maxlength="6"
                                         pattern="[0-9]{6}"
-                                        placeholder="000000"
+                                        inputmode="numeric"
+                                        placeholder="6-digit code"
                                         autocomplete="one-time-code"
-                                        class="theme-input block w-full rounded-lg border-0 px-3 py-1.5 shadow-sm ring-1 ring-inset {{ $codeIsValid ? 'ring-[var(--app-success-border)] focus:ring-[var(--app-success-fg)]' : ($errors->has('verificationCode') ? 'ring-[var(--app-danger-border)] focus:ring-[var(--app-danger-fg)]' : 'ring-[var(--app-input-border)] focus:ring-[var(--app-accent)]') }} placeholder:text-[var(--app-text-muted)] focus:ring-2 focus:ring-inset sm:text-sm sm:leading-6"
+                                        class="theme-input block w-full rounded-lg border-0 px-3 py-2 text-center font-mono tracking-[0.28em] shadow-sm ring-1 ring-inset {{ $verificationState === 'success' ? 'ring-[var(--app-success-border)] focus:ring-[var(--app-success-fg)]' : (($verificationState === 'error' || $errors->has('verificationCode')) ? 'ring-[var(--app-danger-border)] focus:ring-[var(--app-danger-fg)]' : 'ring-[var(--app-input-border)] focus:ring-[var(--app-accent)]') }} placeholder:text-[var(--app-text-muted)] focus:ring-2 focus:ring-inset sm:text-base"
                                     >
-                                    @if($errors->has('verificationCode'))
-                                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                                            <svg class="theme-signal-danger h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
-                                            </svg>
-                                        </div>
-                                    @elseif($codeIsValid)
+                                    @if($verificationState === 'success')
                                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
                                             <svg class="theme-signal-success h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clip-rule="evenodd" />
                                             </svg>
                                         </div>
+                                    @elseif($verificationState === 'error' || $errors->has('verificationCode'))
+                                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                            <svg class="theme-signal-danger h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+                                            </svg>
+                                        </div>
                                     @endif
                                 </div>
-                                @if($errors->has('verificationCode'))
-                                    <p class="theme-error-text mt-1 text-sm">{{ $errors->first('verificationCode') }}</p>
+
+                                @if($verificationState === 'checking')
+                                    <p class="theme-signal-info mt-1 flex items-center gap-2 text-sm">
+                                        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                                        </svg>
+                                        {{ $verificationFeedback ?? 'Verifying your code...' }}
+                                    </p>
+                                @elseif($verificationState === 'error' || $errors->has('verificationCode'))
+                                    <p class="theme-error-text mt-1 text-sm">{{ $verificationFeedback ?? $errors->first('verificationCode') }}</p>
+                                @elseif($verificationState === 'success')
+                                    <p class="theme-signal-success mt-1 text-sm">{{ $verificationFeedback ?? 'Success. Two-factor authentication is enabled. Redirecting...' }}</p>
+                                @elseif($verificationState === 'ready')
+                                    <p class="theme-signal-info mt-1 text-sm">{{ $verificationFeedback ?? 'Step 3: Click "Verify and enable 2FA" to finish setup.' }}</p>
+                                @elseif($verificationState === 'incomplete')
+                                    <p class="theme-text-muted mt-1 text-sm">{{ $verificationFeedback ?? 'Keep typing until all 6 digits are filled.' }}</p>
                                 @else
-                                    <p class="theme-text-muted mt-1 text-sm">Enter the current 6-digit code from your app. Codes expire quickly and verify automatically.</p>
+                                    <p class="theme-text-muted mt-1 text-sm">{{ $verificationFeedback ?? 'Step 2: Enter a 6-digit code from your authenticator app.' }}</p>
+                                @endif
+
+                                @if($verificationState !== 'success')
+                                    <p class="theme-text-muted mt-1 text-xs">
+                                        If this code fails, wait for the next code in <span class="theme-text-strong" x-text="otpCountdown"></span>s and try again.
+                                    </p>
                                 @endif
                             </div>
-                            @if($codeIsValid)
-                                <p class="theme-signal-success mt-2 text-center text-xs">✓ Code verified! Redirecting...</p>
-                            @endif
-                        </div>
 
-                        <div class="flex justify-center gap-3">
-                            <x-ui.button
-                                wire:click="cancel2FA"
-                                wire:loading.attr="disabled"
-                                wire:loading.class="opacity-60 cursor-not-allowed"
-                                wire:target="cancel2FA"
-                                variant="outline">
-                                <span wire:loading.remove wire:target="cancel2FA">Cancel</span>
-                                <span wire:loading wire:target="cancel2FA" class="inline-flex items-center gap-2">
-                                    <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
-                                    </svg>
-                                    Cancelling...
-                                </span>
-                            </x-ui.button>
+                            <div class="mt-4 flex items-center justify-center gap-2">
+                                <x-ui.button
+                                    wire:click="verifyCode"
+                                    wire:loading.attr="disabled"
+                                    wire:loading.class="opacity-60 cursor-not-allowed"
+                                    wire:target="verifyCode"
+                                    variant="primary"
+                                    size="md"
+                                    @disabled(! $canVerifyCode || $verificationState === 'checking' || $verificationState === 'success')
+                                >
+                                    <span wire:loading.remove wire:target="verifyCode">Verify and enable 2FA</span>
+                                    <span wire:loading wire:target="verifyCode" class="inline-flex items-center gap-2">
+                                        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                                        </svg>
+                                        Verifying...
+                                    </span>
+                                </x-ui.button>
+                                <x-ui.button
+                                    wire:click="cancel2FA"
+                                    wire:loading.attr="disabled"
+                                    wire:loading.class="opacity-60 cursor-not-allowed"
+                                    wire:target="cancel2FA"
+                                    variant="outline"
+                                    size="sm"
+                                >
+                                    <span wire:loading.remove wire:target="cancel2FA">Cancel setup</span>
+                                    <span wire:loading wire:target="cancel2FA" class="inline-flex items-center gap-2">
+                                        <svg class="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 0 1 8-8V0C5.373 0 12 6.477 12 12h-4z"></path>
+                                        </svg>
+                                        Cancelling...
+                                    </span>
+                                </x-ui.button>
+                            </div>
                         </div>
-                        <p class="theme-text-muted text-center text-xs">Cancel stops setup and leaves your account without 2FA protection.</p>
                     </div>
 
                 @else
