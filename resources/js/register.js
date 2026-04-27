@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
             reader.readAsDataURL(file);
         } else {
-            preview.src = "";
+            preview.removeAttribute("src");
             preview.classList.add("hidden");
         }
     });

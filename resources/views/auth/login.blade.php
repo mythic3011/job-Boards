@@ -59,6 +59,10 @@
 
         <details class="theme-panel-subtle rounded-xl border p-4">
             <summary class="theme-text-strong cursor-pointer text-sm font-semibold">Need sign-in help?</summary>
+            <div class="mt-3 space-y-3">
+                <p class="theme-text-strong text-sm font-semibold">Workspace Access</p>
+                <p class="theme-text-strong text-sm font-semibold">Security Notes</p>
+            </div>
             <ul class="theme-text-muted mt-3 space-y-2 text-sm leading-6">
                 <li>Use your username or account email.</li>
                 <li>Use “Remember me” only on a trusted device.</li>

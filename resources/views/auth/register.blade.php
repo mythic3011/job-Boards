@@ -101,7 +101,7 @@
                                         class="peer sr-only"
                                         {{ $selectedUserType === 'individual' ? 'checked' : '' }}
                                     >
-                                    <span class="pointer-events-none absolute right-4 top-4 hidden rounded-full border border-[var(--app-accent-soft-border)] bg-[var(--app-accent-soft-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-accent-soft-fg)] peer-checked:inline-flex">
+                                    <span data-workspace-indicator class="pointer-events-none absolute right-4 top-4 hidden rounded-full border border-[var(--app-accent-soft-border)] bg-[var(--app-accent-soft-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-accent-soft-fg)] peer-checked:inline-flex">
                                         Selected
                                     </span>
                                     <label
@@ -127,7 +127,7 @@
                                         class="peer sr-only"
                                         {{ $selectedUserType === 'company' ? 'checked' : '' }}
                                     >
-                                    <span class="pointer-events-none absolute right-4 top-4 hidden rounded-full border border-[var(--app-accent-soft-border)] bg-[var(--app-accent-soft-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-accent-soft-fg)] peer-checked:inline-flex">
+                                    <span data-workspace-indicator class="pointer-events-none absolute right-4 top-4 hidden rounded-full border border-[var(--app-accent-soft-border)] bg-[var(--app-accent-soft-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--app-accent-soft-fg)] peer-checked:inline-flex">
                                         Selected
                                     </span>
                                     <label
@@ -174,6 +174,7 @@
                                 Optional profile & security setup
                             </summary>
                             <div class="space-y-4 border-t border-[var(--app-panel-border)] px-4 py-4">
+                                <p class="theme-text-strong text-sm font-semibold">Launch Checklist</p>
                                 <div class="space-y-3">
                                     <div>
                                         <x-ui.form-label for="profile_image">Profile Image</x-ui.form-label>
@@ -188,7 +189,7 @@
                                             class="theme-text-muted block w-full cursor-pointer text-sm file:mr-4 file:rounded-full file:border-0 file:bg-[var(--app-panel-bg)] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[var(--app-accent-strong)] hover:file:bg-[var(--app-panel-border)]"
                                         >
                                         <div class="mt-4 flex items-center gap-4">
-                                            <img id="profile_image_preview" src="" alt="Profile Image Preview" class="hidden h-20 w-20 rounded-2xl object-cover" />
+                                            <img id="profile_image_preview" alt="Profile Image Preview" class="hidden h-20 w-20 rounded-2xl object-cover" />
                                             <div class="theme-text-muted text-sm leading-6">
                                                 Add an avatar now if you want your profile to look complete immediately.
                                             </div>
