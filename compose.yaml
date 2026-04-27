@@ -1,6 +1,7 @@
 services:
     app-bootstrap-init:
-        image: sail-8.5/app
+        image: sail-8.5-app
+        pull_policy: never
         build:
             context: .
             dockerfile: docker/Dockerfile.sail
@@ -274,9 +275,9 @@ services:
             GF_AUTH_PROXY_AUTO_SIGN_UP: "true"
             GF_AUTH_PROXY_HEADERS: "Name:X-WEBAUTH-USER"
             GRAFANA_POSTGRES_URL: ${GRAFANA_POSTGRES_URL:-postgres:5432}
-            GRAFANA_POSTGRES_DATABASE: ${DB_DATABASE}
-            GRAFANA_POSTGRES_USER: ${DB_USERNAME}
-            GRAFANA_POSTGRES_SECRET: ${DB_PASSWORD}
+            GRAFANA_POSTGRES_DATABASE: ${DB_DATABASE:-jobs_boards}
+            GRAFANA_POSTGRES_USER: ${DB_USERNAME:-jobs_user}
+            GRAFANA_POSTGRES_SECRET: ${DB_PASSWORD:-jobs_local_password}
             GRAFANA_POSTGRES_SSLMODE: ${GRAFANA_POSTGRES_SSLMODE:-prefer}
         volumes:
             - grafana-data:/var/lib/grafana
@@ -311,7 +312,8 @@ services:
                 WWWGROUP: ${WWWGROUP:-1000}
                 INSTALL_PLAYWRIGHT: "false"
                 INSTALL_BUN: "false"
-        image: sail-8.5/app
+        image: sail-8.5-app
+        pull_policy: never
         extra_hosts:
             - "host.docker.internal:host-gateway"
         ports:
@@ -354,12 +356,13 @@ services:
                 WWWGROUP: ${WWWGROUP:-1000}
                 INSTALL_PLAYWRIGHT: "false"
                 INSTALL_BUN: "false"
-        image: sail-8.5/app
+        image: sail-8.5-app
+        pull_policy: never
         entrypoint:
             [
                 "/bin/bash",
                 "-lc",
-                "if [ -r /var/www/html/.blue-team-vm/runtime/compat.shell.env ]; then set -a; . /var/www/html/.blue-team-vm/runtime/compat.shell.env; set +a; fi; /usr/local/bin/prepare-laravel-runtime /var/www/html && exec php artisan queue:work --sleep=1 --tries=3 --backoff=10 --timeout=300",
+                "COMPAT_ENV_FILE=$${BT_COMPAT_SHELL_ENV_FILE:-/var/www/html/.blue-team-vm/runtime/compat.shell.env}; EXPLICIT_DB_HOST=$${DB_HOST-__UNSET__}; EXPLICIT_DB_DATABASE=$${DB_DATABASE-__UNSET__}; EXPLICIT_DB_USERNAME=$${DB_USERNAME-__UNSET__}; EXPLICIT_DB_PASSWORD=$${DB_PASSWORD-__UNSET__}; EXPLICIT_DB_SSLMODE=$${DB_SSLMODE-__UNSET__}; EXPLICIT_REDIS_HOST=$${REDIS_HOST-__UNSET__}; if [ -r \"$$COMPAT_ENV_FILE\" ]; then set -a; . \"$$COMPAT_ENV_FILE\"; set +a; fi; if [ \"$$EXPLICIT_DB_HOST\" != \"__UNSET__\" ]; then export DB_HOST=\"$$EXPLICIT_DB_HOST\"; fi; if [ \"$$EXPLICIT_DB_DATABASE\" != \"__UNSET__\" ]; then export DB_DATABASE=\"$$EXPLICIT_DB_DATABASE\"; fi; if [ \"$$EXPLICIT_DB_USERNAME\" != \"__UNSET__\" ]; then export DB_USERNAME=\"$$EXPLICIT_DB_USERNAME\"; fi; if [ \"$$EXPLICIT_DB_PASSWORD\" != \"__UNSET__\" ]; then export DB_PASSWORD=\"$$EXPLICIT_DB_PASSWORD\"; fi; if [ \"$$EXPLICIT_DB_SSLMODE\" != \"__UNSET__\" ]; then export DB_SSLMODE=\"$$EXPLICIT_DB_SSLMODE\"; fi; if [ \"$$EXPLICIT_REDIS_HOST\" != \"__UNSET__\" ]; then export REDIS_HOST=\"$$EXPLICIT_REDIS_HOST\"; fi; : \"$${DB_HOST:=postgres}\"; : \"$${DB_DATABASE:=jobs_boards}\"; : \"$${DB_USERNAME:=jobs_user}\"; : \"$${DB_PASSWORD:=jobs_local_password}\"; : \"$${DB_SSLMODE:=prefer}\"; : \"$${REDIS_HOST:=redis}\"; export DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD DB_SSLMODE REDIS_HOST; /usr/local/bin/prepare-laravel-runtime /var/www/html && exec php artisan queue:work --sleep=1 --tries=3 --backoff=10 --timeout=300",
             ]
         environment:
             WWWUSER: ${WWWUSER:-1000}

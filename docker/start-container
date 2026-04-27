@@ -57,11 +57,12 @@ if [ "${EXPLICIT_DB_SSLMODE}" != "__UNSET__" ]; then export DB_SSLMODE="${EXPLIC
 if [ "${EXPLICIT_REDIS_HOST}" != "__UNSET__" ]; then export REDIS_HOST="${EXPLICIT_REDIS_HOST}"; fi
 
 : "${DB_HOST:=postgres}"
-: "${DB_DATABASE:=jobs_db}"
+: "${DB_DATABASE:=jobs_boards}"
 : "${DB_USERNAME:=jobs_user}"
+: "${DB_PASSWORD:=jobs_local_password}"
 : "${DB_SSLMODE:=prefer}"
 : "${REDIS_HOST:=redis}"
-export DB_HOST DB_DATABASE DB_USERNAME DB_SSLMODE REDIS_HOST
+export DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD DB_SSLMODE REDIS_HOST
 
 # Respect explicit runtime command overrides (for init/bootstrap one-shot services).
 if [ "$#" -gt 0 ]; then
