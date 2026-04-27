@@ -2,6 +2,11 @@
 
 ## Fast Path
 
+Prerequisites:
+
+- Docker Engine: https://docs.docker.com/engine/install/
+- Docker Compose plugin: https://docs.docker.com/compose/
+
 From the repo root:
 
 ```bash
@@ -11,7 +16,7 @@ From the repo root:
 That default path runs a fresh demo-ready install:
 
 - bootstraps `.env` and runtime artifacts
-- starts the local Docker stack
+- starts the local Docker Compose stack (`docker compose up -d --build`)
 - resets the local database
 - runs the headless installer with demo data
 - saves generated install artifacts under `.blue-team-vm/runtime/install-artifacts/`

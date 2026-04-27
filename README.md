@@ -5,6 +5,7 @@ Laravel job board application.
 Local default flow:
 
 - run `docker compose up -d --build` from repo root
+- Docker Compose plugin docs: https://docs.docker.com/compose/
 - `compose.yaml` runs `app-bootstrap-init` to ensure PHP deps (`vendor/`) and frontend build artifacts (`public/build/manifest.json`) exist before app services start
 - `compose.yaml` runs `obs-bootstrap-init` and prepares required obs runtime artifacts before starting auth-service/Prometheus/Grafana
 - core app/DB defaults are now embedded in `compose.yaml`, so local `docker compose up` does not require a pre-filled root `.env` file for first boot
@@ -163,6 +164,7 @@ docker compose up -d --build
 
 `compose.yaml` includes `app-bootstrap-init` and `obs-bootstrap-init` one-shot init services that prepare runtime artifacts before app/obs services start.
 Auth-service healthchecks in the combined stack probe fixed `http://127.0.0.1:3000/health`; host-shell `PORT` is not part of the healthcheck contract.
+Auth-service ingress is proxy-gated by default (`AUTH_SERVICE_ENFORCE_TRUSTED_PROXY=true`) and trusts the configured private proxy ranges from `AUTH_SERVICE_TRUSTED_PROXY_IPS`.
 
 ## Runtime Artifact Contract
 
@@ -193,14 +195,18 @@ This project has three intentional test entrypoints across two authority levels:
 `composer test:sqlite` is not evidence that the full default or PostgreSQL path passed. Read [docs/runbooks/test-verification-paths.md](docs/runbooks/test-verification-paths.md) before treating sqlite-safe output as full verification.
 If you are working in a git worktree, do not symlink `vendor/` from another checkout; use a real worktree-local dependency install and `composer test:worktree` instead.
 
-For a running local stack, prefer `docker exec jobs-boards-laravel.test composer test` over bare `docker compose exec ...`; it avoids extra interpolation churn while runtime artifacts are already mounted.
+For a running local stack, use Docker Compose exec:
+
+```bash
+docker compose exec -T laravel.test composer test
+```
 
 ## Verification
 
 SQLite-safe anti-bot shadow review:
 
 ```bash
-docker exec jobs-boards-laravel.test php artisan anti-bot:shadow-review --hours=24 --json
+docker compose exec -T laravel.test php artisan anti-bot:shadow-review --hours=24 --json
 ```
 
 Runbooks:
