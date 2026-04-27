@@ -94,10 +94,11 @@ input {
 }
 
 .theme-page-shell {
-    background:
-        radial-gradient(circle at top right, var(--app-shell-glow), transparent 28rem),
-        radial-gradient(circle at bottom left, var(--app-shell-glow), transparent 24rem),
-        var(--app-page-bg);
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--app-page-bg) 92%, var(--app-shell-glow) 8%) 0%,
+        var(--app-page-bg) 22rem
+    );
     color: var(--app-page-fg);
 }
 
@@ -198,4 +199,12 @@ input {
     background: var(--app-panel-subtle-bg);
     border: 1px solid var(--app-panel-border);
     color: var(--app-text-muted);
+}
+
+summary {
+    list-style: none;
+}
+
+summary::-webkit-details-marker {
+    display: none;
 }

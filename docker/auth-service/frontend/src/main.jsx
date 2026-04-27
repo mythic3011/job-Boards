@@ -20,21 +20,9 @@ const SERVICES = [
 ];
 
 const ACCESS_SURFACES = [
-    {
-        title: "Grafana",
-        description:
-            "Move into dashboards, alert panels, and operator telemetry without changing entry points.",
-    },
-    {
-        title: "Prometheus",
-        description:
-            "Inspect scrape health, metrics integrity, and service pressure from the same monitoring workspace.",
-    },
-    {
-        title: "Operator Scope",
-        description:
-            "Use this surface for monitoring operations only. Application account management stays inside the PHP webapp.",
-    },
+    "Grafana dashboards and alert investigation.",
+    "Prometheus and Loki telemetry checks.",
+    "Monitoring-only operator scope (no app account management).",
 ];
 
 const SECURITY_NOTES = [
@@ -212,7 +200,7 @@ function App() {
                         </div>
                     </div>
 
-                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(300px,0.9fr)] lg:items-start">
+                    <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] lg:items-start">
                         <div className="theme-panel rounded-2xl border p-8 shadow-sm">
                             <form className="space-y-6" onSubmit={handleLogin}>
                                 <InputField
@@ -276,46 +264,39 @@ function App() {
                         </div>
 
                         <div className="space-y-4">
-                            <div className="theme-panel-subtle rounded-2xl border p-6 shadow-sm">
+                            <section className="theme-panel-subtle rounded-2xl border p-6 shadow-sm">
                                 <p className="theme-text-muted mb-2 text-xs font-semibold uppercase tracking-[0.16em]">
                                     Access
                                 </p>
                                 <h2 className="theme-text-strong text-xl font-semibold">
                                     Workspace Access
                                 </h2>
-
-                                <div className="mt-4 space-y-3">
+                                <ul className="theme-text-muted mt-4 space-y-2 text-sm leading-6">
                                     {ACCESS_SURFACES.map((surface) => (
-                                        <div
-                                            key={surface.title}
-                                            className="theme-panel rounded-2xl border px-4 py-4 shadow-sm"
-                                        >
-                                            <p className="theme-text-strong text-sm font-semibold">
-                                                {surface.title}
-                                            </p>
-                                            <p className="theme-text-muted mt-1 text-sm leading-6">
-                                                {surface.description}
-                                            </p>
-                                        </div>
+                                        <li key={surface} className="flex gap-3">
+                                            <span className="mt-2 h-2 w-2 rounded-full bg-[var(--app-accent-strong)]" />
+                                            <span>{surface}</span>
+                                        </li>
                                     ))}
-                                </div>
+                                </ul>
 
-                                <div className="mt-4">
-                                    <p className="theme-text-muted mb-3 text-xs font-semibold uppercase tracking-[0.16em]">
-                                        Monitored Services
-                                    </p>
-                                    <ServiceGrid />
-                                </div>
-                            </div>
+                                <details className="theme-panel mt-5 rounded-xl border p-4">
+                                    <summary className="theme-text-strong cursor-pointer text-sm font-semibold">
+                                        Monitored services
+                                    </summary>
+                                    <div className="mt-3">
+                                        <ServiceGrid />
+                                    </div>
+                                </details>
+                            </section>
 
-                            <div className="theme-panel rounded-2xl border p-6 shadow-sm">
-                                <p className="theme-text-muted mb-2 text-xs font-semibold uppercase tracking-[0.16em]">
-                                    Security
-                                </p>
-                                <h2 className="theme-text-strong text-xl font-semibold">
+                            <details className="theme-panel rounded-2xl border p-6 shadow-sm">
+                                <summary className="theme-text-strong cursor-pointer text-lg font-semibold">
                                     Security Notes
-                                </h2>
-
+                                </summary>
+                                <p className="theme-text-muted mt-2 text-sm leading-6">
+                                    Guidance for safe operator credential usage.
+                                </p>
                                 <ul className="theme-text-muted mt-4 space-y-3 text-sm leading-6">
                                     {SECURITY_NOTES.map((note) => (
                                         <li key={note} className="flex gap-3">
@@ -324,7 +305,7 @@ function App() {
                                         </li>
                                     ))}
                                 </ul>
-                            </div>
+                            </details>
                         </div>
                     </div>
 
