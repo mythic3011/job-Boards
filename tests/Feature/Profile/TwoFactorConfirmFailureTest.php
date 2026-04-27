@@ -4,9 +4,9 @@ namespace Tests\Feature\Profile;
 
 use App\Livewire\Profile\TwoFactor;
 use App\Models\User;
+use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
 use Livewire\Livewire;
-use PragmaRX\Google2FA\Google2FA;
 use Tests\Concerns\UsesInMemorySqlite;
 use Tests\TestCase;
 
@@ -25,15 +25,14 @@ class TwoFactorConfirmFailureTest extends TestCase
 
     public function test_confirm_failure_does_not_flash_success(): void
     {
-        $google2fa = new Google2FA;
-        $secret = $google2fa->generateSecretKey();
+        $secret = 'JBSWY3DPEHPK3PXP';
 
         $user = User::factory()->individual()->create([
             'two_factor_secret' => encrypt($secret),
             'two_factor_recovery_codes' => encrypt(json_encode(['CODE-ONE'])),
         ]);
 
-        $validCode = $google2fa->getCurrentOtp($secret);
+        $code = '111111';
 
         $this->mock(ConfirmTwoFactorAuthentication::class, function ($mock): void {
             $mock->shouldReceive('__invoke')
@@ -41,9 +40,11 @@ class TwoFactorConfirmFailureTest extends TestCase
                 ->andThrow(new \RuntimeException('simulated Fortify failure'));
         });
 
+        RateLimiter::clear('2fa-verify:'.$user->id);
+
         Livewire::actingAs($user)
             ->test(TwoFactor::class)
-            ->set('verificationCode', $validCode)
+            ->set('verificationCode', $code)
             ->assertSet('codeIsValid', false)
             ->assertHasErrors(['verificationCode']);
 
@@ -52,8 +53,7 @@ class TwoFactorConfirmFailureTest extends TestCase
 
     public function test_missing_persisted_confirmation_does_not_activate_pending_registration(): void
     {
-        $google2fa = new Google2FA;
-        $secret = $google2fa->generateSecretKey();
+        $secret = 'JBSWY3DPEHPK3PXP';
 
         $user = User::factory()->individual()->create([
             'registration_state' => 'pending_2fa',
@@ -61,7 +61,7 @@ class TwoFactorConfirmFailureTest extends TestCase
             'two_factor_recovery_codes' => encrypt(json_encode(['CODE-ONE'])),
         ]);
 
-        $validCode = $google2fa->getCurrentOtp($secret);
+        $code = '111111';
 
         $this->mock(ConfirmTwoFactorAuthentication::class, function ($mock): void {
             $mock->shouldReceive('__invoke')
@@ -69,9 +69,11 @@ class TwoFactorConfirmFailureTest extends TestCase
                 ->andReturnNull();
         });
 
+        RateLimiter::clear('2fa-verify:'.$user->id);
+
         Livewire::actingAs($user)
             ->test(TwoFactor::class)
-            ->set('verificationCode', $validCode)
+            ->set('verificationCode', $code)
             ->assertSet('codeIsValid', false)
             ->assertHasErrors(['verificationCode']);
 
