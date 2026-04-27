@@ -20,7 +20,7 @@ Route::middleware([
     'hide.admin',
     'registration.active',
     'admin.2fa',
-    'throttle:30,1', // Rate limit: 30 requests per minute
+    'throttle:admin',
 ])->prefix('admin')->name('admin.')->group(function () {
 
     // Dashboard

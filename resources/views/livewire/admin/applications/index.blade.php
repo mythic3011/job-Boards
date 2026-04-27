@@ -135,7 +135,7 @@ new class extends Component
 
 <div class="space-y-8">
     <div class="theme-hero-surface rounded-3xl border px-6 py-7 sm:px-8">
-        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div class="max-w-2xl">
                 <p class="theme-hero-eyebrow text-xs font-semibold uppercase tracking-[0.18em]">Admin Applications</p>
                 <h1 class="mt-3 text-3xl font-semibold tracking-tight">Application queue</h1>
@@ -143,33 +143,13 @@ new class extends Component
                     Search submitted applications, triage review posture, and move from applicant context to detail review without losing the queue.
                 </p>
             </div>
-            <div class="grid grid-cols-2 gap-3 lg:min-w-[420px]">
-                <div class="theme-hero-card rounded-2xl border px-4 py-4">
-                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Total Applications</p>
-                    <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['total_applications']) }}</p>
-                    <p class="theme-text-muted mt-2 text-sm">All submissions currently in the review system.</p>
-                </div>
-                <div class="theme-hero-card rounded-2xl border px-4 py-4">
-                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Pending Review</p>
-                    <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['pending_applications']) }}</p>
-                    <p class="theme-text-muted mt-2 text-sm">Applicants still waiting for a review decision.</p>
-                </div>
-                <div class="theme-hero-card rounded-2xl border px-4 py-4">
-                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">CV Attached</p>
-                    <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['cv_attached']) }}</p>
-                    <p class="theme-text-muted mt-2 text-sm">Applications with a downloadable resume on file.</p>
-                </div>
-                <div class="theme-hero-card rounded-2xl border px-4 py-4">
-                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Approved</p>
-                    <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['approved_applications']) }}</p>
-                    <p class="theme-text-muted mt-2 text-sm">Applications already accepted by the company side.</p>
-                </div>
+            <div class="theme-pill inline-flex w-fit items-center rounded-full border px-3 py-1 text-sm font-semibold">
+                {{ number_format($stats['total_applications']).' applications · '.number_format($stats['pending_applications']).' pending' }}
             </div>
         </div>
     </div>
 
-    <div class="grid gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]">
-        <div class="space-y-6">
+    <div class="space-y-6">
             <div class="theme-panel rounded-2xl border p-5 shadow-sm">
                 <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
@@ -200,7 +180,7 @@ new class extends Component
                                 autocomplete="off"
                             />
                             @if($search)
-                                <button wire:click="clearSearch" class="theme-text-muted shrink-0 rounded-full p-0.5 transition-colors cursor-pointer hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)]" aria-label="Clear search">
+                                <button type="button" wire:click="clearSearch" class="theme-action-control theme-text-muted shrink-0 rounded-full p-0.5 transition-colors cursor-pointer hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60" aria-label="Clear search">
                                     <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                                     </svg>
@@ -229,7 +209,7 @@ new class extends Component
                     </select>
 
                     @if($search || $statusFilter || $companyFilter || $sort !== 'latest')
-                        <button wire:click="clearFilters" class="theme-input shrink-0 rounded-lg border px-3 py-2.5 text-sm shadow-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] cursor-pointer">
+                        <button type="button" wire:click="clearFilters" class="theme-action-control theme-input shrink-0 rounded-lg border px-3 py-2.5 text-sm shadow-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer">
                             Clear all
                         </button>
                     @endif
@@ -331,7 +311,7 @@ new class extends Component
                                 <div class="flex flex-col items-end gap-2">
                                     @can('admin.applications.view')
                                         <a href="{{ route('admin.applications.show', $application->idcode) }}"
-                                           class="theme-button theme-button-primary inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer">
+                                           class="theme-action-control theme-button theme-button-primary inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer">
                                             <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12s3.75-6.75 9.75-6.75S21.75 12 21.75 12 18 18.75 12 18.75 2.25 12 2.25 12Z" />
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" />
@@ -346,7 +326,7 @@ new class extends Component
                                     @if($application->cv_original_name)
                                         @can('downloadCv', $application)
                                             <a href="{{ route('applications.download-cv', $application->idcode) }}"
-                                               class="theme-link inline-flex items-center gap-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer">
+                                               class="theme-action-control theme-link inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold transition-colors duration-150 hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer">
                                                 <svg style="width:14px;height:14px" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                                                 </svg>
@@ -391,40 +371,5 @@ new class extends Component
                     key-name="admin-applications"
                 />
             </div>
-        </div>
-
-        <div class="space-y-6">
-            <div>
-                <div class="mb-4">
-                    <x-ui.section-label class="mb-2">Review posture</x-ui.section-label>
-                    <p class="theme-text-muted text-sm">Queue health signals before you open an application detail view.</p>
-                </div>
-                <x-ui.card class="grid gap-4 lg:grid-cols-2">
-                    <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
-                        <div class="flex items-baseline justify-between gap-3">
-                            <p class="theme-text-strong text-sm font-medium">Pending Review</p>
-                            <p class="text-2xl font-semibold {{ $stats['pending_applications'] > 0 ? 'theme-signal-warning' : 'theme-text-strong' }}">{{ number_format($stats['pending_applications']) }}</p>
-                        </div>
-                        <p class="theme-text-muted mt-2 text-sm">Applications still waiting for first-pass review or a company-side decision.</p>
-                    </div>
-
-                    <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
-                        <div class="flex items-baseline justify-between gap-3">
-                            <p class="theme-text-strong text-sm font-medium">CV Attached</p>
-                            <p class="theme-signal-info text-2xl font-semibold">{{ number_format($stats['cv_attached']) }}</p>
-                        </div>
-                        <p class="theme-text-muted mt-2 text-sm">Submissions with a downloadable resume available to operators and reviewers.</p>
-                    </div>
-
-                    <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
-                        <div class="flex items-baseline justify-between gap-3">
-                            <p class="theme-text-strong text-sm font-medium">Approved</p>
-                            <p class="theme-signal-success text-2xl font-semibold">{{ number_format($stats['approved_applications']) }}</p>
-                        </div>
-                        <p class="theme-text-muted mt-2 text-sm">Applications that already cleared review and moved forward with the employer.</p>
-                    </div>
-                </x-ui.card>
-            </div>
-        </div>
     </div>
 </div>

@@ -24,13 +24,13 @@ Route::middleware(\App\Http\Middleware\EnsureSetupCompleted::class)->group(funct
     // Create new job (authenticated users only)
     // IMPORTANT: must be defined BEFORE /jobs/{idcode} so "create" is not matched as idcode
     Volt::route('/jobs/create', 'jobs.create')
-        ->middleware(['auth', 'registration.active', 'throttle:10,1'])
+        ->middleware(['auth', 'registration.active', 'throttle:job-create'])
         ->can('create', JobPosting::class)
         ->name('jobs.create');
 
     // Create job (POST). Handles form POST when Livewire is not used or as fallback.
     Route::post('/jobs', [JobController::class, 'store'])
-        ->middleware(['auth', 'registration.active', 'throttle:10,1'])
+        ->middleware(['auth', 'registration.active', 'throttle:job-create'])
         ->can('create', JobPosting::class)
         ->name('jobs.store');
 
@@ -51,18 +51,18 @@ Route::middleware(\App\Http\Middleware\EnsureSetupCompleted::class)->group(funct
 Route::middleware(['auth', 'registration.active'])->group(function () {
     // List user's applications
     Volt::route('/my-applications', 'applications.index')
-        ->middleware('throttle:30,1')
+        ->middleware('throttle:my-applications')
         ->name('my.applications.index');
 
     // Apply to a job
     Volt::route('/jobs/{jobIdcode}/apply', 'applications.create')
-        ->middleware('throttle:3,1')
+        ->middleware('throttle:job-apply')
         ->can('create', Application::class)
         ->name('applications.create');
 
     // Apply to a job (POST fallback)
     Route::post('/jobs/{jobIdcode}/apply', [ApplicationController::class, 'store'])
-        ->middleware(['throttle:3,1'])
+        ->middleware(['throttle:job-apply'])
         ->can('create', Application::class)
         ->name('applications.store');
 
@@ -72,15 +72,15 @@ Route::middleware(['auth', 'registration.active'])->group(function () {
 
     // Download CV from application
     Route::get('/applications/{idcode}/download-cv', [ApplicationController::class, 'downloadCv'])
-        ->middleware('throttle:20,1')
+        ->middleware('throttle:cv-download')
         ->name('applications.download-cv');
 
     // Approve/Reject application (company only)
     Route::post('/applications/{idcode}/approve', [ApplicationController::class, 'approve'])
-        ->middleware('throttle:10,1')
+        ->middleware('throttle:application-action')
         ->name('applications.approve');
 
     Route::post('/applications/{idcode}/reject', [ApplicationController::class, 'reject'])
-        ->middleware('throttle:10,1')
+        ->middleware('throttle:application-action')
         ->name('applications.reject');
 });

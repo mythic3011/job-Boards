@@ -156,7 +156,7 @@ new class extends Component
 
 <div class="space-y-8">
     <div class="theme-hero-surface rounded-3xl border px-6 py-7 sm:px-8">
-        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div class="max-w-2xl">
                 <p class="theme-hero-eyebrow text-xs font-semibold uppercase tracking-[0.18em]">Admin Users</p>
                 <h1 class="mt-3 text-3xl font-semibold tracking-tight">User operations</h1>
@@ -164,39 +164,18 @@ new class extends Component
                     Search the user base, review access posture, and take account actions without leaving the directory.
                 </p>
             </div>
-            <div class="grid grid-cols-2 gap-3 lg:min-w-[420px]">
-                <div class="theme-hero-card rounded-2xl border px-4 py-4">
-                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Total Users</p>
-                    <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['total_users']) }}</p>
-                    <p class="theme-text-muted mt-2 text-sm">All accounts currently on the platform.</p>
-                </div>
-                <div class="theme-hero-card rounded-2xl border px-4 py-4">
-                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">2FA Enabled</p>
-                    <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['two_factor_users']) }}</p>
-                    <p class="theme-text-muted mt-2 text-sm">Accounts with confirmed authenticator setup.</p>
-                </div>
-                <div class="theme-hero-card rounded-2xl border px-4 py-4">
-                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Locked Accounts</p>
-                    <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['locked_users']) }}</p>
-                    <p class="theme-text-muted mt-2 text-sm">Users currently prevented from signing in.</p>
-                </div>
-                <div class="theme-hero-card rounded-2xl border px-4 py-4">
-                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Admin Accounts</p>
-                    <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['admin_users']) }}</p>
-                    <p class="theme-text-muted mt-2 text-sm">Accounts with elevated platform access.</p>
-                </div>
+            <div class="theme-pill inline-flex w-fit items-center rounded-full border px-3 py-1 text-sm font-semibold">
+                {{ number_format($stats['total_users']).' users · '.number_format($stats['admin_users']).' admins' }}
             </div>
         </div>
     </div>
 
-    <div class="grid gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]">
-        <div class="space-y-6">
+    <div class="space-y-6">
             <div class="theme-panel rounded-2xl border p-5 shadow-sm">
                 <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <x-ui.section-label class="mb-2">Directory</x-ui.section-label>
                         <p class="theme-text-muted text-sm">Search the user base by login ID, email, or display name.</p>
-                        <p class="theme-text-muted mt-1 text-xs">Use role and security signals to validate account risk before opening quick actions.</p>
                     </div>
                     <div class="theme-pill inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold">
                         <span>{{ $users->total() }} {{ \Illuminate\Support\Str::plural('user', $users->total()) }}</span>
@@ -223,7 +202,7 @@ new class extends Component
                                 aria-label="Search users by login ID, email, or display name"
                             />
                             @if($search)
-                                <button wire:click="$set('search', '')" class="theme-text-muted shrink-0 rounded-full p-0.5 transition-colors hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)] cursor-pointer" aria-label="Clear search">
+                                <button type="button" wire:click="$set('search', '')" class="theme-action-control theme-text-muted shrink-0 rounded-full p-0.5 transition-colors hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer" aria-label="Clear search">
                                     <svg style="width:16px;height:16px" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                                     </svg>
@@ -341,7 +320,7 @@ new class extends Component
                                             <div class="relative" data-dropdown data-open="false">
                                                 <button
                                                     type="button"
-                                                    class="theme-dropdown-trigger inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors"
+                                                    class="theme-action-control theme-dropdown-trigger inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                                                     data-dropdown-button
                                                     aria-expanded="false"
                                                     aria-haspopup="true"
@@ -372,7 +351,7 @@ new class extends Component
                                                                     wire:confirm="Unlock {{ $user->nickname }}? This restores sign-in access immediately."
                                                                     wire:loading.attr="disabled"
                                                                     wire:target="toggleLock('{{ $user->id }}')"
-                                                                    class="theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] disabled:opacity-60"
+                                                                    class="theme-action-control theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                                                                     title="Restore sign-in access for this account"
                                                                 >
                                                                     <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Unlock user</span>
@@ -385,7 +364,7 @@ new class extends Component
                                                                     wire:confirm="Lock {{ $user->nickname }}? This blocks sign-in until an operator unlocks the account."
                                                                     wire:loading.attr="disabled"
                                                                     wire:target="toggleLock('{{ $user->id }}')"
-                                                                    class="theme-alert-warning flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95 disabled:opacity-60"
+                                                                    class="theme-action-control theme-alert-warning flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95 focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                                                                     title="Temporarily block this account from signing in"
                                                                 >
                                                                     <span wire:loading.remove wire:target="toggleLock('{{ $user->id }}')">Lock user</span>
@@ -405,7 +384,7 @@ new class extends Component
                                                                 wire:confirm="Generate password reset link for {{ $user->nickname }}? Share only through a verified handoff channel."
                                                                 wire:loading.attr="disabled"
                                                                 wire:target="forcePasswordReset('{{ $user->id }}')"
-                                                                class="theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] disabled:opacity-60"
+                                                                class="theme-action-control theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                                                                 title="Generate a one-time reset link for controlled handoff"
                                                             >
                                                                 <span wire:loading.remove wire:target="forcePasswordReset('{{ $user->id }}')">Reset password</span>
@@ -421,7 +400,7 @@ new class extends Component
                                                             <button
                                                                 type="button"
                                                                 wire:click="confirmUserDeletion('{{ $user->id }}')"
-                                                                class="theme-alert-error flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95"
+                                                                class="theme-action-control theme-alert-error flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95 focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                                                                 title="Permanently remove this user account and related data"
                                                             >
                                                                 <span>Delete user</span>
@@ -469,45 +448,10 @@ new class extends Component
                     key-name="admin-users"
                 />
             </div>
-        </div>
-
-        <div class="space-y-6">
-            <div>
-                <div class="mb-4">
-                    <x-ui.section-label class="mb-2">Access & Risk</x-ui.section-label>
-                    <p class="theme-text-muted text-sm">High-level account posture before you drill into the directory.</p>
-                </div>
-                <x-ui.card class="grid gap-4 lg:grid-cols-2">
-                    <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
-                        <div class="flex items-baseline justify-between gap-3">
-                            <p class="theme-text-strong text-sm font-medium">2FA Enabled</p>
-                            <p class="theme-text-strong text-2xl font-semibold">{{ number_format($stats['two_factor_users']) }}</p>
-                        </div>
-                        <p class="theme-text-muted mt-2 text-sm">Users who have confirmed authenticator-based sign-in protection.</p>
-                    </div>
-
-                    <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
-                        <div class="flex items-baseline justify-between gap-3">
-                            <p class="theme-text-strong text-sm font-medium">Locked Accounts</p>
-                            <p class="text-2xl font-semibold {{ $stats['locked_users'] > 0 ? 'theme-signal-warning' : 'theme-text-strong' }}">{{ number_format($stats['locked_users']) }}</p>
-                        </div>
-                        <p class="theme-text-muted mt-2 text-sm">Accounts currently blocked from sign-in and likely needing moderation review.</p>
-                    </div>
-
-                    <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
-                        <div class="flex items-baseline justify-between gap-3">
-                            <p class="theme-text-strong text-sm font-medium">Admin Accounts</p>
-                            <p class="theme-text-strong text-2xl font-semibold">{{ number_format($stats['admin_users']) }}</p>
-                        </div>
-                        <p class="theme-text-muted mt-2 text-sm">Accounts with elevated permissions on the platform.</p>
-                    </div>
-                </x-ui.card>
-            </div>
-
             <x-ui.card x-data="{ notesOpen: false }">
                 <button
                     type="button"
-                    class="flex w-full items-center justify-between gap-3 text-left"
+                    class="theme-action-control flex w-full items-center justify-between gap-3 rounded-xl text-left transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.995] disabled:cursor-not-allowed disabled:opacity-60"
                     @click="notesOpen = !notesOpen"
                     :aria-expanded="notesOpen.toString()"
                     aria-controls="users-operator-notes"
@@ -525,7 +469,6 @@ new class extends Component
                     <p>For privileged users, confirm role ownership and incident context before making account-changing actions.</p>
                 </div>
             </x-ui.card>
-        </div>
     </div>
 
     <!-- Delete Confirmation Modal -->
@@ -549,7 +492,7 @@ new class extends Component
             aria-labelledby="delete-user-title"
             tabindex="-1"
             x-ref="deleteUserDialog"
-            x-effect="if (show) { $nextTick(() => $refs.deleteUserDialog?.focus()) }"
+            x-effect="show && $nextTick(() => $refs.deleteUserDialog?.focus())"
             class="theme-modal-surface w-full max-w-lg rounded-xl"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0 scale-95"
@@ -622,7 +565,7 @@ new class extends Component
             aria-labelledby="reset-url-title"
             tabindex="-1"
             x-ref="resetUrlDialog"
-            x-effect="if (show) { $nextTick(() => $refs.resetUrlDialog?.focus()) }"
+            x-effect="show && $nextTick(() => $refs.resetUrlDialog?.focus())"
             class="theme-modal-surface w-full max-w-lg rounded-xl"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0 scale-95"
@@ -662,7 +605,7 @@ new class extends Component
                         data-copy-button
                         data-copy-text="{{ $resetUrl }}"
                         data-copy-feedback-ms="2000"
-                        class="theme-input shrink-0 min-w-[64px] rounded-lg border px-3 py-2 text-center text-xs font-medium transition-colors hover:bg-[var(--app-panel-subtle-bg)]"
+                        class="theme-action-control theme-input shrink-0 min-w-[64px] rounded-lg border px-3 py-2 text-center text-xs font-medium transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         <span data-copy-default>Copy</span>
                         <span data-copy-success class="theme-copy-button-feedback hidden">Copied!</span>

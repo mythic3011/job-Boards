@@ -1,91 +1,72 @@
 @php
     $user = auth()->user();
-    $securityTone = $twoFactorEnabled
-        ? 'border-green-200 bg-green-50 text-green-700'
-        : 'border-amber-200 bg-amber-50 text-amber-700';
 @endphp
 
 <div class="space-y-8">
-    <section class="rounded-[2rem] border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-8">
-        <div class="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.95fr)] lg:items-end">
-            <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-200/80">Candidate Workspace</p>
-                <h1 class="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Career Dashboard</h1>
-                <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
-                    Keep your application momentum visible, spot where decisions are stalling, and route directly into profile and security tasks without leaving the workspace.
+    <div class="theme-hero-surface rounded-3xl border px-6 py-7 sm:px-8">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div class="max-w-2xl">
+                <p class="theme-hero-eyebrow text-xs font-semibold uppercase tracking-[0.18em]">Candidate Dashboard</p>
+                <h1 class="mt-3 text-3xl font-semibold tracking-tight">Career Dashboard</h1>
+                <p class="theme-text-muted mt-3 text-sm leading-6">
+                    Track where decisions are stalling and move into profile tasks from here.
                 </p>
-                <div class="mt-6 flex flex-wrap gap-3">
-                    <x-ui.button href="{{ route('my.applications.index') }}" size="lg">Open My Applications</x-ui.button>
-                    <x-ui.button href="{{ route('jobs.index') }}" variant="outline" size="lg">Browse New Roles</x-ui.button>
+                <div class="mt-5 flex flex-wrap gap-3">
+                    <x-ui.button href="{{ route('my.applications.index') }}">My Applications</x-ui.button>
+                    <x-ui.button href="{{ route('jobs.index') }}" variant="outline">Browse Roles</x-ui.button>
                 </div>
             </div>
-
-            <div class="grid gap-3">
+            <div class="flex flex-wrap gap-2">
                 @foreach($summaryCards as $card)
-                    <div class="rounded-2xl border border-white/10 bg-white/5 px-4 py-4 backdrop-blur-sm">
-                        <p class="text-xs uppercase tracking-[0.16em] text-slate-400">{{ $card['label'] }}</p>
-                        <p class="mt-3 text-3xl font-semibold">{{ $card['value'] }}</p>
-                        <p class="mt-2 text-sm text-slate-300">{{ $card['description'] }}</p>
+                    <div class="theme-pill inline-flex flex-col items-center rounded-2xl border px-4 py-2.5 text-center">
+                        <span class="theme-text-strong text-xl font-semibold">{{ $card['value'] }}</span>
+                        <span class="theme-text-muted text-xs">{{ $card['label'] }}</span>
                     </div>
                 @endforeach
             </div>
         </div>
-    </section>
+    </div>
 
-    <div class="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
+    <div class="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(300px,0.95fr)]">
         <div class="space-y-6">
             <section>
-                <div class="mb-4">
-                    <x-ui.section-label class="mb-2">Pipeline</x-ui.section-label>
-                    <h2 class="theme-text-strong text-2xl font-semibold">Application Pipeline</h2>
-                    <p class="theme-text-muted mt-1 text-sm">The current state of everything you have already sent into the market.</p>
-                </div>
-
+                <x-ui.section-label class="mb-4">Application Pipeline</x-ui.section-label>
                 <div class="grid gap-4 md:grid-cols-3">
                     @foreach($applicationPipeline as $item)
                         <x-ui.card tone="subtle" padding="p-5">
                             <p class="theme-text-muted text-xs font-semibold uppercase tracking-[0.14em]">{{ $item['label'] }}</p>
                             <p class="theme-text-strong mt-3 text-3xl font-semibold">{{ number_format($item['value']) }}</p>
-                            <p class="theme-text-muted mt-2 text-sm leading-6">{{ $item['description'] }}</p>
+                            <p class="theme-text-muted mt-2 text-sm">{{ $item['description'] }}</p>
                         </x-ui.card>
                     @endforeach
                 </div>
             </section>
 
             <section>
-                <div class="mb-4 flex items-end justify-between gap-4">
-                    <div>
-                        <x-ui.section-label class="mb-2">Recent Work</x-ui.section-label>
-                        <h2 class="theme-text-strong text-2xl font-semibold">Recent Applications</h2>
-                        <p class="theme-text-muted mt-1 text-sm">The latest decisions and in-flight roles connected to your account.</p>
-                    </div>
+                <div class="mb-4 flex items-center justify-between gap-4">
+                    <x-ui.section-label>Recent Applications</x-ui.section-label>
                     <x-ui.button href="{{ route('my.applications.index') }}" variant="outline" size="sm">View all</x-ui.button>
                 </div>
 
                 @if($recentApplications->isNotEmpty())
-                    <div class="space-y-3">
+                    <div class="space-y-2">
                         @foreach($recentApplications as $application)
                             @php
                                 $statusTone = match($application->status->value) {
-                                    'approved' => 'border-green-200 bg-green-50 text-green-700',
-                                    'rejected' => 'border-red-200 bg-red-50 text-red-700',
-                                    default => 'border-amber-200 bg-amber-50 text-amber-700',
+                                    'approved' => 'theme-alert-success',
+                                    'rejected' => 'theme-alert-error',
+                                    default => 'theme-alert-warning',
                                 };
                             @endphp
-                            <x-ui.card padding="p-5">
-                                <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                                    <div>
-                                        <p class="theme-text-strong text-lg font-semibold">{{ $application->jobPosting?->title }}</p>
-                                        <p class="theme-text-muted mt-1 text-sm">{{ $application->jobPosting?->companyUser?->nickname }}</p>
-                                        @if($application->message)
-                                            <p class="theme-text-muted mt-3 text-sm leading-6">{{ \Illuminate\Support\Str::limit($application->message, 150) }}</p>
-                                        @endif
+                            <x-ui.card padding="p-4">
+                                <div class="flex items-center justify-between gap-4">
+                                    <div class="min-w-0">
+                                        <p class="theme-text-strong truncate text-sm font-semibold">{{ $application->jobPosting?->title }}</p>
+                                        <p class="theme-text-muted mt-0.5 truncate text-xs">{{ $application->jobPosting?->companyUser?->nickname }}</p>
                                     </div>
-                                    <div class="flex flex-col items-start gap-2 sm:items-end">
-                                        <span class="rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] {{ $statusTone }}">
-                                            {{ $application->status->value }}
-                                        </span>
-                                        <span class="theme-text-muted text-xs">{{ $application->created_at->diffForHumans() }}</span>
+                                    <div class="flex shrink-0 items-center gap-3">
+                                        <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold {{ $statusTone }}">{{ ucfirst($application->status->value) }}</span>
+                                        <span class="theme-text-muted whitespace-nowrap text-xs">{{ $application->created_at->diffForHumans() }}</span>
                                     </div>
                                 </div>
                             </x-ui.card>
@@ -94,11 +75,9 @@
                 @else
                     <x-ui.empty-state
                         title="No applications yet"
-                        message="Start with a fresh role so the dashboard can track your pipeline and decisions."
+                        message="Browse jobs and apply to start tracking your pipeline here."
                     >
-                        <x-slot:icon>
-                            <x-heroicon-o-document-text class="h-10 w-10" />
-                        </x-slot:icon>
+                        <x-slot:icon><x-heroicon-o-document-text class="h-10 w-10" /></x-slot:icon>
                         <x-slot:action>
                             <x-ui.button href="{{ route('jobs.index') }}">Browse jobs</x-ui.button>
                         </x-slot:action>
@@ -109,54 +88,36 @@
 
         <div class="space-y-6">
             <section>
-                <div class="mb-4">
-                    <x-ui.section-label class="mb-2">Account</x-ui.section-label>
-                    <h2 class="theme-text-strong text-2xl font-semibold">Security Checkpoint</h2>
-                    <p class="theme-text-muted mt-1 text-sm">Keep profile identity and recovery posture aligned with the application workflow.</p>
-                </div>
-
-                <x-ui.card padding="p-6">
-                    <div class="flex items-start justify-between gap-4">
-                        <div>
-                            <p class="theme-text-strong text-lg font-semibold">{{ $user?->nickname }}</p>
-                            <p class="theme-text-muted mt-1 text-sm">{{ $user?->email }}</p>
+                <x-ui.section-label class="mb-4">Account</x-ui.section-label>
+                <x-ui.card padding="p-5">
+                    <div class="flex items-center justify-between gap-4">
+                        <div class="min-w-0">
+                            <p class="theme-text-strong truncate text-sm font-semibold">{{ $user?->nickname }}</p>
+                            <p class="theme-text-muted mt-0.5 truncate text-xs">{{ $user?->email }}</p>
                         </div>
-                        <span class="rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] {{ $securityTone }}">
-                            {{ $twoFactorEnabled ? '2FA ready' : '2FA recommended' }}
-                        </span>
+                        @if($twoFactorEnabled)
+                            <span class="theme-alert-success inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">2FA on</span>
+                        @else
+                            <span class="theme-alert-warning inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold">2FA off</span>
+                        @endif
                     </div>
-
-                    <div class="mt-5 space-y-3">
-                        <div class="theme-panel-subtle rounded-2xl border p-4">
-                            <p class="theme-text-strong text-sm font-semibold">Protected password flow</p>
-                            <p class="theme-text-muted mt-1 text-sm leading-6">
-                                {{ $twoFactorEnabled ? 'Unlocked. You can move through password management inside the secured profile workspace.' : 'Still gated. Confirm two-factor authentication first to unlock password changes.' }}
-                            </p>
-                        </div>
-                        <div class="flex flex-wrap gap-3">
-                            <x-ui.button href="{{ route('profile.show') }}" variant="outline">Profile workspace</x-ui.button>
-                            <x-ui.button href="{{ route('profile.two-factor') }}">Security settings</x-ui.button>
-                        </div>
+                    <div class="mt-4 flex flex-wrap gap-2">
+                        <x-ui.button href="{{ route('profile.show') }}" variant="outline" size="sm">Profile</x-ui.button>
+                        <x-ui.button href="{{ route('profile.two-factor') }}" size="sm">Security</x-ui.button>
                     </div>
                 </x-ui.card>
             </section>
 
             <section>
-                <div class="mb-4">
-                    <x-ui.section-label class="mb-2">Fresh Roles</x-ui.section-label>
-                    <h2 class="theme-text-strong text-2xl font-semibold">Roles Worth Reviewing</h2>
-                    <p class="theme-text-muted mt-1 text-sm">New opportunities to feed back into your pipeline.</p>
-                </div>
-
-                <div class="space-y-3">
+                <x-ui.section-label class="mb-4">Fresh Roles</x-ui.section-label>
+                <div class="space-y-2">
                     @foreach($recommendedJobs as $job)
                         <a href="{{ route('jobs.show', $job->idcode) }}" class="block">
-                            <x-ui.card tone="subtle" padding="p-5" hover="true">
-                                <p class="theme-text-strong text-base font-semibold">{{ $job->title }}</p>
-                                <p class="theme-text-muted mt-1 text-sm">{{ $job->companyUser?->nickname }}</p>
-                                <div class="mt-3 flex items-center justify-between gap-3 text-xs">
-                                    <span class="theme-text-strong font-semibold">{{ $job->salary ?? 'Compensation on request' }}</span>
-                                    <span class="theme-text-muted">{{ $job->created_at->diffForHumans() }}</span>
+                            <x-ui.card tone="subtle" padding="p-4" hover="true">
+                                <p class="theme-text-strong truncate text-sm font-semibold">{{ $job->title }}</p>
+                                <div class="mt-2 flex items-center justify-between gap-3 text-xs">
+                                    <span class="theme-text-muted truncate">{{ $job->companyUser?->nickname }}</span>
+                                    <span class="theme-text-muted shrink-0">{{ $job->created_at->diffForHumans() }}</span>
                                 </div>
                             </x-ui.card>
                         </a>

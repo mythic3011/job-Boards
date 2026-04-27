@@ -12,8 +12,6 @@ class AdminApplicationsUiContractTest extends TestCase
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('Application queue', $contents);
-        $this->assertStringContainsString('Review posture', $contents);
-        $this->assertStringContainsString('grid gap-4 lg:grid-cols-2', $contents);
         $this->assertStringContainsString('Search submitted applications', $contents);
         $this->assertStringContainsString('Review Filters', $contents);
         $this->assertStringContainsString('Try adjusting your search or filters', $contents);
@@ -26,8 +24,8 @@ class AdminApplicationsUiContractTest extends TestCase
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('<x-ui.avatar', $contents);
-        $this->assertStringContainsString('Pending Review', $contents);
-        $this->assertStringContainsString('CV Attached', $contents);
+        $this->assertStringContainsString('Pending', $contents);
+        $this->assertStringContainsString('CV attached', $contents);
         $this->assertStringContainsString('Application', $contents);
         $this->assertStringContainsString('Review & Timeline', $contents);
         $this->assertStringContainsString('Open review', $contents);
@@ -41,7 +39,6 @@ class AdminApplicationsUiContractTest extends TestCase
 
         $this->assertIsString($contents);
         $this->assertStringContainsString('theme-hero-surface', $contents);
-        $this->assertStringContainsString('theme-hero-card', $contents);
         $this->assertStringContainsString('theme-hero-eyebrow', $contents);
         $this->assertStringContainsString('theme-panel', $contents);
         $this->assertStringContainsString('theme-input-shell', $contents);
@@ -49,9 +46,6 @@ class AdminApplicationsUiContractTest extends TestCase
         $this->assertStringContainsString('theme-table-shell', $contents);
         $this->assertStringContainsString('theme-text-strong', $contents);
         $this->assertStringContainsString('theme-text-muted', $contents);
-        $this->assertStringContainsString('theme-signal-warning', $contents);
-        $this->assertStringContainsString('theme-signal-info', $contents);
-        $this->assertStringContainsString('theme-signal-success', $contents);
         $this->assertStringNotContainsString('rounded-2xl border border-gray-200 bg-white', $contents);
         $this->assertStringNotContainsString('text-gray-900', $contents);
         $this->assertStringNotContainsString('bg-white/5', $contents);
@@ -85,6 +79,31 @@ class AdminApplicationsUiContractTest extends TestCase
         $this->assertStringNotContainsString('bg-red-50 text-red-700', $contents);
         $this->assertStringNotContainsString('bg-yellow-50 text-yellow-700', $contents);
         $this->assertStringNotContainsString('bg-slate-900', $contents);
+    }
+
+    public function test_admin_applications_index_prioritizes_full_width_table_over_persistent_sidebar(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/applications/index.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString("number_format(\$stats['total_applications']).' applications", $contents);
+        $this->assertStringContainsString("number_format(\$stats['pending_applications']).' pending", $contents);
+        $this->assertStringNotContainsString('xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]', $contents);
+        $this->assertStringNotContainsString('Review posture', $contents);
+        $this->assertStringNotContainsString('theme-hero-card', $contents);
+        $this->assertStringNotContainsString('Queue health signals', $contents);
+    }
+
+    public function test_admin_applications_action_controls_have_visible_interaction_states(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/applications/index.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('theme-action-control', $contents);
+        $this->assertStringContainsString('hover:', $contents);
+        $this->assertStringContainsString('focus-visible:', $contents);
+        $this->assertStringContainsString('active:', $contents);
+        $this->assertStringContainsString('disabled:', $contents);
     }
 
     public function test_admin_application_cv_download_actions_are_policy_gated(): void

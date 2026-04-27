@@ -110,10 +110,8 @@ class PerformanceQuickWinsTest extends TestCase
         });
 
         Volt::test('admin.users.index')
-            ->assertSee('Total Users')
-            ->assertSee('Admin Accounts')
-            ->assertSee('Locked Accounts')
-            ->assertSee('2FA Enabled');
+            ->assertSee('users')
+            ->assertSee('admins');
 
         $this->assertSame(
             0,

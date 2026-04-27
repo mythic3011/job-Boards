@@ -41,11 +41,37 @@ class AdminJobsUiContractTest extends TestCase
         $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/jobs/index.blade.php');
 
         $this->assertIsString($contents);
-        $this->assertStringContainsString('grid gap-4 lg:grid-cols-2', $contents);
         $this->assertStringContainsString('aria-controls="jobs-operator-notes"', $contents);
         $this->assertStringContainsString(":aria-expanded=\"notesOpen.toString()\"", $contents);
         $this->assertStringContainsString("x-text=\"notesOpen ? 'Hide notes' : 'Show notes'\"", $contents);
         $this->assertStringContainsString('Company queue', $contents);
         $this->assertStringContainsString('Open company-wide applications queue', $contents);
+    }
+
+    public function test_admin_jobs_index_prioritizes_full_width_table_over_persistent_sidebar(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/jobs/index.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString("number_format(\$stats['total_jobs']).' jobs", $contents);
+        $this->assertStringContainsString("number_format(\$stats['company_accounts']).' companies", $contents);
+        $this->assertStringNotContainsString('xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]', $contents);
+        $this->assertStringNotContainsString('Queue posture', $contents);
+        $this->assertStringNotContainsString('theme-hero-card', $contents);
+        $this->assertStringNotContainsString('Employers currently contributing listings', $contents);
+        $this->assertStringNotContainsString('Filters active', $contents);
+    }
+
+    public function test_admin_jobs_action_controls_have_visible_interaction_states(): void
+    {
+        $contents = file_get_contents(dirname(__DIR__, 2).'/resources/views/livewire/admin/jobs/index.blade.php');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('theme-action-control', $contents);
+        $this->assertStringContainsString('hover:', $contents);
+        $this->assertStringContainsString('focus-visible:', $contents);
+        $this->assertStringContainsString('active:', $contents);
+        $this->assertStringContainsString('disabled:', $contents);
+        $this->assertStringContainsString('wire:loading.attr="disabled"', $contents);
     }
 }

@@ -210,6 +210,35 @@ html[data-theme-mode="dark"][data-theme-accent="forest"] {
     color: var(--app-page-fg);
 }
 
+.theme-dropdown-trigger:hover,
+.theme-switcher-trigger:hover {
+    background: var(--app-panel-subtle-bg);
+    border-color: var(--app-panel-border);
+    color: var(--app-text-strong);
+}
+
+.theme-dropdown-trigger:focus-visible,
+.theme-switcher-trigger:focus-visible,
+.theme-action-control:focus-visible,
+.theme-link:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--app-focus-ring);
+}
+
+.theme-action-control:active,
+.theme-dropdown-trigger:active,
+.theme-switcher-trigger:active,
+.theme-link:active {
+    transform: scale(0.98);
+}
+
+.theme-action-control:disabled,
+.theme-dropdown-trigger:disabled,
+.theme-switcher-trigger:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
 .theme-dropdown-trigger.is-open,
 .theme-switcher-trigger.is-open {
     background: var(--app-panel-subtle-bg);
@@ -489,6 +518,11 @@ html[data-theme-mode="dark"][data-theme-accent="forest"] {
     background: var(--app-accent-hover);
 }
 
+.theme-button-primary:active {
+    background: var(--app-accent-hover);
+    transform: scale(0.98);
+}
+
 .theme-button-secondary {
     background: var(--app-secondary-bg);
     color: var(--app-secondary-fg);
@@ -497,6 +531,11 @@ html[data-theme-mode="dark"][data-theme-accent="forest"] {
 
 .theme-button-secondary:hover {
     background: var(--app-secondary-hover);
+}
+
+.theme-button-secondary:active {
+    background: var(--app-secondary-hover);
+    transform: scale(0.98);
 }
 
 .theme-button-outline {
@@ -509,6 +548,11 @@ html[data-theme-mode="dark"][data-theme-accent="forest"] {
     background: var(--app-panel-subtle-bg);
 }
 
+.theme-button-outline:active {
+    background: var(--app-panel-subtle-bg);
+    transform: scale(0.98);
+}
+
 .theme-button-warning {
     background: var(--app-warning-bg);
     color: var(--app-warning-fg);
@@ -519,6 +563,11 @@ html[data-theme-mode="dark"][data-theme-accent="forest"] {
     filter: brightness(0.98);
 }
 
+.theme-button-warning:active {
+    filter: brightness(0.95);
+    transform: scale(0.98);
+}
+
 .theme-button-danger {
     background: var(--app-danger-bg);
     color: var(--app-danger-fg);
@@ -527,6 +576,11 @@ html[data-theme-mode="dark"][data-theme-accent="forest"] {
 
 .theme-button-danger:hover {
     filter: brightness(0.98);
+}
+
+.theme-button-danger:active {
+    filter: brightness(0.95);
+    transform: scale(0.98);
 }
 
 .theme-alert {

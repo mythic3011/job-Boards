@@ -134,7 +134,7 @@ new class extends Component
 
 <div x-data="{ showDeleteModal: false, pendingDeleteId: '', pendingDeleteTitle: '', lastActiveEl: null }" class="space-y-8">
     <div class="theme-hero-surface rounded-3xl border px-6 py-7 sm:px-8">
-        <div class="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div class="max-w-2xl">
                 <p class="theme-hero-eyebrow text-xs font-semibold uppercase tracking-[0.18em]">Admin Jobs</p>
                 <h1 class="mt-3 text-3xl font-semibold tracking-tight">Job posting operations</h1>
@@ -142,17 +142,8 @@ new class extends Component
                     Review active listings, move between company context and applicant demand, and remove outdated postings without leaving the queue.
                 </p>
             </div>
-            <div class="grid grid-cols-2 gap-3 lg:min-w-[420px]">
-                <div class="theme-hero-card rounded-2xl border px-4 py-4">
-                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Total Jobs</p>
-                    <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['total_jobs']) }}</p>
-                    <p class="theme-text-muted mt-2 text-sm">Listings currently available across all companies.</p>
-                </div>
-                <div class="theme-hero-card rounded-2xl border px-4 py-4">
-                    <p class="theme-text-muted text-xs uppercase tracking-[0.16em]">Company Accounts</p>
-                    <p class="mt-3 text-3xl font-semibold">{{ number_format($stats['company_accounts']) }}</p>
-                    <p class="theme-text-muted mt-2 text-sm">Distinct employer workspaces feeding the jobs directory.</p>
-                </div>
+            <div class="theme-pill inline-flex w-fit items-center rounded-full border px-3 py-1 text-sm font-semibold">
+                {{ number_format($stats['total_jobs']).' jobs · '.number_format($stats['company_accounts']).' companies' }}
             </div>
         </div>
     </div>
@@ -163,14 +154,12 @@ new class extends Component
         </x-ui.alert>
     @endif
 
-    <div class="grid gap-6 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]">
-        <div class="space-y-6">
+    <div class="space-y-6">
             <div class="theme-panel rounded-2xl border p-5 shadow-sm">
                 <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                         <x-ui.section-label class="mb-2">Listing Filters</x-ui.section-label>
-                        <p class="theme-text-muted text-sm">Search job titles, scan requirements, and focus the queue by company.</p>
-                        <p class="theme-text-muted mt-1 text-xs">Apply filters before destructive actions so decisions reflect the intended company and posting age.</p>
+                        <p class="theme-text-muted text-sm">Search job titles, requirements, and company scope.</p>
                     </div>
                     <div class="theme-pill inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold">
                         <span>{{ $jobs->total() }} {{ \Illuminate\Support\Str::plural('job', $jobs->total()) }}</span>
@@ -197,7 +186,7 @@ new class extends Component
                                 aria-label="Search job listings by title or requirements"
                             />
                             @if($search)
-                                <button wire:click="clearSearch" class="theme-text-muted shrink-0 rounded-full p-0.5 transition-colors hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)] cursor-pointer" aria-label="Clear search">
+                                <button type="button" wire:click="clearSearch" class="theme-action-control theme-text-muted shrink-0 rounded-full p-0.5 transition-colors hover:bg-[var(--app-panel-subtle-bg)] hover:text-[var(--app-text-strong)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer" aria-label="Clear search">
                                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                                     </svg>
@@ -219,7 +208,7 @@ new class extends Component
                     </select>
 
                     @if($search || $companyFilter || $sort !== 'latest')
-                        <button wire:click="clearFilters" class="theme-input shrink-0 rounded-lg border px-3 py-2.5 text-sm shadow-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] cursor-pointer">
+                        <button type="button" wire:click="clearFilters" class="theme-action-control theme-input shrink-0 rounded-lg border px-3 py-2.5 text-sm shadow-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer">
                             Clear all
                         </button>
                     @endif
@@ -249,7 +238,7 @@ new class extends Component
                                 <th class="theme-text-muted px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Company</th>
                                 <th class="theme-text-muted px-6 py-3.5 text-center text-xs font-semibold uppercase tracking-wider">Applications</th>
                                 <th class="theme-text-muted px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Created</th>
-                                <th class="theme-text-muted px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider">Actions (Moderation)</th>
+                                <th class="theme-text-muted px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y" style="--tw-divide-opacity: 1; border-color: var(--app-panel-border);">
@@ -277,7 +266,7 @@ new class extends Component
                                             </span>
                                             <a
                                                 href="{{ route('admin.applications.index', ['companyFilter' => $job->company_user_id]) }}"
-                                                class="theme-link text-[11px] font-semibold"
+                                                class="theme-action-control theme-link rounded-full px-2 py-1 text-[11px] font-semibold transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                                                 aria-label="Open company-wide applications queue for {{ $job->companyUser->nickname }}"
                                                 title="Open company-wide applications queue"
                                             >
@@ -289,37 +278,67 @@ new class extends Component
                                         <div class="theme-text-strong text-sm font-medium">{{ $job->created_at->diffForHumans() }}</div>
                                         <div class="theme-text-muted mt-1 text-xs">{{ $job->created_at->format('M j, Y') }}</div>
                                     </td>
-                                    <td class="px-6 py-4">
-                                        <div class="flex flex-col items-end gap-2">
-                                            <a
-                                                href="{{ route('jobs.show', $job->idcode) }}"
-                                                class="theme-button theme-button-primary inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer"
-                                                title="Open public listing details in a new page context"
-                                            >
-                                                Open
-                                            </a>
-                                            @can('adminModerate', $job)
-                                                <a
-                                                    href="{{ route('admin.jobs.edit', $job->idcode) }}"
-                                                    class="theme-link inline-flex items-center gap-1.5 text-xs font-semibold transition-colors duration-150 cursor-pointer"
-                                                    title="Edit listing content and moderation details"
-                                                >
-                                                    Edit
-                                                </a>
+                                    <td class="overflow-visible px-6 py-4 text-right text-sm font-medium">
+                                        <div class="flex justify-end">
+                                            <div class="relative" data-dropdown data-open="false">
                                                 <button
                                                     type="button"
-                                                    data-job-id="{{ $job->id }}"
-                                                    data-job-title="{{ $job->title }}"
-                                                    @mousedown="lastActiveEl = $event.currentTarget"
-                                                    @click="pendingDeleteId = $event.currentTarget.dataset.jobId; pendingDeleteTitle = $event.currentTarget.dataset.jobTitle || ''; showDeleteModal = !!pendingDeleteId"
-                                                    class="theme-alert-error inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors hover:brightness-95 cursor-pointer"
-                                                    title="Permanently remove this listing and related applications"
+                                                    class="theme-action-control theme-dropdown-trigger inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                                                    data-dropdown-button
+                                                    aria-expanded="false"
+                                                    aria-haspopup="true"
+                                                    title="Open listing actions"
                                                 >
-                                                    Delete
+                                                    <span>Actions</span>
+                                                    <svg class="h-4 w-4 transition-transform duration-200" data-dropdown-arrow fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
+                                                    </svg>
                                                 </button>
-                                            @else
-                                                <span class="theme-text-muted text-xs font-medium">Moderation restricted</span>
-                                            @endcan
+
+                                                <div
+                                                    class="theme-dropdown-panel absolute right-0 top-full z-[100] mt-3 w-56 rounded-2xl border p-2 text-left opacity-0 translate-y-1 scale-[0.98] pointer-events-none transition-all duration-150 ease-out"
+                                                    data-dropdown-menu
+                                                    data-dropdown-panel
+                                                >
+                                                    <div class="theme-table-divider border-b px-3 py-2">
+                                                        <p class="theme-text-muted text-[11px] font-semibold uppercase tracking-[0.16em]">Listing operations</p>
+                                                        <p class="theme-text-strong mt-1 truncate text-sm font-semibold">{{ $job->title }}</p>
+                                                    </div>
+                                                    <div class="space-y-1 p-2">
+                                                        <a
+                                                            href="{{ route('jobs.show', $job->idcode) }}"
+                                                            class="theme-action-control theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98]"
+                                                            title="Open public listing details"
+                                                        >
+                                                            Open listing
+                                                        </a>
+                                                        @can('adminModerate', $job)
+                                                            <a
+                                                                href="{{ route('admin.jobs.edit', $job->idcode) }}"
+                                                                class="theme-action-control theme-text-strong flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98]"
+                                                                title="Edit listing content and moderation details"
+                                                            >
+                                                                Edit listing
+                                                            </a>
+                                                            <button
+                                                                type="button"
+                                                                data-job-id="{{ $job->id }}"
+                                                                data-job-title="{{ $job->title }}"
+                                                                @mousedown="lastActiveEl = $event.currentTarget"
+                                                                @click="pendingDeleteId = $event.currentTarget.dataset.jobId; pendingDeleteTitle = $event.currentTarget.dataset.jobTitle || ''; showDeleteModal = !!pendingDeleteId"
+                                                                class="theme-action-control theme-alert-error flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition-colors hover:brightness-95 focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                                                                title="Permanently remove this listing and related applications"
+                                                            >
+                                                                Delete listing
+                                                            </button>
+                                                        @else
+                                                            <span class="theme-text-muted inline-flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-semibold">
+                                                                Moderation restricted
+                                                            </span>
+                                                        @endcan
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -355,37 +374,10 @@ new class extends Component
                     key-name="admin-jobs"
                 />
             </div>
-        </div>
-
-        <div class="space-y-6">
-            <div>
-                <div class="mb-4">
-                    <x-ui.section-label class="mb-2">Queue posture</x-ui.section-label>
-                    <p class="theme-text-muted text-sm">Quick context for moderation and cleanup before you open a listing.</p>
-                </div>
-                <x-ui.card class="grid gap-4 lg:grid-cols-2">
-                    <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
-                        <div class="flex items-baseline justify-between gap-3">
-                            <p class="theme-text-strong text-sm font-medium">Companies in view</p>
-                            <p class="theme-text-strong text-2xl font-semibold">{{ number_format($stats['company_accounts']) }}</p>
-                        </div>
-                        <p class="theme-text-muted mt-2 text-sm">Employers currently contributing listings to this moderation queue.</p>
-                    </div>
-
-                    <div class="theme-panel-subtle rounded-2xl border px-4 py-4">
-                        <div class="flex items-baseline justify-between gap-3">
-                            <p class="theme-text-strong text-sm font-medium">Filters active</p>
-                            <p class="theme-text-strong text-2xl font-semibold">{{ number_format($activeFilterCount) }}</p>
-                        </div>
-                        <p class="theme-text-muted mt-2 text-sm">Current scoping applied before acting on a listing or opening applications.</p>
-                    </div>
-                </x-ui.card>
-            </div>
-
             <x-ui.card x-data="{ notesOpen: false }">
                 <button
                     type="button"
-                    class="flex w-full items-center justify-between gap-3 text-left"
+                    class="theme-action-control flex w-full items-center justify-between gap-3 rounded-xl text-left transition-colors hover:bg-[var(--app-panel-subtle-bg)] focus-visible:ring-2 focus-visible:ring-[var(--app-focus-ring)] active:scale-[0.995] disabled:cursor-not-allowed disabled:opacity-60"
                     @click="notesOpen = !notesOpen"
                     :aria-expanded="notesOpen.toString()"
                     aria-controls="jobs-operator-notes"
@@ -402,7 +394,6 @@ new class extends Component
                     <p>Before deleting, verify the posting age, complaint context, and whether policy requires record retention or internal escalation.</p>
                 </div>
             </x-ui.card>
-        </div>
     </div>
 
     <div
@@ -425,7 +416,7 @@ new class extends Component
             aria-labelledby="delete-job-title"
             tabindex="-1"
             x-ref="deleteJobDialog"
-            x-effect="if (showDeleteModal) { $nextTick(() => $refs.deleteJobDialog?.focus()) }"
+            x-effect="showDeleteModal && $nextTick(() => $refs.deleteJobDialog?.focus())"
             class="theme-modal-surface w-full max-w-lg rounded-xl"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0 scale-95"

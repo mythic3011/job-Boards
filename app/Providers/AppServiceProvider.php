@@ -59,11 +59,35 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('file-upload', function (Request $request) {
-            return Limit::perMinute(5)->by($request->ip());
+            return Limit::perMinute(config('rate-limits.file_upload'))->by($request->ip());
         });
 
         RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->ip());
+            return Limit::perMinute(config('rate-limits.api'))->by($request->ip());
+        });
+
+        RateLimiter::for('admin', function (Request $request) {
+            return Limit::perMinute(config('rate-limits.admin'))->by($request->ip());
+        });
+
+        RateLimiter::for('job-create', function (Request $request) {
+            return Limit::perMinute(config('rate-limits.job_create'))->by($request->user()?->id ?? $request->ip());
+        });
+
+        RateLimiter::for('job-apply', function (Request $request) {
+            return Limit::perMinute(config('rate-limits.job_apply'))->by($request->user()?->id ?? $request->ip());
+        });
+
+        RateLimiter::for('my-applications', function (Request $request) {
+            return Limit::perMinute(config('rate-limits.my_applications'))->by($request->user()?->id ?? $request->ip());
+        });
+
+        RateLimiter::for('application-action', function (Request $request) {
+            return Limit::perMinute(config('rate-limits.application_action'))->by($request->user()?->id ?? $request->ip());
+        });
+
+        RateLimiter::for('cv-download', function (Request $request) {
+            return Limit::perMinute(config('rate-limits.cv_download'))->by($request->user()?->id ?? $request->ip());
         });
 
         RateLimiter::for('bot-fingerprint-probe', function (Request $request) {

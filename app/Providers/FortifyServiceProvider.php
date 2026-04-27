@@ -80,12 +80,12 @@ class FortifyServiceProvider extends ServiceProvider
             $identifier = $request->input(Fortify::username());
             $throttleKey = Str::transliterate(Str::lower($identifier ?? '').'|'.$request->ip());
 
-            return Limit::perMinute(5)->by($throttleKey);
+            return Limit::perMinute(config('rate-limits.login'))->by($throttleKey);
         });
 
         // Rate limiting for registration (per IP)
         RateLimiter::for('register', function (Request $request) {
-            return Limit::perHour(3)->by($request->ip());
+            return Limit::perHour(config('rate-limits.register'))->by($request->ip());
         });
 
         // Rate limiting for password reset (per email + IP)
@@ -93,11 +93,11 @@ class FortifyServiceProvider extends ServiceProvider
             $email = $request->input('email');
             $throttleKey = Str::transliterate(Str::lower($email ?? '').'|'.$request->ip());
 
-            return Limit::perHour(3)->by($throttleKey);
+            return Limit::perHour(config('rate-limits.password_reset'))->by($throttleKey);
         });
 
         RateLimiter::for('two-factor', function (Request $request) {
-            return Limit::perMinute(5)->by($request->session()->get('login.id'));
+            return Limit::perMinute(config('rate-limits.two_factor'))->by($request->session()->get('login.id'));
         });
     }
 }
