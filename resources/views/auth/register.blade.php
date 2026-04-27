@@ -52,7 +52,7 @@
 
                         <div class="grid gap-5 sm:grid-cols-2">
                             <x-ui.input
-                                id="login_id"
+                                id="username"
                                 name="login_id"
                                 label="Username"
                                 type="text"

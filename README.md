@@ -16,15 +16,15 @@ Local default flow:
 Repo-first remote deployment now lives under `ops/deploy/`:
 
 - `ops/deploy/vps-deploy.sh jb.mythic3011.com [git-ref]`
-  - production-style VPS target
-  - keeps the app behind host nginx on loopback high ports
+    - production-style VPS target
+    - keeps the app behind host nginx on loopback high ports
 - `ops/deploy/vps-deploy.sh from-env [git-ref]`
-  - generic reverse-proxy target
-  - builds a production-style profile from `TARGET_*` environment variables
+    - generic reverse-proxy target
+    - builds a production-style profile from `TARGET_*` environment variables
 - `ops/deploy/vps-deploy.sh lab-env [git-ref]`
-  - reusable lab target
-  - keeps the app nginx on loopback high ports so host-level reverse proxying can own `80/443`
-  - supports DHCP or static subnet provisioning through env overrides
+    - reusable lab target
+    - keeps the app nginx on loopback high ports so host-level reverse proxying can own `80/443`
+    - supports DHCP or static subnet provisioning through env overrides
 
 Example generic reverse-proxy deploy:
 
@@ -50,24 +50,24 @@ The `from-env` target uses the shared builder and derives these defaults unless 
 Reverse-proxy TLS consumption modes:
 
 - `TARGET_TLS_MODE=cloudflare-origin` (default)
-  - consumes origin cert/key from `/etc/nginx/cert/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/`
-  - suitable when Cloudflare terminates the public certificate and the VPS only needs an origin certificate
+    - consumes origin cert/key from `/etc/nginx/cert/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/`
+    - suitable when Cloudflare terminates the public certificate and the VPS only needs an origin certificate
 - `TARGET_TLS_MODE=letsencrypt`
-  - consumes `/etc/letsencrypt/live/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/fullchain.pem`
-  - consumes `/etc/letsencrypt/live/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/privkey.pem`
-  - suitable when the host itself presents the public certificate and Certbot/systemd handles renewal outside the app deploy workflow
+    - consumes `/etc/letsencrypt/live/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/fullchain.pem`
+    - consumes `/etc/letsencrypt/live/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/privkey.pem`
+    - suitable when the host itself presents the public certificate and Certbot/systemd handles renewal outside the app deploy workflow
 - `TARGET_TLS_MODE=custom`
-  - provide `TARGET_NGINX_CERT_PATH` and `TARGET_NGINX_KEY_PATH` explicitly when neither default layout applies
+    - provide `TARGET_NGINX_CERT_PATH` and `TARGET_NGINX_KEY_PATH` explicitly when neither default layout applies
 
 Optional builder overrides:
 
 - `TARGET_NGINX_CERT_DOMAIN`
-  - use when the deploy hostname and certificate hostname differ
-  - example: deploy `jb.mythic3011.com` while consuming `/etc/nginx/cert/mythic3011.com/...`
+    - use when the deploy hostname and certificate hostname differ
+    - example: deploy `jb.mythic3011.com` while consuming `/etc/nginx/cert/mythic3011.com/...`
 - `TARGET_NGINX_CERT_PATH_TEMPLATE`
 - `TARGET_NGINX_KEY_PATH_TEMPLATE`
-  - support reusable path layouts via `{domain}` placeholder expansion
-  - example: `TARGET_NGINX_CERT_PATH_TEMPLATE=/srv/tls/{domain}/fullchain.pem`
+    - support reusable path layouts via `{domain}` placeholder expansion
+    - example: `TARGET_NGINX_CERT_PATH_TEMPLATE=/srv/tls/{domain}/fullchain.pem`
 
 Host firewall / TLS policy inputs:
 
@@ -116,14 +116,14 @@ ops/deploy/vps-deploy.sh lab-env main
 Keep deployment and demo evidence separate:
 
 - VPS HTTPS evidence:
-  - deploy a reverse-proxy target such as `jb.mythic3011.com` or `from-env`
-  - verify the public URL through `https://www.whynopadlock.com/index.html`
-  - verify the public certificate grade through `https://www.ssllabs.com/ssltest`
-  - if the site is fronted by Cloudflare CDN, those public checks validate the Cloudflare edge certificate; the origin cert mode still has to match the VPS reverse-proxy contract
+    - deploy a reverse-proxy target such as `jb.mythic3011.com` or `from-env`
+    - verify the public URL through `https://www.whynopadlock.com/index.html`
+    - verify the public certificate grade through `https://www.ssllabs.com/ssltest`
+    - if the site is fronted by Cloudflare CDN, those public checks validate the Cloudflare edge certificate; the origin cert mode still has to match the VPS reverse-proxy contract
 - Web vulnerability evidence:
-  - use external ZAP containers, not app deploy bootstrap
-  - capture one baseline report for the pre-remediation revision and one report for the remediated revision
-  - the reusable wrapper is `ops/demo/run-zap-baseline.sh`
+    - use external ZAP containers, not app deploy bootstrap
+    - capture one baseline report for the pre-remediation revision and one report for the remediated revision
+    - the reusable wrapper is `ops/demo/run-zap-baseline.sh`
 
 Example before/after ZAP run:
 

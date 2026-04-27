@@ -62,12 +62,12 @@ new class extends Component
 <div>
     <form wire:submit="register" class="space-y-6">
         <div>
-            <label for="login_id" class="theme-text-strong block text-sm font-medium">
+                <label for="username" class="theme-text-strong block text-sm font-medium">
                 Username
             </label>
             <div class="mt-1">
                 <input
-                    id="login_id"
+                    id="username"
                     name="login_id"
                     type="text"
                     wire:model="login_id"

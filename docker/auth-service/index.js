@@ -7,6 +7,8 @@ const { createCanonicalAuditMirror } = require("./canonical-audit");
 const {
     createCanonicalClientIpKeyGenerator,
     createClientIpResolver,
+    createTrustedProxyMatcher,
+    normalizeIp,
     parseTrustedProxyIps,
 } = require("./client-ip");
 
@@ -14,11 +16,14 @@ const AUTH_SERVICE_LOG_FILE = process.env.AUTH_SERVICE_LOG_FILE?.trim() || "";
 const AUTH_SERVICE_PUBLIC_DIR =
     process.env.AUTH_SERVICE_PUBLIC_DIR?.trim() ||
     path.join(__dirname, "public");
+let logFileWritable = Boolean(AUTH_SERVICE_LOG_FILE);
+let logFileErrorReported = false;
 
 if (AUTH_SERVICE_LOG_FILE) {
     try {
         fs.mkdirSync(path.dirname(AUTH_SERVICE_LOG_FILE), { recursive: true });
     } catch (error) {
+        logFileWritable = false;
         process.stderr.write(
             `[auth-service] failed to prepare log path: ${error.message}\n`,
         );
@@ -36,12 +41,16 @@ const writeLog = (level, msg, meta = {}) => {
 
     console.log(line);
 
-    if (AUTH_SERVICE_LOG_FILE) {
+    if (AUTH_SERVICE_LOG_FILE && logFileWritable) {
         fs.appendFile(AUTH_SERVICE_LOG_FILE, `${line}\n`, (error) => {
             if (error) {
-                process.stderr.write(
-                    `[auth-service] failed to append log file: ${error.message}\n`,
-                );
+                logFileWritable = false;
+                if (!logFileErrorReported) {
+                    logFileErrorReported = true;
+                    process.stderr.write(
+                        `[auth-service] failed to append log file: ${error.message}\n`,
+                    );
+                }
             }
         });
     }
@@ -67,6 +76,10 @@ const SESSION_SECRET = process.env.SESSION_SECRET?.trim() || "";
 const TRUSTED_PROXY_IPS = parseTrustedProxyIps(
     process.env.AUTH_SERVICE_TRUSTED_PROXY_IPS || "",
 );
+const ENFORCE_TRUSTED_PROXY =
+    (process.env.AUTH_SERVICE_ENFORCE_TRUSTED_PROXY ?? "true")
+        .trim()
+        .toLowerCase() !== "false";
 
 const failStartup = (message) => {
     log("error", message);
@@ -83,6 +96,11 @@ if (!USERS[process.env.MONITORING_ADMIN_USERNAME]) {
 if (!SESSION_SECRET) {
     failStartup("SESSION_SECRET is required - refusing to start");
 }
+if (ENFORCE_TRUSTED_PROXY && TRUSTED_PROXY_IPS.length === 0) {
+    failStartup(
+        "AUTH_SERVICE_TRUSTED_PROXY_IPS is required when AUTH_SERVICE_ENFORCE_TRUSTED_PROXY is enabled",
+    );
+}
 
 const express = require("express");
 const bcrypt = require("bcrypt");
@@ -92,6 +110,34 @@ const rateLimit = require("express-rate-limit");
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
+
+const isTrustedProxyPeer = createTrustedProxyMatcher(TRUSTED_PROXY_IPS);
+
+app.use((req, res, next) => {
+    if (!ENFORCE_TRUSTED_PROXY) {
+        return next();
+    }
+
+    if (req.path === "/health") {
+        return next();
+    }
+
+    const peerIp = normalizeIp(
+        req.socket?.remoteAddress || req.connection?.remoteAddress || "",
+    );
+    if (isTrustedProxyPeer(peerIp)) {
+        return next();
+    }
+
+    log("warn", "audit.auth.ingress.denied", {
+        peerIp: peerIp || "unknown",
+        path: req.path,
+        method: req.method,
+        requestId: req.headers["x-request-id"] || "",
+        reason: "untrusted_proxy_peer",
+    });
+    return res.status(403).json({ error: "Forbidden" });
+});
 
 // serve built frontend assets if present
 const publicDir = AUTH_SERVICE_PUBLIC_DIR;

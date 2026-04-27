@@ -26,6 +26,8 @@ class AvatarFallbackContractTest extends TestCase
         $this->assertStringContainsString('document.addEventListener(', $contents);
         $this->assertStringContainsString('"load"', $contents);
         $this->assertStringContainsString('"error"', $contents);
+        $this->assertStringContainsString('"livewire:init"', $contents);
+        $this->assertStringContainsString('livewire.hook("morph.updated"', $contents);
     }
 
     public function test_file_input_uses_the_same_data_driven_avatar_fallback_contract(): void

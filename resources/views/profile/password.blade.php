@@ -43,6 +43,7 @@
             <form action="{{ route('profile.password.update') }}" method="POST" class="space-y-6">
                 @csrf
                 @method('PUT')
+                <input type="text" name="username" value="{{ $user['login_id'] }}" autocomplete="username" class="sr-only" tabindex="-1" aria-hidden="true" readonly>
 
                 <x-ui.card>
                     <div class="mb-6 flex items-start justify-between gap-4">

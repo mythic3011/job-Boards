@@ -43,6 +43,7 @@
             <form action="{{ route('profile.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
                 @csrf
                 @method('PUT')
+                <input type="text" name="username" value="{{ $user['login_id'] }}" autocomplete="username" class="sr-only" tabindex="-1" aria-hidden="true" readonly>
 
                 <x-ui.card>
                     <div class="mb-6 flex items-start justify-between gap-4">
@@ -164,9 +165,12 @@
                             <span class="theme-link">Open</span>
                         </a>
                     @else
-                        <div class="theme-alert-warning rounded-xl border px-4 py-3 text-sm">
+                        <div class="theme-alert-warning group relative rounded-xl border px-4 py-3 text-sm">
                             <p class="font-medium">Change Password is locked</p>
                             <p class="mt-1 text-xs">Enable two-factor authentication first to access the password change flow.</p>
+                            <div class="pointer-events-none absolute left-4 top-full z-10 mt-2 w-64 rounded-lg border border-[var(--app-warning-border)] bg-[var(--app-panel-bg)] px-3 py-2 text-xs opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+                                Enable and confirm 2FA in Security Settings to unlock password updates.
+                            </div>
                         </div>
                     @endif
                 </div>

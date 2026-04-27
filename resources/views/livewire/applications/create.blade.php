@@ -157,6 +157,8 @@ new class extends Component
         <x-ui.card padding="p-8">
             <form wire:submit.prevent="submit" method="POST" action="{{ route('applications.store', $jobIdcode) }}" enctype="multipart/form-data" class="space-y-6">
                 @csrf
+                <input type="text" name="username" value="{{ auth()->user()?->login_id }}" autocomplete="username" class="sr-only" tabindex="-1" aria-hidden="true" readonly>
+                <input type="email" name="email" value="{{ auth()->user()?->email }}" autocomplete="email" class="sr-only" tabindex="-1" aria-hidden="true" readonly>
                 <x-ui.textarea
                     label="Cover Message (Optional)"
                     name="message"

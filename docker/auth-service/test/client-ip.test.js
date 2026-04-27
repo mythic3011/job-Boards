@@ -70,3 +70,35 @@ test("falls back to request ip when the socket peer is unavailable", () => {
 
     assert.equal(resolveClientIp(request), "203.0.113.77");
 });
+
+test("trusts private range peers when CIDR entries are configured", () => {
+    const resolveClientIp = createClientIpResolver({
+        trustedProxyIps: ["172.16.0.0/12"],
+    });
+
+    const request = {
+        socket: { remoteAddress: "172.29.0.20" },
+        headers: {
+            "x-real-ip": "198.51.100.24",
+            "x-forwarded-for": "203.0.113.77, 172.29.0.20",
+        },
+    };
+
+    assert.equal(resolveClientIp(request), "198.51.100.24");
+});
+
+test("ignores x-forwarded headers when peer is outside configured CIDR ranges", () => {
+    const resolveClientIp = createClientIpResolver({
+        trustedProxyIps: ["10.0.0.0/8"],
+    });
+
+    const request = {
+        socket: { remoteAddress: "172.29.0.20" },
+        headers: {
+            "x-real-ip": "198.51.100.24",
+            "x-forwarded-for": "203.0.113.77, 172.29.0.20",
+        },
+    };
+
+    assert.equal(resolveClientIp(request), "172.29.0.20");
+});

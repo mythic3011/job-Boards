@@ -95,6 +95,8 @@ new class extends Component
             class="space-y-6"
         >
             @csrf
+            <input type="text" name="username" value="{{ auth()->user()?->login_id }}" autocomplete="username" class="sr-only" tabindex="-1" aria-hidden="true" readonly>
+            <input type="email" name="email" value="{{ auth()->user()?->email }}" autocomplete="email" class="sr-only" tabindex="-1" aria-hidden="true" readonly>
             <x-ui.input
                 label="Job Title"
                 name="title"

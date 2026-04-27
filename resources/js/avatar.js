@@ -1,4 +1,5 @@
 let pendingChange = null;
+let avatarSyncScheduled = false;
 
 function getAvatarFallbackElement(img) {
     if (!img) return null;
@@ -235,6 +236,35 @@ function syncAllAvatarImages() {
     document.querySelectorAll("[data-avatar-image]").forEach(syncExistingAvatarImage);
 }
 
+function scheduleAvatarSync() {
+    if (avatarSyncScheduled) return;
+
+    avatarSyncScheduled = true;
+    requestAnimationFrame(() => {
+        avatarSyncScheduled = false;
+        syncAllAvatarImages();
+    });
+}
+
+function initLivewireAvatarSync() {
+    document.addEventListener("livewire:init", () => {
+        scheduleAvatarSync();
+
+        const livewire = window.Livewire;
+        if (!livewire?.hook) return;
+
+        // Livewire morphs can reinsert avatar images with "hidden" class
+        // while browsers skip firing "load" for cached URLs.
+        livewire.hook("morph.updated", () => {
+            scheduleAvatarSync();
+        });
+    });
+
+    document.addEventListener("livewire:navigated", () => {
+        scheduleAvatarSync();
+    });
+}
+
 // Delegated event listeners — replaces inline on* handlers
 document.addEventListener("change", (e) => {
     const input = e.target.closest("[data-avatar-input]");
@@ -274,7 +304,9 @@ document.addEventListener(
 );
 
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", syncAllAvatarImages, { once: true });
+    document.addEventListener("DOMContentLoaded", scheduleAvatarSync, { once: true });
 } else {
-    syncAllAvatarImages();
+    scheduleAvatarSync();
 }
+
+initLivewireAvatarSync();

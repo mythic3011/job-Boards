@@ -55,6 +55,9 @@
                 accept="{{ $accept }}"
                 {{ $required && !$isLivewireUpload ? 'required' : '' }}
                 class="hidden"
+                data-bwignore="true"
+                data-1p-ignore="true"
+                data-lpignore="true"
                 @change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
                 {{ $attributes }}
             >

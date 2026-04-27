@@ -57,6 +57,16 @@ class BootstrapEnvShellContractsTest extends TestCase
         $this->assertStringNotContainsString('PROMETHEUS_PASSWORD=', $example);
     }
 
+    public function test_bootstrap_prepare_generates_and_validates_laravel_app_key_with_standard_base64(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString('base64.b64encode(secrets.token_bytes(32))', $contents);
+        $this->assertStringContainsString('def is_valid_laravel_app_key(value: str) -> bool:', $contents);
+        $this->assertStringContainsString('resolve_generated_secret("APP_KEY", random_app_key, validator=is_valid_laravel_app_key)', $contents);
+    }
+
     public function test_bootstrap_env_uses_shared_config_authority_for_grafana_secret_path_derivation(): void
     {
         $contents = file_get_contents($this->repoRoot.'/bootstrap-env.sh');

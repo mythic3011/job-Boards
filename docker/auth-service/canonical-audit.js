@@ -4,14 +4,32 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
-const DEFAULT_CONTRACT_PATH = path.resolve(
-    __dirname,
-    "..",
-    "..",
-    "config",
-    "contracts",
-    "canonical-audit.v1.json",
-);
+const resolveDefaultContractPath = () => {
+    const candidates = [
+        // Container runtime layout: /app/config/contracts/...
+        path.resolve(__dirname, "config", "contracts", "canonical-audit.v1.json"),
+        // Repository test/runtime layout: docker/auth-service/../.. => repo root
+        path.resolve(
+            __dirname,
+            "..",
+            "..",
+            "config",
+            "contracts",
+            "canonical-audit.v1.json",
+        ),
+    ];
+
+    for (const candidate of candidates) {
+        if (fs.existsSync(candidate)) {
+            return candidate;
+        }
+    }
+
+    // Keep deterministic fallback for error messages when neither exists.
+    return candidates[0];
+};
+
+const DEFAULT_CONTRACT_PATH = resolveDefaultContractPath();
 
 function loadCanonicalAuditContract(contractPath = DEFAULT_CONTRACT_PATH) {
     const raw = fs.readFileSync(contractPath, "utf8");

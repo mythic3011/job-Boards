@@ -40,6 +40,7 @@ import json
 import os
 import secrets
 import tempfile
+import base64
 from pathlib import Path
 
 
@@ -92,11 +93,24 @@ def shell_quote(value: str) -> str:
 
 
 def random_app_key() -> str:
-    return "base64:" + secrets.token_urlsafe(32)
+    return "base64:" + base64.b64encode(secrets.token_bytes(32)).decode("ascii")
 
 
 def random_secret_hex() -> str:
     return secrets.token_hex(32)
+
+
+def is_valid_laravel_app_key(value: str) -> bool:
+    if not value.startswith("base64:"):
+        return False
+
+    encoded = value[len("base64:"):]
+    try:
+        decoded = base64.b64decode(encoded, validate=True)
+    except Exception:
+        return False
+
+    return len(decoded) == 32
 
 
 root = Path(os.environ["SCRIPT_DIR"])
@@ -150,15 +164,23 @@ if persisted_state_path.exists():
     persisted_state = json.loads(persisted_state_path.read_text(encoding="utf-8"))
 
 
-def resolve_generated_secret(key: str, generator) -> str:
+def resolve_generated_secret(key: str, generator, validator=None) -> str:
     env_value = env_override(key)
     file_value = env_file.get(key)
     persisted_value = persisted_state.get(key)
-    approved_values = [value for value in (env_value, file_value, persisted_value) if value]
+    approved_values_raw = [value for value in (env_value, file_value, persisted_value) if value]
+    approved_values = approved_values_raw
+    if validator is not None:
+        approved_values = [value for value in approved_values_raw if validator(value)]
+
     if len(set(approved_values)) > 1:
         raise SystemExit(f"conflicting values for protected key {key}")
     if approved_values:
         return approved_values[0]
+
+    if approved_values_raw and mode == "production":
+        raise SystemExit(f"invalid value for protected key {key}")
+
     if mode == "production":
         raise SystemExit(f"missing required production secret {key}")
     return generator()
@@ -185,7 +207,7 @@ else:
     install_allowed_ips = ""
     install_token = ""
 
-app_key = resolve_generated_secret("APP_KEY", random_app_key)
+app_key = resolve_generated_secret("APP_KEY", random_app_key, validator=is_valid_laravel_app_key)
 app_previous_keys = resolve_value("APP_PREVIOUS_KEYS", default="", protected=True)
 monitoring_password = resolve_generated_secret("MONITORING_PASSWORD", random_secret_hex)
 session_secret = resolve_generated_secret("SESSION_SECRET", random_secret_hex)
@@ -397,7 +419,9 @@ is_weak() {
         for p in "${placeholders[@]}"; do
             [[ "$lower_val" == "$p" ]] && return 0
         done
-        [[ "$var" == "APP_KEY" && ! "$val" =~ ^base64:.{40,}$ ]] && return 0
+        if [[ "$var" == "APP_KEY" ]]; then
+            [[ ! "$val" =~ ^base64:[A-Za-z0-9+/=]{43,}$ ]] && return 0
+        fi
         [[ ${#val} -lt 24 ]] && return 0
     fi
 

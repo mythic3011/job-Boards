@@ -13,7 +13,10 @@
         name="{{ $honeypotFieldName }}"
         value=""
         autocomplete="off"
+        data-bwignore="true"
+        data-1p-ignore="true"
+        data-lpignore="true"
         tabindex="-1"
     >
 </div>
-<input type="hidden" name="_timing" value="{{ encrypt(time()) }}">
+<input type="hidden" name="_timing" value="{{ encrypt(time()) }}" data-bwignore="true" data-1p-ignore="true" data-lpignore="true">

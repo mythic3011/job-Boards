@@ -127,7 +127,7 @@ class ProfileWorkspaceUiContractTest extends TestCase
         $this->assertStringContainsString('wire:target="disable2FA"', $contents);
         $this->assertStringContainsString('Disabling...', $contents);
         $this->assertStringContainsString('wire:target="regenerateRecoveryCodes"', $contents);
-        $this->assertStringContainsString('Generating...', $contents);
+        $this->assertStringContainsString('Replacing...', $contents);
         $this->assertStringContainsString('animate-spin', $contents);
     }
 

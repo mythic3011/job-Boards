@@ -28,13 +28,14 @@ class PasswordResetController extends Controller
     public function sendResetLink(Request $request, SendPasswordResetLinkWithTwoFactor $action): RedirectResponse
     {
         $request->validate([
-            'email' => ['required', 'email'],
+            'login' => ['nullable', 'string', 'max:255', 'required_without:email'],
+            'email' => ['nullable', 'string', 'max:255', 'required_without:login'],
             'code' => ['nullable', 'string', 'size:6'],
             'recovery_code' => ['nullable', 'string'],
         ]);
 
         try {
-            $result = $action($request->only('email', 'code', 'recovery_code'));
+            $result = $action($request->only('login', 'email', 'code', 'recovery_code'));
             $status = is_array($result) ? ($result['status'] ?? Password::RESET_LINK_SENT) : $result;
 
             return back()->with('status', __($status));

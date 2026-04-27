@@ -8,6 +8,7 @@ use App\Services\TwoFactorService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class SendPasswordResetLinkWithTwoFactor
@@ -22,82 +23,83 @@ class SendPasswordResetLinkWithTwoFactor
      */
     public function __invoke(array $input): array
     {
-        // Rate limiting
-        $key = 'password-reset-2fa:'.$input['email'];
-        if (RateLimiter::tooManyAttempts($key, 3)) {
-            $seconds = RateLimiter::availableIn($key);
+        $identifier = trim((string) ($input['login'] ?? $input['email'] ?? ''));
+        if ($identifier === '') {
             throw ValidationException::withMessages([
-                'email' => ["Too many attempts. Please try again in {$seconds} seconds."],
+                'login' => ['Please enter your username or email address.'],
             ]);
         }
 
-        // Find user by email
-        $user = User::where('email', $input['email'])->first();
+        // Rate limiting
+        $key = 'password-reset-2fa:'.Str::transliterate(Str::lower($identifier));
+        if (RateLimiter::tooManyAttempts($key, 3)) {
+            $seconds = RateLimiter::availableIn($key);
+            throw ValidationException::withMessages([
+                'login' => ["Too many attempts. Please try again in {$seconds} seconds."],
+            ]);
+        }
+
+        // Find user by login_id or email
+        $user = User::query()
+            ->where('login_id', $identifier)
+            ->orWhere('email', Str::lower($identifier))
+            ->first();
 
         if (! $user) {
             // Don't reveal if user exists
             RateLimiter::hit($key, 300); // 5 minutes
-            throw ValidationException::withMessages([
-                'email' => ['We could not find a user with that email address.'],
-            ]);
+            return [
+                'status' => Password::RESET_LINK_SENT,
+                'local' => app()->environment('local'),
+            ];
         }
 
-        // Check if user has confirmed 2FA enabled.
         if (! $this->twoFactorService->isEnabled($user)) {
             RateLimiter::hit($key, 300);
             throw ValidationException::withMessages([
-                'email' => ['Two-factor authentication is not enabled for this account. Please contact support.'],
+                'login' => ['This account cannot reset password here because two-factor authentication is not enabled.'],
             ]);
         }
 
-        // Verify 2FA code or recovery code
-        $verified = false;
-
-        if (! empty($input['code'])) {
-            // Verify OTP code
-            $verified = $this->twoFactorService->verifyCode($user, $input['code']);
-
-            if (! $verified) {
-                RateLimiter::hit($key, 60);
-
-                $this->auditLogger->logSecurityEvent(
-                    eventType: 'password_reset.invalid_2fa_code',
-                    request: request(),
-                    userId: $user->id,
-                    meta: [
-                        'ip' => request()->ip(),
-                    ]
-                );
-
-                throw ValidationException::withMessages([
-                    'code' => ['The authentication code is invalid.'],
-                ]);
-            }
-        } elseif (! empty($input['recovery_code'])) {
-            // Verify and consume recovery code via owner service.
-            $verified = $this->twoFactorService->verifyAndConsumeRecoveryCode($user, $input['recovery_code']);
-
-            if (! $verified) {
-                RateLimiter::hit($key, 60);
-
-                $this->auditLogger->logSecurityEvent(
-                    eventType: 'password_reset.invalid_recovery_code',
-                    request: request(),
-                    userId: $user->id,
-                    meta: [
-                        'ip' => request()->ip(),
-                    ]
-                );
-
-                throw ValidationException::withMessages([
-                    'recovery_code' => ['The recovery code is invalid.'],
-                ]);
-            }
-        } else {
-            RateLimiter::hit($key, 60);
+        $verifiedWith = '2fa_code';
+        if (empty($input['code']) && empty($input['recovery_code'])) {
             throw ValidationException::withMessages([
-                'code' => ['Please provide either an authentication code or a recovery code.'],
+                'code' => ['Two-factor code is required.'],
             ]);
+        }
+
+        if (! empty($input['code']) || ! empty($input['recovery_code'])) {
+            if (! empty($input['code'])) {
+                $verified = $this->twoFactorService->verifyCode($user, (string) $input['code']);
+                if (! $verified) {
+                    RateLimiter::hit($key, 60);
+                    $this->auditLogger->logSecurityEvent(
+                        eventType: 'password_reset.invalid_2fa_code',
+                        request: request(),
+                        userId: $user->id,
+                        meta: ['ip' => request()->ip()]
+                    );
+                    throw ValidationException::withMessages([
+                        'code' => ['The authentication code is invalid.'],
+                    ]);
+                }
+                $verifiedWith = '2fa_code';
+            } else {
+                $verified = $this->twoFactorService->verifyAndConsumeRecoveryCode($user, (string) $input['recovery_code']);
+                if (! $verified) {
+                    RateLimiter::hit($key, 60);
+                    $this->auditLogger->logSecurityEvent(
+                        eventType: 'password_reset.invalid_recovery_code',
+                        request: request(),
+                        userId: $user->id,
+                        meta: ['ip' => request()->ip()]
+                    );
+                    throw ValidationException::withMessages([
+                        'recovery_code' => ['The recovery code is invalid.'],
+                    ]);
+                }
+                $verifiedWith = 'recovery_code';
+            }
         }
 
         // In local development we still avoid returning raw reset tokens to the caller.
@@ -112,13 +114,13 @@ class SendPasswordResetLinkWithTwoFactor
 
             $this->auditLogger->logSecurityEvent(
                 eventType: 'password_reset.link_generated',
-                request: request(),
-                userId: $user->id,
-                meta: [
-                    'ip' => request()->ip(),
-                    'verified_with' => ! empty($input['code']) ? '2fa_code' : 'recovery_code',
-                ]
-            );
+                    request: request(),
+                    userId: $user->id,
+                    meta: [
+                        'ip' => request()->ip(),
+                        'verified_with' => $verifiedWith,
+                    ]
+                );
 
             return [
                 'status' => Password::RESET_LINK_SENT,
@@ -126,7 +128,7 @@ class SendPasswordResetLinkWithTwoFactor
             ];
         }
 
-        $status = Password::sendResetLink(['email' => $input['email']]);
+        $status = Password::sendResetLink(['email' => $user->email]);
 
         if ($status === Password::RESET_LINK_SENT) {
             RateLimiter::clear($key);
@@ -137,7 +139,7 @@ class SendPasswordResetLinkWithTwoFactor
                 userId: $user->id,
                 meta: [
                     'ip' => request()->ip(),
-                    'verified_with' => ! empty($input['code']) ? '2fa_code' : 'recovery_code',
+                    'verified_with' => $verifiedWith,
                 ]
             );
 
@@ -149,7 +151,7 @@ class SendPasswordResetLinkWithTwoFactor
 
         RateLimiter::hit($key, 60);
         throw ValidationException::withMessages([
-            'email' => [__($status)],
+            'login' => [__($status)],
         ]);
     }
 }

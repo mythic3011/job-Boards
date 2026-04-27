@@ -16,7 +16,7 @@
                 <x-honeypot />
 
                 <x-ui.input
-                    id="login_id"
+                    id="username"
                     name="login_id"
                     label="Username or Email"
                     type="text"

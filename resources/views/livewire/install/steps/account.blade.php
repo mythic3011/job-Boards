@@ -14,6 +14,7 @@
                 <input
                     type="text"
                     id="username"
+                    name="username"
                     wire:model="username"
                     class="theme-input w-full px-3.5 py-2.5 border rounded-xl @error('username') theme-input-error @enderror"
                     placeholder="admin"
@@ -30,6 +31,7 @@
                 <input
                     type="text"
                     id="name"
+                    name="name"
                     wire:model="name"
                     class="theme-input w-full px-3.5 py-2.5 border rounded-xl @error('name') theme-input-error @enderror"
                     placeholder="John Doe"
@@ -46,6 +48,7 @@
             <input
                 type="email"
                 id="email"
+                name="email"
                 wire:model="email"
                 class="theme-input w-full px-3.5 py-2.5 border rounded-xl @error('email') theme-input-error @enderror"
                 placeholder="admin@example.com"
@@ -62,6 +65,7 @@
                 <input
                     type="password"
                     id="password"
+                    name="password"
                     wire:model="password"
                     class="theme-input w-full px-3.5 py-2.5 border rounded-xl @error('password') theme-input-error @enderror"
                     placeholder="Min 12 characters"
@@ -78,6 +82,7 @@
                 <input
                     type="password"
                     id="password_confirmation"
+                    name="password_confirmation"
                     wire:model="password_confirmation"
                     class="theme-input w-full px-3.5 py-2.5 border rounded-xl"
                     placeholder="Re-enter password"

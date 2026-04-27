@@ -1,6 +1,6 @@
 function deleteProfileImage() {
-    if (confirm('Are you sure you want to remove your profile image?')) {
-        document.getElementById('delete-image-form').submit();
+    if (confirm("Are you sure you want to remove your profile image?")) {
+        document.getElementById("delete-image-form").submit();
     }
 }
 
@@ -9,14 +9,17 @@ function twoFactorSetup() {
         otpCountdown: 30,
         showSecret: false,
         copied: false,
-        secret: '',
+        secret: "",
         _countdownTimer: null,
         _copiedTimer: null,
 
         init() {
-            this.secret = this.$el.dataset.secret || '';
+            this.secret = this.$el.dataset.secret || "";
             this.tickCountdown();
-            this._countdownTimer = setInterval(() => this.tickCountdown(), 1000);
+            this._countdownTimer = setInterval(
+                () => this.tickCountdown(),
+                1000,
+            );
         },
 
         destroy() {
@@ -58,4 +61,7 @@ function twoFactorSetup() {
 }
 
 window.deleteProfileImage = deleteProfileImage;
-window.twoFactorSetup = twoFactorSetup;
+
+document.addEventListener("alpine:init", () => {
+    window.Alpine.data("twoFactorSetup", twoFactorSetup);
+});

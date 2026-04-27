@@ -42,14 +42,37 @@ services:
                 apk add --no-cache bash openssl apache2-utils >/dev/null
                 export BT_COMPOSE_OBS_FILE=/workspace/compose.yaml
                 export BT_ROOT_ENV_FILE=/workspace/.env
-                export DB_DATABASE="${DB_DATABASE:-jobs_boards}"
-                export DB_USERNAME="${DB_USERNAME:-jobs_user}"
-                export DB_PASSWORD="${DB_PASSWORD:-jobs_local_password}"
+                export BT_STATE_DIR=/workspace/.blue-team-vm
+                export BT_RUNTIME_DIR=/workspace/.blue-team-vm/runtime
+                COMPAT_ENV_FILE="/workspace/.blue-team-vm/runtime/compat.shell.env"
+                if [ -r "$${COMPAT_ENV_FILE}" ]; then
+                  set -a
+                  . "$${COMPAT_ENV_FILE}"
+                  set +a
+                fi
+                export DB_DATABASE="$${DB_DATABASE:-jobs_boards}"
+                export DB_USERNAME="$${DB_USERNAME:-jobs_user}"
+                export DB_PASSWORD="$${DB_PASSWORD:-jobs_local_password}"
                 /workspace/ops/bootstrap/bootstrap-obs.sh prepare
         volumes:
             - .:/workspace
         depends_on:
             app-bootstrap-init:
+                condition: service_completed_successfully
+        restart: "no"
+
+    auth-service-logs-init:
+        image: "${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service"
+        user: "0:0"
+        command:
+            - /bin/sh
+            - -ec
+            - mkdir -p /var/log/auth-service && chown -R 100:101 /var/log/auth-service
+        volumes:
+            - auth-service-logs:/var/log/auth-service
+        network_mode: none
+        depends_on:
+            obs-bootstrap-init:
                 condition: service_completed_successfully
         restart: "no"
 
@@ -110,12 +133,19 @@ services:
             - CANONICAL_AUDIT_SECRET=${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}
             - CANONICAL_AUDIT_CALLER_IDENTITY=auth-service
             - AUTH_SERVICE_LOG_FILE=/var/log/auth-service/auth-service.log
-            - AUTH_SERVICE_TRUSTED_PROXY_IPS=${AUTH_SERVICE_TRUSTED_PROXY_IPS:-172.30.0.20}
+            - AUTH_SERVICE_ENFORCE_TRUSTED_PROXY=${AUTH_SERVICE_ENFORCE_TRUSTED_PROXY:-true}
+            - AUTH_SERVICE_TRUSTED_PROXY_IPS=${AUTH_SERVICE_TRUSTED_PROXY_IPS:-127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,172.29.0.0/24,172.30.0.0/24}
         command:
             - /bin/sh
             - -ec
             - |
+                COMPAT_ENV_FILE="/var/lib/blue-team-vm/runtime/compat.shell.env"
                 GENERATED_ENV_FILE="/var/lib/blue-team-vm/runtime/obs.generated.env"
+                if [ -r "$${COMPAT_ENV_FILE}" ]; then
+                  set -a
+                  . "$${COMPAT_ENV_FILE}"
+                  set +a
+                fi
                 if [ -r "$${GENERATED_ENV_FILE}" ]; then
                   set -a
                   . "$${GENERATED_ENV_FILE}"
@@ -129,6 +159,8 @@ services:
             - sail
         depends_on:
             obs-bootstrap-init:
+                condition: service_completed_successfully
+            auth-service-logs-init:
                 condition: service_completed_successfully
         restart: unless-stopped
         healthcheck:

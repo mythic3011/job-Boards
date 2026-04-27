@@ -10,6 +10,17 @@ services:
         apk add --no-cache bash openssl apache2-utils >/dev/null
         export BT_COMPOSE_OBS_FILE=/workspace/compose.obs.yml
         export BT_ROOT_ENV_FILE=/workspace/.env
+        export BT_STATE_DIR=/workspace/.blue-team-vm
+        export BT_RUNTIME_DIR=/workspace/.blue-team-vm/runtime
+        COMPAT_ENV_FILE="/workspace/.blue-team-vm/runtime/compat.shell.env"
+        if [ -r "$${COMPAT_ENV_FILE}" ]; then
+          set -a
+          . "$${COMPAT_ENV_FILE}"
+          set +a
+        fi
+        export DB_DATABASE="$${DB_DATABASE:-jobs_boards}"
+        export DB_USERNAME="$${DB_USERNAME:-jobs_user}"
+        export DB_PASSWORD="$${DB_PASSWORD:-jobs_local_password}"
         /workspace/ops/bootstrap/bootstrap-obs.sh prepare
     volumes:
       - .:/workspace
@@ -43,15 +54,22 @@ services:
       CANONICAL_AUDIT_SECRET: ${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}
       CANONICAL_AUDIT_CALLER_IDENTITY: auth-service
       AUTH_SERVICE_LOG_FILE: /var/log/auth-service/auth-service.log
-      AUTH_SERVICE_TRUSTED_PROXY_IPS: ${AUTH_SERVICE_TRUSTED_PROXY_IPS:-172.29.0.20}
+      AUTH_SERVICE_ENFORCE_TRUSTED_PROXY: ${AUTH_SERVICE_ENFORCE_TRUSTED_PROXY:-true}
+      AUTH_SERVICE_TRUSTED_PROXY_IPS: ${AUTH_SERVICE_TRUSTED_PROXY_IPS:-127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,172.29.0.0/24,172.30.0.0/24}
     command:
       - /bin/sh
       - -ec
       - |
+        COMPAT_ENV_FILE="/var/lib/blue-team-vm/runtime/compat.shell.env"
         GENERATED_ENV_FILE="/var/lib/blue-team-vm/runtime/obs.generated.env"
-        if [ -r "${GENERATED_ENV_FILE}" ]; then
+        if [ -r "$${COMPAT_ENV_FILE}" ]; then
           set -a
-          . "${GENERATED_ENV_FILE}"
+          . "$${COMPAT_ENV_FILE}"
+          set +a
+        fi
+        if [ -r "$${GENERATED_ENV_FILE}" ]; then
+          set -a
+          . "$${GENERATED_ENV_FILE}"
           set +a
         fi
         exec node index.js

@@ -45,3 +45,20 @@ test("refuses to start without SESSION_SECRET", async () => {
         /SESSION_SECRET is required - refusing to start/,
     );
 });
+
+test("refuses to start when trusted proxy enforcement is enabled without trusted proxies", async () => {
+    const result = await runAuthService({
+        MONITORING_ADMIN_USERNAME: "admin",
+        MONITORING_PASSWORD_HASH:
+            "$2b$10$0123456789abcdef0123456789abcdef0123456789abcdef01234",
+        SESSION_SECRET:
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        AUTH_SERVICE_TRUSTED_PROXY_IPS: "",
+    });
+
+    assert.equal(result.code, 1);
+    assert.match(
+        result.stderr,
+        /AUTH_SERVICE_TRUSTED_PROXY_IPS is required when AUTH_SERVICE_ENFORCE_TRUSTED_PROXY is enabled/,
+    );
+});

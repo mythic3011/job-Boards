@@ -57,6 +57,7 @@ function startAuthService(port, publicDir) {
                 SESSION_SECRET:
                     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                 AUTH_SERVICE_PUBLIC_DIR: publicDir,
+                AUTH_SERVICE_ENFORCE_TRUSTED_PROXY: "false",
             },
             stdio: ["ignore", "pipe", "pipe"],
         });

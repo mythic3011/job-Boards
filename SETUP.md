@@ -143,9 +143,9 @@ Prerequisites:
 
 - `SSL_CERT_DOMAIN` resolves to the host serving the stack
 - provide one of these certificate sources:
-  - readable `SSL_LETSENCRYPT_CERT_PATH` / `SSL_LETSENCRYPT_KEY_PATH` files
-  - an executable `SSL_LETSENCRYPT_GENERATE_HOOK`
-  - a working built-in ACME flow selected by `SSL_ACME_CLIENT` (`acme.sh` by default, `certbot` supported)
+    - readable `SSL_LETSENCRYPT_CERT_PATH` / `SSL_LETSENCRYPT_KEY_PATH` files
+    - an executable `SSL_LETSENCRYPT_GENERATE_HOOK`
+    - a working built-in ACME flow selected by `SSL_ACME_CLIENT` (`acme.sh` by default, `certbot` supported)
 - `SSL_LETSENCRYPT_CHALLENGE=dns-cloudflare` requires `CF_Token` and `CF_Zone_ID`
 - `SSL_LETSENCRYPT_CHALLENGE=http-01` requires an existing `SSL_ACME_WEBROOT` directory that nginx can serve
 - `SSL_ACME_CLIENT=certbot` also needs `SSL_ACME_EMAIL` (or `BT_CERTBOT_EMAIL`) and `SSL_CERTBOT_CREDENTIALS_FILE` for the Cloudflare DNS plugin

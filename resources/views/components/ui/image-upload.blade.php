@@ -40,6 +40,9 @@
                 accept="{{ $accept }}"
                 {{ $required ? 'required' : '' }}
                 class="hidden"
+                data-bwignore="true"
+                data-1p-ignore="true"
+                data-lpignore="true"
                 {{ $attributes }}
             >
         </label>

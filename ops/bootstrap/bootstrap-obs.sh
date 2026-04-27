@@ -67,6 +67,7 @@ verify_obs_required_env() {
         "MONITORING_ADMIN_USERNAME"
         "MONITORING_PASSWORD_HASH"
         "SESSION_SECRET"
+        "AUTH_SERVICE_TRUSTED_PROXY_IPS"
         "DB_DATABASE"
         "DB_USERNAME"
         "CANONICAL_AUDIT_AUTH_SERVICE_SECRET"
@@ -800,6 +801,59 @@ obs_autofix_monitoring_username() {
     obs_statuses+=("${BT_STATUS_PASS}")
 }
 
+obs_sync_monitoring_password_aliases() {
+    local monitoring_password
+    monitoring_password="$(bt_env_value "MONITORING_PASSWORD" || true)"
+    if [[ -z "${monitoring_password}" ]]; then
+        monitoring_password="$(obs_generated_env_value "MONITORING_PASSWORD" || true)"
+    fi
+    [[ -n "${monitoring_password}" ]] || return 1
+
+    local alias_key
+    local alias_explicit
+    local alias_current
+    for alias_key in "GRAFANA_PASSWORD" "PROMETHEUS_PASSWORD"; do
+        alias_explicit="$(bt_env_value "${alias_key}" || true)"
+        alias_current="$(obs_generated_env_value "${alias_key}" || true)"
+
+        if [[ -n "${alias_explicit}" && "${alias_explicit}" != "${monitoring_password}" ]]; then
+            bt_warn "${alias_key} differs from MONITORING_PASSWORD; aligning ${alias_key} to MONITORING_PASSWORD for single-credential monitoring."
+        fi
+
+        if [[ "${alias_current}" != "${monitoring_password}" ]]; then
+            obs_set_generated_value "${alias_key}" "${monitoring_password}"
+            obs_emit_generated_audit "${alias_key}" "MONITORING_PASSWORD" "canonicalized_alias" "true" "false"
+        fi
+    done
+
+    return 0
+}
+
+obs_autofix_auth_service_trusted_proxy_ips() {
+    local target_key="AUTH_SERVICE_TRUSTED_PROXY_IPS"
+    local current explicit
+    local default_value="127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,172.29.0.0/24,172.30.0.0/24"
+
+    current="$(obs_generated_env_value "${target_key}" || true)"
+    explicit="$(bt_env_value "${target_key}" || true)"
+    if [[ -n "${explicit}" ]]; then
+        if [[ "${current}" != "${explicit}" ]]; then
+            obs_set_generated_value "${target_key}" "${explicit}"
+            obs_emit_generated_audit "${target_key}" "${target_key}" "persisted_runtime_input" "true" "false"
+        fi
+        return 0
+    fi
+
+    if [[ -n "${current}" ]]; then
+        return 0
+    fi
+
+    obs_set_generated_value "${target_key}" "${default_value}"
+    obs_emit_generated_audit "${target_key}" "profile-default" "default_value" "true" "false"
+    bt_emit_check "obs.bootstrap.auth_service_trusted_proxy_ips.defaulted" "obs" "${BT_STATUS_PASS}" "AUTH_SERVICE_TRUSTED_PROXY_IPS defaulted to private network ranges for obs runtime." "Set AUTH_SERVICE_TRUSTED_PROXY_IPS explicitly when your proxy topology requires a narrower allowlist."
+    obs_statuses+=("${BT_STATUS_PASS}")
+}
+
 obs_autofix_password_hash() {
     local target_key="$1"
     shift
@@ -865,15 +919,17 @@ ensure_obs_runtime_secrets() {
 
     local failed=0
     obs_autofix_monitoring_username || failed=1
+    obs_autofix_auth_service_trusted_proxy_ips || failed=1
     obs_autofix_primary_secret "MONITORING_PASSWORD" || failed=1
+    obs_sync_monitoring_password_aliases || failed=1
     obs_persist_runtime_input "DB_DATABASE" "DB_DATABASE" || failed=1
     obs_persist_runtime_input "DB_USERNAME" "DB_USERNAME" || failed=1
     obs_autofix_primary_secret "CANONICAL_AUDIT_AUTH_SERVICE_SECRET" || failed=1
     obs_persist_runtime_input "GRAFANA_POSTGRES_SECRET" "GRAFANA_POSTGRES_SECRET" "DB_PASSWORD" || failed=1
     obs_autofix_session_secret || failed=1
     obs_autofix_password_hash "MONITORING_PASSWORD_HASH" "MONITORING_PASSWORD" || failed=1
-    obs_autofix_password_hash "PROMETHEUS_PASSWORD_HASH" "PROMETHEUS_PASSWORD" "MONITORING_PASSWORD" || failed=1
-    obs_materialize_secret_file "GRAFANA_ADMIN_SECRET_FILE" "${OBS_GRAFANA_ADMIN_SECRET_FILE}" "GRAFANA_PASSWORD" "MONITORING_PASSWORD" || failed=1
+    obs_autofix_password_hash "PROMETHEUS_PASSWORD_HASH" "MONITORING_PASSWORD" || failed=1
+    obs_materialize_secret_file "GRAFANA_ADMIN_SECRET_FILE" "${OBS_GRAFANA_ADMIN_SECRET_FILE}" "MONITORING_PASSWORD" || failed=1
     obs_render_prometheus_web_config || failed=1
     obs_render_grafana_datasources_config || failed=1
 

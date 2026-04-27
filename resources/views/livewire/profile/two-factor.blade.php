@@ -196,7 +196,7 @@
                 @elseif($isSettingUp2FA)
                     <div
                         class="space-y-6"
-                        x-data="twoFactorSetup()"
+                        x-data="twoFactorSetup"
                         data-secret="{{ $secret }}"
                     >
                         <div class="theme-panel-subtle rounded-2xl border p-4">
@@ -222,7 +222,7 @@
                         <div class="theme-panel-subtle rounded-2xl border p-4">
                             <button
                                 type="button"
-                                @click="toggleSecret"
+                                x-on:click="toggleSecret()"
                                 class="theme-link inline-flex items-center gap-2 text-sm font-medium"
                             >
                                 <span x-show="!showSecret">Use manual setup code instead</span>
@@ -237,7 +237,7 @@
                                         type="button"
                                         variant="outline"
                                         size="sm"
-                                        @click="copySecret"
+                                        x-on:click="copySecret()"
                                     >
                                         Copy code
                                     </x-ui.button>
@@ -317,7 +317,7 @@
                                     wire:target="verifyCode"
                                     variant="primary"
                                     size="md"
-                                    @disabled(! $canVerifyCode || $verificationState === 'checking' || $verificationState === 'success')
+                                    :disabled="! $canVerifyCode || $verificationState === 'checking' || $verificationState === 'success'"
                                 >
                                     <span wire:loading.remove wire:target="verifyCode">Verify and enable 2FA</span>
                                     <span wire:loading wire:target="verifyCode" class="inline-flex items-center gap-2">

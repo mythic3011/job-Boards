@@ -96,6 +96,9 @@
                 class="sr-only"
                 data-avatar-input
                 data-has-current="{{ $currentImage ? '1' : '0' }}"
+                data-bwignore="true"
+                data-1p-ignore="true"
+                data-lpignore="true"
                 {{ $attributes->except(['class']) }}
             >
         </div>

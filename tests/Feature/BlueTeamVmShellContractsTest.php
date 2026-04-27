@@ -96,7 +96,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('"status":"PASS"', $combinedOutput);
         $this->assertStringContainsString('PROMETHEUS_WEB_CONFIG_FILE='.$renderedConfig, $generatedEnv);
         $this->assertStringContainsString('GRAFANA_DATASOURCES_FILE='.$renderedGrafanaDatasources, $generatedEnv);
-        $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.$grafanaPasswordFile, $generatedEnv);
+        $this->assertMatchesRegularExpression('/^GRAFANA_ADMIN_SECRET_FILE=.*grafana-admin-secret$/m', $generatedEnv);
         $this->assertStringContainsString("MONITORING_ADMIN_USERNAME=admin\n", $generatedEnv);
         $this->assertStringContainsString("DB_DATABASE=jobs_boards\n", $generatedEnv);
         $this->assertStringContainsString("DB_USERNAME=jobs_boards\n", $generatedEnv);
@@ -141,14 +141,14 @@ class BlueTeamVmShellContractsTest extends TestCase
 
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
         $generatedEnv = @file_get_contents($tempDir.'/state/runtime/obs.generated.env') ?: '';
-        $grafanaPasswordFile = $tempDir.'/state/runtime/grafana-admin-secret';
+        $grafanaPasswordFile = ObsConfigContract::derivedPath($tempDir.'/state', 'GRAFANA_ADMIN_SECRET_FILE');
         $prometheusHashAudit = $this->findGeneratedSecretAuditRecord($tempDir.'/state/runtime/obs.generated-secrets.jsonl', 'PROMETHEUS_PASSWORD_HASH');
         $grafanaSecretAudit = $this->findGeneratedSecretAuditRecord($tempDir.'/state/runtime/obs.generated-secrets.jsonl', 'GRAFANA_ADMIN_SECRET_FILE');
 
         $this->assertSame(0, $process->getExitCode(), $combinedOutput);
         $this->assertMatchesRegularExpression('/^MONITORING_PASSWORD_HASH=.+$/m', $generatedEnv);
         $this->assertMatchesRegularExpression('/^PROMETHEUS_PASSWORD_HASH=.+$/m', $generatedEnv);
-        $this->assertStringContainsString('GRAFANA_ADMIN_SECRET_FILE='.$grafanaPasswordFile, $generatedEnv);
+        $this->assertMatchesRegularExpression('/^GRAFANA_ADMIN_SECRET_FILE=.*grafana-admin-secret$/m', $generatedEnv);
         $this->assertFileExists($grafanaPasswordFile);
         $this->assertSame($this->fixturePlainCredential('monitoring'), file_get_contents($grafanaPasswordFile));
         $this->assertSame('MONITORING_PASSWORD', $prometheusHashAudit['source_field'] ?? null);
@@ -158,7 +158,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
     }
 
-    public function test_obs_prepare_prefers_explicit_service_specific_monitoring_overrides_when_present(): void
+    public function test_obs_prepare_enforces_single_monitoring_password_when_legacy_aliases_differ(): void
     {
         $tempDir = $this->makeTempDir();
         $dockerLog = $tempDir.'/docker.log';
@@ -192,15 +192,18 @@ class BlueTeamVmShellContractsTest extends TestCase
         $process->run();
 
         $combinedOutput = $process->getOutput().$process->getErrorOutput();
-        $grafanaPasswordFile = $tempDir.'/state/runtime/grafana-admin-secret';
+        $grafanaPasswordFile = ObsConfigContract::derivedPath($tempDir.'/state', 'GRAFANA_ADMIN_SECRET_FILE');
+        $generatedEnv = @file_get_contents($tempDir.'/state/runtime/obs.generated.env') ?: '';
         $prometheusHashAudit = $this->findGeneratedSecretAuditRecord($tempDir.'/state/runtime/obs.generated-secrets.jsonl', 'PROMETHEUS_PASSWORD_HASH');
         $grafanaSecretAudit = $this->findGeneratedSecretAuditRecord($tempDir.'/state/runtime/obs.generated-secrets.jsonl', 'GRAFANA_ADMIN_SECRET_FILE');
 
         $this->assertSame(0, $process->getExitCode(), $combinedOutput);
         $this->assertFileExists($grafanaPasswordFile);
-        $this->assertSame($this->fixturePlainCredential('grafana'), file_get_contents($grafanaPasswordFile));
-        $this->assertSame('PROMETHEUS_PASSWORD', $prometheusHashAudit['source_field'] ?? null);
-        $this->assertSame('GRAFANA_PASSWORD', $grafanaSecretAudit['source_field'] ?? null);
+        $this->assertSame($this->fixturePlainCredential('monitoring'), file_get_contents($grafanaPasswordFile));
+        $this->assertStringContainsString('GRAFANA_PASSWORD='.$this->fixturePlainCredential('monitoring'), $generatedEnv);
+        $this->assertStringContainsString('PROMETHEUS_PASSWORD='.$this->fixturePlainCredential('monitoring'), $generatedEnv);
+        $this->assertSame('MONITORING_PASSWORD', $prometheusHashAudit['source_field'] ?? null);
+        $this->assertSame('MONITORING_PASSWORD', $grafanaSecretAudit['source_field'] ?? null);
         $this->assertStringNotContainsString(' up -d', @file_get_contents($dockerLog) ?: '');
     }
 
@@ -210,7 +213,7 @@ class BlueTeamVmShellContractsTest extends TestCase
         $dockerLog = $tempDir.'/docker.log';
         $fakeBin = $this->makeFakeDockerBin($tempDir, $dockerLog);
         $scriptPath = ObsTestFixtures::installBootstrapObsFixture($this->repoRoot, $tempDir);
-        $grafanaPasswordFile = $tempDir.'/state/runtime/grafana-admin-secret';
+        $grafanaPasswordFile = ObsConfigContract::derivedPath($tempDir.'/state', 'GRAFANA_ADMIN_SECRET_FILE');
 
         file_put_contents($tempDir.'/compose.obs.yml', "services: {}\n");
         mkdir(dirname($grafanaPasswordFile), 0777, true);
@@ -450,8 +453,28 @@ class BlueTeamVmShellContractsTest extends TestCase
         $this->assertStringContainsString('mkdir -p /var/log/auth-service && chown -R 100:101 /var/log/auth-service', $contents);
         $this->assertStringContainsString("      auth-service-logs-init:\n        condition: service_completed_successfully", $contents);
         $this->assertStringContainsString("      obs-bootstrap-init:\n        condition: service_completed_successfully", $contents);
+        $this->assertStringContainsString('COMPAT_ENV_FILE="/var/lib/blue-team-vm/runtime/compat.shell.env"', $contents);
         $this->assertStringContainsString('GENERATED_ENV_FILE="/var/lib/blue-team-vm/runtime/obs.generated.env"', $contents);
+        $this->assertStringContainsString('if [ -r "$${COMPAT_ENV_FILE}" ]; then', $contents);
+        $this->assertStringContainsString('. "$${COMPAT_ENV_FILE}"', $contents);
+        $this->assertStringContainsString('if [ -r "$${GENERATED_ENV_FILE}" ]; then', $contents);
+        $this->assertStringContainsString('. "$${GENERATED_ENV_FILE}"', $contents);
         $this->assertStringContainsString('exec node index.js', $contents);
+    }
+
+    public function test_combined_compose_initializes_auth_service_log_volume_permissions_before_starting_auth_service(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.yaml');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString("  auth-service-logs-init:\n", $contents);
+        $this->assertStringContainsString('image: "${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service"', $contents);
+        $this->assertStringContainsString('user: "0:0"', $contents);
+        $this->assertStringContainsString('mkdir -p /var/log/auth-service && chown -R 100:101 /var/log/auth-service', $contents);
+        $this->assertMatchesRegularExpression(
+            '/^\s{4}auth-service:\n(?:(?:\s{6,}.*\n))*?\s{8}depends_on:\n(?:(?:\s{10,}.*\n))*?\s{12}auth-service-logs-init:\n\s{16}condition: service_completed_successfully/m',
+            $contents
+        );
     }
 
     public function test_app_compose_uses_an_explicit_front_proxy_allowlist_for_https_aware_urls(): void
