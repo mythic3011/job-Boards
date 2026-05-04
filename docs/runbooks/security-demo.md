@@ -39,6 +39,20 @@ Local artifact collector:
 ops/demo/collect-security-demo-evidence.sh deployed https://jb.mythic3011.com demo-artifacts/security-demo
 ```
 
+Public/demo URLs to include in screenshots or operator notes:
+
+- Application: `https://jb.mythic3011.com/`
+- Monitoring login: `https://jb.mythic3011.com/monitoring/login`
+- Grafana: `https://jb.mythic3011.com/monitoring/grafana/`
+- Prometheus: `https://jb.mythic3011.com/monitoring/prometheus/`
+
+Reveal monitoring credentials only on the operator machine:
+
+```bash
+grep '^MONITORING_ADMIN_USERNAME=' .blue-team-vm/runtime/obs.generated.env || printf 'MONITORING_ADMIN_USERNAME=admin\n'
+grep '^MONITORING_PASSWORD=' .blue-team-vm/runtime/obs.generated.env
+```
+
 This writes:
 
 - `demo-artifacts/security-demo/deployed/curl-headers.txt`

@@ -138,6 +138,26 @@ Observability bootstrap materializes runtime artifacts before monitoring service
 
 The runtime-state guide lives in [docs/runbooks/blue-team-vm-runtime-map.md](docs/runbooks/blue-team-vm-runtime-map.md).
 
+## Monitoring access
+
+Monitoring uses a separate operator login from the Laravel application login.
+
+Current demo URLs:
+
+- Application: `https://jb.mythic3011.com/`
+- Monitoring login: `https://jb.mythic3011.com/monitoring/login`
+- Grafana: `https://jb.mythic3011.com/monitoring/grafana/`
+- Prometheus: `https://jb.mythic3011.com/monitoring/prometheus/`
+
+Find the current generated monitoring credentials locally:
+
+```bash
+grep '^MONITORING_ADMIN_USERNAME=' .blue-team-vm/runtime/obs.generated.env || printf 'MONITORING_ADMIN_USERNAME=admin\n'
+grep '^MONITORING_PASSWORD=' .blue-team-vm/runtime/obs.generated.env
+```
+
+Do not commit or share the generated plaintext password.
+
 ## Clean VM proof
 
 The clean-room proof workflow is documented separately because it is intentionally stricter than normal local bring-up or standard VPS deployment.

@@ -148,6 +148,8 @@ The compose stack does not expect every long-running service to self-bootstrap. 
   Read `.blue-team-vm/runtime/compat.shell.env` first.
 - Obs stack starts but Grafana or Prometheus paths or auth look wrong
   Read `.blue-team-vm/runtime/obs.generated.env` first.
+- You need the monitoring login details
+  Use `.blue-team-vm/runtime/obs.generated.env`; reveal the password locally with `grep '^MONITORING_PASSWORD=' .blue-team-vm/runtime/obs.generated.env`. If `MONITORING_ADMIN_USERNAME` is not present, use the default `admin`.
 - Grafana datasource or Prometheus auth content looks wrong
   Read files under `.blue-team-vm/rendered/`.
 - Monitoring route access or SSL mode looks wrong in nginx

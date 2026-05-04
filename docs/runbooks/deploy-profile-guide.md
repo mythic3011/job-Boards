@@ -175,6 +175,21 @@ These are the primary operator-facing monitoring inputs:
 
 Derived runtime outputs such as `GRAFANA_ADMIN_SECRET_FILE` and `PROMETHEUS_PASSWORD_HASH` are not the primary operator contract.
 
+For the packaged demo/runtime state, inspect the generated credentials locally:
+
+```bash
+grep '^MONITORING_ADMIN_USERNAME=' .blue-team-vm/runtime/obs.generated.env || printf 'MONITORING_ADMIN_USERNAME=admin\n'
+grep '^MONITORING_PASSWORD=' .blue-team-vm/runtime/obs.generated.env
+```
+
+Common monitoring URLs for `jb.mythic3011.com`:
+
+- `https://jb.mythic3011.com/monitoring/login`
+- `https://jb.mythic3011.com/monitoring/grafana/`
+- `https://jb.mythic3011.com/monitoring/prometheus/`
+
+The monitoring password is plaintext secret material. Reveal it only on the operator machine and do not paste it into tickets, docs, screenshots, or chat.
+
 ## TLS Boundary
 
 The deploy workflow consumes certificate files. It does not issue or renew them.

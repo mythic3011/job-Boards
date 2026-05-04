@@ -73,6 +73,25 @@ BASH);
         $this->assertStringContainsString('CROWDSEC_ENROLL_KEY', $contents);
     }
 
+    public function test_setup_document_explains_monitoring_urls_and_generated_credential_lookup(): void
+    {
+        $repoRoot = dirname(__DIR__, 2);
+        $contents = file_get_contents($repoRoot.'/SETUP.md');
+        $readme = file_get_contents($repoRoot.'/README.md');
+        $securityDemo = file_get_contents($repoRoot.'/docs/runbooks/security-demo.md');
+
+        $this->assertIsString($contents);
+        $this->assertIsString($readme);
+        $this->assertIsString($securityDemo);
+
+        foreach ([$contents, $readme, $securityDemo] as $document) {
+            $this->assertStringContainsString('https://jb.mythic3011.com/monitoring/login', $document);
+            $this->assertStringContainsString('https://jb.mythic3011.com/monitoring/grafana/', $document);
+            $this->assertStringContainsString('https://jb.mythic3011.com/monitoring/prometheus/', $document);
+            $this->assertStringContainsString("grep '^MONITORING_PASSWORD=' .blue-team-vm/runtime/obs.generated.env", $document);
+        }
+    }
+
     public function test_demo_cheatsheet_matches_current_setup_entrypoint_and_runtime_container_names(): void
     {
         $repoRoot = dirname(__DIR__, 2);

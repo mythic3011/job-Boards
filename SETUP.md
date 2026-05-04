@@ -47,6 +47,33 @@ INSTALL_ASSUME_YES=true \
 ./setup.sh
 ```
 
+## Monitoring Access
+
+The monitoring login is separate from the Laravel application admin login.
+Use it for Grafana, Prometheus, and other protected observability routes.
+
+URLs for the current public domain:
+
+- Application: `https://jb.mythic3011.com/`
+- Monitoring login: `https://jb.mythic3011.com/monitoring/login`
+- Grafana: `https://jb.mythic3011.com/monitoring/grafana/`
+- Prometheus: `https://jb.mythic3011.com/monitoring/prometheus/`
+
+Find the current monitoring username:
+
+```bash
+grep '^MONITORING_ADMIN_USERNAME=' .blue-team-vm/runtime/obs.generated.env
+```
+
+Find the current monitoring password locally:
+
+```bash
+grep '^MONITORING_PASSWORD=' .blue-team-vm/runtime/obs.generated.env
+```
+
+If `MONITORING_ADMIN_USERNAME` is absent, the runtime default is `admin`.
+Do not commit or paste the generated password into docs, screenshots, or chat logs.
+
 ## Other Modes
 
 `setup.sh` forwards to `install.sh` and keeps the same mode names:
