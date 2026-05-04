@@ -146,6 +146,20 @@ obs_prepare_runtime_artifacts() {
     obs_normalize_existing_generated_path_keys
 }
 
+obs_header_comment_block() {
+    local file_type="$1"
+    local repo_relative_path="$2"
+    local purpose="$3"
+
+    cat <<EOF
+# Generated file: ${file_type}
+# Purpose: ${purpose}
+# Repo path: ${repo_relative_path}
+# Regenerate via: ./ops/bootstrap/bootstrap-obs.sh prepare|apply
+
+EOF
+}
+
 obs_render_prometheus_web_config() {
     local password_hash
     local current_path=""
@@ -153,6 +167,7 @@ obs_render_prometheus_web_config() {
     [[ -n "${password_hash}" ]] || return 1
 
     bt_write_file "${OBS_PROMETHEUS_WEB_CONFIG_FILE}" "$(cat <<EOF
+$(obs_header_comment_block "prometheus.web-config.yml" ".blue-team-vm/rendered/prometheus.web-config.yml" "Prometheus basic auth runtime config consumed by the obs plane.")
 basic_auth_users:
   admin: "${password_hash}"
 EOF
@@ -456,7 +471,14 @@ for org_id, name in delete_entries:
     lines.append(f"    orgId: {org_id}")
 lines.extend(["", "prune: true", ""])
 
-output_path.write_text(api_prefix + "\n".join(lines) + template[len(api_prefix):], encoding="utf-8")
+header = "\n".join([
+    "# Generated file: grafana.datasources.yml",
+    "# Purpose: Grafana datasource provisioning rendered for the obs plane runtime.",
+    "# Repo path: .blue-team-vm/rendered/grafana.datasources.yml",
+    "# Regenerate via: ./ops/bootstrap/bootstrap-obs.sh prepare|apply",
+    "",
+])
+output_path.write_text(header + api_prefix + "\n".join(lines) + template[len(api_prefix):], encoding="utf-8")
 PY
 
     if [[ "${BT_DRY_RUN}" != "1" ]]; then
@@ -530,6 +552,31 @@ obs_set_generated_value() {
     export "${key}=${value}"
 }
 
+obs_ensure_generated_env_header() {
+    python3 - "${OBS_GENERATED_ENV_FILE}" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+if not path.exists():
+    raise SystemExit(0)
+
+header = "\n".join([
+    "# Generated file: obs.generated.env",
+    "# Purpose: obs-plane runtime environment derived from bootstrap inputs and rendered artifact paths.",
+    "# Repo path: .blue-team-vm/runtime/obs.generated.env",
+    "# Regenerate via: ./ops/bootstrap/bootstrap-obs.sh prepare|apply",
+    "",
+])
+
+existing = path.read_text(encoding="utf-8")
+if existing.startswith(header):
+    raise SystemExit(0)
+
+path.write_text(header + existing.lstrip("\n"), encoding="utf-8")
+PY
+}
+
 obs_prune_generated_env_legacy_keys() {
     python3 - "${OBS_GENERATED_ENV_FILE}" <<'PY'
 from pathlib import Path
@@ -571,6 +618,8 @@ obs_normalize_existing_generated_path_keys() {
         [[ "${normalized}" == "${value}" ]] && continue
         bt_upsert_env_file_value "${OBS_GENERATED_ENV_FILE}" "${key}" "${normalized}"
     done
+
+    obs_ensure_generated_env_header
 }
 
 obs_normalize_generated_env_value() {

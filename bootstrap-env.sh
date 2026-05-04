@@ -114,6 +114,7 @@ def is_valid_laravel_app_key(value: str) -> bool:
 
 
 root = Path(os.environ["SCRIPT_DIR"])
+resolved_root = root.resolve()
 mode = os.environ["PREPARE_MODE"]
 contract = json.loads((root / "ops/bootstrap/contract.json").read_text(encoding="utf-8"))
 env_file = parse_env_file(root / ".env")
@@ -193,6 +194,14 @@ def env_path_value(path: Path) -> str:
         return str(path)
 
 
+def repo_display_path(path: Path) -> str:
+    resolved_path = path.resolve()
+    try:
+        return resolved_path.relative_to(resolved_root).as_posix()
+    except ValueError:
+        return str(resolved_path)
+
+
 app_domain_default = mode_defaults.get("APP_DOMAIN", "")
 app_domain = resolve_value("APP_DOMAIN", default=app_domain_default, protected=True)
 admin_email = resolve_value("ADMIN_EMAIL", default="", protected=False)
@@ -247,6 +256,14 @@ compat_values = {
 }
 
 rendered_lines = []
+rendered_lines.extend([
+    "# Generated file: compat.shell.env",
+    "# Purpose: shell-safe runtime compatibility exports for the app and obs bootstrap flows.",
+    f"# Repo path: {repo_display_path(compat_shell_env_path)}",
+    f"# Absolute path at generation time: {compat_shell_env_path}",
+    "# Regenerate via: ./bootstrap-env.sh prepare <lab|demo|production|reset-demo>",
+    "",
+])
 for key, value in compat_values.items():
     rendered_lines.append(f"{key}={shell_quote(value)}")
 atomic_write(compat_shell_env_path, "\n".join(rendered_lines) + "\n", 0o600)

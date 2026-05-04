@@ -1,292 +1,146 @@
 # Jobs Boards
 
-Laravel job board application.
+A Laravel job board hardened as a blue-team security deployment project, with Docker split-plane deployment, Nginx perimeter controls, CrowdSec, observability, OWASP ZAP evidence, and reproducible lab deployment.
 
-Local default flow:
+## What this project shows
 
-- run `docker compose up -d --build` from repo root
-- Docker Compose plugin docs: https://docs.docker.com/compose/
-- `compose.yaml` runs `app-bootstrap-init` to ensure PHP deps (`vendor/`) and frontend build artifacts (`public/build/manifest.json`) exist before app services start
-- `compose.yaml` runs `obs-bootstrap-init` and prepares required obs runtime artifacts before starting auth-service/Prometheus/Grafana
-- core app/DB defaults are now embedded in `compose.yaml`, so local `docker compose up` does not require a pre-filled root `.env` file for first boot
-- `compose.app.yml` and `compose.obs.yml` are legacy/internal split-plane artifacts for compatibility checks, not the normal operator flow
+This project demonstrates:
+- secure deployment workflow
+- reproducible Docker setup
+- evidence-based security testing
+- observability and logging
+- CI and verification guardrails
 
-## Remote Deployment Targets
+## My role
 
-Repo-first remote deployment now lives under `ops/deploy/`:
+I designed and implemented the deployment flow, security controls, runtime verification paths, observability wiring, and evidence-oriented documentation for this project.
 
-- `ops/deploy/vps-deploy.sh jb.mythic3011.com [git-ref]`
-    - production-style VPS target
-    - keeps the app behind host nginx on loopback high ports
-- `ops/deploy/vps-deploy.sh from-env [git-ref]`
-    - generic reverse-proxy target
-    - builds a production-style profile from `TARGET_*` environment variables
-- `ops/deploy/vps-deploy.sh lab-env [git-ref]`
-    - reusable lab target
-    - keeps the app nginx on loopback high ports so host-level reverse proxying can own `80/443`
-    - supports DHCP or static subnet provisioning through env overrides
+## Stack
 
-Example generic reverse-proxy deploy:
+Laravel, PHP, Docker Compose, Nginx, CrowdSec, Prometheus, Grafana, Loki, Promtail, PostgreSQL, Redis, OWASP ZAP
 
-```bash
-export TARGET_DOMAIN=demo.example.com
-export TARGET_HOST=203.0.113.10
-export TARGET_REMOTE_ROOT=/opt/jobs-boards-demo
-export TARGET_COMPOSE_PROJECT_NAME=jobs-boards-demo
-export TARGET_SSH_PORT=22
-./ops/deploy/vps-deploy.sh from-env main
-```
+## Key evidence
 
-The `from-env` target uses the shared builder and derives these defaults unless overridden:
+- [Portfolio summary](docs/portfolio-summary.md)
+- [Architecture and topology](docs/architecture.md)
+- [Security evidence](docs/security-evidence.md)
+- [Deployment guide](docs/deployment.md)
+- [Lessons learned](docs/lessons-learned.md)
 
-- `DEPLOY_APP_URL=https://${TARGET_DOMAIN}`
-- `DEPLOY_ASSET_URL=https://${TARGET_DOMAIN}`
-- `DEPLOY_NGINX_CERT_DOMAIN=${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}`
-- `DEPLOY_NGINX_CERT_DIR=/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}`
-- `DEPLOY_NGINX_CERT_PATH=${TARGET_NGINX_CERT_PATH:-/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}/cert.pem}`
-- `DEPLOY_NGINX_KEY_PATH=${TARGET_NGINX_KEY_PATH:-/etc/nginx/cert/${DEPLOY_NGINX_CERT_DOMAIN}/key.pem}`
-- `DEPLOY_NGINX_PROXY_PASS=https://127.0.0.1:${TARGET_APP_SSL_PORT##*:}/`
+## Proof points
 
-Reverse-proxy TLS consumption modes:
+- Dockerized Laravel deployment with explicit bootstrap and runtime artifact preparation
+- Security controls around perimeter traffic, monitoring access, and log-driven analysis
+- Observability stack with Prometheus, Grafana, Loki, and Promtail
+- Before/after OWASP ZAP evidence flow kept separate from deployment
+- Verification paths that distinguish local convenience checks from proof-grade VM checks
 
-- `TARGET_TLS_MODE=cloudflare-origin` (default)
-    - consumes origin cert/key from `/etc/nginx/cert/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/`
-    - suitable when Cloudflare terminates the public certificate and the VPS only needs an origin certificate
-- `TARGET_TLS_MODE=letsencrypt`
-    - consumes `/etc/letsencrypt/live/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/fullchain.pem`
-    - consumes `/etc/letsencrypt/live/${TARGET_NGINX_CERT_DOMAIN:-${TARGET_DOMAIN}}/privkey.pem`
-    - suitable when the host itself presents the public certificate and Certbot/systemd handles renewal outside the app deploy workflow
-- `TARGET_TLS_MODE=custom`
-    - provide `TARGET_NGINX_CERT_PATH` and `TARGET_NGINX_KEY_PATH` explicitly when neither default layout applies
+## Evidence snapshots
 
-Optional builder overrides:
+- Architecture diagram
+  Code diagram: [docs/architecture.md](docs/architecture.md)
+- Deployment or topology screenshot
+  Code diagram: [docs/deployment.md](docs/deployment.md)
+- Grafana or observability screenshot
+  Add: `docs/assets/grafana-dashboard.png`
+- Security evidence screenshot
+  Code diagram: [docs/security-evidence.md](docs/security-evidence.md)
 
-- `TARGET_NGINX_CERT_DOMAIN`
-    - use when the deploy hostname and certificate hostname differ
-    - example: deploy `jb.mythic3011.com` while consuming `/etc/nginx/cert/mythic3011.com/...`
-- `TARGET_NGINX_CERT_PATH_TEMPLATE`
-- `TARGET_NGINX_KEY_PATH_TEMPLATE`
-    - support reusable path layouts via `{domain}` placeholder expansion
-    - example: `TARGET_NGINX_CERT_PATH_TEMPLATE=/srv/tls/{domain}/fullchain.pem`
+## Why this repo matters
 
-Host firewall / TLS policy inputs:
+This is not just a coursework app or a CRUD demo. The repo is structured to show how an application can be deployed and defended as an operational system:
 
-- `BT_HOST_TLS_MODE=cloudflare-origin|letsencrypt-http01|letsencrypt-dns01|custom`
-- `BT_ALLOW_HTTP_REDIRECT=1` keeps `80/tcp` open for redirect unless the chosen TLS mode already requires it
-- `letsencrypt-http01` requires `80/tcp` for Certbot renewal
-- `letsencrypt-dns01` can run with `BT_ALLOW_HTTP_REDIRECT=0` if you do not want public HTTP exposure
+- application traffic is fronted by Nginx with explicit perimeter behavior
+- observability is treated as part of the deployment contract, not an afterthought
+- runtime artifacts are generated and verified instead of assumed
+- security evidence is captured separately from deployment so before/after comparisons stay reproducible
+- local convenience paths are kept distinct from proof-grade or VM-grade verification paths
 
-Lab target inputs:
+## Repository guide
 
-- `LAB_DEPLOY_HOST`
-- `LAB_DEPLOY_DOMAIN=jobs-board.lab`
-- `LAB_CONFIGURE_NETPLAN=true|false`
-- `LAB_WAN_IFACE=eth0`
-- `LAB_WAN_MODE=dhcp|static`
-- `LAB_WAN_ADDRESS=158.132.209.50/24` when using `static`
-- `LAB_WAN_GATEWAY=158.132.209.28` when using `static`
-- `LAB_WAN_DNS=1.1.1.1,8.8.8.8`
-- `LAB_LAN_IFACE=eth1`
-- `LAB_LAN_ADDRESS=192.168.153.2/24`
-- `LAB_NETPLAN_APPLY=true` only when you explicitly want the deploy workflow to rewrite/apply guest netplan
+### Portfolio docs
 
-Example lab runs:
+- [docs/portfolio-summary.md](docs/portfolio-summary.md)
+- [docs/architecture.md](docs/architecture.md)
+- [docs/security-evidence.md](docs/security-evidence.md)
+- [docs/deployment.md](docs/deployment.md)
+- [docs/lessons-learned.md](docs/lessons-learned.md)
 
-```bash
-LAB_DEPLOY_HOST=192.168.153.2 \
-LAB_DEPLOY_DOMAIN=jobs-board.lab \
-LAB_CONFIGURE_NETPLAN=true \
-ops/deploy/vps-deploy.sh lab-env main
+### Technical runbooks
 
-LAB_DEPLOY_HOST=192.168.153.2 \
-LAB_DEPLOY_DOMAIN=jobs-board.lab \
-LAB_CONFIGURE_NETPLAN=true \
-LAB_WAN_MODE=static \
-LAB_WAN_IFACE=ens18 \
-LAB_WAN_ADDRESS=192.168.153.2/24 \
-LAB_WAN_GATEWAY=192.168.153.1 \
-LAB_NETPLAN_APPLY=true \
-ops/deploy/vps-deploy.sh lab-env main
-```
-
-`LAB_NETPLAN_APPLY=true` is intentionally explicit because applying a new subnet/gateway can interrupt the active SSH session.
-
-## Security Demo Workflow
-
-Keep deployment and demo evidence separate:
-
-- VPS HTTPS evidence:
-    - deploy a reverse-proxy target such as `jb.mythic3011.com` or `from-env`
-    - verify the public URL through `https://www.whynopadlock.com/index.html`
-    - verify the public certificate grade through `https://www.ssllabs.com/ssltest`
-    - if the site is fronted by Cloudflare CDN, those public checks validate the Cloudflare edge certificate; the origin cert mode still has to match the VPS reverse-proxy contract
-- Web vulnerability evidence:
-    - use external ZAP containers, not app deploy bootstrap
-    - capture one baseline report for the pre-remediation revision and one report for the remediated revision
-    - the reusable wrapper is `ops/demo/run-zap-baseline.sh`
-
-Example before/after ZAP run:
-
-```bash
-ops/demo/collect-security-demo-evidence.sh deployed https://jb.mythic3011.com demo-artifacts/security-demo
-ops/demo/run-zap-baseline.sh before https://jb.mythic3011.com demo-artifacts/zap
-ops/demo/run-zap-baseline.sh after https://jb.mythic3011.com demo-artifacts/zap
-```
-
-See [docs/runbooks/security-demo.md](docs/runbooks/security-demo.md) for the full evidence checklist.
-Host TLS/firewall mode details live in [docs/runbooks/host-tls-modes.md](docs/runbooks/host-tls-modes.md).
+- [docs/runbooks/blue-team-vm-runtime-map.md](docs/runbooks/blue-team-vm-runtime-map.md)
+- [docs/runbooks/deploy-profile-guide.md](docs/runbooks/deploy-profile-guide.md)
+- [docs/runbooks/security-demo.md](docs/runbooks/security-demo.md)
+- [docs/runbooks/operator-preconditions-blue-team-vm.md](docs/runbooks/operator-preconditions-blue-team-vm.md)
+- [docs/runbooks/test-verification-paths.md](docs/runbooks/test-verification-paths.md)
 
 ## Local Bring-Up
 
-For local testing, use:
+For normal local bring-up:
 
 ```bash
 docker compose up -d --build
 ```
 
-`install.sh full dev` remains available as legacy wrapper compatibility, but the normal local operator flow is direct `docker compose up`.
+The combined `compose.yaml` is the main local operator surface.
 
-The local convenience bootstrap treats these five values as the host-bound port contract:
+- `app-bootstrap-init` prepares the Laravel runtime and missing dependencies
+- `obs-bootstrap-init` prepares observability runtime artifacts before auth-service, Prometheus, and Grafana start
+- local bring-up does not require the operator to prefill every root `.env` value for first boot
 
-- `APP_PORT`
-- `APP_SSL_PORT`
-- `VITE_PORT`
-- `FORWARD_DB_PORT`
-- `FORWARD_REDIS_PORT`
-
-`bootstrap-env.sh` persists missing defaults for that full set and silently reassigns any occupied local port into `3001-9001` before its final audit. `install.sh` checks the same five variables before starting the combined stack and offers to rewrite blocked `.env` entries into the same range. That rewrite is local convenience only. It does not relax the blue-team VM proof requirement that real host `80/443` ownership be cleared before app-plane bootstrap.
-
-For normal local bring-up, use the combined compose surface only:
-
-```bash
-docker compose up -d --build
-```
-
-`compose.yaml` includes `app-bootstrap-init` and `obs-bootstrap-init` one-shot init services that prepare runtime artifacts before app/obs services start.
-Auth-service healthchecks in the combined stack probe fixed `http://127.0.0.1:3000/health`; host-shell `PORT` is not part of the healthcheck contract.
-Auth-service ingress is proxy-gated by default (`AUTH_SERVICE_ENFORCE_TRUSTED_PROXY=true`) and trusts the configured private proxy ranges from `AUTH_SERVICE_TRUSTED_PROXY_IPS`.
-
-## Runtime Artifact Contract
-
-Obs bootstrap renders and materializes final runtime artifacts before monitoring services can be trusted:
-
-- `.blue-team-vm/runtime/obs.generated.env`
-- `.blue-team-vm/runtime/grafana-admin-secret`
-- `.blue-team-vm/rendered/prometheus.web-config.yml`
-
-If those files are missing locally, regenerate them with:
+If runtime artifacts are missing locally, refresh only the init services:
 
 ```bash
 docker compose up --build app-bootstrap-init obs-bootstrap-init
 ```
 
-Obs path derivation authority now lives at `ops/config/config-contract.yml`.
-That file keeps a `.yml` path for contract stability, but its contents must be strict JSON text because `ops/bin/resolve-config-contract` parses it with Python stdlib `json`.
-YAML comments, unquoted keys, and other YAML-only syntax are invalid and will fail the resolver.
+## Deployment
 
-## Test Verification Paths
+This repo supports three deployment shapes:
 
-This project has three intentional test entrypoints across two authority levels:
+- reverse-proxy VPS deployment
+- profile-driven deployment from environment variables
+- lab deployment for isolated security environments
 
-- `composer test`: full default verification path, using direct PHPUnit
-- `composer test:worktree`: full default verification path for a git worktree, with a guard that rejects symlinked or missing `vendor/`
-- `composer test:sqlite`: fast local sqlite-safe path
+See [docs/deployment.md](docs/deployment.md) and [docs/runbooks/deploy-profile-guide.md](docs/runbooks/deploy-profile-guide.md).
 
-`composer test:sqlite` is not evidence that the full default or PostgreSQL path passed. Read [docs/runbooks/test-verification-paths.md](docs/runbooks/test-verification-paths.md) before treating sqlite-safe output as full verification.
-If you are working in a git worktree, do not symlink `vendor/` from another checkout; use a real worktree-local dependency install and `composer test:worktree` instead.
+## Security evidence
 
-For a running local stack, use Docker Compose exec:
+Security evidence is intentionally separated from deployment logic.
 
-```bash
-docker compose exec -T laravel.test composer test
-```
+- public HTTPS evidence is collected from the deployed domain
+- OWASP ZAP baseline reports are captured externally against the deployed target
+- before/after evidence is kept side-by-side instead of overwritten
+
+See [docs/security-evidence.md](docs/security-evidence.md) and [docs/runbooks/security-demo.md](docs/runbooks/security-demo.md).
 
 ## Verification
 
-SQLite-safe anti-bot shadow review:
+This project keeps separate verification paths for different levels of confidence.
 
-```bash
-docker compose exec -T laravel.test php artisan anti-bot:shadow-review --hours=24 --json
-```
+- `composer test`
+- `composer test:worktree`
+- `composer test:sqlite`
+- `docker compose exec -T laravel.test composer test`
+- `./ops/bootstrap/bootstrap-app.sh verify`
+- `./ops/bootstrap/bootstrap-obs.sh verify`
+- `./setup-blue-team-vm.sh verify`
 
-Runbooks:
+The key boundary is that local convenience checks are not automatically proof-grade evidence for the Linux blue-team VM flow.
 
-- [docs/runbooks/anti-bot-shadow-review.md](docs/runbooks/anti-bot-shadow-review.md)
-- [docs/runbooks/anti-bot-shadow-review-template.md](docs/runbooks/anti-bot-shadow-review-template.md)
+## Runtime artifact contract
 
-Focused honeypot and fingerprint contract bundle:
+Observability bootstrap materializes runtime artifacts before monitoring services can be trusted. The most important generated files are:
 
-```bash
-php artisan test \
-  tests/Feature/AuthHoneypotContractTest.php \
-  tests/Feature/HoneypotProtectionContractTest.php \
-  tests/Feature/BannedPageProbeContractTest.php \
-  tests/Feature/BotFingerprintTelemetryContractTest.php \
-  tests/Feature/BotFingerprintProbeLogContractTest.php
-```
+- `.blue-team-vm/runtime/obs.generated.env`
+- `.blue-team-vm/runtime/grafana-admin-secret`
+- `.blue-team-vm/rendered/prometheus.web-config.yml`
 
-Split-plane runtime verification:
+The runtime-state guide lives in [docs/runbooks/blue-team-vm-runtime-map.md](docs/runbooks/blue-team-vm-runtime-map.md).
 
-```bash
-BT_STATE_DIR="$(pwd)/.blue-team-vm" \
-./ops/bootstrap/bootstrap-app.sh verify
+## Clean VM proof
 
-BT_STATE_DIR="$(pwd)/.blue-team-vm" \
-./ops/bootstrap/bootstrap-obs.sh verify
-```
+The clean-room proof workflow is documented separately because it is intentionally stricter than normal local bring-up or standard VPS deployment.
 
-On non-Linux local runtimes, `bootstrap-app.sh verify` will mark `app.host.local_ports` as `SKIPPED`. That is expected. Only the top-level `./setup-blue-team-vm.sh verify` flow is meant to prove host-kernel and host-port constraints inside the actual Linux blue-team VM.
-`bootstrap-obs.sh verify` expects the app plane to have already produced the shared nginx/log surfaces. If app services are down, `obs.logs.read_only_mount = FAIL` is a real precondition failure rather than an obs-plane compose regression.
-
-## Clean VM Proof Planning
-
-The clean-room proof workflow is specified in [docs/plans/2026-04-13-clean-vm-proof-plan.md](docs/plans/2026-04-13-clean-vm-proof-plan.md). That plan is intentionally stricter than local bring-up:
-
-- the only public operator entrypoint is `ops/proof/pd-cleanvm-proof.sh`
-- `guest-install-deps.sh` and `guest-blue-team-proof.sh` are staged internal helpers from the resolved commit only
-- proof source is a commit-only archive, not the current mutable workspace
-- host and guest responsibilities are split; the host owns snapshot control and final `result.json`
-- proof bundles must export only metadata-safe projections of generated obs artifacts
-- an operational run may use TOFU SSH trust, but a proof-grade pass requires pinned SSH host identity
-
-The host-authored clean-room `result.json` is the grading surface. At minimum it records:
-
-- `ssh_identity_mode`
-- `ssh_host_key_algorithm`
-- `assurance_level`
-- `proof_status`
-- `artifact_status`
-- `restore_status`
-- `overall_status`
-
-Guest-side proof execution now assumes a sudo-capable SSH user and fails fast if the VM cannot satisfy:
-
-- `sudo -n true`
-- `sudo -n docker info`
-
-The guest-side flow also normalizes the smoke/runtime boundary:
-
-- `guest-install-deps.sh` prepares the current SSH user for non-root smoke execution through the `docker` group
-- `ops/smoke/run-all.sh` is executed from the extracted repo root with explicit `RUNNER`, `APP_COMPOSE_FILE`, and `OBS_COMPOSE_FILE`
-- compose state evidence is collected through `ops/lib/common.sh` / `bt_compose`, not by bypassing bootstrap runtime env loading with ad-hoc raw `docker compose` calls
-
-The host proof bundle now collects metadata-safe guest evidence under `guest-output/`, including:
-
-- `guest-output/guest-fragment.json`
-- `guest-output/obs-runtime-metadata.json`
-- `guest-output/10-os-release.txt`
-- `guest-output/11-uname.txt`
-- `guest-output/12-docker-version.txt`
-- `guest-output/13-docker-compose-version.txt`
-- `guest-output/14-compose-app-ps.txt`
-- `guest-output/15-compose-obs-ps.txt`
-- `guest-output/16-systemctl-docker.txt`
-
-Raw VM-local obs runtime files such as `obs.generated.env` and `obs.generated-secrets.jsonl` remain inside the guest and must not be copied into the host bundle.
-
-## Deployment Notes
-
-- For local/dev operator flow, `compose.yaml` is the primary runtime contract.
-- Split compose files are internal compatibility artifacts and must not become required operator commands.
-- Historical split-plane compatibility checks keep the app-plane subnet contract at `172.29.0.0/24`.
-- Runtime contract changes should keep bootstrap-derived artifacts (`obs.generated.env`, rendered configs, runtime secrets) consistent with `compose.yaml`.
+- [docs/plans/2026-04-13-clean-vm-proof-plan.md](docs/plans/2026-04-13-clean-vm-proof-plan.md)
+- [docs/runbooks/operator-preconditions-blue-team-vm.md](docs/runbooks/operator-preconditions-blue-team-vm.md)
