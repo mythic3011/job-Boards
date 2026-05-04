@@ -29,6 +29,14 @@ command -v docker >/dev/null 2>&1 || {
 OUTPUT_DIR="${OUTPUT_ROOT}/${LABEL}"
 mkdir -p "${OUTPUT_DIR}"
 
+ZAP_BASELINE_POLICY="${ZAP_BASELINE_POLICY:-ops/demo/zap-baseline-policy.conf}"
+zap_policy_args=()
+
+if [[ -n "${ZAP_BASELINE_POLICY}" && -f "${ZAP_BASELINE_POLICY}" ]]; then
+    cp "${ZAP_BASELINE_POLICY}" "${OUTPUT_DIR}/zap-baseline-policy.conf"
+    zap_policy_args=(-c zap-baseline-policy.conf)
+fi
+
 target_host="$(python3 - "${TARGET_URL}" <<'PY'
 from urllib.parse import urlparse
 import sys
@@ -60,6 +68,7 @@ docker run --rm \
     ghcr.io/zaproxy/zaproxy:stable \
     zap-baseline.py \
     -t "${TARGET_URL}" \
+    "${zap_policy_args[@]}" \
     -r report.html \
     -J report.json \
     -w report.md

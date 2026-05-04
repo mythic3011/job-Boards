@@ -89,6 +89,7 @@ class NginxMonitoringAccessContractTest extends TestCase
         $this->assertStringContainsString('add_header Referrer-Policy "strict-origin-when-cross-origin" always;', $nginx);
         $this->assertStringContainsString('add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;', $nginx);
         $this->assertStringContainsString('add_header Cross-Origin-Opener-Policy "same-origin" always;', $nginx);
+        $this->assertStringContainsString('add_header Cross-Origin-Resource-Policy "same-origin" always;', $nginx);
         $this->assertStringContainsString('add_header Cache-Control "public, max-age=604800, immutable" always;', $nginx);
         $this->assertStringContainsString('add_header Cache-Control "no-store, max-age=0" always;', $nginx);
         $this->assertStringContainsString('add_header Pragma "no-cache" always;', $nginx);
@@ -108,7 +109,13 @@ class NginxMonitoringAccessContractTest extends TestCase
             $this->assertStringContainsString('add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;', $block);
             $this->assertStringContainsString('add_header Cross-Origin-Embedder-Policy "require-corp" always;', $block);
             $this->assertStringContainsString('add_header Cross-Origin-Opener-Policy "same-origin" always;', $block);
+            $this->assertStringContainsString('add_header Cross-Origin-Resource-Policy "same-origin" always;', $block);
         }
+
+        $sitemapOffset = strpos($nginx, 'location = /sitemap.xml {');
+        $this->assertNotFalse($sitemapOffset, 'Expected sitemap location block to exist.');
+        $sitemapBlock = substr($nginx, $sitemapOffset, strpos($nginx, "\n        }\n", $sitemapOffset) - $sitemapOffset);
+        $this->assertStringContainsString('add_header Content-Security-Policy "default-src \'none\'; frame-ancestors \'none\'; base-uri \'none\'; form-action \'none\'" always;', $sitemapBlock);
     }
 
     public function test_install_sensitive_query_sanitization_contract_is_declared_in_nginx(): void

@@ -29,6 +29,10 @@ class SecurityHeaders
         );
         $response->headers->set('Cross-Origin-Embedder-Policy', 'require-corp');
         $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
+        $response->headers->set('Cross-Origin-Resource-Policy', 'same-origin');
+        $response->headers->set('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate, private');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set('Expires', '0');
 
         // Allow Vite dev server in development
         $isDevelopment = app()->environment('local', 'development');

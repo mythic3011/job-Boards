@@ -30,6 +30,19 @@ class SecurityDemoShellContractsTest extends TestCase
         $this->assertStringContainsString('ZAP_TARGET_CONTAINER:-jobs-boards-nginx', $contents);
         $this->assertStringContainsString('--add-host', $contents);
         $this->assertStringContainsString('--network', $contents);
+        $this->assertStringContainsString('ZAP_BASELINE_POLICY:-ops/demo/zap-baseline-policy.conf', $contents);
+        $this->assertStringContainsString('-c zap-baseline-policy.conf', $contents);
+    }
+
+    public function test_zap_demo_policy_demotes_expected_informational_findings(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/ops/demo/zap-baseline-policy.conf');
+
+        $this->assertIsString($contents);
+        $this->assertStringContainsString("10015\tINFO\t", $contents);
+        $this->assertStringContainsString("10049\tINFO\t", $contents);
+        $this->assertStringContainsString("10111\tINFO\t", $contents);
+        $this->assertStringContainsString("10112\tINFO\t", $contents);
     }
 
     public function test_security_demo_evidence_collector_materializes_repeatable_target_artifacts_and_external_check_links(): void

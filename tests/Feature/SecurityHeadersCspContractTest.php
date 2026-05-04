@@ -42,7 +42,20 @@ class SecurityHeadersCspContractTest extends TestCase
         $this->assertStringNotContainsString('*', $csp);
         $this->assertSame('require-corp', $response->headers->get('Cross-Origin-Embedder-Policy'));
         $this->assertSame('same-origin', $response->headers->get('Cross-Origin-Opener-Policy'));
+        $this->assertSame('same-origin', $response->headers->get('Cross-Origin-Resource-Policy'));
         $this->assertFalse($response->headers->has('Strict-Transport-Security'));
+    }
+
+    public function test_security_headers_set_explicit_no_store_cache_contract_for_dynamic_web_responses(): void
+    {
+        $middleware = new SecurityHeaders();
+        $request = Request::create('/login', 'GET', [], [], [], ['HTTPS' => 'on']);
+
+        $response = $middleware->handle($request, fn () => new Response('ok'));
+
+        $this->assertSame('max-age=0, must-revalidate, no-cache, no-store, private', $response->headers->get('Cache-Control'));
+        $this->assertSame('no-cache', $response->headers->get('Pragma'));
+        $this->assertSame('0', $response->headers->get('Expires'));
     }
 
     public function test_web_responses_do_not_emit_javascript_readable_xsrf_cookie(): void
