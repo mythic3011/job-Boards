@@ -116,6 +116,9 @@ services:
     environment:
       WWWUSER: ${WWWUSER:-1000}
       DB_HOST: postgres
+      DB_DATABASE: ${DB_DATABASE:-jobs_db}
+      DB_USERNAME: ${DB_USERNAME:-jobs_user}
+      DB_PASSWORD: ${DB_PASSWORD:-jobs_local_password}
       DB_SSLMODE: ${DB_SSLMODE:-prefer}
       REDIS_HOST: redis
       CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID: ${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
@@ -164,6 +167,9 @@ services:
     environment:
       WWWUSER: ${WWWUSER:-1000}
       DB_HOST: postgres
+      DB_DATABASE: ${DB_DATABASE:-jobs_db}
+      DB_USERNAME: ${DB_USERNAME:-jobs_user}
+      DB_PASSWORD: ${DB_PASSWORD:-jobs_local_password}
       DB_SSLMODE: ${DB_SSLMODE:-prefer}
       REDIS_HOST: redis
     volumes:
