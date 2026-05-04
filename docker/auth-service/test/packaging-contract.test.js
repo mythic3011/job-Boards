@@ -50,3 +50,57 @@ test("compose files build auth-service from repo root so shared contract artifac
         );
     }
 });
+
+test("auth-service startup loads generated dotenv values without shell expansion", () => {
+    const composeObs = fs.readFileSync(
+        path.join(repoRoot, "compose.obs.yml"),
+        "utf8",
+    );
+    const composeDev = fs.readFileSync(
+        path.join(repoRoot, "compose.yaml"),
+        "utf8",
+    );
+
+    for (const composeContents of [composeObs, composeDev]) {
+        assert.ok(
+            composeContents.includes('while IFS= read -r line || [ -n "$$line" ]; do'),
+            "Generated obs env must be parsed as raw dotenv so bcrypt hashes keep literal $ characters",
+        );
+        assert.ok(
+            !composeContents.includes('. "$${GENERATED_ENV_FILE}"'),
+            "Generated obs dotenv must not be sourced as shell because bcrypt $2y$ hashes are expanded",
+        );
+        assert.ok(
+            composeContents.includes(
+                'export CANONICAL_AUDIT_SECRET="$${CANONICAL_AUDIT_AUTH_SERVICE_SECRET}"',
+            ),
+            "Auth service must map the generated canonical audit secret to the Node runtime key",
+        );
+    }
+});
+
+test("auth-service canonical audit mirror targets nginx over trusted internal TLS by default", () => {
+    const composeObs = fs.readFileSync(
+        path.join(repoRoot, "compose.obs.yml"),
+        "utf8",
+    );
+    const composeDev = fs.readFileSync(
+        path.join(repoRoot, "compose.yaml"),
+        "utf8",
+    );
+
+    for (const composeContents of [composeObs, composeDev]) {
+        assert.ok(
+            composeContents.includes(
+                "https://nginx/api/internal/canonical-audit/events",
+            ),
+            "Auth service mirror must use the nginx HTTP entrypoint, not the Laravel FPM service",
+        );
+        assert.ok(
+            composeContents.includes(
+                "/var/lib/blue-team-vm/runtime/nginx-ssl/selfsigned.crt",
+            ),
+            "Auth service must trust the mounted local nginx self-signed certificate for internal mirror delivery",
+        );
+    }
+});

@@ -57,6 +57,27 @@ class LaravelRuntimeBootstrapShellContractsTest extends TestCase
         $this->assertStringContainsString('prepare-laravel-runtime', $appCompose);
     }
 
+    public function test_laravel_start_container_loads_obs_generated_env_without_shell_expansion(): void
+    {
+        $startContainer = file_get_contents($this->repoRoot.'/docker/start-container');
+
+        $this->assertIsString($startContainer);
+        $this->assertStringContainsString('GENERATED_ENV_FILE="${BT_OBS_GENERATED_ENV_FILE:-/var/www/html/.blue-team-vm/runtime/obs.generated.env}"', $startContainer);
+        $this->assertStringContainsString('while IFS= read -r line || [ -n "${line}" ]; do', $startContainer);
+        $this->assertStringNotContainsString('. "${GENERATED_ENV_FILE}"', $startContainer);
+        $this->assertStringContainsString('EXPLICIT_CANONICAL_AUDIT_AUTH_SERVICE_SECRET="${CANONICAL_AUDIT_AUTH_SERVICE_SECRET-}"', $startContainer);
+    }
+
+    public function test_php_fpm_receives_canonical_audit_ingestion_environment(): void
+    {
+        $supervisorConfig = file_get_contents($this->repoRoot.'/docker/supervisord.conf');
+
+        $this->assertIsString($supervisorConfig);
+        $this->assertStringContainsString('CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID="%(ENV_CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID)s"', $supervisorConfig);
+        $this->assertStringContainsString('CANONICAL_AUDIT_AUTH_SERVICE_SECRET="%(ENV_CANONICAL_AUDIT_AUTH_SERVICE_SECRET)s"', $supervisorConfig);
+        $this->assertStringContainsString('CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS="%(ENV_CANONICAL_AUDIT_AUTH_SERVICE_ALLOWED_CIDRS)s"', $supervisorConfig);
+    }
+
     private function makeTempDir(): string
     {
         $dir = sys_get_temp_dir().'/jobs-boards-runtime-bootstrap-'.bin2hex(random_bytes(8));

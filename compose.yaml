@@ -128,10 +128,11 @@ services:
             - MONITORING_PASSWORD_HASH=${MONITORING_PASSWORD_HASH:-}
             - SESSION_SECRET=${SESSION_SECRET:-}
             - PORT=3000
-            - CANONICAL_AUDIT_INGEST_URL=${CANONICAL_AUDIT_INGEST_URL:-http://laravel.test/api/internal/canonical-audit/events}
+            - CANONICAL_AUDIT_INGEST_URL=${CANONICAL_AUDIT_INGEST_URL:-https://nginx/api/internal/canonical-audit/events}
             - CANONICAL_AUDIT_KEY_ID=${CANONICAL_AUDIT_AUTH_SERVICE_KEY_ID:-auth-service}
             - CANONICAL_AUDIT_SECRET=${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}
             - CANONICAL_AUDIT_CALLER_IDENTITY=auth-service
+            - NODE_EXTRA_CA_CERTS=${AUTH_SERVICE_NODE_EXTRA_CA_CERTS:-/var/lib/blue-team-vm/runtime/nginx-ssl/selfsigned.crt}
             - AUTH_SERVICE_LOG_FILE=/var/log/auth-service/auth-service.log
             - AUTH_SERVICE_ENFORCE_TRUSTED_PROXY=${AUTH_SERVICE_ENFORCE_TRUSTED_PROXY:-true}
             - AUTH_SERVICE_TRUSTED_PROXY_IPS=${AUTH_SERVICE_TRUSTED_PROXY_IPS:-127.0.0.1/32,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,172.29.0.0/24,172.30.0.0/24}
@@ -147,9 +148,17 @@ services:
                   set +a
                 fi
                 if [ -r "$${GENERATED_ENV_FILE}" ]; then
-                  set -a
-                  . "$${GENERATED_ENV_FILE}"
-                  set +a
+                  while IFS= read -r line || [ -n "$$line" ]; do
+                    case "$$line" in ""|\#*) continue ;; esac
+                    line="$${line#export }"
+                    case "$$line" in *=*) ;; *) continue ;; esac
+                    key="$${line%%=*}"
+                    value="$${line#*=}"
+                    export "$$key=$$value"
+                  done < "$${GENERATED_ENV_FILE}"
+                fi
+                if [ -z "$${CANONICAL_AUDIT_SECRET:-}" ] && [ -n "$${CANONICAL_AUDIT_AUTH_SERVICE_SECRET:-}" ]; then
+                  export CANONICAL_AUDIT_SECRET="$${CANONICAL_AUDIT_AUTH_SERVICE_SECRET}"
                 fi
                 exec node index.js
         volumes:

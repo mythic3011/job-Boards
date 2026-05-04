@@ -37,17 +37,29 @@ ensure_sail_identity() {
 # Load bootstrap-generated runtime env when present.
 # This is the canonical source once root .env is intentionally absent.
 COMPAT_ENV_FILE="${BT_COMPAT_SHELL_ENV_FILE:-/var/www/html/.blue-team-vm/runtime/compat.shell.env}"
+GENERATED_ENV_FILE="${BT_OBS_GENERATED_ENV_FILE:-/var/www/html/.blue-team-vm/runtime/obs.generated.env}"
 EXPLICIT_DB_HOST="${DB_HOST-__UNSET__}"
 EXPLICIT_DB_DATABASE="${DB_DATABASE-__UNSET__}"
 EXPLICIT_DB_USERNAME="${DB_USERNAME-__UNSET__}"
 EXPLICIT_DB_PASSWORD="${DB_PASSWORD-__UNSET__}"
 EXPLICIT_DB_SSLMODE="${DB_SSLMODE-__UNSET__}"
 EXPLICIT_REDIS_HOST="${REDIS_HOST-__UNSET__}"
+EXPLICIT_CANONICAL_AUDIT_AUTH_SERVICE_SECRET="${CANONICAL_AUDIT_AUTH_SERVICE_SECRET-}"
 if [ -r "${COMPAT_ENV_FILE}" ]; then
     set -a
     # shellcheck disable=SC1090
     . "${COMPAT_ENV_FILE}"
     set +a
+fi
+if [ -r "${GENERATED_ENV_FILE}" ]; then
+    while IFS= read -r line || [ -n "${line}" ]; do
+        case "${line}" in ""|\#*) continue ;; esac
+        line="${line#export }"
+        case "${line}" in *=*) ;; *) continue ;; esac
+        key="${line%%=*}"
+        value="${line#*=}"
+        export "${key}=${value}"
+    done < "${GENERATED_ENV_FILE}"
 fi
 if [ "${EXPLICIT_DB_HOST}" != "__UNSET__" ]; then export DB_HOST="${EXPLICIT_DB_HOST}"; fi
 if [ "${EXPLICIT_DB_DATABASE}" != "__UNSET__" ]; then export DB_DATABASE="${EXPLICIT_DB_DATABASE}"; fi
@@ -55,6 +67,9 @@ if [ "${EXPLICIT_DB_USERNAME}" != "__UNSET__" ]; then export DB_USERNAME="${EXPL
 if [ "${EXPLICIT_DB_PASSWORD}" != "__UNSET__" ]; then export DB_PASSWORD="${EXPLICIT_DB_PASSWORD}"; fi
 if [ "${EXPLICIT_DB_SSLMODE}" != "__UNSET__" ]; then export DB_SSLMODE="${EXPLICIT_DB_SSLMODE}"; fi
 if [ "${EXPLICIT_REDIS_HOST}" != "__UNSET__" ]; then export REDIS_HOST="${EXPLICIT_REDIS_HOST}"; fi
+if [ -n "${EXPLICIT_CANONICAL_AUDIT_AUTH_SERVICE_SECRET}" ]; then
+    export CANONICAL_AUDIT_AUTH_SERVICE_SECRET="${EXPLICIT_CANONICAL_AUDIT_AUTH_SERVICE_SECRET}"
+fi
 
 : "${DB_HOST:=postgres}"
 : "${DB_DATABASE:=jobs_boards}"

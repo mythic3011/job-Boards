@@ -565,6 +565,7 @@ build_self_signed_alt_names() {
 
     append_unique_self_signed_alt_name entries "${SSL_CERT_DOMAIN}"
     append_unique_self_signed_alt_name entries "localhost"
+    append_unique_self_signed_alt_name entries "nginx"
     append_unique_self_signed_alt_name entries "127.0.0.1"
 
     if [[ -n "${extra}" ]]; then

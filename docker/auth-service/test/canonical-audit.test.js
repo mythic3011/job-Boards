@@ -5,6 +5,7 @@ const path = require("node:path");
 const {
     createCanonicalAuditMirror,
     loadCanonicalAuditContract,
+    normalizeCanonicalRequestId,
     prepareCanonicalAuditMirrorEvent,
 } = require("../canonical-audit");
 
@@ -100,4 +101,16 @@ test("increments a visible drop counter when admissible events cannot be mirrore
             },
         },
     ]);
+});
+
+test("normalizes nginx request ids to canonical UUID strings", () => {
+    assert.equal(
+        normalizeCanonicalRequestId("3a64ad607b4dd5e1a0d6c19d151f1246"),
+        "3a64ad60-7b4d-d5e1-a0d6-c19d151f1246",
+    );
+    assert.equal(
+        normalizeCanonicalRequestId("3A64AD60-7B4D-D5E1-A0D6-C19D151F1246"),
+        "3a64ad60-7b4d-d5e1-a0d6-c19d151f1246",
+    );
+    assert.equal(normalizeCanonicalRequestId("external-request-id"), "external-request-id");
 });

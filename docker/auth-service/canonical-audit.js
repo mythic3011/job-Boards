@@ -48,7 +48,7 @@ function prepareCanonicalAuditMirrorEvent(
         return { action: "skip", reason: "inadmissible_event" };
     }
 
-    const requestId = stringify(meta.requestId);
+    const requestId = normalizeCanonicalRequestId(meta.requestId);
     if (!requestId) {
         return { action: "drop", reason: "missing_request_id" };
     }
@@ -248,6 +248,34 @@ function attachCallerIdentity(payload, callerIdentity) {
     };
 }
 
+function normalizeCanonicalRequestId(value) {
+    const requestId = stringify(value);
+    if (!requestId) {
+        return "";
+    }
+
+    if (
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            requestId,
+        )
+    ) {
+        return requestId.toLowerCase();
+    }
+
+    if (/^[0-9a-f]{32}$/i.test(requestId)) {
+        const normalized = requestId.toLowerCase();
+        return [
+            normalized.slice(0, 8),
+            normalized.slice(8, 12),
+            normalized.slice(12, 16),
+            normalized.slice(16, 20),
+            normalized.slice(20),
+        ].join("-");
+    }
+
+    return requestId;
+}
+
 function canonicalActorTypeForEvent(eventType, meta) {
     if (eventType === "audit.auth.verify.success") {
         return "user";
@@ -308,5 +336,6 @@ function stringify(value) {
 module.exports = {
     createCanonicalAuditMirror,
     loadCanonicalAuditContract,
+    normalizeCanonicalRequestId,
     prepareCanonicalAuditMirrorEvent,
 };

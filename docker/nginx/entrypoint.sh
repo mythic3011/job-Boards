@@ -128,7 +128,7 @@ build_self_signed_san_list() {
     LAN_IP="$(hostname -i 2>/dev/null | awk '{print $1}')"
     [ -n "${LAN_IP}" ] || LAN_IP="127.0.0.1"
 
-    SAN_LIST="DNS:localhost,DNS:jobboard.local,DNS:${SSL_CERT_DOMAIN},IP:127.0.0.1,IP:${LAN_IP}"
+    SAN_LIST="DNS:localhost,DNS:jobboard.local,DNS:nginx,DNS:${SSL_CERT_DOMAIN},IP:127.0.0.1,IP:${LAN_IP}"
     CONTAINER_HOST="$(hostname 2>/dev/null || true)"
     ORB_DOMAIN=""
 
@@ -159,6 +159,11 @@ self_signed_cert_needs_renewal() {
 
     if ! openssl x509 -noout -text -in "${RESOLVED_SSL_CERT_PATH}" 2>/dev/null | grep -q "DNS:${SSL_CERT_DOMAIN}"; then
         echo "SSL_CERT_DOMAIN ${SSL_CERT_DOMAIN} not present in the self-signed certificate SAN list, regenerating..."
+        return 0
+    fi
+
+    if ! openssl x509 -noout -text -in "${RESOLVED_SSL_CERT_PATH}" 2>/dev/null | grep -q "DNS:nginx"; then
+        echo "Internal nginx DNS name not present in the self-signed certificate SAN list, regenerating..."
         return 0
     fi
 
