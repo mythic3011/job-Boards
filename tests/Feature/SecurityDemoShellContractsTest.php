@@ -27,6 +27,9 @@ class SecurityDemoShellContractsTest extends TestCase
         $this->assertStringContainsString('report.json', $contents);
         $this->assertStringContainsString('report.md', $contents);
         $this->assertStringContainsString('docker run --rm', $contents);
+        $this->assertStringContainsString('ZAP_TARGET_CONTAINER:-jobs-boards-nginx', $contents);
+        $this->assertStringContainsString('--add-host', $contents);
+        $this->assertStringContainsString('--network', $contents);
     }
 
     public function test_security_demo_evidence_collector_materializes_repeatable_target_artifacts_and_external_check_links(): void

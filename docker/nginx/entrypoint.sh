@@ -30,6 +30,17 @@ MONITORING_ACCESS_MODE="${MONITORING_ACCESS_MODE:-internal-only}"
 MONITORING_ALLOWED_CIDRS="${MONITORING_ALLOWED_CIDRS:-127.0.0.1/32,192.168.0.0/16}"
 PRIVATE_NETWORK_ALLOW_CONF="/etc/nginx/includes/private-network-allow.conf"
 
+generated_conf_header() {
+    conf_name="$1"
+    purpose="$2"
+
+    printf '%s\n' "# Generated file: ${conf_name}"
+    printf '%s\n' "# Purpose: ${purpose}"
+    printf '%s\n' "# Repo path: .blue-team-vm/runtime/rendered/${conf_name}"
+    printf '%s\n' "# Regenerate via: docker/nginx/entrypoint.sh start|render-ssl-mode-conf|reload-ssl|ssl-switch"
+    printf '\n'
+}
+
 if ! command -v openssl >/dev/null 2>&1; then
     echo "ERROR: openssl is required in the nginx image." >&2
     exit 1
@@ -49,6 +60,9 @@ normalize_ssl_mode() {
             ;;
         letsencrypt)
             ACTIVE_SSL_MODE="letsencrypt"
+            ;;
+        custom)
+            ACTIVE_SSL_MODE="custom"
             ;;
         *)
             echo "ERROR: unsupported SSL_MODE: ${SSL_MODE}" >&2
@@ -91,6 +105,10 @@ resolve_ssl_material_paths() {
         letsencrypt)
             RESOLVED_SSL_CERT_PATH="${LETSENCRYPT_CERT_DIR}/${SSL_CERT_DOMAIN}/fullchain.pem"
             RESOLVED_SSL_KEY_PATH="${LETSENCRYPT_CERT_DIR}/${SSL_CERT_DOMAIN}/privkey.pem"
+            ;;
+        custom)
+            RESOLVED_SSL_CERT_PATH="${SSL_RUNTIME_DIR}/custom/${SSL_CERT_DOMAIN}/cert.pem"
+            RESOLVED_SSL_KEY_PATH="${SSL_RUNTIME_DIR}/custom/${SSL_CERT_DOMAIN}/key.pem"
             ;;
     esac
 }
@@ -209,6 +227,10 @@ render_ssl_mode_conf() {
             ensure_file_present "${RESOLVED_SSL_CERT_PATH}" "Let's Encrypt fullchain"
             ensure_file_present "${RESOLVED_SSL_KEY_PATH}" "Let's Encrypt private key"
             ;;
+        custom)
+            ensure_file_present "${RESOLVED_SSL_CERT_PATH}" "custom certificate"
+            ensure_file_present "${RESOLVED_SSL_KEY_PATH}" "custom private key"
+            ;;
     esac
 
     resolve_ssl_mode_template
@@ -219,11 +241,13 @@ render_ssl_mode_conf() {
         rmdir "${SSL_MODE_CONF}" 2>/dev/null || rm -rf "${SSL_MODE_CONF}"
     fi
 
-    sed \
+    {
+        generated_conf_header "ssl-mode.conf" "nginx include that resolves the active runtime SSL certificate and key inside the container."
+        sed \
         -e "s|__SSL_CERT_PATH__|${RESOLVED_SSL_CERT_PATH}|g" \
         -e "s|__SSL_KEY_PATH__|${RESOLVED_SSL_KEY_PATH}|g" \
-        "${ACTIVE_SSL_MODE_TEMPLATE}" \
-        > "${SSL_MODE_CONF}"
+        "${ACTIVE_SSL_MODE_TEMPLATE}"
+    } > "${SSL_MODE_CONF}"
 
     chmod 0644 "${SSL_MODE_CONF}"
     echo "Rendered ${SSL_MODE_CONF} for SSL_MODE=${ACTIVE_SSL_MODE}."
@@ -277,6 +301,7 @@ render_monitoring_geo_conf() {
     mkdir -p "${MONITORING_GENERATED_DIR}"
 
     {
+        generated_conf_header "monitoring-geo.conf" "nginx geo map that marks internal monitoring clients from MONITORING_ALLOWED_CIDRS."
         echo 'geo $is_internal {'
         echo '    default 0;'
 
@@ -296,17 +321,23 @@ render_monitoring_geo_conf() {
 render_monitoring_access_conf() {
     case "${MONITORING_ACCESS_MODE}" in
         internal-only)
-            cat > "${MONITORING_ACCESS_CONF}" <<'EOF'
+            {
+                generated_conf_header "monitoring-access.conf" "nginx location-level access guard for monitoring routes."
+                cat <<'EOF'
 if ($is_internal = 0) { rewrite ^ /_error/403 last; }
 EOF
+            } > "${MONITORING_ACCESS_CONF}"
             ;;
         auth-only)
-            : > "${MONITORING_ACCESS_CONF}"
+            generated_conf_header "monitoring-access.conf" "nginx location-level access guard for monitoring routes." > "${MONITORING_ACCESS_CONF}"
             ;;
         disabled)
-            cat > "${MONITORING_ACCESS_CONF}" <<'EOF'
+            {
+                generated_conf_header "monitoring-access.conf" "nginx location-level access guard for monitoring routes."
+                cat <<'EOF'
 return 404;
 EOF
+            } > "${MONITORING_ACCESS_CONF}"
             ;;
         *)
             echo "ERROR: unsupported MONITORING_ACCESS_MODE: ${MONITORING_ACCESS_MODE}" >&2
@@ -318,12 +349,15 @@ EOF
 render_monitoring_server_access_conf() {
     case "${MONITORING_ACCESS_MODE}" in
         internal-only|auth-only)
-            : > "${MONITORING_SERVER_ACCESS_CONF}"
+            generated_conf_header "monitoring-server-access.conf" "nginx server-level monitoring route deny rules used before location dispatch." > "${MONITORING_SERVER_ACCESS_CONF}"
             ;;
         disabled)
-            cat > "${MONITORING_SERVER_ACCESS_CONF}" <<'EOF'
+            {
+                generated_conf_header "monitoring-server-access.conf" "nginx server-level monitoring route deny rules used before location dispatch."
+                cat <<'EOF'
 if ($request_uri ~ "^/monitoring/") { return 404; }
 EOF
+            } > "${MONITORING_SERVER_ACCESS_CONF}"
             ;;
         *)
             echo "ERROR: unsupported MONITORING_ACCESS_MODE: ${MONITORING_ACCESS_MODE}" >&2

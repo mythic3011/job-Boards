@@ -186,6 +186,42 @@ Notes for `letsencrypt` mode:
 - The SSL bootstrap path is expected to configure or refresh the auto-renew cron for the selected ACME client.
 - If you prefer `certbot`, set `SSL_ACME_CLIENT=certbot` before the initial run or before `./setup.sh ssl-switch letsencrypt`.
 
+### `custom`
+
+Use when certificate material is issued outside this repo, for example ZeroSSL, and nginx should present that public certificate directly.
+
+Prerequisites:
+
+- `SSL_CERT_DOMAIN` is set to the certificate hostname.
+- `SSL_CUSTOM_CERT_PATH` points to a PEM certificate or fullchain file.
+- `SSL_CUSTOM_KEY_PATH` points to the matching private key.
+- the certificate SAN includes the hostname users browse.
+
+Runtime files:
+
+- `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/custom/${SSL_CERT_DOMAIN}/cert.pem`
+- `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/custom/${SSL_CERT_DOMAIN}/key.pem`
+- `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/nginx.ssl-mode.conf`
+
+Initial setup:
+
+```bash
+SSL_MODE=custom \
+SSL_CERT_DOMAIN=jb.mythic3011.com \
+SSL_CUSTOM_CERT_PATH=ssl/fullchain.pem \
+SSL_CUSTOM_KEY_PATH=ssl/private.key \
+./setup.sh
+```
+
+Hot switch on a running stack:
+
+```bash
+SSL_CERT_DOMAIN=jb.mythic3011.com \
+SSL_CUSTOM_CERT_PATH=ssl/fullchain.pem \
+SSL_CUSTOM_KEY_PATH=ssl/private.key \
+./setup.sh ssl-switch custom
+```
+
 ## Switching Modes On A Running Stack
 
 Use `./setup.sh ssl-switch <mode>` when the Docker stack is already up and you only need to replace SSL material. This is a runtime-only path: it should validate the target mode prerequisites, provision or copy the target certificate/key, update `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl` plus `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/nginx.ssl-mode.conf`, and reload nginx in place when the container is already running. If nginx is not running, the runtime state should still be staged for the next start. It should not reset the database, rebuild demo data, rerun the headless installer, or require a full `docker compose down && docker compose up`.

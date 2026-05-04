@@ -27,9 +27,17 @@ class InstallCompletedCsrfBypassTest extends TestCase
         $this->createAuditLogsTable();
     }
 
-    public function test_completed_setup_post_install_endpoints_return_404_instead_of_csrf_419(): void
+    public function test_completed_setup_install_endpoints_return_404_before_csrf(): void
     {
         Setting::setBool('setup_completed', true);
+
+        $this->withBrowser()
+            ->get('/install')
+            ->assertNotFound();
+
+        $this->withBrowser()
+            ->get('/install/status')
+            ->assertNotFound();
 
         $this->withBrowser()
             ->post('/install/checks')

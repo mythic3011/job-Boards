@@ -25,7 +25,7 @@ class NginxSslModeContractTest extends TestCase
         $this->assertStringNotContainsString('/etc/nginx/ssl/selfsigned.key', $contents);
     }
 
-    public function test_nginx_entrypoint_renders_three_ssl_modes_from_template(): void
+    public function test_nginx_entrypoint_renders_ssl_modes_from_template(): void
     {
         $contents = file_get_contents($this->repoRoot.'/docker/nginx/entrypoint.sh');
 
@@ -37,6 +37,7 @@ class NginxSslModeContractTest extends TestCase
         $this->assertStringContainsString('self-signed)', $contents);
         $this->assertStringContainsString('cloudflare-origin)', $contents);
         $this->assertStringContainsString('letsencrypt)', $contents);
+        $this->assertStringContainsString('custom)', $contents);
         $this->assertStringContainsString('build_self_signed_san_list()', $contents);
         $this->assertStringContainsString('self_signed_cert_needs_renewal()', $contents);
     }
@@ -51,7 +52,7 @@ class NginxSslModeContractTest extends TestCase
             $this->assertStringContainsString('SSL_CERT_DOMAIN: "${SSL_CERT_DOMAIN:-localhost}"', $contents, $path);
             $this->assertStringContainsString('./docker/nginx/templates:/etc/nginx/templates:ro', $contents, $path);
             $this->assertStringContainsString('${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl:/etc/nginx/ssl', $contents, $path);
-            $this->assertStringContainsString('${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/nginx.ssl-mode.conf:/etc/nginx/generated/ssl-mode.conf', $contents, $path);
+            $this->assertStringContainsString('${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered:/etc/nginx/generated', $contents, $path);
         }
     }
 
@@ -75,6 +76,8 @@ class NginxSslModeContractTest extends TestCase
         $this->assertStringContainsString('normalize_self_signed_alt_name()', $bootstrapScript);
         $this->assertStringContainsString('acme.sh', $bootstrapScript);
         $this->assertStringContainsString('certbot', $bootstrapScript);
+        $this->assertStringContainsString('SSL_CUSTOM_CERT_PATH', $bootstrapScript);
+        $this->assertStringContainsString('provision_custom()', $bootstrapScript);
     }
 
     public function test_ssl_switch_only_persists_env_after_runtime_switch_succeeds(): void
@@ -104,10 +107,13 @@ class NginxSslModeContractTest extends TestCase
         $this->assertStringContainsString('CF_Token=', $envExample);
         $this->assertStringContainsString('CF_Zone_ID=', $envExample);
         $this->assertStringContainsString('SSL_ACME_CLIENT=acme.sh', $envExample);
+        $this->assertStringContainsString('SSL_CUSTOM_CERT_PATH=', $envExample);
+        $this->assertStringContainsString('SSL_CUSTOM_KEY_PATH=', $envExample);
 
         $this->assertStringContainsString('self-signed', $setup);
         $this->assertStringContainsString('cloudflare-origin', $setup);
         $this->assertStringContainsString('letsencrypt', $setup);
+        $this->assertStringContainsString('custom', $setup);
         $this->assertStringContainsString('./setup.sh ssl-switch <mode>', $setup);
         $this->assertStringContainsString('DNS-01', $setup);
         $this->assertStringContainsString('CF_Token', $setup);

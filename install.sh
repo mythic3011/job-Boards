@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Usage:
 #   ./install.sh [bootstrap|up|deploy|reset|reset-demo|seed-admin|mark-installed|test-prepare|verify] [dev|production]
-#   ./install.sh ssl-switch <self-signed|cloudflare-origin|letsencrypt> [dev|production]
+#   ./install.sh ssl-switch <self-signed|cloudflare-origin|letsencrypt|custom> [dev|production]
 #
 # Backward-compatible aliases:
 #   full       -> deploy
@@ -112,7 +112,7 @@ Usage:
   ./install.sh reset-demo
   ./install.sh
   ./install.sh [bootstrap|up|deploy|reset|reset-demo|seed-admin|mark-installed|test-prepare|verify] [dev|production]
-  ./install.sh ssl-switch <self-signed|cloudflare-origin|letsencrypt> [dev|production]
+  ./install.sh ssl-switch <self-signed|cloudflare-origin|letsencrypt|custom> [dev|production]
 
 PR3:
   lab/demo/production run bootstrap prepare/validate and runtime bridge apply.
@@ -863,6 +863,8 @@ persist_ssl_env_overrides() {
         SSL_ACME_FORCE_RENEW \
         SSL_LETSENCRYPT_CHALLENGE \
         SSL_CERTBOT_CREDENTIALS_FILE \
+        SSL_CUSTOM_CERT_PATH \
+        SSL_CUSTOM_KEY_PATH \
         CF_Token \
         CF_Zone_ID
     do
@@ -898,11 +900,11 @@ ssl_switch_target_mode() {
     local target="${INSTALL_SSL_SWITCH_TARGET:-}"
 
     case "${target}" in
-        self-signed|cloudflare-origin|letsencrypt)
+        self-signed|cloudflare-origin|letsencrypt|custom)
             printf '%s\n' "${target}"
             ;;
         *)
-            err "ssl-switch requires one of: self-signed, cloudflare-origin, letsencrypt"
+            err "ssl-switch requires one of: self-signed, cloudflare-origin, letsencrypt, custom"
             return 1
             ;;
     esac

@@ -22,7 +22,7 @@ class HomeController extends Controller
     public function __invoke(Request $request): View|RedirectResponse
     {
         if (! Schema::hasTable('settings') || ! Setting::isSetupCompleted()) {
-            return redirect()->route('install.index');
+            return redirect()->route('install.index')->setContent('');
         }
 
         $user = $request->user();

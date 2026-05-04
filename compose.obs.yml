@@ -29,6 +29,10 @@ services:
 
   auth-service-logs-init:
     image: "${BT_OBS_AUTH_SERVICE_IMAGE:-${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service}"
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: docker/auth-service/Dockerfile
     user: "0:0"
     command:
       - /bin/sh
@@ -44,6 +48,7 @@ services:
       context: .
       dockerfile: docker/auth-service/Dockerfile
     image: "${BT_OBS_AUTH_SERVICE_IMAGE:-${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service}"
+    pull_policy: never
     environment:
       MONITORING_ADMIN_USERNAME: ${MONITORING_ADMIN_USERNAME:-}
       MONITORING_PASSWORD_HASH: ${MONITORING_PASSWORD_HASH:-}
@@ -197,7 +202,8 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      test:
+        ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3

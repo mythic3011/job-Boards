@@ -88,13 +88,27 @@ class NginxMonitoringAccessContractTest extends TestCase
         $this->assertStringContainsString('add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;', $nginx);
         $this->assertStringContainsString('add_header Referrer-Policy "strict-origin-when-cross-origin" always;', $nginx);
         $this->assertStringContainsString('add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;', $nginx);
-        $this->assertStringNotContainsString('Content-Security-Policy', $nginx);
+        $this->assertStringContainsString('add_header Cross-Origin-Opener-Policy "same-origin" always;', $nginx);
         $this->assertStringContainsString('add_header Cache-Control "public, max-age=604800, immutable" always;', $nginx);
         $this->assertStringContainsString('add_header Cache-Control "no-store, max-age=0" always;', $nginx);
         $this->assertStringContainsString('add_header Pragma "no-cache" always;', $nginx);
         $this->assertStringContainsString('location = /robots.txt {', $nginx);
         $this->assertStringContainsString('location = /sitemap.xml {', $nginx);
         $this->assertStringContainsString('add_header Cache-Control "public, max-age=3600" always;', $nginx);
+
+        foreach (['location ~* \.(css|js|ico|png|jpg|jpeg|gif|svg|woff|woff2|ttf|eot|map)$ {', 'location = /robots.txt {', 'location = /sitemap.xml {', 'location ^~ /livewire {'] as $location) {
+            $offset = strpos($nginx, $location);
+
+            $this->assertNotFalse($offset, "Expected nginx location block [{$location}] to exist.");
+
+            $block = substr($nginx, $offset, strpos($nginx, "\n        }\n", $offset) - $offset);
+
+            $this->assertStringContainsString('add_header X-Content-Type-Options "nosniff" always;', $block);
+            $this->assertStringContainsString('add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;', $block);
+            $this->assertStringContainsString('add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;', $block);
+            $this->assertStringContainsString('add_header Cross-Origin-Embedder-Policy "require-corp" always;', $block);
+            $this->assertStringContainsString('add_header Cross-Origin-Opener-Policy "same-origin" always;', $block);
+        }
     }
 
     public function test_install_sensitive_query_sanitization_contract_is_declared_in_nginx(): void
@@ -106,6 +120,10 @@ class NginxMonitoringAccessContractTest extends TestCase
         $this->assertStringContainsString('~*^GET:.*(password|password_confirmation|email|username|name)= 1;', $nginx);
         $this->assertStringContainsString('location = /install {', $nginx);
         $this->assertStringContainsString('if ($install_sensitive_query) {', $nginx);
-        $this->assertStringContainsString('return 302 /install;', $nginx);
+        $this->assertStringContainsString('return 418;', $nginx);
+        $this->assertStringContainsString('error_page 418 = @install_sensitive_query;', $nginx);
+        $this->assertStringContainsString('location @install_sensitive_query {', $nginx);
+        $this->assertStringContainsString('add_header Content-Security-Policy "default-src \'none\'; frame-ancestors \'none\'; base-uri \'none\'; form-action \'none\'" always;', $nginx);
+        $this->assertStringContainsString('return 404 "";', $nginx);
     }
 }

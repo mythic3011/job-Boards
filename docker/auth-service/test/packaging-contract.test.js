@@ -51,6 +51,41 @@ test("compose files build auth-service from repo root so shared contract artifac
     }
 });
 
+test("auth-service log volume init builds the local auth-service image without remote pulls", () => {
+    const composeFiles = [
+        ["compose.yaml", "    auth-service-logs-init:", "    auth-service:"],
+        ["compose.obs.yml", "  auth-service-logs-init:", "  auth-service:"],
+    ];
+
+    for (const [file, initMarker, serviceMarker] of composeFiles) {
+        const composeContents = fs.readFileSync(path.join(repoRoot, file), "utf8");
+        const logsInitStart = composeContents.indexOf(initMarker);
+        const authServiceStart = composeContents.indexOf(
+            serviceMarker,
+            logsInitStart + initMarker.length,
+        );
+        const logsInitBlock = composeContents.slice(logsInitStart, authServiceStart);
+
+        assert.ok(logsInitStart >= 0, `${file} must define auth-service-logs-init`);
+        assert.ok(
+            logsInitBlock.includes("pull_policy: never"),
+            `${file} auth-service-logs-init must refuse remote image pulls`,
+        );
+        assert.ok(
+            logsInitBlock.includes("context: ."),
+            `${file} auth-service-logs-init must build from repo root`,
+        );
+        assert.ok(
+            logsInitBlock.includes("dockerfile: docker/auth-service/Dockerfile"),
+            `${file} auth-service-logs-init must build the local auth-service image`,
+        );
+        assert.ok(
+            logsInitBlock.includes("-auth-service"),
+            `${file} auth-service-logs-init must use the local auth-service image tag`,
+        );
+    }
+});
+
 test("auth-service startup loads generated dotenv values without shell expansion", () => {
     const composeObs = fs.readFileSync(
         path.join(repoRoot, "compose.obs.yml"),

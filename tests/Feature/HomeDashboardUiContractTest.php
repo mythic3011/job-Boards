@@ -63,6 +63,16 @@ class HomeDashboardUiContractTest extends TestCase
             ->assertDontSeeText('Admin Control Room');
     }
 
+    public function test_incomplete_setup_home_redirect_has_empty_body(): void
+    {
+        Setting::setBool('setup_completed', false);
+
+        $response = $this->withBrowser()->get(route('home'));
+
+        $response->assertRedirect(route('install.index'));
+        $this->assertSame('', $response->getContent());
+    }
+
     public function test_individual_home_surfaces_a_candidate_dashboard(): void
     {
         $individual = User::factory()->individual()->create([

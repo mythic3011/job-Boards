@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(prepend: [
             \App\Http\Middleware\RequestId::class,
             \App\Http\Middleware\BlockCompletedInstallRoutes::class,
+            \App\Http\Middleware\SuppressXsrfTokenCookie::class,
         ]);
 
         $middleware->web(append: [

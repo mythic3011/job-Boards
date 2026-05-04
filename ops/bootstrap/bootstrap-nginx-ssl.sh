@@ -112,6 +112,8 @@ ACTION_MODE_INPUT="${2:-}"
 : "${SSL_CLOUDFLARE_ORIGIN_KEY:=${SSL_CLOUDFLARE_ORIGIN_KEY_FILE:-/etc/nginx/cert/${SSL_CERT_DOMAIN}/key.pem}}"
 : "${SSL_LETSENCRYPT_CERT_PATH:=/etc/letsencrypt/live/${SSL_CERT_DOMAIN}/fullchain.pem}"
 : "${SSL_LETSENCRYPT_KEY_PATH:=/etc/letsencrypt/live/${SSL_CERT_DOMAIN}/privkey.pem}"
+: "${SSL_CUSTOM_CERT_PATH:=}"
+: "${SSL_CUSTOM_KEY_PATH:=}"
 : "${SSL_ACME_WEBROOT:=${REPO_ROOT}/public}"
 
 BT_NGINX_SSL_RUNTIME_DIR="$(repo_path "${BT_NGINX_SSL_RUNTIME_DIR}")"
@@ -137,6 +139,8 @@ SSL_CLOUDFLARE_ORIGIN_CERT="$(maybe_repo_path "${SSL_CLOUDFLARE_ORIGIN_CERT}")"
 SSL_CLOUDFLARE_ORIGIN_KEY="$(maybe_repo_path "${SSL_CLOUDFLARE_ORIGIN_KEY}")"
 SSL_LETSENCRYPT_CERT_PATH="$(maybe_repo_path "${SSL_LETSENCRYPT_CERT_PATH}")"
 SSL_LETSENCRYPT_KEY_PATH="$(maybe_repo_path "${SSL_LETSENCRYPT_KEY_PATH}")"
+SSL_CUSTOM_CERT_PATH="$(maybe_repo_path "${SSL_CUSTOM_CERT_PATH}")"
+SSL_CUSTOM_KEY_PATH="$(maybe_repo_path "${SSL_CUSTOM_KEY_PATH}")"
 
 CURRENT_MODE=""
 TARGET_MODE=""
@@ -149,8 +153,8 @@ PROVISION_CHALLENGE=""
 usage() {
     cat <<'EOF'
 Usage:
-  ./ops/bootstrap/bootstrap-nginx-ssl.sh prepare [self-signed|cloudflare-origin|letsencrypt]
-  ./ops/bootstrap/bootstrap-nginx-ssl.sh switch <self-signed|cloudflare-origin|letsencrypt>
+  ./ops/bootstrap/bootstrap-nginx-ssl.sh prepare [self-signed|cloudflare-origin|letsencrypt|custom]
+  ./ops/bootstrap/bootstrap-nginx-ssl.sh switch <self-signed|cloudflare-origin|letsencrypt|custom>
   ./ops/bootstrap/bootstrap-nginx-ssl.sh status
 
 Description:
@@ -159,7 +163,7 @@ Description:
   running.
 
 Important inputs:
-  SSL_MODE=self-signed|cloudflare-origin|letsencrypt
+  SSL_MODE=self-signed|cloudflare-origin|letsencrypt|custom
   SSL_CERT_DOMAIN=localhost
 
   SSL_CLOUDFLARE_ORIGIN_CERT=/etc/nginx/cert/<domain>/cert.pem
@@ -168,6 +172,8 @@ Important inputs:
 
   SSL_LETSENCRYPT_CERT_PATH=/etc/letsencrypt/live/<domain>/fullchain.pem
   SSL_LETSENCRYPT_KEY_PATH=/etc/letsencrypt/live/<domain>/privkey.pem
+  SSL_CUSTOM_CERT_PATH=/secure/path/fullchain.pem
+  SSL_CUSTOM_KEY_PATH=/secure/path/private.key
   SSL_LETSENCRYPT_GENERATE_HOOK=/path/to/executable
   SSL_ACME_CLIENT=acme.sh|certbot
   SSL_LETSENCRYPT_CHALLENGE=dns-cloudflare|http-01
@@ -183,6 +189,7 @@ Notes:
   - cloudflare-origin supports copy-from-source or an external generate hook.
   - letsencrypt supports copy-from-source, an external generate hook, or built-in
     acme.sh / certbot flows when the required tooling and credentials exist.
+  - custom copies an externally managed PEM certificate/fullchain and key.
 EOF
 }
 
@@ -199,6 +206,9 @@ normalize_mode() {
         letsencrypt)
             printf '%s\n' "letsencrypt"
             ;;
+        custom|external|zerossl|zero-ssl)
+            printf '%s\n' "custom"
+            ;;
         letsencrypt-http01)
             if [[ -z "${SSL_LETSENCRYPT_CHALLENGE:-}" || "${SSL_LETSENCRYPT_CHALLENGE}" == "dns-cloudflare" ]]; then
                 SSL_LETSENCRYPT_CHALLENGE="http-01"
@@ -212,7 +222,7 @@ normalize_mode() {
             printf '%s\n' "letsencrypt"
             ;;
         *)
-            bt_die "Unsupported SSL mode '${raw}'. Expected: self-signed, cloudflare-origin, letsencrypt"
+            bt_die "Unsupported SSL mode '${raw}'. Expected: self-signed, cloudflare-origin, letsencrypt, custom"
             ;;
     esac
 }
@@ -233,7 +243,7 @@ mode_dir() {
         self-signed)
             printf '%s\n' "${BT_NGINX_SSL_RUNTIME_DIR}"
             ;;
-        cloudflare-origin|letsencrypt)
+        cloudflare-origin|letsencrypt|custom)
             printf '%s\n' "${BT_NGINX_SSL_RUNTIME_DIR}/${mode}/${SSL_CERT_DOMAIN}"
             ;;
         *)
@@ -321,7 +331,7 @@ normalize_file_target_path() {
 
 ensure_runtime_layout() {
     bt_mkdir "${BT_NGINX_SSL_RUNTIME_DIR}" "${BT_NGINX_SSL_ARCHIVE_DIR}" "${BT_NGINX_SSL_STATE_DIR}" "$(dirname "${BT_NGINX_SSL_RENDERED_INCLUDE_FILE}")"
-    bt_mkdir "$(mode_dir "cloudflare-origin")" "$(mode_dir "letsencrypt")"
+    bt_mkdir "$(mode_dir "cloudflare-origin")" "$(mode_dir "letsencrypt")" "$(mode_dir "custom")"
 }
 
 nginx_runtime_cert_path() {
@@ -336,6 +346,9 @@ nginx_runtime_cert_path() {
             ;;
         letsencrypt)
             printf '/etc/nginx/ssl/letsencrypt/%s/fullchain.pem\n' "${SSL_CERT_DOMAIN}"
+            ;;
+        custom)
+            printf '/etc/nginx/ssl/custom/%s/cert.pem\n' "${SSL_CERT_DOMAIN}"
             ;;
         *)
             bt_die "Unsupported SSL mode '${mode}'."
@@ -355,6 +368,9 @@ nginx_runtime_key_path() {
             ;;
         letsencrypt)
             printf '/etc/nginx/ssl/letsencrypt/%s/privkey.pem\n' "${SSL_CERT_DOMAIN}"
+            ;;
+        custom)
+            printf '/etc/nginx/ssl/custom/%s/key.pem\n' "${SSL_CERT_DOMAIN}"
             ;;
         *)
             bt_die "Unsupported SSL mode '${mode}'."
@@ -381,11 +397,19 @@ output_path = Path(sys.argv[2])
 cert_path = sys.argv[3]
 key_path = sys.argv[4]
 
+header = "\n".join([
+    "# Generated file: nginx.ssl-mode.conf",
+    "# Purpose: nginx include that points the app-plane container at the active SSL certificate and key.",
+    "# Repo path: .blue-team-vm/runtime/rendered/nginx.ssl-mode.conf",
+    "# Regenerate via: ./ops/bootstrap/bootstrap-nginx-ssl.sh prepare|switch|status",
+    "",
+])
+
 rendered = template_path.read_text(encoding="utf-8")
 rendered = rendered.replace("__SSL_CERT_PATH__", cert_path)
 rendered = rendered.replace("__SSL_KEY_PATH__", key_path)
 output_path.parent.mkdir(parents=True, exist_ok=True)
-output_path.write_text(rendered, encoding="utf-8")
+output_path.write_text(header + rendered, encoding="utf-8")
 PY
 }
 
@@ -847,6 +871,30 @@ provision_letsencrypt() {
     PROVISIONED_KEY_PATH="${key_path}"
 }
 
+validate_custom_prereqs() {
+    [[ -n "${SSL_CUSTOM_CERT_PATH}" ]] || bt_die "SSL_CUSTOM_CERT_PATH is required for custom SSL mode."
+    [[ -n "${SSL_CUSTOM_KEY_PATH}" ]] || bt_die "SSL_CUSTOM_KEY_PATH is required for custom SSL mode."
+    assert_valid_cert_material "${SSL_CUSTOM_CERT_PATH}" "${SSL_CUSTOM_KEY_PATH}"
+}
+
+provision_custom() {
+    local cert_path key_path
+
+    cert_path="$(mode_cert_path "custom")"
+    key_path="$(mode_key_path "custom")"
+
+    assert_valid_cert_material "${SSL_CUSTOM_CERT_PATH}" "${SSL_CUSTOM_KEY_PATH}"
+    atomic_copy_file "${SSL_CUSTOM_CERT_PATH}" "${cert_path}" 0644
+    atomic_copy_file "${SSL_CUSTOM_KEY_PATH}" "${key_path}" 0600
+    sync_archive_aliases "custom" "${cert_path}" "${key_path}"
+
+    PROVISIONED_CERT_PATH="${cert_path}"
+    PROVISIONED_KEY_PATH="${key_path}"
+    PROVISION_SOURCE="source-copy"
+    PROVISION_CLIENT="custom"
+    PROVISION_CHALLENGE="external"
+}
+
 validate_target_mode_prereqs() {
     case "${TARGET_MODE}" in
         self-signed)
@@ -860,6 +908,10 @@ validate_target_mode_prereqs() {
         letsencrypt)
             validate_domain
             validate_letsencrypt_prereqs
+            ;;
+        custom)
+            validate_domain
+            validate_custom_prereqs
             ;;
         *)
             bt_die "Unsupported SSL mode '${TARGET_MODE}'."
@@ -877,6 +929,9 @@ provision_target_mode() {
             ;;
         letsencrypt)
             provision_letsencrypt
+            ;;
+        custom)
+            provision_custom
             ;;
         *)
             bt_die "Unsupported SSL mode '${TARGET_MODE}'."
@@ -1012,6 +1067,8 @@ set -euo pipefail
 export BT_STATE_DIR='${BT_STATE_DIR}'
 export BT_RUNTIME_DIR='${BT_RUNTIME_DIR}'
 export SSL_CERT_DOMAIN='${SSL_CERT_DOMAIN}'
+export SSL_CUSTOM_CERT_PATH='${SSL_CUSTOM_CERT_PATH}'
+export SSL_CUSTOM_KEY_PATH='${SSL_CUSTOM_KEY_PATH}'
 export SSL_ACME_CLIENT='${SSL_ACME_CLIENT}'
 export SSL_LETSENCRYPT_CHALLENGE='${SSL_LETSENCRYPT_CHALLENGE}'
 exec '${REPO_ROOT}/ops/bootstrap/bootstrap-nginx-ssl.sh' switch '${mode}'
@@ -1032,6 +1089,11 @@ EOF
 
     if ! command -v crontab >/dev/null 2>&1; then
         bt_warn "crontab is not available; wrote ${BT_NGINX_SSL_RENEW_CRON_FILE} but did not install it."
+        return 0
+    fi
+
+    if [[ "${mode}" == "custom" ]]; then
+        bt_log "custom SSL mode uses externally managed certificate material; wrote ${BT_NGINX_SSL_RENEW_CRON_FILE} but did not install a cron entry."
         return 0
     fi
 

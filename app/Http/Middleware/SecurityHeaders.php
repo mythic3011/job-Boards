@@ -27,23 +27,20 @@ class SecurityHeaders
             'Permissions-Policy',
             'geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()'
         );
-
-        // if https enabled, add HSTS header
-        if ($request->secure()) {
-            $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
-        }
+        $response->headers->set('Cross-Origin-Embedder-Policy', 'require-corp');
+        $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
 
         // Allow Vite dev server in development
         $isDevelopment = app()->environment('local', 'development');
-        $viteDevServer = $isDevelopment
+        $viteDevServer = $isDevelopment && Vite::isRunningHot()
             ? ' http://localhost:5173 ws://localhost:5173'
             : '';
 
         $csp = [
             "default-src 'self'",
             "script-src 'self' 'nonce-{$nonce}'" . $viteDevServer,
-            "style-src 'self' 'unsafe-inline'" . $viteDevServer,
-            "img-src 'self' data: https:",
+            "style-src 'self' 'nonce-{$nonce}'" . $viteDevServer,
+            "img-src 'self' data:",
             "font-src 'self' data:",
             "connect-src 'self'" . $viteDevServer,
             "frame-ancestors 'none'",

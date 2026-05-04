@@ -63,6 +63,10 @@ services:
 
     auth-service-logs-init:
         image: "${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service"
+        pull_policy: never
+        build:
+            context: .
+            dockerfile: docker/auth-service/Dockerfile
         user: "0:0"
         command:
             - /bin/sh
@@ -79,7 +83,7 @@ services:
     nginx:
         container_name: jobs-boards-nginx
         labels:
-            - dev.orbstack.domains=jobboard.local
+            - dev.orbstack.domains=jobboard.local,jb.mythic3011.com
             - dev.orbstack.https-port=443
         build:
             context: ./docker/nginx
@@ -123,6 +127,8 @@ services:
         build:
             context: .
             dockerfile: docker/auth-service/Dockerfile
+        image: "${COMPOSE_PROJECT_NAME:-jobs-borads}-auth-service"
+        pull_policy: never
         environment:
             - MONITORING_ADMIN_USERNAME=${MONITORING_ADMIN_USERNAME:-}
             - MONITORING_PASSWORD_HASH=${MONITORING_PASSWORD_HASH:-}

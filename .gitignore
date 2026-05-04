@@ -65,3 +65,5 @@ docker/nginx/htpasswd/monitoring.htpasswd
 /.worktrees/
 docs/plans/
 docker/auth-service/node_modules/
+ssl/
+demo-artifacts/

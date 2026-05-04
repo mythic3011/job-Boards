@@ -29,7 +29,33 @@ command -v docker >/dev/null 2>&1 || {
 OUTPUT_DIR="${OUTPUT_ROOT}/${LABEL}"
 mkdir -p "${OUTPUT_DIR}"
 
+target_host="$(python3 - "${TARGET_URL}" <<'PY'
+from urllib.parse import urlparse
+import sys
+
+print(urlparse(sys.argv[1]).hostname or "")
+PY
+)"
+docker_network_args=()
+target_container="${ZAP_TARGET_CONTAINER:-jobs-boards-nginx}"
+
+if [[ -n "${target_host}" ]] && docker inspect "${target_container}" >/dev/null 2>&1; then
+    target_network="$(
+        docker inspect -f '{{range $name, $network := .NetworkSettings.Networks}}{{println $name}}{{end}}' "${target_container}" \
+            | head -n 1
+    )"
+    target_ip="$(
+        docker inspect -f '{{range .NetworkSettings.Networks}}{{println .IPAddress}}{{end}}' "${target_container}" \
+            | head -n 1
+    )"
+
+    if [[ -n "${target_network}" && -n "${target_ip}" ]]; then
+        docker_network_args=(--network "${target_network}" --add-host "${target_host}:${target_ip}")
+    fi
+fi
+
 docker run --rm \
+    "${docker_network_args[@]}" \
     -v "$(cd "${OUTPUT_DIR}" && pwd):/zap/wrk" \
     ghcr.io/zaproxy/zaproxy:stable \
     zap-baseline.py \
