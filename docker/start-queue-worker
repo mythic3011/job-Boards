@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PHP_BIN=${PHP_BIN:-$(command -v php || true)}
+if [ -z "${PHP_BIN}" ] || [ ! -x "${PHP_BIN}" ]; then
+    echo "Error: PHP binary not found. Set PHP_BIN to a valid php executable." >&2
+    exit 1
+fi
+export PHP_BIN
+
+APP_ROOT=${APP_ROOT:-/var/www/html}
+
+# Load bootstrap-generated runtime env when present, then re-apply explicit
+# Compose overrides. This mirrors start-container so queue workers see the same
+# DB/cache/Redis runtime contract as the web container.
+COMPAT_ENV_FILE="${BT_COMPAT_SHELL_ENV_FILE:-${APP_ROOT}/.blue-team-vm/runtime/compat.shell.env}"
+GENERATED_ENV_FILE="${BT_OBS_GENERATED_ENV_FILE:-${APP_ROOT}/.blue-team-vm/runtime/obs.generated.env}"
+EXPLICIT_DB_HOST="${DB_HOST-__UNSET__}"
+EXPLICIT_DB_DATABASE="${DB_DATABASE-__UNSET__}"
+EXPLICIT_DB_USERNAME="${DB_USERNAME-__UNSET__}"
+EXPLICIT_DB_PASSWORD="${DB_PASSWORD-__UNSET__}"
+EXPLICIT_DB_SSLMODE="${DB_SSLMODE-__UNSET__}"
+EXPLICIT_REDIS_HOST="${REDIS_HOST-__UNSET__}"
+
+if [ -r "${COMPAT_ENV_FILE}" ]; then
+    set -a
+    # shellcheck disable=SC1090
+    . "${COMPAT_ENV_FILE}"
+    set +a
+fi
+if [ -r "${GENERATED_ENV_FILE}" ]; then
+    while IFS= read -r line || [ -n "${line}" ]; do
+        case "${line}" in ""|\#*) continue ;; esac
+        line="${line#export }"
+        case "${line}" in *=*) ;; *) continue ;; esac
+        key="${line%%=*}"
+        value="${line#*=}"
+        export "${key}=${value}"
+    done < "${GENERATED_ENV_FILE}"
+fi
+if [ "${EXPLICIT_DB_HOST}" != "__UNSET__" ]; then export DB_HOST="${EXPLICIT_DB_HOST}"; fi
+if [ "${EXPLICIT_DB_DATABASE}" != "__UNSET__" ]; then export DB_DATABASE="${EXPLICIT_DB_DATABASE}"; fi
+if [ "${EXPLICIT_DB_USERNAME}" != "__UNSET__" ]; then export DB_USERNAME="${EXPLICIT_DB_USERNAME}"; fi
+if [ "${EXPLICIT_DB_PASSWORD}" != "__UNSET__" ]; then export DB_PASSWORD="${EXPLICIT_DB_PASSWORD}"; fi
+if [ "${EXPLICIT_DB_SSLMODE}" != "__UNSET__" ]; then export DB_SSLMODE="${EXPLICIT_DB_SSLMODE}"; fi
+if [ "${EXPLICIT_REDIS_HOST}" != "__UNSET__" ]; then export REDIS_HOST="${EXPLICIT_REDIS_HOST}"; fi
+
+: "${DB_HOST:=postgres}"
+: "${DB_DATABASE:=jobs_boards}"
+: "${DB_USERNAME:=jobs_user}"
+: "${DB_PASSWORD:=jobs_local_password}"
+: "${DB_SSLMODE:=prefer}"
+: "${REDIS_HOST:=redis}"
+export DB_HOST DB_DATABASE DB_USERNAME DB_PASSWORD DB_SSLMODE REDIS_HOST
+
+/usr/local/bin/prepare-laravel-runtime "${APP_ROOT}"
+
+# queue:work checks the restart signal through the configured cache store at
+# startup. Ensure database-backed cache tables exist before entering the worker.
+"${PHP_BIN}" "${APP_ROOT}/artisan" config:clear >/dev/null 2>&1 || true
+"${PHP_BIN}" "${APP_ROOT}/artisan" migrate --force
+
+exec "${PHP_BIN}" "${APP_ROOT}/artisan" queue:work --sleep=1 --tries=3 --backoff=10 --timeout=300

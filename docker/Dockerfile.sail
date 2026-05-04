@@ -72,13 +72,14 @@ RUN set -eu; \
 RUN git config --global --add safe.directory /var/www/html
 
 COPY docker/start-container /usr/local/bin/start-container
+COPY docker/start-queue-worker /usr/local/bin/start-queue-worker
 COPY docker/prepare-laravel-runtime /usr/local/bin/prepare-laravel-runtime
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php.ini /etc/php/8.5/cli/conf.d/99-sail.ini
 COPY docker/php.ini /etc/php/8.5/fpm/conf.d/99-sail.ini
 COPY docker/php-fpm-www.conf /etc/php/8.5/fpm/pool.d/zz-jobs-boards.conf
 COPY --from=composer_stage /usr/bin/composer /usr/bin/composer
-RUN chmod +x /usr/local/bin/start-container /usr/local/bin/prepare-laravel-runtime || true
+RUN chmod +x /usr/local/bin/start-container /usr/local/bin/start-queue-worker /usr/local/bin/prepare-laravel-runtime || true
 
 EXPOSE 9000/tcp
 ENTRYPOINT ["start-container"]

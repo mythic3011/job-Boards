@@ -39,6 +39,14 @@ class PhpRuntimeImageContractsTest extends TestCase
         $this->assertStringContainsString("laravel.test:\n", $appComposeContents);
         $this->assertStringContainsString("queue-worker:\n", $appComposeContents);
         $this->assertStringContainsString('dockerfile: docker/Dockerfile.sail', $appComposeContents);
+        $this->assertStringContainsString('COPY docker/start-queue-worker /usr/local/bin/start-queue-worker', file_get_contents($this->repoRoot.'/docker/Dockerfile.sail'));
+        $this->assertStringContainsString('entrypoint: ["start-queue-worker"]', $composeContents);
+        $this->assertStringContainsString('entrypoint: ["start-queue-worker"]', $appComposeContents);
+        $this->assertStringContainsString("ps aux | grep -q '[a]rtisan queue:work' || exit 1", $composeContents);
+        $this->assertStringContainsString("ps aux | grep -q '[a]rtisan queue:work' || exit 1", $appComposeContents);
+        $this->assertStringContainsString('migrate --force', file_get_contents($this->repoRoot.'/docker/start-queue-worker'));
+        $this->assertStringNotContainsString('exec php artisan queue:work', $composeContents);
+        $this->assertStringNotContainsString('exec php artisan queue:work', $appComposeContents);
     }
 
     public function test_shared_php_runtime_builds_do_not_configure_local_builder_cache_exports(): void
