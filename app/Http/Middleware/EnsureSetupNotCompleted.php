@@ -42,7 +42,7 @@ class EnsureSetupNotCompleted extends BaseSetupMiddleware
             $this->auditLogger->logRequestEvent(
                 eventType: 'install_probe',
                 request: $request,
-                statusCode: 302
+                statusCode: 404
             );
         } catch (\Exception $e) {
             $this->logSecurityEvent('Failed to log install probe', [
@@ -50,7 +50,7 @@ class EnsureSetupNotCompleted extends BaseSetupMiddleware
             ]);
         }
 
-        return redirect()->route('install.gone')->with('install_gone', true);
+        abort(404);
     }
 
     /**

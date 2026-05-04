@@ -78,4 +78,34 @@ class NginxMonitoringAccessContractTest extends TestCase
         $this->assertStringContainsString('location ^~ /livewire {', $nginx);
         $this->assertStringContainsString('try_files $uri $uri/ /index.php?$query_string;', $nginx);
     }
+
+    public function test_nginx_security_headers_and_cache_policy_contracts_for_zap_lane_two(): void
+    {
+        $nginx = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($nginx);
+        $this->assertStringContainsString('add_header X-Content-Type-Options "nosniff" always;', $nginx);
+        $this->assertStringContainsString('add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;', $nginx);
+        $this->assertStringContainsString('add_header Referrer-Policy "strict-origin-when-cross-origin" always;', $nginx);
+        $this->assertStringContainsString('add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;', $nginx);
+        $this->assertStringNotContainsString('Content-Security-Policy', $nginx);
+        $this->assertStringContainsString('add_header Cache-Control "public, max-age=604800, immutable" always;', $nginx);
+        $this->assertStringContainsString('add_header Cache-Control "no-store, max-age=0" always;', $nginx);
+        $this->assertStringContainsString('add_header Pragma "no-cache" always;', $nginx);
+        $this->assertStringContainsString('location = /robots.txt {', $nginx);
+        $this->assertStringContainsString('location = /sitemap.xml {', $nginx);
+        $this->assertStringContainsString('add_header Cache-Control "public, max-age=3600" always;', $nginx);
+    }
+
+    public function test_install_sensitive_query_sanitization_contract_is_declared_in_nginx(): void
+    {
+        $nginx = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($nginx);
+        $this->assertStringContainsString('map $request_method:$query_string $install_sensitive_query {', $nginx);
+        $this->assertStringContainsString('~*^GET:.*(password|password_confirmation|email|username|name)= 1;', $nginx);
+        $this->assertStringContainsString('location = /install {', $nginx);
+        $this->assertStringContainsString('if ($install_sensitive_query) {', $nginx);
+        $this->assertStringContainsString('return 302 /install;', $nginx);
+    }
 }

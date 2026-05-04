@@ -20,7 +20,7 @@ services:
       - ".:/var/www/html:ro"
       - ${BT_HONEYPOT_SOURCE:-./docker/nginx/includes/blue-team-honeypot.conf}:/etc/nginx/includes/blue-team-honeypot.conf:ro
       - ${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl:/etc/nginx/ssl
-      - ${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/nginx.ssl-mode.conf:/etc/nginx/generated/ssl-mode.conf
+      - ${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered:/etc/nginx/generated
       - nginx-logs:/var/log/nginx
       - crowdsec-keys:/crowdsec-keys:ro
     networks:

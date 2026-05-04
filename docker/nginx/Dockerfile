@@ -4,7 +4,7 @@ COPY errors/banned.html /tmp/banned.html
 
 RUN apk add --no-cache openssl apache2-utils curl tar && \
     mkdir -p /usr/local/openresty/lualib/resty && \
-    mkdir -p /etc/nginx/includes && \
+    mkdir -p /etc/nginx/includes /etc/nginx/generated && \
     curl -sL "https://raw.githubusercontent.com/ledgetech/lua-resty-http/master/lib/resty/http.lua" \
         -o /usr/local/openresty/lualib/resty/http.lua && \
     curl -sL "https://raw.githubusercontent.com/ledgetech/lua-resty-http/master/lib/resty/http_connect.lua" \

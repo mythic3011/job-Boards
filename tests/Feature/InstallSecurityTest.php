@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\Setting;
 use App\Services\AntiBot\ChallengeVerificationResult;
 use App\Services\AntiBot\ChallengeVerifier;
 use App\Services\AuditLogger;
@@ -62,6 +63,36 @@ class InstallSecurityTest extends TestCase
 
         $this->withBrowser()->get('/install?token=bootstrap-secret')
             ->assertOk();
+    }
+
+    public function test_completed_setup_returns_real_404_for_all_installer_routes_and_logs_install_probe_as_404(): void
+    {
+        Setting::setBool('setup_completed', true);
+
+        $requests = [
+            fn () => $this->withBrowser()->get('/install'),
+            fn () => $this->withBrowser()->get('/install/status'),
+            fn () => $this->withBrowser()->postJson('/install/checks'),
+            fn () => $this->withBrowser()->postJson('/install/complete'),
+        ];
+
+        foreach ($requests as $request) {
+            $response = $request();
+
+            $response->assertNotFound()
+                ->assertHeaderMissing('Location');
+
+            $location = (string) ($response->headers->get('Location') ?? '');
+            $this->assertStringNotContainsString('/install-gone', $location);
+        }
+
+        $installProbeLogs = AuditLog::query()
+            ->where('event_type', 'install_probe')
+            ->orderBy('occurred_at')
+            ->get();
+
+        $this->assertCount(4, $installProbeLogs);
+        $this->assertSame([404, 404, 404, 404], $installProbeLogs->pluck('status_code')->all());
     }
 
     public function test_install_complete_requires_server_side_otp_code(): void
