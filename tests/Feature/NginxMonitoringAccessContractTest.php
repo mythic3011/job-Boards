@@ -79,6 +79,19 @@ class NginxMonitoringAccessContractTest extends TestCase
         $this->assertStringContainsString('try_files $uri $uri/ /index.php?$query_string;', $nginx);
     }
 
+    public function test_grafana_subpath_proxy_preserves_asset_and_dashboard_paths(): void
+    {
+        $nginx = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
+
+        $this->assertIsString($nginx);
+        $this->assertStringContainsString('set $monitoring_grafana_public_upstream http://grafana:3000;', $nginx);
+        $this->assertStringContainsString('set $monitoring_grafana_upstream http://grafana:3000;', $nginx);
+        $this->assertStringNotContainsString('set $monitoring_grafana_public_upstream http://grafana:3000/monitoring/grafana/public/;', $nginx);
+        $this->assertStringNotContainsString('set $monitoring_grafana_upstream http://grafana:3000/monitoring/grafana/;', $nginx);
+        $this->assertMatchesRegularExpression('/location \^~ \/monitoring\/grafana\/public\/ \{.*proxy_pass \$monitoring_grafana_public_upstream;/s', $nginx);
+        $this->assertMatchesRegularExpression('/location \^~ \/monitoring\/grafana\/ \{.*proxy_pass \$monitoring_grafana_upstream;/s', $nginx);
+    }
+
     public function test_nginx_security_headers_and_cache_policy_contracts_for_zap_lane_two(): void
     {
         $nginx = file_get_contents($this->repoRoot.'/docker/nginx/nginx.conf');
