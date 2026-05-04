@@ -684,6 +684,29 @@ BASH);
         $this->assertStringContainsString('audit\\\\.auth\\\\..*', $contents);
     }
 
+    public function test_obs_grafana_dashboard_links_include_the_public_subpath(): void
+    {
+        $dashboardFiles = glob($this->repoRoot.'/docker/grafana/provisioning/dashboards/*.json');
+
+        $this->assertIsArray($dashboardFiles);
+        $this->assertNotEmpty($dashboardFiles);
+
+        foreach ($dashboardFiles as $dashboardFile) {
+            $contents = file_get_contents($dashboardFile);
+
+            $this->assertIsString($contents);
+            $this->assertStringNotContainsString('"url": "/d/', $contents, basename($dashboardFile).' must not bypass the Grafana subpath.');
+        }
+
+        $overview = file_get_contents($this->repoRoot.'/docker/grafana/provisioning/dashboards/overview-oncall.json');
+
+        $this->assertIsString($overview);
+        $this->assertStringContainsString('"url": "/monitoring/grafana/d/http-edge/http-waf-edge"', $overview);
+        $this->assertStringContainsString('"url": "/monitoring/grafana/d/laravel-logs/laravel-app-logs"', $overview);
+        $this->assertStringContainsString('"url": "/monitoring/grafana/d/queue-workers/queue-workers"', $overview);
+        $this->assertStringContainsString('"url": "/monitoring/grafana/d/infra-postgres/infra-postgres"', $overview);
+    }
+
     public function test_obs_grafana_provisions_stable_prometheus_and_loki_datasource_uids(): void
     {
         $contents = file_get_contents($this->repoRoot.'/docker/grafana/provisioning/datasources/datasources.yaml');

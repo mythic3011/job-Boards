@@ -2,7 +2,7 @@
     "title": "Overview - Oncall",
     "uid": "overview-oncall",
     "schemaVersion": 38,
-    "version": 3,
+    "version": 4,
     "refresh": "30s",
     "time": { "from": "now-6h", "to": "now" },
     "templating": {
@@ -28,7 +28,7 @@
             "tags": [],
             "asDropdown": false,
             "icon": "external link",
-            "url": "/d/http-edge/http-waf-edge"
+            "url": "/monitoring/grafana/d/http-edge/http-waf-edge"
         },
         {
             "title": "Laravel Logs",
@@ -36,7 +36,7 @@
             "tags": [],
             "asDropdown": false,
             "icon": "external link",
-            "url": "/d/laravel-logs/laravel-app-logs"
+            "url": "/monitoring/grafana/d/laravel-logs/laravel-app-logs"
         },
         {
             "title": "Queue Workers",
@@ -44,7 +44,7 @@
             "tags": [],
             "asDropdown": false,
             "icon": "external link",
-            "url": "/d/queue-workers/queue-workers"
+            "url": "/monitoring/grafana/d/queue-workers/queue-workers"
         },
         {
             "title": "Infra / Postgres",
@@ -52,7 +52,7 @@
             "tags": [],
             "asDropdown": false,
             "icon": "external link",
-            "url": "/d/infra-postgres/infra-postgres"
+            "url": "/monitoring/grafana/d/infra-postgres/infra-postgres"
         }
     ],
     "panels": [
@@ -75,7 +75,7 @@
             "links": [
                 {
                     "title": "Open HTTP / WAF / Edge",
-                    "url": "/d/http-edge/http-waf-edge",
+                    "url": "/monitoring/grafana/d/http-edge/http-waf-edge",
                     "targetBlank": false
                 }
             ]
@@ -99,7 +99,7 @@
             "links": [
                 {
                     "title": "Open Laravel Logs",
-                    "url": "/d/laravel-logs/laravel-app-logs",
+                    "url": "/monitoring/grafana/d/laravel-logs/laravel-app-logs",
                     "targetBlank": false
                 }
             ]
@@ -123,7 +123,7 @@
             "links": [
                 {
                     "title": "Open HTTP / WAF / Edge",
-                    "url": "/d/http-edge/http-waf-edge",
+                    "url": "/monitoring/grafana/d/http-edge/http-waf-edge",
                     "targetBlank": false
                 }
             ]
@@ -147,7 +147,7 @@
             "links": [
                 {
                     "title": "Open HTTP / WAF / Edge",
-                    "url": "/d/http-edge/http-waf-edge",
+                    "url": "/monitoring/grafana/d/http-edge/http-waf-edge",
                     "targetBlank": false
                 }
             ]
