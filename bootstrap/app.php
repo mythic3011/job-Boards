@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Global middleware (runs on all requests)
         $middleware->web(prepend: [
             \App\Http\Middleware\RequestId::class,
+            \App\Http\Middleware\BlockCompletedInstallRoutes::class,
         ]);
 
         $middleware->web(append: [
