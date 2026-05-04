@@ -51,7 +51,7 @@ The scanner wrapper now runs ZAP on the same Docker network as nginx and adds a 
 
 The scanner wrapper also copies the tracked ZAP baseline policy into each output directory and passes it to `zap-baseline.py` with `-c zap-baseline-policy.conf`, so the generated `zap.yaml` records the same policy used for the run.
 
-The local TLS path now supports `SSL_MODE=custom` for externally issued certificates such as ZeroSSL. The custom mode copies an operator-provided fullchain and key into the nginx runtime SSL directory and renders the nginx SSL include to that path.
+The local TLS path now supports `SSL_MODE=custom` for externally issued certificates such as ZeroSSL. The custom mode copies an operator-provided fullchain and key into the nginx runtime SSL directory and renders the nginx SSL include to that path. For ZeroSSL archive exports, set `SSL_CUSTOM_CERT_PATH=ssl/certificate.crt`, `SSL_CUSTOM_CA_BUNDLE_PATH=ssl/ca_bundle.crt`, and `SSL_CUSTOM_KEY_PATH=ssl/private.key`; bootstrap concatenates the leaf and CA bundle into the nginx `cert.pem` so browsers receive the intermediate certificate.
 
 ## Verification commands
 

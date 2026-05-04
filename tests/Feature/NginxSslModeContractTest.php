@@ -77,7 +77,12 @@ class NginxSslModeContractTest extends TestCase
         $this->assertStringContainsString('acme.sh', $bootstrapScript);
         $this->assertStringContainsString('certbot', $bootstrapScript);
         $this->assertStringContainsString('SSL_CUSTOM_CERT_PATH', $bootstrapScript);
+        $this->assertStringContainsString('SSL_CUSTOM_CA_BUNDLE_PATH', $bootstrapScript);
         $this->assertStringContainsString('provision_custom()', $bootstrapScript);
+
+        $install = file_get_contents($this->repoRoot.'/install.sh');
+        $this->assertIsString($install);
+        $this->assertStringContainsString('SSL_CUSTOM_CA_BUNDLE_PATH', $install);
     }
 
     public function test_ssl_switch_only_persists_env_after_runtime_switch_succeeds(): void
@@ -108,6 +113,7 @@ class NginxSslModeContractTest extends TestCase
         $this->assertStringContainsString('CF_Zone_ID=', $envExample);
         $this->assertStringContainsString('SSL_ACME_CLIENT=acme.sh', $envExample);
         $this->assertStringContainsString('SSL_CUSTOM_CERT_PATH=', $envExample);
+        $this->assertStringContainsString('SSL_CUSTOM_CA_BUNDLE_PATH=', $envExample);
         $this->assertStringContainsString('SSL_CUSTOM_KEY_PATH=', $envExample);
 
         $this->assertStringContainsString('self-signed', $setup);

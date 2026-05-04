@@ -864,6 +864,7 @@ persist_ssl_env_overrides() {
         SSL_LETSENCRYPT_CHALLENGE \
         SSL_CERTBOT_CREDENTIALS_FILE \
         SSL_CUSTOM_CERT_PATH \
+        SSL_CUSTOM_CA_BUNDLE_PATH \
         SSL_CUSTOM_KEY_PATH \
         CF_Token \
         CF_Zone_ID

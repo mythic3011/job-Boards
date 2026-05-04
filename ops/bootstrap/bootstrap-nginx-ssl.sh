@@ -113,6 +113,7 @@ ACTION_MODE_INPUT="${2:-}"
 : "${SSL_LETSENCRYPT_CERT_PATH:=/etc/letsencrypt/live/${SSL_CERT_DOMAIN}/fullchain.pem}"
 : "${SSL_LETSENCRYPT_KEY_PATH:=/etc/letsencrypt/live/${SSL_CERT_DOMAIN}/privkey.pem}"
 : "${SSL_CUSTOM_CERT_PATH:=}"
+: "${SSL_CUSTOM_CA_BUNDLE_PATH:=}"
 : "${SSL_CUSTOM_KEY_PATH:=}"
 : "${SSL_ACME_WEBROOT:=${REPO_ROOT}/public}"
 
@@ -140,6 +141,7 @@ SSL_CLOUDFLARE_ORIGIN_KEY="$(maybe_repo_path "${SSL_CLOUDFLARE_ORIGIN_KEY}")"
 SSL_LETSENCRYPT_CERT_PATH="$(maybe_repo_path "${SSL_LETSENCRYPT_CERT_PATH}")"
 SSL_LETSENCRYPT_KEY_PATH="$(maybe_repo_path "${SSL_LETSENCRYPT_KEY_PATH}")"
 SSL_CUSTOM_CERT_PATH="$(maybe_repo_path "${SSL_CUSTOM_CERT_PATH}")"
+SSL_CUSTOM_CA_BUNDLE_PATH="$(maybe_repo_path "${SSL_CUSTOM_CA_BUNDLE_PATH}")"
 SSL_CUSTOM_KEY_PATH="$(maybe_repo_path "${SSL_CUSTOM_KEY_PATH}")"
 
 CURRENT_MODE=""
@@ -173,6 +175,7 @@ Important inputs:
   SSL_LETSENCRYPT_CERT_PATH=/etc/letsencrypt/live/<domain>/fullchain.pem
   SSL_LETSENCRYPT_KEY_PATH=/etc/letsencrypt/live/<domain>/privkey.pem
   SSL_CUSTOM_CERT_PATH=/secure/path/fullchain.pem
+  SSL_CUSTOM_CA_BUNDLE_PATH=/secure/path/ca_bundle.crt
   SSL_CUSTOM_KEY_PATH=/secure/path/private.key
   SSL_LETSENCRYPT_GENERATE_HOOK=/path/to/executable
   SSL_ACME_CLIENT=acme.sh|certbot
@@ -189,7 +192,9 @@ Notes:
   - cloudflare-origin supports copy-from-source or an external generate hook.
   - letsencrypt supports copy-from-source, an external generate hook, or built-in
     acme.sh / certbot flows when the required tooling and credentials exist.
-  - custom copies an externally managed PEM certificate/fullchain and key.
+  - custom copies an externally managed PEM certificate/fullchain and key. If
+    SSL_CUSTOM_CA_BUNDLE_PATH is set, custom mode builds cert.pem from
+    certificate + CA bundle for vendors such as ZeroSSL.
 EOF
 }
 
@@ -480,6 +485,33 @@ atomic_copy_file() {
     temp_file="$(mktemp "${destination}.tmp.XXXXXX")"
     cp "${source}" "${temp_file}"
     chmod "${mode}" "${temp_file}"
+    mv -f "${temp_file}" "${destination}"
+}
+
+atomic_write_custom_fullchain() {
+    local certificate="$1"
+    local ca_bundle="$2"
+    local destination="$3"
+    local temp_file=""
+
+    [[ -r "${certificate}" ]] || bt_die "Certificate file is missing or unreadable: ${certificate}"
+    [[ -r "${ca_bundle}" ]] || bt_die "CA bundle file is missing or unreadable: ${ca_bundle}"
+
+    require_command "openssl" "openssl"
+    openssl x509 -noout -in "${certificate}" >/dev/null 2>&1 || bt_die "Invalid certificate file: ${certificate}"
+    openssl x509 -noout -in "${ca_bundle}" >/dev/null 2>&1 || bt_die "Invalid CA bundle file: ${ca_bundle}"
+
+    normalize_file_target_path "${destination}"
+
+    if [[ "${BT_DRY_RUN}" == "1" ]]; then
+        bt_log "DRY-RUN concatenate ${certificate} + ${ca_bundle} -> ${destination} (0644)"
+        return 0
+    fi
+
+    mkdir -p "$(dirname "${destination}")"
+    temp_file="$(mktemp "${destination}.tmp.XXXXXX")"
+    cat "${certificate}" "${ca_bundle}" > "${temp_file}"
+    chmod 0644 "${temp_file}"
     mv -f "${temp_file}" "${destination}"
 }
 
@@ -874,6 +906,10 @@ provision_letsencrypt() {
 validate_custom_prereqs() {
     [[ -n "${SSL_CUSTOM_CERT_PATH}" ]] || bt_die "SSL_CUSTOM_CERT_PATH is required for custom SSL mode."
     [[ -n "${SSL_CUSTOM_KEY_PATH}" ]] || bt_die "SSL_CUSTOM_KEY_PATH is required for custom SSL mode."
+    if [[ -n "${SSL_CUSTOM_CA_BUNDLE_PATH}" ]]; then
+        [[ -r "${SSL_CUSTOM_CA_BUNDLE_PATH}" ]] || bt_die "SSL_CUSTOM_CA_BUNDLE_PATH is missing or unreadable: ${SSL_CUSTOM_CA_BUNDLE_PATH}"
+        openssl x509 -noout -in "${SSL_CUSTOM_CA_BUNDLE_PATH}" >/dev/null 2>&1 || bt_die "Invalid custom CA bundle file: ${SSL_CUSTOM_CA_BUNDLE_PATH}"
+    fi
     assert_valid_cert_material "${SSL_CUSTOM_CERT_PATH}" "${SSL_CUSTOM_KEY_PATH}"
 }
 
@@ -884,8 +920,13 @@ provision_custom() {
     key_path="$(mode_key_path "custom")"
 
     assert_valid_cert_material "${SSL_CUSTOM_CERT_PATH}" "${SSL_CUSTOM_KEY_PATH}"
-    atomic_copy_file "${SSL_CUSTOM_CERT_PATH}" "${cert_path}" 0644
+    if [[ -n "${SSL_CUSTOM_CA_BUNDLE_PATH}" ]]; then
+        atomic_write_custom_fullchain "${SSL_CUSTOM_CERT_PATH}" "${SSL_CUSTOM_CA_BUNDLE_PATH}" "${cert_path}"
+    else
+        atomic_copy_file "${SSL_CUSTOM_CERT_PATH}" "${cert_path}" 0644
+    fi
     atomic_copy_file "${SSL_CUSTOM_KEY_PATH}" "${key_path}" 0600
+    assert_valid_cert_material "${cert_path}" "${key_path}"
     sync_archive_aliases "custom" "${cert_path}" "${key_path}"
 
     PROVISIONED_CERT_PATH="${cert_path}"
@@ -1068,6 +1109,7 @@ export BT_STATE_DIR='${BT_STATE_DIR}'
 export BT_RUNTIME_DIR='${BT_RUNTIME_DIR}'
 export SSL_CERT_DOMAIN='${SSL_CERT_DOMAIN}'
 export SSL_CUSTOM_CERT_PATH='${SSL_CUSTOM_CERT_PATH}'
+export SSL_CUSTOM_CA_BUNDLE_PATH='${SSL_CUSTOM_CA_BUNDLE_PATH}'
 export SSL_CUSTOM_KEY_PATH='${SSL_CUSTOM_KEY_PATH}'
 export SSL_ACME_CLIENT='${SSL_ACME_CLIENT}'
 export SSL_LETSENCRYPT_CHALLENGE='${SSL_LETSENCRYPT_CHALLENGE}'

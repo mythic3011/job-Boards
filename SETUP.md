@@ -194,6 +194,7 @@ Prerequisites:
 
 - `SSL_CERT_DOMAIN` is set to the certificate hostname.
 - `SSL_CUSTOM_CERT_PATH` points to a PEM certificate or fullchain file.
+- `SSL_CUSTOM_CA_BUNDLE_PATH` optionally points to the vendor CA bundle. Use this for ZeroSSL archives that contain separate `certificate.crt` and `ca_bundle.crt` files.
 - `SSL_CUSTOM_KEY_PATH` points to the matching private key.
 - the certificate SAN includes the hostname users browse.
 
@@ -208,7 +209,8 @@ Initial setup:
 ```bash
 SSL_MODE=custom \
 SSL_CERT_DOMAIN=jb.mythic3011.com \
-SSL_CUSTOM_CERT_PATH=ssl/fullchain.pem \
+SSL_CUSTOM_CERT_PATH=ssl/certificate.crt \
+SSL_CUSTOM_CA_BUNDLE_PATH=ssl/ca_bundle.crt \
 SSL_CUSTOM_KEY_PATH=ssl/private.key \
 ./setup.sh
 ```
@@ -217,7 +219,8 @@ Hot switch on a running stack:
 
 ```bash
 SSL_CERT_DOMAIN=jb.mythic3011.com \
-SSL_CUSTOM_CERT_PATH=ssl/fullchain.pem \
+SSL_CUSTOM_CERT_PATH=ssl/certificate.crt \
+SSL_CUSTOM_CA_BUNDLE_PATH=ssl/ca_bundle.crt \
 SSL_CUSTOM_KEY_PATH=ssl/private.key \
 ./setup.sh ssl-switch custom
 ```

@@ -157,6 +157,69 @@ final class NginxSslBootstrapRuntimeContractTest extends TestCase
         $this->assertStringContainsString('/etc/nginx/ssl/custom/custom.example.test/key.pem', $contents);
     }
 
+    public function test_prepare_custom_mode_combines_leaf_certificate_and_ca_bundle_into_fullchain(): void
+    {
+        $tempRoot = $this->makeTempDir();
+        $scriptPath = $this->installBootstrapFixture($tempRoot);
+        $stateDir = $tempRoot.'/state';
+        $sourceDir = $tempRoot.'/source';
+        $sourceCert = $sourceDir.'/certificate.crt';
+        $sourceCaBundle = $sourceDir.'/ca_bundle.crt';
+        $sourceKey = $sourceDir.'/private.key';
+        $runtimeCertPath = $stateDir.'/runtime/nginx-ssl/custom/zerossl.example.test/cert.pem';
+
+        mkdir($sourceDir, 0777, true);
+
+        $certProcess = new Process([
+            'openssl',
+            'req',
+            '-x509',
+            '-nodes',
+            '-days',
+            '30',
+            '-newkey',
+            'rsa:2048',
+            '-keyout',
+            $sourceKey,
+            '-out',
+            $sourceCert,
+            '-subj',
+            '/CN=zerossl.example.test',
+            '-addext',
+            'subjectAltName=DNS:zerossl.example.test',
+        ]);
+        $certProcess->setTimeout(60);
+        $certProcess->run();
+
+        $this->assertSame(0, $certProcess->getExitCode(), $certProcess->getOutput().$certProcess->getErrorOutput());
+        copy($sourceCert, $sourceCaBundle);
+
+        $process = new Process(
+            [$scriptPath, 'prepare', 'custom'],
+            $tempRoot,
+            [
+                'BT_STATE_DIR' => $stateDir,
+                'BT_RUNTIME_DIR' => $stateDir.'/runtime',
+                'BT_NGINX_CONTAINER_NAME' => 'jobs-boards-nginx-test',
+                'SSL_CERT_DOMAIN' => 'zerossl.example.test',
+                'SSL_CUSTOM_CERT_PATH' => $sourceCert,
+                'SSL_CUSTOM_CA_BUNDLE_PATH' => $sourceCaBundle,
+                'SSL_CUSTOM_KEY_PATH' => $sourceKey,
+                'PATH' => $tempRoot.'/bin:'.getenv('PATH'),
+            ],
+        );
+        $process->setTimeout(120);
+        $process->run();
+
+        $combinedOutput = $process->getOutput().$process->getErrorOutput();
+
+        $this->assertSame(0, $process->getExitCode(), $combinedOutput);
+        $runtimeCert = file_get_contents($runtimeCertPath);
+
+        $this->assertIsString($runtimeCert);
+        $this->assertSame(2, substr_count($runtimeCert, '-----BEGIN CERTIFICATE-----'));
+    }
+
     private function installBootstrapFixture(string $tempRoot): string
     {
         $scriptPath = $tempRoot.'/ops/bootstrap/bootstrap-nginx-ssl.sh';

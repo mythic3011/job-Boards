@@ -14,7 +14,7 @@ usage() {
     cat <<'EOF'
 Usage:
   ./setup.sh [reset-demo|deploy|up|bootstrap|reset|seed-admin|mark-installed|test-prepare|verify|demo|full|quick|setupAdmin|skip|test] [dev|production]
-  ./setup.sh ssl-switch <self-signed|cloudflare-origin|letsencrypt> [dev|production]
+  ./setup.sh ssl-switch <self-signed|cloudflare-origin|letsencrypt|custom> [dev|production]
 
 Defaults:
   ./setup.sh
