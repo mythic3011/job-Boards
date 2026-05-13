@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-TARGET="https://localhost"
+TARGET="https://jb.mythic3011.com"
 ATTACKER_IP="203.0.113.42"
 COOKIE_FILE="/tmp/crowdsec-test-cookies.txt"
 

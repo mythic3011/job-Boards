@@ -161,15 +161,18 @@ EOF
 }
 
 obs_render_prometheus_web_config() {
+    local username
     local password_hash
     local current_path=""
+    username="$(obs_effective_env_value "MONITORING_ADMIN_USERNAME" || true)"
+    [[ -n "${username}" ]] || username="admin"
     password_hash="$(bt_normalize_compose_dollars "$(obs_effective_env_value "PROMETHEUS_PASSWORD_HASH" || true)")"
     [[ -n "${password_hash}" ]] || return 1
 
     bt_write_file "${OBS_PROMETHEUS_WEB_CONFIG_FILE}" "$(cat <<EOF
 $(obs_header_comment_block "prometheus.web-config.yml" ".blue-team-vm/rendered/prometheus.web-config.yml" "Prometheus basic auth runtime config consumed by the obs plane.")
 basic_auth_users:
-  admin: "${password_hash}"
+  "${username}": "${password_hash}"
 EOF
 )"
     if [[ "${BT_DRY_RUN}" != "1" ]]; then

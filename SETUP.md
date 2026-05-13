@@ -107,7 +107,7 @@ Runtime files:
 
 - `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/selfsigned.crt`
 - `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/selfsigned.key`
-- `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/nginx.ssl-mode.conf`
+- `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/ssl-mode.conf`
 
 Initial setup:
 
@@ -139,9 +139,9 @@ Prerequisites:
 
 Runtime files:
 
-- `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/cloudflare-origin/${SSL_CERT_DOMAIN}/cert.pem`
+- `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/cloudflare-origin/${SSL_CERT_DOMAIN}/fullchain.pem`
 - `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/cloudflare-origin/${SSL_CERT_DOMAIN}/key.pem`
-- `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/nginx.ssl-mode.conf`
+- `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/ssl-mode.conf`
 
 Initial setup:
 
@@ -182,7 +182,7 @@ Runtime files:
 
 - `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/letsencrypt/${SSL_CERT_DOMAIN}/fullchain.pem`
 - `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/letsencrypt/${SSL_CERT_DOMAIN}/privkey.pem`
-- `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/nginx.ssl-mode.conf`
+- `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/ssl-mode.conf`
 
 Initial setup:
 
@@ -227,9 +227,9 @@ Prerequisites:
 
 Runtime files:
 
-- `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/custom/${SSL_CERT_DOMAIN}/cert.pem`
+- `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/custom/${SSL_CERT_DOMAIN}/fullchain.pem`
 - `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl/custom/${SSL_CERT_DOMAIN}/key.pem`
-- `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/nginx.ssl-mode.conf`
+- `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/ssl-mode.conf`
 
 Initial setup:
 
@@ -254,7 +254,7 @@ SSL_CUSTOM_KEY_PATH=ssl/private.key \
 
 ## Switching Modes On A Running Stack
 
-Use `./setup.sh ssl-switch <mode>` when the Docker stack is already up and you only need to replace SSL material. This is a runtime-only path: it should validate the target mode prerequisites, provision or copy the target certificate/key, update `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl` plus `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/nginx.ssl-mode.conf`, and reload nginx in place when the container is already running. If nginx is not running, the runtime state should still be staged for the next start. It should not reset the database, rebuild demo data, rerun the headless installer, or require a full `docker compose down && docker compose up`.
+Use `./setup.sh ssl-switch <mode>` when the Docker stack is already up and you only need to replace SSL material. This is a runtime-only path: it should validate the target mode prerequisites, provision or copy the target certificate/key, update `${BT_STATE_DIR:-.blue-team-vm}/runtime/nginx-ssl` plus `${BT_STATE_DIR:-.blue-team-vm}/runtime/rendered/ssl-mode.conf`, and reload nginx in place when the container is already running. If nginx is not running, the runtime state should still be staged for the next start. It should not reset the database, rebuild demo data, rerun the headless installer, or require a full `docker compose down && docker compose up`.
 
 ## Notes
 

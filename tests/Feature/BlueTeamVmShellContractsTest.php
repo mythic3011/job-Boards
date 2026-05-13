@@ -389,6 +389,17 @@ class BlueTeamVmShellContractsTest extends TestCase
         );
     }
 
+    public function test_obs_compose_grafana_exports_prometheus_datasource_credentials(): void
+    {
+        $contents = file_get_contents($this->repoRoot.'/compose.obs.yml');
+
+        $this->assertIsString($contents);
+        $this->assertMatchesRegularExpression(
+            '/^  grafana:\n(?:(?:    |      ).*\n)*?      GRAFANA_PROMETHEUS_USER: \$\{MONITORING_ADMIN_USERNAME:-admin\}\n      GRAFANA_PROMETHEUS_SECRET: \$\{PROMETHEUS_PASSWORD:\?Set PROMETHEUS_PASSWORD before obs apply\}/m',
+            $contents
+        );
+    }
+
     public function test_app_and_obs_compose_allow_an_explicit_app_plane_network_override(): void
     {
         $appContents = file_get_contents($this->repoRoot.'/compose.app.yml');
@@ -701,7 +712,10 @@ BASH);
         $overview = file_get_contents($this->repoRoot.'/docker/grafana/provisioning/dashboards/overview-oncall.json');
 
         $this->assertIsString($overview);
+        $this->assertStringContainsString('"title": "Auth Service Audit"', $overview);
+        $this->assertStringContainsString('"url": "/monitoring/grafana/d/auth-service-audit/auth-service-audit"', $overview);
         $this->assertStringContainsString('"url": "/monitoring/grafana/d/http-edge/http-waf-edge"', $overview);
+        $this->assertStringContainsString('"title": "Laravel App Logs"', $overview);
         $this->assertStringContainsString('"url": "/monitoring/grafana/d/laravel-logs/laravel-app-logs"', $overview);
         $this->assertStringContainsString('"url": "/monitoring/grafana/d/queue-workers/queue-workers"', $overview);
         $this->assertStringContainsString('"url": "/monitoring/grafana/d/infra-postgres/infra-postgres"', $overview);
@@ -715,6 +729,9 @@ BASH);
         $this->assertStringContainsString('name: Prometheus', $contents);
         $this->assertStringContainsString('uid: PBFA97CFB590B2093', $contents);
         $this->assertStringContainsString('type: prometheus', $contents);
+        $this->assertStringContainsString('basicAuth: true', $contents);
+        $this->assertStringContainsString('basicAuthUser: $GRAFANA_PROMETHEUS_USER', $contents);
+        $this->assertStringContainsString('basicAuthPassword: $GRAFANA_PROMETHEUS_SECRET', $contents);
         $this->assertStringContainsString('name: Loki', $contents);
         $this->assertStringContainsString('uid: P8E80F9AEF21F6940', $contents);
         $this->assertStringContainsString('type: loki', $contents);
@@ -806,6 +823,8 @@ BASH);
         $this->assertStringContainsString('deleteDatasources:', $renderedGrafanaDatasources);
         $this->assertStringContainsString('JobsBoards-Postgres', $renderedGrafanaDatasources);
         $this->assertStringContainsString('uid: P8E949C5F1FC6F134', $renderedGrafanaDatasources);
+        $this->assertStringContainsString('basicAuthUser: $GRAFANA_PROMETHEUS_USER', $renderedGrafanaDatasources);
+        $this->assertStringContainsString('basicAuthPassword: $GRAFANA_PROMETHEUS_SECRET', $renderedGrafanaDatasources);
     }
 
     public function test_obs_prepare_soft_fails_grafana_alias_detection_when_helper_container_cannot_inspect_volume(): void

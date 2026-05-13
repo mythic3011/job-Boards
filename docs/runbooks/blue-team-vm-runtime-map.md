@@ -97,7 +97,7 @@ The compose stack does not expect every long-running service to self-bootstrap. 
 | --- | --- | --- | --- | --- |
 | `app-bootstrap-init` | One-time init | `compose.yaml` | none | `.env`, `.blue-team-vm/runtime/compat.shell.env`, `.blue-team-vm/runtime/pr2a.generated.json` |
 | `obs-bootstrap-init` | One-time init | `compose.yaml`, `compose.obs.yml` | `app-bootstrap-init` in `compose.yaml`; none in `compose.obs.yml` | `.blue-team-vm/runtime/obs.generated.env`, `.blue-team-vm/runtime/obs.generated-secrets.jsonl`, `.blue-team-vm/rendered/prometheus.web-config.yml`, `.blue-team-vm/rendered/grafana.datasources.yml` |
-| `nginx` | Core business | `compose.yaml` | `laravel.test`, `crowdsec-key-init` | `.blue-team-vm/runtime/rendered/nginx.ssl-mode.conf`, `.blue-team-vm/runtime/rendered/monitoring-geo.conf`, `.blue-team-vm/runtime/rendered/monitoring-access.conf`, `.blue-team-vm/runtime/nginx-ssl/*` |
+| `nginx` | Core business | `compose.yaml` | `laravel.test`, `crowdsec-key-init` | `.blue-team-vm/runtime/rendered/ssl-mode.conf`, `.blue-team-vm/runtime/rendered/monitoring-geo.conf`, `.blue-team-vm/runtime/rendered/monitoring-access.conf`, `.blue-team-vm/runtime/nginx-ssl/*` |
 | `laravel.test` | Core business | `compose.yaml` | `postgres`, `redis` | `storage/`, Laravel runtime dirs, app `.env` |
 | `queue-worker` | Core business | `compose.yaml` | `postgres`, `redis` | app `.env`, Laravel runtime dirs |
 | `postgres` | Core business | `compose.yaml` | none | Docker volume `sail-postgres` |
@@ -138,7 +138,7 @@ The compose stack does not expect every long-running service to self-bootstrap. 
 | `.blue-team-vm/runtime/rendered/monitoring-geo.conf` | Nginx generated include | `docker/nginx/entrypoint.sh` at container start | nginx container | CIDR classification for monitoring access. |
 | `.blue-team-vm/runtime/rendered/monitoring-access.conf` | Nginx generated include | `docker/nginx/entrypoint.sh` at container start | nginx container | Location-level monitoring policy. |
 | `.blue-team-vm/runtime/rendered/monitoring-server-access.conf` | Nginx generated include | `docker/nginx/entrypoint.sh` at container start | nginx container | Server-level deny behavior for monitoring routes. |
-| `.blue-team-vm/runtime/rendered/nginx.ssl-mode.conf` | Nginx generated include | `./ops/bootstrap/bootstrap-nginx-ssl.sh prepare|switch|status` or `docker/nginx/entrypoint.sh render-ssl-mode-conf` | nginx container (`/etc/nginx/generated/ssl-mode.conf` mount target) | Resolves the active cert/key path inside nginx. |
+| `.blue-team-vm/runtime/rendered/ssl-mode.conf` | Nginx generated include | `./ops/bootstrap/bootstrap-nginx-ssl.sh prepare|switch|status` or `docker/nginx/entrypoint.sh render-ssl-mode-conf` | nginx container (`/etc/nginx/generated/ssl-mode.conf` mount target) | Resolves the active cert/key path inside nginx. |
 | `.blue-team-vm/runtime/nginx-ssl/*.crt` | SSL certificate material | `./ops/bootstrap/bootstrap-nginx-ssl.sh ...` | nginx container | Machine-managed certificate material. |
 | `.blue-team-vm/runtime/nginx-ssl/*.key` | SSL private key material | `./ops/bootstrap/bootstrap-nginx-ssl.sh ...` | nginx container | Machine-managed private key material. |
 
@@ -170,6 +170,6 @@ The compose stack does not expect every long-running service to self-bootstrap. 
 5. If the problem is nginx monitoring-route access
    Open `.blue-team-vm/runtime/rendered/monitoring-geo.conf` and `.blue-team-vm/runtime/rendered/monitoring-access.conf` first.
 6. If the problem is SSL mode or cert path loaded by nginx
-   Open `.blue-team-vm/runtime/rendered/nginx.ssl-mode.conf` first.
+   Open `.blue-team-vm/runtime/rendered/ssl-mode.conf` first.
 7. If the problem is actual secret material
    Open `.blue-team-vm/runtime/grafana-admin-secret` or the relevant `nginx-ssl/*` file directly, but treat them as machine-managed files.

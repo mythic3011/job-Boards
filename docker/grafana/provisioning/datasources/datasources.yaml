@@ -7,6 +7,10 @@ datasources:
     type: prometheus
     access: proxy
     url: http://prometheus:9090
+    basicAuth: true
+    basicAuthUser: $GRAFANA_PROMETHEUS_USER
+    secureJsonData:
+      basicAuthPassword: $GRAFANA_PROMETHEUS_SECRET
     isDefault: true
     editable: true
   - name: Loki

@@ -24,7 +24,7 @@ final class NginxSslBootstrapRuntimeContractTest extends TestCase
         $tempRoot = $this->makeTempDir();
         $scriptPath = $this->installBootstrapFixture($tempRoot);
         $stateDir = $tempRoot.'/state';
-        $renderedIncludePath = $stateDir.'/runtime/rendered/nginx.ssl-mode.conf';
+        $renderedIncludePath = $stateDir.'/runtime/rendered/ssl-mode.conf';
 
         mkdir($renderedIncludePath, 0777, true);
 
@@ -100,8 +100,8 @@ final class NginxSslBootstrapRuntimeContractTest extends TestCase
         $sourceDir = $tempRoot.'/source';
         $sourceCert = $sourceDir.'/fullchain.pem';
         $sourceKey = $sourceDir.'/private.key';
-        $renderedIncludePath = $stateDir.'/runtime/rendered/nginx.ssl-mode.conf';
-        $runtimeCertPath = $stateDir.'/runtime/nginx-ssl/custom/custom.example.test/cert.pem';
+        $renderedIncludePath = $stateDir.'/runtime/rendered/ssl-mode.conf';
+        $runtimeCertPath = $stateDir.'/runtime/nginx-ssl/custom/custom.example.test/fullchain.pem';
         $runtimeKeyPath = $stateDir.'/runtime/nginx-ssl/custom/custom.example.test/key.pem';
 
         mkdir($sourceDir, 0777, true);
@@ -153,7 +153,7 @@ final class NginxSslBootstrapRuntimeContractTest extends TestCase
 
         $contents = file_get_contents($renderedIncludePath);
         $this->assertIsString($contents);
-        $this->assertStringContainsString('/etc/nginx/ssl/custom/custom.example.test/cert.pem', $contents);
+        $this->assertStringContainsString('/etc/nginx/ssl/custom/custom.example.test/fullchain.pem', $contents);
         $this->assertStringContainsString('/etc/nginx/ssl/custom/custom.example.test/key.pem', $contents);
     }
 

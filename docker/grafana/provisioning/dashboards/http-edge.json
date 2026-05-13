@@ -137,6 +137,7 @@
             "targets": [
                 {
                     "expr": "{job=\"crowdsec\",source=\"nginx-bouncer\"} |= \"ban\"",
+                    "queryType": "range",
                     "refId": "A"
                 }
             ],
@@ -158,6 +159,7 @@
             "targets": [
                 {
                     "expr": "{job=\"nginx\"} |~ \"$ban_ip\" |~ \" (403|429|444) \"",
+                    "queryType": "range",
                     "refId": "A"
                 }
             ],
@@ -179,6 +181,7 @@
             "targets": [
                 {
                     "expr": "{job=\"nginx\"} |~ \"$ban_ip\"",
+                    "queryType": "range",
                     "refId": "A"
                 }
             ],

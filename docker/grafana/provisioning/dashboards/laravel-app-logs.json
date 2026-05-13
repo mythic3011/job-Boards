@@ -53,6 +53,7 @@
             "targets": [
                 {
                     "expr": "{app=\"laravel\"} | json | level_name=~\"$level\"",
+                    "queryType": "range",
                     "refId": "A"
                 }
             ],

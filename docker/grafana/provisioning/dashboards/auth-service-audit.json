@@ -42,6 +42,7 @@
             "targets": [
                 {
                     "expr": "{app=\"auth-service\"} | json | msg=~\"audit\\..*\"",
+                    "queryType": "range",
                     "refId": "A"
                 }
             ],

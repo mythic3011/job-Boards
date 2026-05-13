@@ -46,6 +46,7 @@
             "targets": [
                 {
                     "expr": "{app=\"laravel\"} | json | level_name=\"ERROR\" |~ \"(?i)queue|job|worker\"",
+                    "queryType": "range",
                     "refId": "A"
                 }
             ],

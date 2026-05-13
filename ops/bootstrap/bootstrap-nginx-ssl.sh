@@ -93,7 +93,7 @@ ACTION_MODE_INPUT="${2:-}"
 : "${BT_NGINX_SSL_RUNTIME_DIR:=${BT_RUNTIME_DIR}/nginx-ssl}"
 : "${BT_NGINX_SSL_ARCHIVE_DIR:=${BT_NGINX_SSL_RUNTIME_DIR}/modes}"
 : "${BT_NGINX_SSL_STATE_DIR:=${BT_NGINX_SSL_RUNTIME_DIR}/state}"
-: "${BT_NGINX_SSL_RENDERED_INCLUDE_FILE:=${BT_RUNTIME_DIR}/rendered/nginx.ssl-mode.conf}"
+: "${BT_NGINX_SSL_RENDERED_INCLUDE_FILE:=${BT_RUNTIME_DIR}/rendered/ssl-mode.conf}"
 : "${BT_NGINX_SSL_TEMPLATE_FILE:=${REPO_ROOT}/docker/nginx/templates/ssl-mode.conf.tpl}"
 : "${BT_NGINX_SSL_MODE_FILE:=${BT_NGINX_SSL_STATE_DIR}/current-mode}"
 : "${BT_NGINX_SSL_MODE_ENV_FILE:=${BT_NGINX_SSL_STATE_DIR}/ssl-mode.env}"
@@ -347,13 +347,13 @@ nginx_runtime_cert_path() {
             printf '%s\n' "/etc/nginx/ssl/selfsigned.crt"
             ;;
         cloudflare-origin)
-            printf '/etc/nginx/ssl/cloudflare-origin/%s/cert.pem\n' "${SSL_CERT_DOMAIN}"
+            printf '/etc/nginx/ssl/cloudflare-origin/%s/fullchain.pem\n' "${SSL_CERT_DOMAIN}"
             ;;
         letsencrypt)
             printf '/etc/nginx/ssl/letsencrypt/%s/fullchain.pem\n' "${SSL_CERT_DOMAIN}"
             ;;
         custom)
-            printf '/etc/nginx/ssl/custom/%s/cert.pem\n' "${SSL_CERT_DOMAIN}"
+            printf '/etc/nginx/ssl/custom/%s/fullchain.pem\n' "${SSL_CERT_DOMAIN}"
             ;;
         *)
             bt_die "Unsupported SSL mode '${mode}'."
@@ -403,9 +403,9 @@ cert_path = sys.argv[3]
 key_path = sys.argv[4]
 
 header = "\n".join([
-    "# Generated file: nginx.ssl-mode.conf",
+    "# Generated file: ssl-mode.conf",
     "# Purpose: nginx include that points the app-plane container at the active SSL certificate and key.",
-    "# Repo path: .blue-team-vm/runtime/rendered/nginx.ssl-mode.conf",
+    "# Repo path: .blue-team-vm/runtime/rendered/ssl-mode.conf",
     "# Regenerate via: ./ops/bootstrap/bootstrap-nginx-ssl.sh prepare|switch|status",
     "",
 ])

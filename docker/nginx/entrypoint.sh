@@ -99,7 +99,7 @@ resolve_ssl_material_paths() {
             RESOLVED_SSL_KEY_PATH="${SELF_SIGNED_KEY}"
             ;;
         cloudflare-origin)
-            RESOLVED_SSL_CERT_PATH="${CLOUDFLARE_ORIGIN_CERT_DIR}/${SSL_CERT_DOMAIN}/cert.pem"
+            RESOLVED_SSL_CERT_PATH="${CLOUDFLARE_ORIGIN_CERT_DIR}/${SSL_CERT_DOMAIN}/fullchain.pem"
             RESOLVED_SSL_KEY_PATH="${CLOUDFLARE_ORIGIN_CERT_DIR}/${SSL_CERT_DOMAIN}/key.pem"
             ;;
         letsencrypt)
@@ -107,7 +107,7 @@ resolve_ssl_material_paths() {
             RESOLVED_SSL_KEY_PATH="${LETSENCRYPT_CERT_DIR}/${SSL_CERT_DOMAIN}/privkey.pem"
             ;;
         custom)
-            RESOLVED_SSL_CERT_PATH="${SSL_RUNTIME_DIR}/custom/${SSL_CERT_DOMAIN}/cert.pem"
+            RESOLVED_SSL_CERT_PATH="${SSL_RUNTIME_DIR}/custom/${SSL_CERT_DOMAIN}/fullchain.pem"
             RESOLVED_SSL_KEY_PATH="${SSL_RUNTIME_DIR}/custom/${SSL_CERT_DOMAIN}/key.pem"
             ;;
     esac

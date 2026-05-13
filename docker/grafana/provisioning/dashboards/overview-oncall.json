@@ -23,6 +23,14 @@
     },
     "links": [
         {
+            "title": "Auth Service Audit",
+            "type": "dashboards",
+            "tags": [],
+            "asDropdown": false,
+            "icon": "external link",
+            "url": "/monitoring/grafana/d/auth-service-audit/auth-service-audit"
+        },
+        {
             "title": "HTTP / WAF / Edge",
             "type": "dashboards",
             "tags": [],
@@ -31,7 +39,15 @@
             "url": "/monitoring/grafana/d/http-edge/http-waf-edge"
         },
         {
-            "title": "Laravel Logs",
+            "title": "Infra / Postgres",
+            "type": "dashboards",
+            "tags": [],
+            "asDropdown": false,
+            "icon": "external link",
+            "url": "/monitoring/grafana/d/infra-postgres/infra-postgres"
+        },
+        {
+            "title": "Laravel App Logs",
             "type": "dashboards",
             "tags": [],
             "asDropdown": false,
@@ -45,14 +61,6 @@
             "asDropdown": false,
             "icon": "external link",
             "url": "/monitoring/grafana/d/queue-workers/queue-workers"
-        },
-        {
-            "title": "Infra / Postgres",
-            "type": "dashboards",
-            "tags": [],
-            "asDropdown": false,
-            "icon": "external link",
-            "url": "/monitoring/grafana/d/infra-postgres/infra-postgres"
         }
     ],
     "panels": [
@@ -194,6 +202,7 @@
             "targets": [
                 {
                     "expr": "{app=\"laravel\"} | json | level_name=\"ERROR\"",
+                    "queryType": "range",
                     "refId": "A"
                 }
             ],
@@ -257,6 +266,7 @@
             "targets": [
                 {
                     "expr": "{job=\"crowdsec\",source=\"nginx-bouncer\"} |= \"ban\"",
+                    "queryType": "range",
                     "refId": "A"
                 }
             ],
@@ -278,6 +288,7 @@
             "targets": [
                 {
                     "expr": "{job=\"nginx\"} |~ \"$ban_ip\" |~ \" (403|429|444) \"",
+                    "queryType": "range",
                     "refId": "A"
                 }
             ],
