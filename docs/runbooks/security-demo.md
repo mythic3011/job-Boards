@@ -39,12 +39,12 @@ Local artifact collector:
 ops/demo/collect-security-demo-evidence.sh deployed https://jb.mythic3011.com demo-artifacts/security-demo
 ```
 
-Public/demo URLs to include in screenshots or operator notes:
+Dev URLs to include in screenshots or operator notes when demo target is offline:
 
-- Application: `https://jb.mythic3011.com/`
-- Monitoring login: `https://jb.mythic3011.com/monitoring/login`
-- Grafana: `https://jb.mythic3011.com/monitoring/grafana/`
-- Prometheus: `https://jb.mythic3011.com/monitoring/prometheus/`
+- Application: `https://localhost/`
+- Monitoring login: `https://localhost/monitoring/login`
+- Grafana: `https://localhost/monitoring/grafana/`
+- Prometheus: `https://localhost/monitoring/prometheus/`
 
 Reveal monitoring credentials only on the operator machine:
 

@@ -182,11 +182,11 @@ grep '^MONITORING_ADMIN_USERNAME=' .blue-team-vm/runtime/obs.generated.env || pr
 grep '^MONITORING_PASSWORD=' .blue-team-vm/runtime/obs.generated.env
 ```
 
-Common monitoring URLs for `jb.mythic3011.com`:
+Common dev monitoring URLs:
 
-- `https://jb.mythic3011.com/monitoring/login`
-- `https://jb.mythic3011.com/monitoring/grafana/`
-- `https://jb.mythic3011.com/monitoring/prometheus/`
+- `https://localhost/monitoring/login`
+- `https://localhost/monitoring/grafana/`
+- `https://localhost/monitoring/prometheus/`
 
 The monitoring password is plaintext secret material. Reveal it only on the operator machine and do not paste it into tickets, docs, screenshots, or chat.
 

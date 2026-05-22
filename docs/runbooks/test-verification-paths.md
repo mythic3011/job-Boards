@@ -45,7 +45,7 @@ php vendor/bin/phpunit tests/Feature/EnvExampleContractTest.php tests/Feature/En
 Contract:
 
 - every `.env.example` key must have at least one real consumer (compose, bootstrap/init, install scripts, or Laravel config)
-- dead placeholders must not remain in the normal operator template
+- dead or non-consumed template entries must not remain in the normal operator template
 - monitoring plaintext source remains canonical as `MONITORING_PASSWORD`
 
 ## Worktree Container Verification

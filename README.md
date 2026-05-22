@@ -42,7 +42,7 @@ Laravel, PHP, Docker Compose, Nginx, CrowdSec, Prometheus, Grafana, Loki, Promta
 - Deployment or topology screenshot
   Code diagram: [docs/deployment.md](docs/deployment.md)
 - Grafana or observability screenshot
-  Add: `docs/assets/grafana-dashboard.png`
+  Evidence runbook: [docs/runbooks/security-demo.md](docs/runbooks/security-demo.md)
 - Security evidence screenshot
   Code diagram: [docs/security-evidence.md](docs/security-evidence.md)
 
@@ -142,12 +142,12 @@ The runtime-state guide lives in [docs/runbooks/blue-team-vm-runtime-map.md](doc
 
 Monitoring uses a separate operator login from the Laravel application login.
 
-Current demo URLs:
+Current dev URLs:
 
-- Application: `https://jb.mythic3011.com/`
-- Monitoring login: `https://jb.mythic3011.com/monitoring/login`
-- Grafana: `https://jb.mythic3011.com/monitoring/grafana/`
-- Prometheus: `https://jb.mythic3011.com/monitoring/prometheus/`
+- Application: `https://localhost/`
+- Monitoring login: `https://localhost/monitoring/login`
+- Grafana: `https://localhost/monitoring/grafana/`
+- Prometheus: `https://localhost/monitoring/prometheus/`
 
 Find the current generated monitoring credentials locally:
 
