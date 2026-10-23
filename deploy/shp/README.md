@@ -70,7 +70,9 @@ updated by reviewed code change, not by silently tracking master.
 
 **Do not run the new deployment against existing production data without a
 rehearsed backup and restore.** The new Compose project has separate volumes.
-The script refuses to overwrite an existing Laravel `.env`.
+The script refuses to overwrite an existing Laravel `.env` or generate a new
+Laravel encryption key when project data volumes already exist. Restore the
+original `APP_KEY` before starting against any existing database.
 
 1. Stop writes to the old stack. Back up PostgreSQL, uploads/storage, every
    persistent volume, `.env`, `APP_KEY`, `APP_PREVIOUS_KEYS` and TLS material.

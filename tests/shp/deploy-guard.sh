@@ -8,6 +8,9 @@ mkdir -p "$tmp/bin" "$tmp/template"
 cat > "$tmp/bin/docker" <<'DOCKER'
 #!/usr/bin/env bash
 # This test exercises the pre-deployment guard; it must not run real containers.
+if [ "${1:-}" = volume ] && [ "${2:-}" = ls ] && [ "${TEST_EXISTING_VOLUMES:-0}" = 1 ]; then
+    printf 'job-boards_job-boards-storage\n'
+fi
 exit 0
 DOCKER
 cat > "$tmp/template/setup.sh" <<'SHP'
@@ -45,7 +48,8 @@ assert_ok() {
 }
 assert_rejected() {
     local name="$1" message="$2"
-    if run_init "$name"; then
+    shift 2
+    if run_init "$name" "$@"; then
         printf 'Expected rejection: %s\n' "$name" >&2
         exit 1
     fi
@@ -67,6 +71,9 @@ make_project missing-key 'BIND_ADDRESS=127.0.0.1'
 sed -i '/^JOB_BOARDS_APP_KEY=/d' "$tmp/missing-key/.env"
 printf 'APP_KEY=legacy-must-be-preserved\n' >> "$tmp/missing-key/.env"
 assert_rejected missing-key 'preserve it as JOB_BOARDS_APP_KEY'
+make_project missing-key-data 'BIND_ADDRESS=127.0.0.1'
+sed -i '/^JOB_BOARDS_APP_KEY=/d' "$tmp/missing-key-data/.env"
+assert_rejected missing-key-data 'Existing project volumes but JOB_BOARDS_APP_KEY is missing' TEST_EXISTING_VOLUMES=1
 make_project legacy-env 'BIND_ADDRESS=127.0.0.1'
 sed -i '/^PLUGINS=/d' "$tmp/legacy-env/.env"
 assert_rejected legacy-env 'Existing .env is not an SHP config'
