@@ -19,6 +19,10 @@ I designed and implemented the deployment flow, security controls, runtime verif
 
 Laravel, PHP, Docker Compose, Nginx, CrowdSec, Prometheus, Grafana, Loki, Promtail, PostgreSQL, Redis, OWASP ZAP
 
+## Simpler PHP 8.5 deployment (optional)
+
+For a smaller runtime based on [shard-project-helper](https://github.com/mythic3011/linux_setup/tree/master/shard-project-helper), see [deploy/shp/README.md](deploy/shp/README.md). It uses one PHP 8.5 HTTP app, a queue worker, PostgreSQL, and the shared TLS/nginx edge. The existing Blue Team VM deployment remains available and unchanged.
+
 ## Key evidence
 
 - [Portfolio summary](docs/portfolio-summary.md)
