@@ -78,6 +78,19 @@ prepare_env() {
     fi
   fi
   chmod 600 "$ROOT/.env"
+  # Never regenerate secrets against existing persistent data. SHP's init may
+  # otherwise expand @generate into a new database password before we notice.
+  local project existing secret value
+  project="$(sed -n 's/^PROJECT_NAME=//p' "$ROOT/.env" | tail -n 1)"
+  existing="$(docker volume ls -q --filter "label=com.docker.compose.project=${project:-job-boards}" | head -n 1)"
+  if [ -n "$existing" ]; then
+    for secret in JOB_BOARDS_APP_KEY POSTGRES_PASSWORD; do
+      value="$(sed -n "s/^${secret}=//p" "$ROOT/.env" | tail -n 1)"
+      case "$value" in
+        ""|@generate*) die "Existing project volumes but $secret is missing or unset. Restore the original secret before continuing." ;;
+      esac
+    done
+  fi
   # A missing or wildcard bind silently exposes the nginx edge. Opt in explicitly.
   local bind_address
   bind_address="$(sed -n 's/^BIND_ADDRESS=//p' "$ROOT/.env" | tail -n 1)"
