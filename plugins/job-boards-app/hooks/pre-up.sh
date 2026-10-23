@@ -8,6 +8,9 @@ set -euo pipefail
 key="$(env_get JOB_BOARDS_APP_KEY)"
 # SHP exports .env before running hooks, but the hook can also be run directly.
 if [ -z "$key" ]; then
+    project_name="$(env_get PROJECT_NAME)"
+    existing="$(docker volume ls -q --filter "label=com.docker.compose.project=${project_name:-job-boards}" | head -n 1)"
+    [ -z "$existing" ] || die "Existing project volumes but JOB_BOARDS_APP_KEY is missing. Restore the original APP_KEY before continuing."
     key="base64:$(openssl rand -base64 32 | tr -d '\n')"
     env_set JOB_BOARDS_APP_KEY "$key"
     audit secret.generated key=JOB_BOARDS_APP_KEY

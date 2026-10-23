@@ -105,6 +105,11 @@ init() {
   local key
   key="$(sed -n 's/^JOB_BOARDS_APP_KEY=//p' "$ROOT/.env" | tail -n 1)"
   if [ -z "$key" ]; then
+    # Existing encrypted records must never be paired with a newly generated key.
+    local project_name existing
+    project_name="$(sed -n 's/^PROJECT_NAME=//p' "$ROOT/.env" | tail -n 1)"
+    existing="$(docker volume ls -q --filter "label=com.docker.compose.project=${project_name:-job-boards}" | head -n 1)"
+    [ -z "$existing" ] || die "Existing project volumes but JOB_BOARDS_APP_KEY is missing. Restore the original APP_KEY before continuing."
     # Pre-up hook also generates a key for direct ./setup users; here it is
     # needed earlier because 'docker compose build' parses required variables.
     local new_key
