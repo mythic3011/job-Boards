@@ -34,7 +34,7 @@ RUN set -eux; \
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 COPY . .
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
+RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts \
     && mkdir -p storage/app/public storage/logs storage/framework/cache/data \
         storage/framework/sessions storage/framework/views bootstrap/cache \
     && ln -s ../storage/app/public public/storage \
