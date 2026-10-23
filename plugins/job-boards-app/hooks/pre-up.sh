@@ -6,6 +6,7 @@ set -euo pipefail
 . "$ROOT/scripts/lib/common.sh"
 
 key="$(env_get JOB_BOARDS_APP_KEY)"
+# SHP exports .env before running hooks, but the hook can also be run directly.
 if [ -z "$key" ]; then
     key="base64:$(openssl rand -base64 32 | tr -d '\n')"
     env_set JOB_BOARDS_APP_KEY "$key"
