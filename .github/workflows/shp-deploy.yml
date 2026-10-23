@@ -5,39 +5,74 @@ on:
       - deploy.sh
       - deploy/shp/**
       - plugins/job-boards-app/**
+      - plugins/postgres-lite/**
       - composer.json
       - composer.lock
       - package.json
       - package-lock.json
       - .github/workflows/shp-deploy.yml
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
-  integration:
+  static:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Validate Bash syntax
+      - name: Bash syntax and ShellCheck (new deployment only)
         run: |
           bash -n deploy.sh deploy/shp/bootstrap.sh plugins/job-boards-app/hooks/pre-up.sh
-      - name: Configure SHP (localhost only)
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck -S warning deploy.sh deploy/shp/bootstrap.sh plugins/job-boards-app/hooks/pre-up.sh
+      - name: Verify deployment contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          deploy = Path("deploy.sh").read_text()
+          dockerfile = Path("deploy/shp/Dockerfile").read_text()
+          compose = Path("plugins/job-boards-app/compose.yaml").read_text()
+          plugin = Path("plugins/job-boards-app/plugin.yaml").read_text()
+          db = Path("plugins/postgres-lite/compose.yaml").read_text()
+          assert "8.5.12-apache-bookworm@sha256:" in dockerfile
+          assert 'version_compare(PHP_VERSION, "8.5.12", "<")' in dockerfile
+          assert "BIND_ADDRESS=127.0.0.1" in deploy
+          assert "database:postgres-lite" in plugin
+          assert "postgres-exporter" not in db
+          assert "migrate --force --no-interaction" in compose
+          assert "ports:" not in compose
+          print("Static contract passed; runtime not verified")
+          PY
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Set SHP_INTEGRATION_ENABLED repository variable AND a read-only
+    # SHP_REPO_TOKEN secret for the private linux_setup repository.
+    if: ${{ vars.SHP_INTEGRATION_ENABLED == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout pinned private SHP
+        uses: actions/checkout@v4
+        with:
+          repository: mythic3011/linux_setup
+          ref: 982f940daa37b8e4a25823f4dfbf29f460875043
+          token: ${{ secrets.SHP_REPO_TOKEN }}
+          persist-credentials: false
+          path: .deploy/linux_setup
+      - name: Configure and validate SHP
         run: |
           ./deploy.sh init
           ./deploy.sh config
           grep -q '^BIND_ADDRESS=127.0.0.1$' .env
       - name: Build and start application
         run: ./deploy.sh up
-      - name: Assert PHP patch floor and app health
+      - name: Assert PHP patch floor and health
         run: |
           ./deploy.sh check
           docker compose --env-file .env exec -T app php -r 'exit(PHP_VERSION_ID >= 80512 && PHP_VERSION_ID < 80600 ? 0 : 1);'
       - name: Composer security audit
         run: docker compose --env-file .env exec -T app composer audit --no-dev
-      - name: Show diagnostics on failure
+      - name: Diagnostics on failure
         if: failure()
         run: |
           ./deploy.sh status || true

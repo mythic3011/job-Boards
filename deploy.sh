@@ -85,9 +85,8 @@ prepare_launcher() {
   if [ -e "$ROOT/setup" ]; then
     grep -q 'SHP_PROJECT_ROOT' "$ROOT/setup" ||
       die "Existing ./setup is not an SHP launcher; refusing to replace it"
-  else
-    "$TEMPLATE/setup.sh" project init "$ROOT"
   fi
+  "$TEMPLATE/setup.sh" project init "$ROOT"
 }
 init() {
   need docker

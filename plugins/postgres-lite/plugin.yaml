@@ -1,0 +1,5 @@
+name: postgres-lite
+version: 1.0.0
+description: Minimal PostgreSQL without exporter/monitoring.
+provides: "database"
+requires: ""

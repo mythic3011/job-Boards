@@ -1,7 +1,8 @@
 # Job Boards: one-command SHP deployment
 
 This is an **opt-in** path. The old Blue Team VM / legacy Compose runtime is
-unchanged. First-time local deployment (Docker Compose v2, Git, OpenSSL):
+unchanged. First-time local deployment (Docker Compose v2, Git with access to the private
+`linux_setup` repository, OpenSSL):
 
 ```bash
 ./deploy.sh up
@@ -29,6 +30,14 @@ with self-signed TLS and no public DNS requirement.
 `./deploy.sh init` prepares configuration without starting containers. Advanced
 SHP commands are still available as `./setup plugin ...`, but are optional.
 `deploy/shp/bootstrap.sh` remains a compatibility alias for `./deploy.sh up`.
+
+## Private SHP repository in CI
+
+The default GitHub Actions `GITHUB_TOKEN` cannot read a separate private
+repository. To run integration tests, configure a fine-grained, read-only
+`SHP_REPO_TOKEN` secret with contents:read for `mythic3011/linux_setup`,
+and set repository variable `SHP_INTEGRATION_ENABLED=true`. Without both,
+the integration job is skipped (not a passing runtime test); static checks run.
 
 ## Security and PHP patches
 
@@ -67,6 +76,6 @@ traffic tests and appropriate edge security. The default `MAIL_MAILER=log` is
 not suitable for password-reset email delivery.
 
 The application source and Composer dependencies are image-baked. Only the
-shared `storage` volume persists; PostgreSQL is managed by SHP's postgres
-plugin. Nginx is the only service publishing host ports. Redis, CrowdSec,
+shared `storage` volume persists; PostgreSQL uses a project-local `postgres-lite` plugin, without the
+unnecessary exporter container. The full SHP postgres plugin is optional. Nginx is the only service publishing host ports. Redis, CrowdSec,
 monitoring and other integrations remain optional.

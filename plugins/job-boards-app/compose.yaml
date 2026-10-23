@@ -4,7 +4,7 @@ x-job-boards-build: &job-boards-build
   context: .
   dockerfile: deploy/shp/Dockerfile
   args:
-    PHP_IMAGE: ${JOB_BOARDS_PHP_IMAGE:-php:8.5-apache-bookworm}
+    PHP_IMAGE: ${JOB_BOARDS_PHP_IMAGE:-php:8.5.12-apache-bookworm@sha256:747123a8d7d28c6f84960df94cc076a406314e4f9d556af0bcfddab81e33bd09
 
 x-job-boards-env: &job-boards-env
   APP_NAME: Job Boards
@@ -19,7 +19,7 @@ x-job-boards-env: &job-boards-env
   DB_PORT: "5432"
   DB_DATABASE: ${POSTGRES_DB:-app}
   DB_USERNAME: ${POSTGRES_USER:-app}
-  DB_PASSWORD: ${POSTGRES_PASSWORD:?Enable the postgres plugin first}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:?Run ./deploy.sh init first}
   DB_SSLMODE: disable
   CACHE_STORE: database
   SESSION_DRIVER: database
@@ -35,7 +35,7 @@ x-job-boards-storage: &job-boards-storage
 
 services:
   app:
-    image: ${JOB_BOARDS_IMAGE:-job-boards:php8.5}
+    image: ${JOB_BOARDS_IMAGE:-job-boards:php8.5.12}
     build: *job-boards-build
     restart: unless-stopped
     environment: *job-boards-env
@@ -54,7 +54,7 @@ services:
       start_period: 60s
 
   job-boards-worker:
-    image: ${JOB_BOARDS_IMAGE:-job-boards:php8.5}
+    image: ${JOB_BOARDS_IMAGE:-job-boards:php8.5.12}
     build: *job-boards-build
     restart: unless-stopped
     user: www-data
