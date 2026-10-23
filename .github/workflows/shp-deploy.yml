@@ -63,6 +63,19 @@ jobs:
           '
       - name: Audit locked production Composer dependencies
         run: docker run --rm --entrypoint composer job-boards:ci audit --no-dev --locked
+      - name: Smoke-test migrations, app health, and queue worker
+        shell: bash
+        run: |
+          export CI_APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\\n')"
+          docker compose -f deploy/shp/ci-compose.yaml up -d --wait --wait-timeout 240
+          docker compose -f deploy/shp/ci-compose.yaml exec -T app php artisan migrate:status --no-interaction
+          docker compose -f deploy/shp/ci-compose.yaml exec -T app curl -fsS http://127.0.0.1/up
+          test "$(docker compose -f deploy/shp/ci-compose.yaml ps --status running --services | grep -cx worker)" -eq 1
+      - name: Diagnostics and cleanup
+        if: always()
+        run: |
+          docker compose -f deploy/shp/ci-compose.yaml logs --no-color --tail=120 || true
+          docker compose -f deploy/shp/ci-compose.yaml down --volumes --remove-orphans || true
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 40
