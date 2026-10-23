@@ -49,4 +49,6 @@ RUN php artisan package:discover --ansi --no-interaction
 
 COPY --from=assets /src/public/build ./public/build
 COPY deploy/shp/php.ini /usr/local/etc/php/conf.d/zz-job-boards.ini
+# The mitigation must be applied at SAPI startup, not by Laravel ini_set().
+RUN php -r 'if (ini_get("session.upload_progress.enabled") !== "0") { fwrite(STDERR, "Session Upload Progress mitigation missing\\n"); exit(1); }'
 EXPOSE 80

@@ -22,6 +22,10 @@ class ShpDeploymentContractTest extends TestCase
         $this->assertStringContainsString('php:8.5.12-apache-bookworm@sha256:', $dockerfile);
         $this->assertStringContainsString('version_compare(PHP_VERSION, "8.5.12", "<")', $dockerfile);
         $this->assertStringContainsString('8.5.12', $check);
+        $phpIni = file_get_contents($root.'/deploy/shp/php.ini');
+        $this->assertIsString($phpIni);
+        $this->assertMatchesRegularExpression('/^session\\.upload_progress\\.enabled\\s*=\\s*0\\s*$/m', $phpIni);
+        $this->assertStringContainsString('ini_get("session.upload_progress.enabled")', $dockerfile);
         $this->assertStringContainsString('BIND_ADDRESS=127.0.0.1', $deploy);
         $this->assertStringContainsString('JOB_BOARDS_ALLOW_PUBLIC_BIND', $deploy);
         $this->assertStringContainsString('for secret in JOB_BOARDS_APP_KEY POSTGRES_PASSWORD', $deploy);

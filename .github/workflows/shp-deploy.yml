@@ -49,6 +49,7 @@ jobs:
           assert "migrate --force --no-interaction" in compose
           assert 'DB_QUEUE_RETRY_AFTER: "360"' in compose
           assert '"--timeout=300"' in compose
+          assert "session.upload_progress.enabled = 0" in Path("deploy/shp/php.ini").read_text()
           assert "ports:" not in compose
           print("Static contract passed; runtime not verified")
           PY
@@ -70,6 +71,15 @@ jobs:
             }
             if (!extension_loaded("Zend OPcache")) { fwrite(STDERR, "Zend OPcache not loaded\\n"); exit(1); }
             echo PHP_VERSION, PHP_EOL;
+          '
+      - name: Verify CVE-2026-115560 mitigation in built PHP runtime
+        run: |
+          docker run --rm --entrypoint php job-boards:ci -r '
+            if (ini_get("session.upload_progress.enabled") !== "0") {
+              fwrite(STDERR, "CVE-2026-115560 mitigation is not active\\n");
+              exit(1);
+            }
+            echo "Session Upload Progress disabled", PHP_EOL;
           '
       - name: Audit locked production Composer dependencies
         run: docker run --rm --entrypoint composer job-boards:ci audit --no-dev --locked

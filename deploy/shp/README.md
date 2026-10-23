@@ -53,6 +53,38 @@ Alternatively, the private helper repository has a [draft integration workflow](
 
 ## Security and PHP patches
 
+## CVE-2026-115560 (23 October 2026; not fixed by PHP 8.5.12)
+
+PHP's official [informational advisory](https://www.php.net/) confirms that
+the October 21 patch releases do **not** fix this separate, conditional
+Session Upload Progress RCE vector. Exploitation requires an unusual combination:
+`session.serialize_handler` configured as `php_binary` or `php_serialize`,
+switched to `php` via `ini_set()` before `session_start()`, with upload
+progress enabled. We disable the feature proactively at **PHP startup** via
+`deploy/shp/php.ini`:
+
+```ini
+session.upload_progress.enabled = 0
+```
+
+This disables PHP's session upload *progress tracking*, not normal file uploads.
+Do not use a Laravel `ini_set()` or per-directory `.user.ini` as the fix:
+upload progress is processed before application code. Rebuild the image and
+**recreate** the PHP/Apache and worker containers to load the new ini file.
+Check the running containers with:
+
+```bash
+./deploy.sh up
+./deploy.sh check
+docker compose --env-file .env exec -T app php -r 'exit(ini_get("session.upload_progress.enabled") === "0" ? 0 : 1);'
+```
+
+The Docker build and CI now fail if the mitigation is missing. Continue to
+apply subsequent upstream PHP patches; this configuration change is a
+temporary mitigation, **not** proof that the CVE has been patched. PHP has
+not published the full advisory for this new CVE as of October 23.
+
+
 PHP 8.5.12 (released 21 October 2026) fixes two critical RCE issues:
 CVE-2026-109618 and CVE-2026-109619. The Dockerfile uses a reviewed
 `php:8.5.12-apache-bookworm` index digest and **fails builds** if PHP is
