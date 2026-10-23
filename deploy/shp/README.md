@@ -39,6 +39,8 @@ repository. To run integration tests, configure a fine-grained, read-only
 and set repository variable `SHP_INTEGRATION_ENABLED=true`. Without both,
 the integration job is skipped (not a passing runtime test); static checks run.
 
+Alternatively, the private helper repository has a [draft integration workflow](https://github.com/mythic3011/linux_setup/pull/46) that checks out this public repository and needs **no cross-repo token**. It must pass before merging. A skipped integration job is not a passing runtime validation.
+
 ## Security and PHP patches
 
 PHP 8.5.12 (released 21 October 2026) fixes two critical RCE issues:
