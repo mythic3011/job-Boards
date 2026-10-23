@@ -1,0 +1,44 @@
+name: SHP PHP deployment
+on:
+  pull_request:
+    paths:
+      - deploy.sh
+      - deploy/shp/**
+      - plugins/job-boards-app/**
+      - composer.json
+      - composer.lock
+      - package.json
+      - package-lock.json
+      - .github/workflows/shp-deploy.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Bash syntax
+        run: |
+          bash -n deploy.sh deploy/shp/bootstrap.sh plugins/job-boards-app/hooks/pre-up.sh
+      - name: Configure SHP (localhost only)
+        run: |
+          ./deploy.sh init
+          ./deploy.sh config
+          grep -q '^BIND_ADDRESS=127.0.0.1$' .env
+      - name: Build and start application
+        run: ./deploy.sh up
+      - name: Assert PHP patch floor and app health
+        run: |
+          ./deploy.sh check
+          docker compose --env-file .env exec -T app php -r 'exit(PHP_VERSION_ID >= 80512 && PHP_VERSION_ID < 80600 ? 0 : 1);'
+      - name: Composer security audit
+        run: docker compose --env-file .env exec -T app composer audit --no-dev
+      - name: Show diagnostics on failure
+        if: failure()
+        run: |
+          ./deploy.sh status || true
+          docker compose --env-file .env logs --no-color --tail=120 || true

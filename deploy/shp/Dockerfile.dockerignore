@@ -1,8 +1,9 @@
-# Dockerfile-specific exclusion list: no host state, secrets or dependencies in images.
+# Dockerfile-specific exclusion list. No host state or secrets in images.
 .git
 .github
 .env
 .env.*
+.deploy
 .state
 .audit
 .blue-team-vm
