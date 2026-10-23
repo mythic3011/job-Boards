@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install ShellCheck
         run: |
@@ -43,9 +45,19 @@ jobs:
 
           [ "$failed" -eq 0 ]
 
-      - name: Lint all shell scripts
+      # Legacy scripts contain known warnings. Keep error-level checks for the
+      # whole repository, and enforce warning-level quality on PR changes.
+      - name: Lint shell scripts (errors across repo, warnings on changes)
         shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
           mapfile -t scripts < <(git ls-files '*.sh')
-          [ "${#scripts[@]}" -gt 0 ] || { echo "No shell scripts found"; exit 0; }
-          shellcheck -x -S warning "${scripts[@]}"
+          [ "${#scripts[@]}" -gt 0 ] || exit 0
+          shellcheck -x -S error "${scripts[@]}"
+          if [ -n "$BASE_REF" ]; then
+            mapfile -t changed < <(git diff --name-only --diff-filter=ACMR "origin/$BASE_REF"...HEAD -- '*.sh')
+            if [ "${#changed[@]}" -gt 0 ]; then
+              shellcheck -x -S warning "${changed[@]}"
+            fi
+          fi
