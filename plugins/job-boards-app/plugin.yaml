@@ -1,0 +1,5 @@
+name: job-boards-app
+version: 1.0.0
+description: Job Boards Laravel application on PHP 8.5 with a database-backed queue.
+provides: "app"
+requires: "database:postgres"

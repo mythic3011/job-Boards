@@ -1,0 +1,26 @@
+# Dockerfile-specific exclusion list: no host state, secrets or dependencies in images.
+.git
+.github
+.env
+.env.*
+.state
+.audit
+.blue-team-vm
+certs
+evidence
+ssl
+vendor
+node_modules
+storage
+bootstrap/cache/*.php
+public/build
+public/hot
+public/storage
+composer.phar
+auth.json
+docker/nginx/ssl
+docker/auth-service/node_modules
+docker/auth-service/frontend/node_modules
+docker/auth-service/frontend/dist
+demo-artifacts
+.worktrees
