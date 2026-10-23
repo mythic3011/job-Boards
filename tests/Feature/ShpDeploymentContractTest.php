@@ -23,6 +23,8 @@ class ShpDeploymentContractTest extends TestCase
         $this->assertStringContainsString('version_compare(PHP_VERSION, "8.5.12", "<")', $dockerfile);
         $this->assertStringContainsString('8.5.12', $check);
         $this->assertStringContainsString('BIND_ADDRESS=127.0.0.1', $deploy);
+        $this->assertStringContainsString('JOB_BOARDS_ALLOW_PUBLIC_BIND', $deploy);
+        $this->assertStringNotContainsString('--ignore-unfixed', $deploy);
         $this->assertStringContainsString('dc build --pull app', $deploy);
         $this->assertStringContainsString('migrate --force --no-interaction', $compose);
         $this->assertStringContainsString('APP_DEBUG: "false"', $compose);

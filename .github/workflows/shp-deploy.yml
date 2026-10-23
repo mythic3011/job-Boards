@@ -37,6 +37,8 @@ jobs:
           assert "8.5.12-apache-bookworm@sha256:" in dockerfile
           assert 'version_compare(PHP_VERSION, "8.5.12", "<")' in dockerfile
           assert "BIND_ADDRESS=127.0.0.1" in deploy
+          assert "JOB_BOARDS_ALLOW_PUBLIC_BIND" in deploy
+          assert "--ignore-unfixed" not in deploy
           assert "database:postgres-lite" in plugin
           assert "postgres-exporter" not in db
           assert "migrate --force --no-interaction" in compose

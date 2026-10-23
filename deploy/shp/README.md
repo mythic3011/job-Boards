@@ -31,6 +31,16 @@ with self-signed TLS and no public DNS requirement.
 SHP commands are still available as `./setup plugin ...`, but are optional.
 `deploy/shp/bootstrap.sh` remains a compatibility alias for `./deploy.sh up`.
 
+Existing SHP configurations must explicitly bind to `127.0.0.1`; a missing or
+public `BIND_ADDRESS` is rejected. To intentionally publish ports after configuring
+production TLS, firewall and edge controls, run
+`JOB_BOARDS_ALLOW_PUBLIC_BIND=1 ./deploy.sh up`. This opt-in is not saved in
+`.env` and must be provided for each subsequent deployment command.
+
+`./deploy.sh security` reports both fixable and currently unfixed HIGH/CRITICAL
+Trivy findings, plus the Composer advisory results. An audit with findings exits
+nonzero; review the reports rather than assuming a PHP version bump fixes all CVEs.
+
 ## Private SHP repository in CI
 
 The default GitHub Actions `GITHUB_TOKEN` cannot read a separate private
