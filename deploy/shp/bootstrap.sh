@@ -10,6 +10,7 @@ if [ ! -f "$TEMPLATE/setup.sh" ]; then
     cat >&2 <<EOF
 Missing shard-project-helper: $TEMPLATE
 Install it in the ignored vendor/ tree, for example:
+  mkdir -p "$PROJECT_ROOT/vendor"
   git clone git@github.com:mythic3011/linux_setup.git "$PROJECT_ROOT/vendor/linux_setup"
 Then re-run: ./deploy/shp/bootstrap.sh
 EOF
@@ -47,7 +48,8 @@ EOF
 fi
 
 cd "$PROJECT_ROOT"
-# Init may refresh existing configuration; never permit it to reset a migrated key.
+# Initialise secrets and dependencies before Compose evaluates required variables.
+./setup init
 ./setup plugin enable job-boards-app
 ./setup up
 ./setup check
