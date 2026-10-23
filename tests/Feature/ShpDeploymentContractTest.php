@@ -19,7 +19,7 @@ class ShpDeploymentContractTest extends TestCase
         $this->assertIsString($bootstrap);
         $this->assertIsString($ignore);
 
-        $this->assertStringContainsString('FROM php:8.5-apache-bookworm', $dockerfile);
+        $this->assertStringContainsString('ARG PHP_IMAGE=php:8.5-apache-bookworm', $dockerfile);
         $this->assertStringContainsString('/var/www/html/public', $dockerfile);
         $this->assertStringContainsString('migrate --force --no-interaction', $compose);
         $this->assertStringContainsString('APP_DEBUG: "false"', $compose);
