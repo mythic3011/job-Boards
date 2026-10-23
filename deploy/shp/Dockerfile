@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
 # Minimal production runtime: multi-stage Vite assets + Laravel on official PHP 8.5.
+ARG PHP_IMAGE=php:8.5-apache-bookworm
 FROM node:24-bookworm-slim AS assets
 WORKDIR /src
 COPY package.json package-lock.json ./
@@ -7,7 +8,7 @@ RUN npm ci --no-audit --no-fund
 COPY . .
 RUN npm run build
 
-FROM php:8.5-apache-bookworm AS runtime
+FROM ${PHP_IMAGE} AS runtime
 WORKDIR /var/www/html
 
 RUN set -eux; \
