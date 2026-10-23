@@ -75,7 +75,7 @@ jobs:
         run: |
           docker run --rm --entrypoint sh job-boards:ci -ec '
             composer install --no-interaction --prefer-dist --no-scripts --no-progress
-            php artisan test tests/Feature/ShpDeploymentContractTest.php
+            vendor/bin/phpunit tests/Feature/ShpDeploymentContractTest.php
           '
       - name: Smoke-test migrations, app health, and queue worker
         shell: bash
