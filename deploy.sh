@@ -78,6 +78,12 @@ prepare_env() {
     fi
   fi
   chmod 600 "$ROOT/.env"
+  # A missing or wildcard bind silently exposes the nginx edge. Opt in explicitly.
+  local bind_address
+  bind_address="$(sed -n 's/^BIND_ADDRESS=//p' "$ROOT/.env" | tail -n 1)"
+  if [ "$bind_address" != "127.0.0.1" ] && [ "${JOB_BOARDS_ALLOW_PUBLIC_BIND:-0}" != 1 ]; then
+    die "Refusing public or missing BIND_ADDRESS (got '${bind_address:-unset}'). Use 127.0.0.1, or set JOB_BOARDS_ALLOW_PUBLIC_BIND=1 after configuring production TLS and firewall."
+  fi
   grep -E '^PLUGINS=' "$ROOT/.env" | grep -Eq '(^|[[:space:]])job-boards-app([[:space:]]|$)' ||
     die "job-boards-app not enabled in existing .env; see deploy/shp/README.md"
 }
@@ -128,10 +134,12 @@ case "$cmd" in
   security)
     require_ready
     "$ROOT/setup" check
-    dc exec -T app composer audit --no-dev
     need trivy
+    local_failure=0
+    dc exec -T app composer audit --no-dev || local_failure=1
     image="$(sed -n 's/^JOB_BOARDS_IMAGE=//p' "$ROOT/.env" | tail -n 1)"
-    trivy image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "${image:-job-boards:php8.5.12}"
+    trivy image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 "${image:-job-boards:php8.5.12}" || local_failure=1
+    [ "$local_failure" -eq 0 ] || die "Security audit reported findings; review Composer and Trivy output"
     ;;
   logs) require_ready; "$ROOT/setup" logs "${@:-app}" ;;
   status) require_ready; dc ps ;;
