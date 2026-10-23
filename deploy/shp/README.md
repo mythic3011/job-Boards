@@ -79,7 +79,9 @@ Check the running containers with:
 docker compose --env-file .env exec -T app php -r 'exit(ini_get("session.upload_progress.enabled") === "0" ? 0 : 1);'
 ```
 
-The Docker build and CI now fail if the mitigation is missing. Continue to
+The Docker build and CI now fail if the mitigation is missing. The
+`./deploy.sh check` command also verifies the **running** PHP configuration
+in both app and queue-worker containers. Continue to
 apply subsequent upstream PHP patches; this configuration change is a
 temporary mitigation, **not** proof that the CVE has been patched. PHP has
 not published the full advisory for this new CVE as of October 23.

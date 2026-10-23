@@ -94,6 +94,11 @@ jobs:
         run: |
           export CI_APP_KEY="base64:$(openssl rand -base64 32 | tr -d '\\n')"
           docker compose -f deploy/shp/ci-compose.yaml up -d --wait --wait-timeout 240
+          for service in app worker; do
+            docker compose -f deploy/shp/ci-compose.yaml exec -T "$service" php -r '
+              if (ini_get("session.upload_progress.enabled") !== "0") exit(1);
+            '
+          done
           docker compose -f deploy/shp/ci-compose.yaml exec -T app php artisan migrate:status --no-interaction
           docker compose -f deploy/shp/ci-compose.yaml exec -T app curl -fsS http://127.0.0.1/up
           docker compose -f deploy/shp/ci-compose.yaml exec -T app php artisan route:list --path=up
