@@ -61,6 +61,7 @@ jobs:
             foreach (["pdo_pgsql", "pgsql", "gd", "intl", "mbstring", "zip"] as $ext) {
               if (!extension_loaded($ext)) { fwrite(STDERR, "missing extension: $ext\n"); exit(1); }
             }
+            if (!extension_loaded("Zend OPcache")) { fwrite(STDERR, "Zend OPcache not loaded\\n"); exit(1); }
             echo PHP_VERSION, PHP_EOL;
           '
       - name: Audit locked production Composer dependencies
@@ -72,7 +73,13 @@ jobs:
           docker compose -f deploy/shp/ci-compose.yaml up -d --wait --wait-timeout 240
           docker compose -f deploy/shp/ci-compose.yaml exec -T app php artisan migrate:status --no-interaction
           docker compose -f deploy/shp/ci-compose.yaml exec -T app curl -fsS http://127.0.0.1/up
+          docker compose -f deploy/shp/ci-compose.yaml exec -T app php artisan route:list --path=up
           test "$(docker compose -f deploy/shp/ci-compose.yaml ps --status running --services | grep -cx worker)" -eq 1
+          # Restart must not erase the named Laravel storage volume.
+          docker compose -f deploy/shp/ci-compose.yaml exec -T app sh -c 'printf persistent > storage/app/ci-persistence.txt'
+          docker compose -f deploy/shp/ci-compose.yaml restart app
+          docker compose -f deploy/shp/ci-compose.yaml exec -T app sh -c 'test "$(cat storage/app/ci-persistence.txt)" = persistent'
+          docker compose -f deploy/shp/ci-compose.yaml exec -T app curl -fsS http://127.0.0.1/up
       - name: Diagnostics and cleanup
         if: always()
         env:
