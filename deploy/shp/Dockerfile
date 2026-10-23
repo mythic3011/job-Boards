@@ -22,7 +22,7 @@ RUN set -eux; \
       libpng-dev libjpeg62-turbo-dev libfreetype6-dev; \
     docker-php-ext-configure gd --with-freetype --with-jpeg; \
     docker-php-ext-install -j"$(nproc)" \
-      bcmath exif gd intl mbstring opcache pcntl pdo_pgsql pgsql zip; \
+      bcmath exif gd intl mbstring pcntl pdo_pgsql pgsql zip; \
     a2enmod rewrite headers; \
     rm -rf /var/lib/apt/lists/*
 

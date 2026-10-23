@@ -58,7 +58,7 @@ jobs:
         run: |
           docker run --rm --entrypoint php job-boards:ci -r '
             if (PHP_VERSION_ID < 80512 || PHP_VERSION_ID >= 80600) exit(1);
-            foreach (["pdo_pgsql", "pgsql", "gd", "intl", "mbstring", "zip", "opcache"] as $ext) {
+            foreach (["pdo_pgsql", "pgsql", "gd", "intl", "mbstring", "zip"] as $ext) {
               if (!extension_loaded($ext)) { fwrite(STDERR, "missing extension: $ext\n"); exit(1); }
             }
             echo PHP_VERSION, PHP_EOL;
