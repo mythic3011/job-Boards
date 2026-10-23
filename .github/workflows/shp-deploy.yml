@@ -78,6 +78,7 @@ jobs:
           # Restart must not erase the named Laravel storage volume.
           docker compose -f deploy/shp/ci-compose.yaml exec -T app sh -c 'printf persistent > storage/app/ci-persistence.txt'
           docker compose -f deploy/shp/ci-compose.yaml restart app
+          docker compose -f deploy/shp/ci-compose.yaml up -d --wait --wait-timeout 120 app
           docker compose -f deploy/shp/ci-compose.yaml exec -T app sh -c 'test "$(cat storage/app/ci-persistence.txt)" = persistent'
           docker compose -f deploy/shp/ci-compose.yaml exec -T app curl -fsS http://127.0.0.1/up
       - name: Diagnostics and cleanup
