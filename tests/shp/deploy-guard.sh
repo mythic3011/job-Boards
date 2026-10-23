@@ -13,22 +13,22 @@ DOCKER
 cat > "$tmp/template/setup.sh" <<'SHP'
 #!/usr/bin/env bash
 set -euo pipefail
-[ "\${1:-}" = project ] && [ "\${2:-}" = init ]
+[ "${1:-}" = project ] && [ "${2:-}" = init ]
 printf '#!/usr/bin/env bash\n# SHP_PROJECT_ROOT test stub\nexit 0\n' > "$3/setup"
 chmod +x "$3/setup"
 SHP
 chmod +x "$tmp/bin/docker" "$tmp/template/setup.sh"
 
 make_project() {
-    local name="$1" bind="$2" extra="\${3:-}"
+    local name="$1" bind="$2" extra="${3:-}"
     mkdir -p "$tmp/$name"
     cp "$root/deploy.sh" "$tmp/$name/deploy.sh"
     cat > "$tmp/$name/.env" <<ENV
 PROJECT_NAME=job-boards
 PLUGINS=tls-selfsigned job-boards-app
-\${bind}
+${bind}
 JOB_BOARDS_APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-\${extra}
+${extra}
 ENV
 }
 run_init() {
