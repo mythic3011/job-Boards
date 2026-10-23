@@ -3,6 +3,8 @@
 x-job-boards-build: &job-boards-build
   context: .
   dockerfile: deploy/shp/Dockerfile
+  args:
+    PHP_IMAGE: ${JOB_BOARDS_PHP_IMAGE:-php:8.5-apache-bookworm}
 
 x-job-boards-env: &job-boards-env
   APP_NAME: Job Boards
