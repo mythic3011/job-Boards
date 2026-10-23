@@ -66,6 +66,12 @@ jobs:
           '
       - name: Audit locked production Composer dependencies
         run: docker run --rm --entrypoint composer job-boards:ci audit --no-dev --locked
+      - name: Run PHP deployment contract test
+        run: |
+          docker run --rm --entrypoint sh job-boards:ci -ec '
+            composer install --no-interaction --prefer-dist --no-scripts --no-progress
+            php artisan test tests/Feature/ShpDeploymentContractTest.php
+          '
       - name: Smoke-test migrations, app health, and queue worker
         shell: bash
         run: |
