@@ -25,6 +25,8 @@ x-job-boards-env: &job-boards-env
   SESSION_DRIVER: database
   SESSION_SECURE_COOKIE: "true"
   QUEUE_CONNECTION: database
+  # Must exceed the 300s worker/job timeout to avoid duplicate execution.
+  DB_QUEUE_RETRY_AFTER: "360"
   # Trust the actual immediate reverse-proxy peer, not arbitrary client-supplied XFF.
   TRUSTED_PROXIES: REMOTE_ADDR
   TRUSTED_PROXY_HEADERS: x_forwarded

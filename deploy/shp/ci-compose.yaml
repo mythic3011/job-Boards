@@ -33,6 +33,7 @@ services:
       CACHE_STORE: database
       SESSION_DRIVER: database
       QUEUE_CONNECTION: database
+      DB_QUEUE_RETRY_AFTER: "360"
       MAIL_MAILER: log
     depends_on:
       postgres:

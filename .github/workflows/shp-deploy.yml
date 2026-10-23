@@ -40,6 +40,8 @@ jobs:
           assert "database:postgres-lite" in plugin
           assert "postgres-exporter" not in db
           assert "migrate --force --no-interaction" in compose
+          assert 'DB_QUEUE_RETRY_AFTER: "360"' in compose
+          assert '"--timeout=300"' in compose
           assert "ports:" not in compose
           print("Static contract passed; runtime not verified")
           PY
