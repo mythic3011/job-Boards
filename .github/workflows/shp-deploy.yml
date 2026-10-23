@@ -103,9 +103,9 @@ jobs:
           # Exercise the actual HTTP SAPI inside disposable CI containers only.
           docker compose -f deploy/shp/ci-compose.yaml exec -T app sh -ec '
             probe=public/__ci_session_progress_probe.php
-            trap "rm -f \"\$probe\"" EXIT
-            printf "%s\\n" "<?php echo ini_get(\"session.upload_progress.enabled\");" > "\$probe"
-            test "\$(curl -fsS http://127.0.0.1/__ci_session_progress_probe.php)" = 0
+            trap "rm -f \"$probe\"" EXIT
+            printf "%s\\n" "<?php echo ini_get(\"session.upload_progress.enabled\");" > "$probe"
+            test "$(curl -fsS http://127.0.0.1/__ci_session_progress_probe.php)" = 0
           '
           docker compose -f deploy/shp/ci-compose.yaml exec -T app php artisan migrate:status --no-interaction
           docker compose -f deploy/shp/ci-compose.yaml exec -T app curl -fsS http://127.0.0.1/up
