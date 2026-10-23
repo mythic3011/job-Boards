@@ -47,6 +47,7 @@ EOF
 fi
 
 cd "$PROJECT_ROOT"
-./setup init
+# Init may refresh existing configuration; never permit it to reset a migrated key.
+./setup plugin enable job-boards-app
 ./setup up
 ./setup check
