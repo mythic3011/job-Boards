@@ -73,7 +73,11 @@ printf 'APP_KEY=legacy-must-be-preserved\n' >> "$tmp/missing-key/.env"
 assert_rejected missing-key 'preserve it as JOB_BOARDS_APP_KEY'
 make_project missing-key-data 'BIND_ADDRESS=127.0.0.1'
 sed -i '/^JOB_BOARDS_APP_KEY=/d' "$tmp/missing-key-data/.env"
-assert_rejected missing-key-data 'Existing project volumes but JOB_BOARDS_APP_KEY is missing' TEST_EXISTING_VOLUMES=1
+assert_rejected missing-key-data 'Existing project volumes but JOB_BOARDS_APP_KEY is missing or unset' TEST_EXISTING_VOLUMES=1
+make_project missing-db-data 'BIND_ADDRESS=127.0.0.1'
+assert_rejected missing-db-data 'Existing project volumes but POSTGRES_PASSWORD is missing or unset' TEST_EXISTING_VOLUMES=1
+make_project existing-data 'BIND_ADDRESS=127.0.0.1' 'POSTGRES_PASSWORD=preserved-secret'
+assert_ok existing-data TEST_EXISTING_VOLUMES=1
 make_project legacy-env 'BIND_ADDRESS=127.0.0.1'
 sed -i '/^PLUGINS=/d' "$tmp/legacy-env/.env"
 assert_rejected legacy-env 'Existing .env is not an SHP config'
