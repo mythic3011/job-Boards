@@ -1,0 +1,72 @@
+# Merge into shard-project-helper's core via COMPOSE_FILE.
+# The core edge proxies HTTP to app:80 and owns the only published ports.
+x-job-boards-build: &job-boards-build
+  context: .
+  dockerfile: deploy/shp/Dockerfile
+  args:
+    PHP_IMAGE: ${JOB_BOARDS_PHP_IMAGE:-php:8.5.12-apache-bookworm@sha256:747123a8d7d28c6f84960df94cc076a406314e4f9d556af0bcfddab81e33bd09
+
+x-job-boards-env: &job-boards-env
+  APP_NAME: Job Boards
+  APP_ENV: production
+  APP_DEBUG: "false"
+  APP_KEY: ${JOB_BOARDS_APP_KEY:?Set JOB_BOARDS_APP_KEY via pre-up or restore your original APP_KEY}
+  APP_PREVIOUS_KEYS: ${JOB_BOARDS_APP_PREVIOUS_KEYS:-}
+  APP_URL: https://${SERVER_NAME:-localhost}${HTTPS_PORT_SUFFIX:-}
+  LOG_CHANNEL: stderr
+  DB_CONNECTION: pgsql
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  DB_DATABASE: ${POSTGRES_DB:-app}
+  DB_USERNAME: ${POSTGRES_USER:-app}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:?Run ./deploy.sh init first}
+  DB_SSLMODE: disable
+  CACHE_STORE: database
+  SESSION_DRIVER: database
+  SESSION_SECURE_COOKIE: "true"
+  QUEUE_CONNECTION: database
+  # Must exceed the 300s worker/job timeout to avoid duplicate execution.
+  DB_QUEUE_RETRY_AFTER: "360"
+  # Trust the actual immediate reverse-proxy peer, not arbitrary client-supplied XFF.
+  TRUSTED_PROXIES: REMOTE_ADDR
+  TRUSTED_PROXY_HEADERS: x_forwarded
+  MAIL_MAILER: log
+
+x-job-boards-storage: &job-boards-storage
+  - job-boards-storage:/var/www/html/storage
+
+services:
+  app:
+    image: ${JOB_BOARDS_IMAGE:-job-boards:php8.5.12}
+    build: *job-boards-build
+    restart: unless-stopped
+    environment: *job-boards-env
+    volumes: *job-boards-storage
+    networks: [edge]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Fail the deployment rather than swallowing database migration failures.
+    command: ["/bin/sh", "-ec", "php artisan migrate --force --no-interaction && exec apache2-foreground"]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1/up"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+  job-boards-worker:
+    image: ${JOB_BOARDS_IMAGE:-job-boards:php8.5.12}
+    build: *job-boards-build
+    restart: unless-stopped
+    user: www-data
+    environment: *job-boards-env
+    volumes: *job-boards-storage
+    networks: [edge]
+    depends_on:
+      app:
+        condition: service_healthy
+    command: ["php", "artisan", "queue:work", "--sleep=1", "--tries=3", "--backoff=10", "--timeout=300"]
+
+volumes:
+  job-boards-storage:

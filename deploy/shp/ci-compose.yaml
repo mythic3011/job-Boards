@@ -1,0 +1,56 @@
+# Disposable CI smoke test. No SHP, no public ports, no persistent data.
+# The production stack remains plugins/* + shard-project-helper.
+name: job-boards-smoke
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: ci-not-production
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    image: job-boards:ci
+    environment: &app-env
+      APP_NAME: Job Boards
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_KEY: ${CI_APP_KEY:?CI_APP_KEY required}
+      APP_URL: http://localhost
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_DATABASE: app
+      DB_USERNAME: app
+      DB_PASSWORD: ci-not-production
+      DB_SSLMODE: disable
+      CACHE_STORE: database
+      SESSION_DRIVER: database
+      QUEUE_CONNECTION: database
+      DB_QUEUE_RETRY_AFTER: "360"
+      MAIL_MAILER: log
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["/bin/sh", "-ec", "php artisan migrate --force --no-interaction && exec apache2-foreground"]
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1/up"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+
+  worker:
+    image: job-boards:ci
+    user: www-data
+    environment: *app-env
+    depends_on:
+      app:
+        condition: service_healthy
+    command: ["php", "artisan", "queue:work", "--sleep=1", "--tries=3", "--backoff=10", "--timeout=300"]

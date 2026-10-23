@@ -67,3 +67,7 @@ docs/plans/
 docker/auth-service/node_modules/
 ssl/
 demo-artifacts/
+
+# SHP checkout (pinned and fetched by deploy.sh)
+/.deploy/
+/setup
