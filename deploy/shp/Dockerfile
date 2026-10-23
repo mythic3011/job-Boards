@@ -40,6 +40,7 @@ RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoload
     && ln -s ../storage/app/public public/storage \
     && chown -R www-data:www-data storage bootstrap/cache
 
+RUN php artisan package:discover --ansi --no-interaction
 COPY --from=assets /src/public/build ./public/build
 COPY deploy/shp/php.ini /usr/local/etc/php/conf.d/zz-job-boards.ini
 EXPOSE 80
