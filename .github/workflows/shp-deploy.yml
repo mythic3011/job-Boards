@@ -43,6 +43,26 @@ jobs:
           assert "ports:" not in compose
           print("Static contract passed; runtime not verified")
           PY
+  image-build:
+    # Does not need access to private SHP; catches actual Docker/PHP/Composer
+    # regressions instead of relying only on static string assertions.
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build PHP 8.5.12 runtime and Vite assets
+        run: docker build --pull --file deploy/shp/Dockerfile --tag job-boards:ci .
+      - name: Verify PHP version and required extensions
+        run: |
+          docker run --rm --entrypoint php job-boards:ci -r '
+            if (PHP_VERSION_ID < 80512 || PHP_VERSION_ID >= 80600) exit(1);
+            foreach (["pdo_pgsql", "pgsql", "gd", "intl", "mbstring", "zip", "opcache"] as $ext) {
+              if (!extension_loaded($ext)) { fwrite(STDERR, "missing extension: $ext\n"); exit(1); }
+            }
+            echo PHP_VERSION, PHP_EOL;
+          '
+      - name: Audit locked production Composer dependencies
+        run: docker run --rm --entrypoint composer job-boards:ci audit --no-dev --locked
   integration:
     runs-on: ubuntu-latest
     timeout-minutes: 40
