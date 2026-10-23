@@ -4,6 +4,7 @@
 .env
 .env.*
 .deploy
+setup
 .state
 .audit
 .blue-team-vm
